@@ -19,13 +19,13 @@ export function HealthIndicator() {
 
   if (health.isPending) {
     return (
-      <p className="px-2 text-xs text-[--color-ink-faint]">{t.health.checking}</p>
+      <p className="px-2 text-xs text-ink-faint">{t.health.checking}</p>
     );
   }
 
   if (health.isError || !health.data) {
     return (
-      <p className="px-2 text-xs text-[--color-danger]">{t.health.noBackend}</p>
+      <p className="px-2 text-xs text-danger">{t.health.noBackend}</p>
     );
   }
 
@@ -41,14 +41,14 @@ export function HealthIndicator() {
         <div key={label} className="flex items-center gap-2" title={state.detail}>
           <Icon
             className={`size-3.5 shrink-0 ${
-              state.ok ? "text-[--color-ok]" : "text-[--color-danger]"
+              state.ok ? "text-ok" : "text-danger"
             }`}
             aria-hidden="true"
           />
-          <span className="flex-1 truncate text-[--color-ink-soft]">{label}</span>
+          <span className="flex-1 truncate text-ink-soft">{label}</span>
           <span
             className={`size-1.5 rounded-full ${
-              state.ok ? "bg-[--color-ok]" : "bg-[--color-danger]"
+              state.ok ? "bg-ok" : "bg-danger"
             }`}
             aria-hidden="true"
           />
@@ -57,7 +57,7 @@ export function HealthIndicator() {
       ))}
 
       {settings.data && (
-        <p className="pt-0.5 text-[11px] text-[--color-ink-faint]">
+        <p className="pt-0.5 text-[11px] text-ink-faint">
           {settings.data.fetcherMode === "synthetic"
             ? t.health.sourceSynthetic
             : t.health.sourceReddit}
@@ -67,7 +67,7 @@ export function HealthIndicator() {
       {/* Mientras el clasificador opere por reglas conviene que se vea: las
           etiquetas de intención valen menos de lo que aparentan. */}
       {sidecarInfo?.nli.engine === "heuristic" && (
-        <p className="flex items-center gap-1 text-[11px] text-[--color-warn]">
+        <p className="flex items-center gap-1 text-[11px] text-warn">
           <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
           {t.health.heuristicNli}
           <Explain

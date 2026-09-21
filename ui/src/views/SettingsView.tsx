@@ -80,27 +80,27 @@ export function SettingsView() {
   };
 
   const campo =
-    "w-full rounded-lg border border-[--color-border] bg-[--color-surface-2] px-3 py-2 text-sm transition-colors focus:border-[--color-accent]";
+    "w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition-colors focus:border-accent";
 
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <header>
         <h2 className="text-base font-semibold">{t.settings.title}</h2>
-        <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+        <p className="mt-0.5 text-xs text-ink-soft">
           {t.settings.subtitle}
         </p>
       </header>
 
       {/* --- Apariencia --- */}
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-          <Eye className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          <Eye className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.appearance}
         </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-1.5 text-xs text-[--color-ink-soft]">
+            <span className="flex items-center gap-1.5 text-xs text-ink-soft">
               <Globe className="size-3.5" aria-hidden="true" />
               {t.settings.language}
             </span>
@@ -118,7 +118,7 @@ export function SettingsView() {
           </label>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-[--color-ink-soft]">
+            <span className="text-xs text-ink-soft">
               {t.settings.theme}
             </span>
             <div
@@ -134,8 +134,8 @@ export function SettingsView() {
                   aria-pressed={theme === value}
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs transition-colors ${
                     theme === value
-                      ? "border-[--color-accent] bg-[--color-accent-soft] text-[--color-accent]"
-                      : "border-[--color-border] hover:bg-[--color-surface-2]"
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border hover:bg-surface-2"
                   }`}
                 >
                   <Icon className="size-3.5" aria-hidden="true" />
@@ -148,12 +148,12 @@ export function SettingsView() {
       </section>
 
       {/* --- Fuente de datos --- */}
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
-          <Database className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          <Database className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.source}
         </h3>
-        <p className="mb-3 text-xs leading-relaxed text-[--color-ink-soft]">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
           {t.settings.sourceHint}
         </p>
 
@@ -181,12 +181,12 @@ export function SettingsView() {
                 aria-pressed={activo}
                 className={`rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
                   activo
-                    ? "border-[--color-accent] bg-[--color-accent-soft]"
-                    : "border-[--color-border] hover:bg-[--color-surface-2]"
+                    ? "border-accent bg-accent-soft"
+                    : "border-border hover:bg-surface-2"
                 }`}
               >
                 <span className="block text-sm font-medium">{titulo}</span>
-                <span className="mt-0.5 block text-xs text-[--color-ink-soft]">
+                <span className="mt-0.5 block text-xs text-ink-soft">
                   {descripcion}
                 </span>
               </button>
@@ -196,16 +196,16 @@ export function SettingsView() {
       </section>
 
       {/* --- Credenciales --- */}
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
-          <KeyRound className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          <KeyRound className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.credentials}
           {settings.data && (
             <span
               className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 settings.data.credentials.configured
-                  ? "bg-[--color-ok]/15 text-[--color-ok]"
-                  : "bg-[--color-surface-2] text-[--color-ink-faint]"
+                  ? "bg-ok/15 text-ok"
+                  : "bg-surface-2 text-ink-faint"
               }`}
             >
               {settings.data.credentials.configured
@@ -214,14 +214,14 @@ export function SettingsView() {
             </span>
           )}
         </h3>
-        <p className="mb-3 text-xs leading-relaxed text-[--color-ink-soft]">
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
           {t.settings.credentialsHint}
         </p>
 
         <form onSubmit={guardar} className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs text-[--color-ink-soft]">
+              <span className="text-xs text-ink-soft">
                 {t.settings.clientId}
               </span>
               <input
@@ -233,7 +233,7 @@ export function SettingsView() {
             </label>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs text-[--color-ink-soft]">
+              <span className="text-xs text-ink-soft">
                 {t.settings.clientSecret}
               </span>
               <input
@@ -247,7 +247,7 @@ export function SettingsView() {
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-1 text-xs text-[--color-ink-soft]">
+            <span className="flex items-center gap-1 text-xs text-ink-soft">
               {t.settings.userAgent}
               <Explain
                 title={t.settings.userAgent}
@@ -262,12 +262,12 @@ export function SettingsView() {
           </label>
 
           <details className="text-xs">
-            <summary className="cursor-pointer text-[--color-ink-soft]">
+            <summary className="cursor-pointer text-ink-soft">
               {t.settings.userHint}
             </summary>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
-                <span className="text-[--color-ink-soft]">
+                <span className="text-ink-soft">
                   {t.settings.username}
                 </span>
                 <input
@@ -278,7 +278,7 @@ export function SettingsView() {
                 />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-[--color-ink-soft]">
+                <span className="text-ink-soft">
                   {t.settings.password}
                 </span>
                 <input
@@ -296,7 +296,7 @@ export function SettingsView() {
             <button
               type="submit"
               disabled={saveCredentials.isPending || !clientId || !clientSecret}
-              className="rounded-lg bg-[--color-accent] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[--color-accent-hover] disabled:opacity-40"
+              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {saveCredentials.isPending ? t.pipeline.saving : t.settings.save}
             </button>
@@ -307,13 +307,13 @@ export function SettingsView() {
                 testConnection.isPending || !settings.data?.credentials.configured
               }
               onClick={() => testConnection.mutate()}
-              className="rounded-lg border border-[--color-border] px-3 py-2 text-sm transition-colors hover:bg-[--color-surface-2] disabled:opacity-40"
+              className="rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-surface-2 disabled:opacity-40"
             >
               {testConnection.isPending ? t.settings.testing : t.settings.test}
             </button>
 
             {saveCredentials.isSuccess && !saveCredentials.isPending && (
-              <span className="inline-flex items-center gap-1 text-xs text-[--color-ok]">
+              <span className="inline-flex items-center gap-1 text-xs text-ok">
                 <CheckCircle2 className="size-3.5" aria-hidden="true" />
                 {t.settings.saved}
               </span>
@@ -321,7 +321,7 @@ export function SettingsView() {
           </div>
 
           {(saveCredentials.isError || testConnection.isError) && (
-            <p className="text-xs text-[--color-danger]">
+            <p className="text-xs text-danger">
               {String(saveCredentials.error ?? testConnection.error)}
             </p>
           )}
@@ -330,8 +330,8 @@ export function SettingsView() {
             <p
               className={`flex items-start gap-1.5 rounded-lg p-2.5 text-xs ${
                 testConnection.data.ok
-                  ? "bg-[--color-ok]/10 text-[--color-ok]"
-                  : "bg-[--color-danger]/10 text-[--color-danger]"
+                  ? "bg-ok/10 text-ok"
+                  : "bg-danger/10 text-danger"
               }`}
             >
               {testConnection.data.ok ? (
@@ -344,7 +344,7 @@ export function SettingsView() {
           )}
 
           {settings.data && (
-            <p className="text-[11px] text-[--color-ink-faint]">
+            <p className="text-[11px] text-ink-faint">
               {t.settings.storedIn}{" "}
               <code className="font-mono">{settings.data.envPath}</code>.{" "}
               {t.settings.secretNeverShown}

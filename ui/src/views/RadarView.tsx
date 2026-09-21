@@ -41,29 +41,29 @@ export function RadarViewPage() {
             id="oportunidades"
             className="flex items-center gap-2 text-base font-semibold"
           >
-            <RadarIcon className="size-4 text-[--color-accent]" aria-hidden="true" />
+            <RadarIcon className="size-4 text-accent" aria-hidden="true" />
             {t.radar.title}
             <Explain
               title={t.explain.signalVsCluster.title}
               body={t.explain.signalVsCluster.body}
             />
           </h2>
-          <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+          <p className="mt-0.5 text-xs text-ink-soft">
             {t.radar.subtitle}
           </p>
         </header>
 
         {board.isPending && (
-          <p className="text-sm text-[--color-ink-faint]">{t.radar.loading}</p>
+          <p className="text-sm text-ink-faint">{t.radar.loading}</p>
         )}
         {board.isError && (
-          <p className="text-sm text-[--color-danger]">{t.radar.error}</p>
+          <p className="text-sm text-danger">{t.radar.error}</p>
         )}
 
         {board.data?.length === 0 && (
-          <div className="rounded-[--radius-card] border border-dashed border-[--color-border] p-8 text-center">
+          <div className="rounded-card border border-dashed border-border p-8 text-center">
             <p className="text-sm font-medium">{t.radar.empty}</p>
-            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[--color-ink-soft]">
+            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-soft">
               {t.radar.emptyHint}
             </p>
           </div>
@@ -85,23 +85,23 @@ export function RadarViewPage() {
           <h2 id="feed" className="text-base font-semibold">
             {t.radar.feedTitle}
           </h2>
-          <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+          <p className="mt-0.5 text-xs text-ink-soft">
             {t.radar.feedSubtitle}
           </p>
         </header>
 
-        <ul className="divide-y divide-[--color-border] rounded-[--radius-card] border border-[--color-border] bg-[--color-surface]">
+        <ul className="divide-y divide-border rounded-card border border-border bg-surface">
           {feed.data?.map((entry) => (
             <li
               key={entry.signalId}
-              className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-[--color-surface-2]"
+              className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-surface-2"
             >
               <UrgencyBadge tier={entry.urgencyTier} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm">
                   {entry.postTitle ?? entry.content}
                 </p>
-                <p className="mt-0.5 flex items-center gap-2 text-[11px] text-[--color-ink-faint]">
+                <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
                   <span className="font-mono">r/{entry.subredditName}</span>
                   <span aria-hidden="true">·</span>
                   <span className="font-mono tabular-nums">

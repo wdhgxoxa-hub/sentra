@@ -85,3 +85,10 @@ export const useUiStore = create<UiState>((set) => ({
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 }));
+
+// El estado global no sobrevive a un intercambio en caliente: los componentes
+// ya montados siguen apuntando a la instancia anterior y la vista se queda en
+// blanco. Recargar la ventana es barato y siempre deja un estado coherente.
+if (import.meta.hot) {
+  import.meta.hot.accept(() => window.location.reload());
+}

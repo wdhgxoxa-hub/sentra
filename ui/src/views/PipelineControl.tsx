@@ -17,10 +17,10 @@ import type { ListingSort } from "@/types/radar";
 const LISTINGS: ListingSort[] = ["new", "hot", "top", "rising"];
 
 const RUN_STATUS_STYLES: Record<string, string> = {
-  completed: "text-[--color-ok]",
-  running: "text-[--color-accent]",
-  failed: "text-[--color-danger]",
-  cancelled: "text-[--color-ink-faint]",
+  completed: "text-ok",
+  running: "text-accent",
+  failed: "text-danger",
+  cancelled: "text-ink-faint",
 };
 
 /** Centro de control: lanzar escaneos y ver el motor trabajar. */
@@ -60,20 +60,20 @@ export function PipelineControl() {
   };
 
   const campo =
-    "rounded-lg border border-[--color-border] bg-[--color-surface-2] px-3 py-1.5 text-sm transition-colors focus:border-[--color-accent]";
+    "rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm transition-colors focus:border-accent";
 
   return (
     <div className="flex flex-col gap-8">
       <header>
         <h2 className="text-base font-semibold">{t.pipeline.title}</h2>
-        <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+        <p className="mt-0.5 text-xs text-ink-soft">
           {t.pipeline.subtitle}
         </p>
       </header>
 
       {/* El recorrido del motor, siempre visible: explica qué va a pasar
           antes de pulsar, no solo mientras pasa. */}
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <PipelineGraph
           completed={activos[0]?.completed ?? []}
           current={activos[0]?.currentNode ?? null}
@@ -89,7 +89,7 @@ export function PipelineControl() {
             <button
               type="button"
               onClick={limpiar}
-              className="text-xs text-[--color-ink-faint] transition-colors hover:text-[--color-ink]"
+              className="text-xs text-ink-faint transition-colors hover:text-ink"
             >
               {t.pipeline.clearFinished}
             </button>
@@ -113,10 +113,10 @@ export function PipelineControl() {
 
         <form
           onSubmit={alta}
-          className="mb-3 flex flex-wrap items-end gap-2 rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-3"
+          className="mb-3 flex flex-wrap items-end gap-2 rounded-card border border-border bg-surface p-3"
         >
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] text-[--color-ink-soft]">
+            <span className="text-[11px] text-ink-soft">
               {t.pipeline.subreddit}
             </span>
             <input
@@ -128,7 +128,7 @@ export function PipelineControl() {
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] text-[--color-ink-soft]">
+            <span className="text-[11px] text-ink-soft">
               {t.pipeline.order}
             </span>
             <select
@@ -145,7 +145,7 @@ export function PipelineControl() {
           </label>
 
           <label className="flex flex-1 flex-col gap-1">
-            <span className="text-[11px] text-[--color-ink-soft]">
+            <span className="text-[11px] text-ink-soft">
               {t.pipeline.tagsLabel}
             </span>
             <input
@@ -159,7 +159,7 @@ export function PipelineControl() {
           <button
             type="submit"
             disabled={guardar.isPending || !name.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[--color-accent] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[--color-accent-hover] disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
             <Plus className="size-3.5" aria-hidden="true" />
             {guardar.isPending ? t.pipeline.saving : t.pipeline.watch}
@@ -170,7 +170,7 @@ export function PipelineControl() {
           {subreddits.data?.map((item) => (
             <li
               key={item.subredditId}
-              className="flex items-center justify-between gap-3 rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] px-3 py-2.5"
+              className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-2.5"
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-mono text-sm">
@@ -178,13 +178,13 @@ export function PipelineControl() {
                   <span
                     className={`size-1.5 rounded-full ${
                       item.status === "active"
-                        ? "bg-[--color-ok]"
-                        : "bg-[--color-ink-faint]"
+                        ? "bg-ok"
+                        : "bg-ink-faint"
                     }`}
                     aria-hidden="true"
                   />
                 </p>
-                <p className="mt-0.5 text-[11px] text-[--color-ink-faint]">
+                <p className="mt-0.5 text-[11px] text-ink-faint">
                   {t.pipeline.lastRun}: {item.lastRunStatus ?? t.pipeline.never}
                 </p>
               </div>
@@ -199,7 +199,7 @@ export function PipelineControl() {
                       status: item.status === "active" ? "paused" : "active",
                     })
                   }
-                  className="inline-flex items-center gap-1 rounded-lg border border-[--color-border] px-2.5 py-1.5 text-xs transition-colors hover:bg-[--color-surface-2] disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs transition-colors hover:bg-surface-2 disabled:opacity-40"
                 >
                   {item.status === "active" ? (
                     <>
@@ -224,7 +224,7 @@ export function PipelineControl() {
                       sort: item.listing,
                     })
                   }
-                  className="inline-flex items-center gap-1 rounded-lg bg-[--color-surface-2] px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-[--color-accent-soft] hover:text-[--color-accent] disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-40"
                 >
                   <Zap className="size-3" aria-hidden="true" />
                   {t.pipeline.scan}
@@ -239,9 +239,9 @@ export function PipelineControl() {
         <h3 id="historial" className="mb-2 text-sm font-semibold">
           {t.pipeline.history}
         </h3>
-        <div className="overflow-hidden rounded-[--radius-card] border border-[--color-border] bg-[--color-surface]">
+        <div className="overflow-hidden rounded-card border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-[--color-border] bg-[--color-surface-2] text-left text-[11px] uppercase tracking-wide text-[--color-ink-faint]">
+            <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t.pipeline.subreddit}
@@ -260,9 +260,9 @@ export function PipelineControl() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[--color-border]">
+            <tbody className="divide-y divide-border">
               {runs.data?.map((run) => (
-                <tr key={run.id} className="hover:bg-[--color-surface-2]">
+                <tr key={run.id} className="hover:bg-surface-2">
                   <td className="px-3 py-2 font-mono text-xs">
                     r/{run.subredditName}
                   </td>
@@ -281,7 +281,7 @@ export function PipelineControl() {
                   </td>
                   <td className="px-3 py-2 font-mono text-xs tabular-nums">
                     {run.errorCount > 0 ? (
-                      <span className="text-[--color-warn]">{run.errorCount}</span>
+                      <span className="text-warn">{run.errorCount}</span>
                     ) : (
                       run.errorCount
                     )}

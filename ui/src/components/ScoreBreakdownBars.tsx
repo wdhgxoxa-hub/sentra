@@ -52,7 +52,7 @@ export function ScoreBreakdownBars({ breakdown }: { breakdown: ScoreBreakdown })
             <tr key={key}>
               <th
                 scope="row"
-                className="w-40 py-1.5 pr-3 text-left text-xs font-normal text-[--color-ink-soft]"
+                className="w-40 py-1.5 pr-3 text-left text-xs font-normal text-ink-soft"
               >
                 <span className="inline-flex items-center gap-1">
                   {label}
@@ -60,16 +60,16 @@ export function ScoreBreakdownBars({ breakdown }: { breakdown: ScoreBreakdown })
                 </span>
               </th>
               <td className="w-full py-1.5">
-                <div className="h-1.5 rounded-full bg-[--color-surface-2]">
+                <div className="h-1.5 rounded-full bg-surface-2">
                   <div
-                    className="h-1.5 rounded-full bg-[--color-accent] transition-[width] duration-500 ease-out"
+                    className="h-1.5 rounded-full bg-accent transition-[width] duration-500 ease-out"
                     style={{ width: `${Math.round(factor * 100)}%` }}
                   />
                 </div>
               </td>
-              <td className="whitespace-nowrap py-1.5 pl-3 text-right font-mono text-xs tabular-nums text-[--color-ink-soft]">
+              <td className="whitespace-nowrap py-1.5 pl-3 text-right font-mono text-xs tabular-nums text-ink-soft">
                 {points.toFixed(1)}
-                <span className="text-[--color-ink-faint]">
+                <span className="text-ink-faint">
                   /{maxPoints.toFixed(0)}
                 </span>
               </td>
@@ -77,14 +77,14 @@ export function ScoreBreakdownBars({ breakdown }: { breakdown: ScoreBreakdown })
           );
         })}
 
-        <tr className="border-t border-[--color-border]">
+        <tr className="border-t border-border">
           <th scope="row" className="py-2 pr-3 text-left text-sm font-semibold">
             {t.detail.total}
           </th>
           <td />
           <td className="py-2 pl-3 text-right font-mono text-sm font-semibold tabular-nums">
             {breakdown.finalScore.toFixed(1)}
-            <span className="text-[--color-ink-faint]">/100</span>
+            <span className="text-ink-faint">/100</span>
           </td>
         </tr>
       </tbody>

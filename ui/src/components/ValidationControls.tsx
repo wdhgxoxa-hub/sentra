@@ -37,7 +37,7 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
   return (
     <section
       aria-labelledby="validacion"
-      className="flex flex-col gap-3 rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4"
+      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
     >
       <h3 id="validacion" className="text-sm font-semibold">
         {t.detail.validation}
@@ -59,8 +59,8 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
               onClick={() => guardar(status)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                 activo
-                  ? "bg-[--color-accent] text-white"
-                  : "border border-[--color-border] text-[--color-ink-soft] hover:bg-[--color-surface-2] hover:text-[--color-ink]"
+                  ? "bg-accent text-white"
+                  : "border border-border text-ink-soft hover:bg-surface-2 hover:text-ink"
               }`}
             >
               {t.validation[status]}
@@ -70,13 +70,13 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs text-[--color-ink-soft]">{t.detail.notes}</span>
+        <span className="text-xs text-ink-soft">{t.detail.notes}</span>
         <textarea
           value={notes}
           rows={3}
           onChange={(event) => setNotes(event.target.value)}
           placeholder={t.detail.notesPlaceholder}
-          className="rounded-lg border border-[--color-border] bg-[--color-surface-2] px-3 py-2 text-sm transition-colors focus:border-[--color-accent]"
+          className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition-colors focus:border-accent"
         />
       </label>
 
@@ -85,15 +85,15 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
           type="button"
           disabled={mutation.isPending}
           onClick={() => guardar(cluster.validationStatus)}
-          className="self-start rounded-lg border border-[--color-border] px-3 py-1.5 text-xs transition-colors hover:bg-[--color-surface-2] disabled:opacity-50"
+          className="self-start rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
         >
           {t.detail.saveNotes}
         </button>
       )}
 
-      <p className="text-[11px] text-[--color-ink-faint]">
+      <p className="text-[11px] text-ink-faint">
         {mutation.isError ? (
-          <span className="text-[--color-danger]">
+          <span className="text-danger">
             {t.detail.saveError}: {String(mutation.error)}
           </span>
         ) : cluster.validatedAt ? (

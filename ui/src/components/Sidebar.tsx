@@ -31,12 +31,12 @@ export function Sidebar() {
   return (
     <nav
       aria-label={t.app.name}
-      className="flex w-56 shrink-0 flex-col gap-1 border-r border-[--color-border] bg-[--color-surface] p-3"
+      className="flex w-56 shrink-0 flex-col gap-1 border-r border-border bg-surface p-3"
     >
       <div className="drag-region mb-4 flex items-center gap-2 px-2 pt-1">
         <span className="relative flex size-2.5">
-          <span className="pulse-dot absolute inline-flex size-full rounded-full bg-[--color-accent]" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-[--color-accent]" />
+          <span className="pulse-dot absolute inline-flex size-full rounded-full bg-accent" />
+          <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight">
@@ -57,8 +57,8 @@ export function Sidebar() {
                 aria-current={active ? "page" : undefined}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
                   active
-                    ? "bg-[--color-accent-soft] font-medium text-[--color-accent]"
-                    : "text-[--color-ink-soft] hover:bg-[--color-surface-2] hover:text-[--color-ink]"
+                    ? "bg-accent-soft font-medium text-accent"
+                    : "text-ink-soft hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />
@@ -69,7 +69,7 @@ export function Sidebar() {
         })}
       </ul>
 
-      <div className="mt-auto border-t border-[--color-border] pt-3">
+      <div className="mt-auto border-t border-border pt-3">
         <HealthIndicator />
       </div>
     </nav>

@@ -55,10 +55,10 @@ export function PipelineGraph({
 
         const ring =
           state === "active"
-            ? "border-[--color-accent] bg-[--color-accent-soft] text-[--color-accent]"
+            ? "border-accent bg-accent-soft text-accent"
             : state === "done"
-              ? "border-[--color-ok]/40 bg-[--color-ok]/10 text-[--color-ok]"
-              : "border-[--color-border] bg-[--color-surface-2] text-[--color-ink-faint]";
+              ? "border-ok/40 bg-ok/10 text-ok"
+              : "border-border bg-surface-2 text-ink-faint";
 
         return (
           <li key={node} className="flex items-center gap-1">
@@ -90,8 +90,8 @@ export function PipelineGraph({
               <span
                 className={`h-px w-2 transition-colors duration-300 ${
                   completed.includes(node)
-                    ? "bg-[--color-ok]/40"
-                    : "bg-[--color-border]"
+                    ? "bg-ok/40"
+                    : "bg-border"
                 }`}
                 aria-hidden="true"
               />

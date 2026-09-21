@@ -56,7 +56,7 @@ export function Explain({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={`${t.common.whatIsThis}: ${title}`}
-        className="inline-flex size-4 items-center justify-center rounded-full text-[--color-ink-faint] transition-colors hover:text-[--color-accent]"
+        className="inline-flex size-4 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-accent"
       >
         <HelpCircle className="size-3.5" aria-hidden="true" />
       </button>
@@ -65,12 +65,12 @@ export function Explain({
         <span
           id={panelId}
           role="note"
-          className={`enter absolute top-6 z-50 w-72 rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-3 text-left shadow-[--shadow-pop] ${
+          className={`enter absolute top-6 z-50 w-72 rounded-card border border-border bg-surface p-3 text-left shadow-[var(--shadow-pop)] ${
             align === "end" ? "right-0" : "left-0"
           }`}
         >
           <span className="block text-sm font-semibold">{title}</span>
-          <span className="mt-1 block text-xs leading-relaxed text-[--color-ink-soft]">
+          <span className="mt-1 block text-xs leading-relaxed text-ink-soft">
             {body}
           </span>
         </span>

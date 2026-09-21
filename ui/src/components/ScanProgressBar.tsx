@@ -31,29 +31,29 @@ export function ScanProgressBar({
   const failed = progress.status === "error";
 
   const barColor = failed
-    ? "bg-[--color-danger]"
+    ? "bg-danger"
     : running
-      ? "bg-[--color-accent]"
-      : "bg-[--color-ok]";
+      ? "bg-accent"
+      : "bg-ok";
 
   const StatusIcon = failed ? AlertCircle : running ? Loader2 : CheckCircle2;
 
   return (
-    <div className="enter rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-3 shadow-[--shadow-card]">
+    <div className="enter rounded-card border border-border bg-surface p-3 shadow-[var(--shadow-card)]">
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2">
           <StatusIcon
             className={`size-4 shrink-0 ${
               failed
-                ? "text-[--color-danger]"
+                ? "text-danger"
                 : running
-                  ? "animate-spin text-[--color-accent]"
-                  : "text-[--color-ok]"
+                  ? "animate-spin text-accent"
+                  : "text-ok"
             }`}
             aria-hidden="true"
           />
           <span className="truncate font-mono text-sm">r/{progress.subreddit}</span>
-          <span className="shrink-0 rounded bg-[--color-surface-2] px-1.5 py-0.5 text-[11px] text-[--color-ink-soft]">
+          <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-soft">
             {t.pipeline.cycle} {progress.cycle}
           </span>
         </span>
@@ -63,7 +63,7 @@ export function ScanProgressBar({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-md px-2 py-0.5 text-xs text-[--color-ink-soft] transition-colors hover:bg-[--color-surface-2] hover:text-[--color-danger]"
+              className="rounded-md px-2 py-0.5 text-xs text-ink-soft transition-colors hover:bg-surface-2 hover:text-danger"
             >
               {t.pipeline.cancel}
             </button>
@@ -73,7 +73,7 @@ export function ScanProgressBar({
               type="button"
               onClick={() => clear(progress.runId)}
               aria-label={t.pipeline.discard}
-              className="rounded-md p-1 text-[--color-ink-faint] transition-colors hover:bg-[--color-surface-2] hover:text-[--color-ink]"
+              className="rounded-md p-1 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
             >
               <X className="size-3.5" aria-hidden="true" />
             </button>
@@ -82,7 +82,7 @@ export function ScanProgressBar({
       </div>
 
       <div
-        className={`mt-2.5 h-1.5 overflow-hidden rounded-full bg-[--color-surface-2] ${
+        className={`mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-2 ${
           running && ratio === 0 ? "sweeping" : ""
         }`}
         role="progressbar"
@@ -105,7 +105,7 @@ export function ScanProgressBar({
         />
       </div>
 
-      <p className="mt-2 font-mono text-[11px] tabular-nums text-[--color-ink-soft]">
+      <p className="mt-2 font-mono text-[11px] tabular-nums text-ink-soft">
         {t.pipeline.read} {stats.fetched ?? 0} · {t.pipeline.analysed}{" "}
         {stats.analyzed ?? 0} · {t.pipeline.stored}{" "}
         {stats.stored ?? 0} · {t.pipeline.clusters} {stats.clusters ?? 0}
@@ -120,7 +120,7 @@ export function ScanProgressBar({
       {progress.message && (
         <p
           className={`mt-1.5 text-xs ${
-            failed ? "text-[--color-danger]" : "text-[--color-warn]"
+            failed ? "text-danger" : "text-warn"
           }`}
         >
           {progress.message}

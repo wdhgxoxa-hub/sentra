@@ -38,14 +38,14 @@ export function SearchConsole() {
     <div className="flex max-w-4xl flex-col gap-5">
       <header>
         <h2 className="text-base font-semibold">{t.search.title}</h2>
-        <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+        <p className="mt-0.5 text-xs text-ink-soft">
           {t.search.subtitle}
         </p>
       </header>
 
       <div className="relative">
         <SearchIcon
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[--color-ink-faint]"
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
           aria-hidden="true"
         />
         <input
@@ -54,12 +54,12 @@ export function SearchConsole() {
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder={t.search.placeholder}
           aria-label={t.search.title}
-          className="w-full rounded-lg border border-[--color-border] bg-[--color-surface] py-2.5 pl-9 pr-3 text-sm transition-colors focus:border-[--color-accent]"
+          className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3 text-sm transition-colors focus:border-accent"
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-[--color-ink-faint]">
+        <span className="text-xs text-ink-faint">
           {t.search.suggestions}
         </span>
         {examples.map((example) => (
@@ -67,7 +67,7 @@ export function SearchConsole() {
             key={example}
             type="button"
             onClick={() => setSearchQuery(example)}
-            className="rounded-full border border-[--color-border] px-2.5 py-1 text-xs text-[--color-ink-soft] transition-colors hover:border-[--color-accent] hover:text-[--color-accent]"
+            className="rounded-full border border-border px-2.5 py-1 text-xs text-ink-soft transition-colors hover:border-accent hover:text-accent"
           >
             {example}
           </button>
@@ -75,22 +75,22 @@ export function SearchConsole() {
       </div>
 
       {results.isFetching && (
-        <p className="text-sm text-[--color-ink-faint]">{t.search.searching}</p>
+        <p className="text-sm text-ink-faint">{t.search.searching}</p>
       )}
 
       {results.data?.length === 0 && !results.isFetching && (
-        <div className="rounded-[--radius-card] border border-dashed border-[--color-border] p-6 text-center">
+        <div className="rounded-card border border-dashed border-border p-6 text-center">
           <p className="text-sm font-medium">{t.search.empty}</p>
-          <p className="mt-1 text-xs text-[--color-ink-soft]">
+          <p className="mt-1 text-xs text-ink-soft">
             {t.search.emptyHint}
           </p>
         </div>
       )}
 
       {results.data && results.data.length > 0 && (
-        <div className="overflow-hidden rounded-[--radius-card] border border-[--color-border] bg-[--color-surface]">
+        <div className="overflow-hidden rounded-card border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-[--color-border] bg-[--color-surface-2] text-left text-[11px] uppercase tracking-wide text-[--color-ink-faint]">
+            <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t.search.colText}
@@ -128,23 +128,23 @@ export function SearchConsole() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[--color-border]">
+            <tbody className="divide-y divide-border">
               {results.data.map((hit) => {
                 const route = routeOf(hit);
                 return (
-                  <tr key={hit.id} className="hover:bg-[--color-surface-2]">
+                  <tr key={hit.id} className="hover:bg-surface-2">
                     <td className="max-w-md px-3 py-2.5">
                       <p className="truncate">{hit.text}</p>
-                      <p className="mt-0.5 flex items-center gap-2 text-[11px] text-[--color-ink-faint]">
+                      <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
                         <span className="font-mono">r/{hit.subreddit}</span>
                         <span aria-hidden="true">·</span>
                         <span
                           className={
                             route === "both"
-                              ? "text-[--color-accent]"
+                              ? "text-accent"
                               : route === "semantic"
-                                ? "text-[--color-ok]"
-                                : "text-[--color-warn]"
+                                ? "text-ok"
+                                : "text-warn"
                           }
                         >
                           {route === "both"
@@ -155,10 +155,10 @@ export function SearchConsole() {
                         </span>
                       </p>
                     </td>
-                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-[--color-ink-soft]">
+                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-ink-soft">
                       {hit.denseRank ?? "—"}
                     </td>
-                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-[--color-ink-soft]">
+                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-ink-soft">
                       {hit.bm25Rank ?? "—"}
                     </td>
                     <td className="px-3 py-2.5 text-right">

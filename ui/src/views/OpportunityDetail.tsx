@@ -21,14 +21,14 @@ export function OpportunityDetail() {
 
   if (!clusterKey) {
     return (
-      <p className="text-sm text-[--color-ink-soft]">{t.detail.selectPrompt}</p>
+      <p className="text-sm text-ink-soft">{t.detail.selectPrompt}</p>
     );
   }
   if (detail.isPending) {
-    return <p className="text-sm text-[--color-ink-faint]">{t.detail.loading}</p>;
+    return <p className="text-sm text-ink-faint">{t.detail.loading}</p>;
   }
   if (!cluster) {
-    return <p className="text-sm text-[--color-ink-soft]">{t.detail.gone}</p>;
+    return <p className="text-sm text-ink-soft">{t.detail.gone}</p>;
   }
 
   return (
@@ -45,7 +45,7 @@ export function OpportunityDetail() {
         />
       </header>
 
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
           {t.detail.job}
           <Explain title={t.explain.jtbd.title} body={t.explain.jtbd.body} />
@@ -55,16 +55,16 @@ export function OpportunityDetail() {
 
       <ValidationControls cluster={cluster} />
 
-      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+      <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-3 text-sm font-semibold">{t.detail.breakdown}</h3>
         <ScoreBreakdownBars breakdown={cluster.breakdown} />
       </section>
 
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-          <Quote className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          <Quote className="size-4 text-ink-soft" aria-hidden="true" />
           {t.detail.evidence}
-          <span className="text-xs font-normal text-[--color-ink-faint]">
+          <span className="text-xs font-normal text-ink-faint">
             ({cluster.evidence.length} {t.detail.quotes})
           </span>
         </h3>
@@ -72,10 +72,10 @@ export function OpportunityDetail() {
           {cluster.evidence.map((quote) => (
             <li
               key={quote.signalId}
-              className="rounded-[--radius-card] border-l-2 border-[--color-accent] bg-[--color-surface] py-2 pl-3 pr-3"
+              className="rounded-card border-l-2 border-accent bg-surface py-2 pl-3 pr-3"
             >
               <p className="text-sm italic leading-relaxed">{quote.quote}</p>
-              <p className="mt-1 flex items-center gap-2 text-[11px] text-[--color-ink-faint]">
+              <p className="mt-1 flex items-center gap-2 text-[11px] text-ink-faint">
                 <span className="font-mono">r/{quote.subreddit}</span>
                 <span aria-hidden="true">·</span>
                 <span>{quote.author}</span>
@@ -88,7 +88,7 @@ export function OpportunityDetail() {
       {cluster.currentSolutions.length > 0 && (
         <section>
           <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
-            <Wrench className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+            <Wrench className="size-4 text-ink-soft" aria-hidden="true" />
             {t.detail.solutions}
           </h3>
           <p className="text-sm">{cluster.currentSolutions.join(", ")}</p>
@@ -97,7 +97,7 @@ export function OpportunityDetail() {
 
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-          <TrendingUp className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          <TrendingUp className="size-4 text-ink-soft" aria-hidden="true" />
           {t.detail.evolution}
         </h3>
 
@@ -106,9 +106,9 @@ export function OpportunityDetail() {
             {history.data.slice(0, 8).map((point) => (
               <li
                 key={point.id}
-                className="flex items-center gap-3 rounded-lg px-2 py-1.5 font-mono text-xs tabular-nums hover:bg-[--color-surface-2]"
+                className="flex items-center gap-3 rounded-lg px-2 py-1.5 font-mono text-xs tabular-nums hover:bg-surface-2"
               >
-                <span className="text-[--color-ink-faint]">
+                <span className="text-ink-faint">
                   {point.createdAt.slice(0, 16)}
                 </span>
                 <span className="w-14 text-right font-semibold">
@@ -116,18 +116,18 @@ export function OpportunityDetail() {
                 </span>
                 <span className="flex-1">
                   <span
-                    className="block h-1 rounded-full bg-[--color-accent]"
+                    className="block h-1 rounded-full bg-accent"
                     style={{ width: `${Math.min(100, point.finalScore)}%` }}
                   />
                 </span>
-                <span className="text-[--color-ink-soft]">
+                <span className="text-ink-soft">
                   {point.mentionCount}m / {point.communityCount}c
                 </span>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="text-xs leading-relaxed text-[--color-ink-soft]">
+          <p className="text-xs leading-relaxed text-ink-soft">
             {t.detail.noEvolution}
           </p>
         )}

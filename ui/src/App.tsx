@@ -32,14 +32,14 @@ export default function App() {
   }, [applyProgress]);
 
   return (
-    <div className="flex h-full bg-[--color-bg]">
+    <div className="flex h-full bg-bg">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-auto">
         {/* Franja superior fina: da sitio para arrastrar la ventana y sitúa
             en qué sección se está sin repetir el título de cada vista. */}
-        <div className="drag-region sticky top-0 z-10 border-b border-[--color-border] bg-[--color-bg]/80 px-6 py-2.5 backdrop-blur">
-          <p className="text-xs text-[--color-ink-faint]">{t.app.tagline}</p>
+        <div className="drag-region sticky top-0 z-10 border-b border-border bg-bg/80 px-6 py-2.5 backdrop-blur">
+          <p className="text-xs text-ink-faint">{t.app.tagline}</p>
         </div>
 
         <div className="p-6">

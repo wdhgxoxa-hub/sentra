@@ -19,14 +19,14 @@ export function CommunityTags({
       {visible.map((name) => (
         <span
           key={name}
-          className="rounded-md bg-[--color-surface-2] px-1.5 py-0.5 font-mono text-[11px] text-[--color-ink-soft]"
+          className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-soft"
         >
           r/{name}
         </span>
       ))}
       {rest > 0 && (
         <span
-          className="text-[11px] text-[--color-ink-faint]"
+          className="text-[11px] text-ink-faint"
           title={subreddits.slice(max).map((name) => `r/${name}`).join(", ")}
         >
           +{rest}
