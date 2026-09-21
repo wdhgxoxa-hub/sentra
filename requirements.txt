@@ -1,0 +1,28 @@
+# Reddit Intelligence Radar - dependencias de ejecución
+# Versiones fijadas a las verificadas en el entorno (Python 3.12.10, Windows).
+
+# --- Fase 2: ingesta ---
+httpx==0.28.1
+requests==2.34.2
+
+# --- Fase 3: inteligencia ---
+scikit-learn==1.9.1
+numpy==2.5.2
+
+# --- Fase 4: almacenamiento y recuperación ---
+lancedb==0.38.0
+pyarrow==25.0.1
+pydantic==2.12.5
+rank-bm25==0.2.2
+
+# Embeddings semánticos reales (ONNX en CPU, sin PyTorch).
+# Sin este paquete, core.storage.get_embedder() falla de forma explícita en
+# lugar de degradar en silencio al generador por hash, que NO es semántico.
+fastembed==0.8.0
+onnxruntime==1.30.0
+
+# --- Opcional: NLI zero-shot real (Fase 3) ---
+# Sin estos paquetes, ZeroShotNLIClassifier opera SIEMPRE en su modo heurístico
+# de reserva. Habilitarlos supone ~2,5 GB de PyTorch más ~1,6 GB de modelo.
+# transformers>=4.44
+# torch>=2.4
