@@ -37,7 +37,7 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
   return (
     <section
       aria-labelledby="validacion"
-      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
+      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5"
     >
       <h3 id="validacion" className="text-sm font-semibold">
         {t.detail.validation}
@@ -59,7 +59,7 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
               onClick={() => guardar(status)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                 activo
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-on-accent"
                   : "border border-border text-ink-soft hover:bg-surface-2 hover:text-ink"
               }`}
             >

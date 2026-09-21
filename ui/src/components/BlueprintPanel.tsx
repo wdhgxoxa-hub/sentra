@@ -41,14 +41,14 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
         type="button"
         onClick={() => setAbierto((previo) => !previo)}
         aria-expanded={abierto}
-        className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold text-accent transition-colors hover:bg-accent-soft"
+        className="flex w-full items-center gap-2.5 px-5 py-3.5 text-left text-sm font-semibold text-accent transition-colors hover:bg-accent-soft"
       >
         <FileText className="size-4 shrink-0" aria-hidden="true" />
         {abierto ? t.blueprint.close : t.blueprint.open}
       </button>
 
       {abierto && (
-        <div className="border-t border-accent/20 px-4 pb-5 pt-4">
+        <div className="border-t border-accent/20 px-5 pb-6 pt-5">
           {doc.isPending && (
             <p className="text-sm text-ink-faint">{t.blueprint.loading}</p>
           )}

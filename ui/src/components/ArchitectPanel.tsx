@@ -99,12 +99,12 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
 
   return (
     <section className="rounded-card border border-border bg-surface">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3.5">
         <button
           type="button"
           onClick={generar}
           disabled={generando || !configurado}
-          className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
         >
           {generando ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -138,7 +138,7 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
         )}
       </div>
 
-      <div className="px-4 py-4">
+      <div className="px-5 py-5">
         {error && (
           <p className="mb-3 text-sm text-danger">
             {t.architect.error}: {error}

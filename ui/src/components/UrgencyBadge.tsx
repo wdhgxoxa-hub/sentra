@@ -2,10 +2,10 @@ import { useT } from "@/stores/settingsStore";
 import type { UrgencyTier } from "@/types/radar";
 
 const STYLES: Record<UrgencyTier, string> = {
-  CRITICAL: "bg-critical-soft text-critical ring-critical/30",
-  HIGH: "bg-high-soft text-high ring-high/30",
-  MEDIUM: "bg-medium-soft text-medium ring-medium/30",
-  LOW: "bg-low-soft text-low ring-low/30",
+  CRITICAL: "bg-critical-soft text-critical-ink ring-critical/30",
+  HIGH: "bg-high-soft text-high-ink ring-high/30",
+  MEDIUM: "bg-medium-soft text-medium-ink ring-medium/30",
+  LOW: "bg-low-soft text-low-ink ring-low/30",
 };
 
 // El número de barras acompaña al color: quien no distingue rojo de naranja

@@ -8,7 +8,7 @@ import type { OpportunityCluster } from "@/types/radar";
 
 const STATUS_STYLES: Record<string, string> = {
   new: "bg-surface-2 text-ink-soft",
-  triaged: "bg-medium-soft text-medium",
+  triaged: "bg-medium-soft text-medium-ink",
   validated: "bg-ok/15 text-ok",
   rejected: "bg-surface-2 text-ink-faint line-through",
   shipped: "bg-accent-soft text-accent",
@@ -34,7 +34,7 @@ export function OpportunityCard({
     t.validation[cluster.validationStatus as keyof typeof t.validation];
 
   return (
-    <article className="enter group flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-[var(--shadow-card)] transition-all hover:border-border-strong hover:shadow-[var(--shadow-pop)]">
+    <article className="enter group flex flex-col gap-3 rounded-card border border-border bg-surface p-5 shadow-[var(--shadow-card)] transition-all hover:border-border-strong hover:shadow-[var(--shadow-pop)]">
       <header className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug">
           {cluster.label}

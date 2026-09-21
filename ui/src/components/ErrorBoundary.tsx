@@ -75,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <button
           type="button"
           onClick={() => this.setState({ error: null })}
-          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover"
         >
           {textos.retry}
         </button>

@@ -78,7 +78,7 @@ export function PipelineControl() {
 
       {/* El recorrido del motor, siempre visible: explica qué va a pasar
           antes de pulsar, no solo mientras pasa. */}
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <PipelineGraph
           completed={activos[0]?.completed ?? []}
           current={activos[0]?.currentNode ?? null}
@@ -164,7 +164,7 @@ export function PipelineControl() {
           <button
             type="submit"
             disabled={guardar.isPending || !name.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
             <Plus className="size-3.5" aria-hidden="true" />
             {guardar.isPending ? t.pipeline.saving : t.pipeline.watch}
@@ -175,7 +175,7 @@ export function PipelineControl() {
           {subreddits.data?.map((item) => (
             <li
               key={item.subredditId}
-              className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-2.5"
+              className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3"
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-mono text-sm">
@@ -248,19 +248,19 @@ export function PipelineControl() {
           <table className="w-full text-sm">
             <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
               <tr>
-                <th scope="col" className="px-3 py-2 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   {t.pipeline.subreddit}
                 </th>
-                <th scope="col" className="px-2 py-2 font-medium">
+                <th scope="col" className="px-3 py-2.5 font-medium">
                   {t.pipeline.colStatus}
                 </th>
-                <th scope="col" className="px-2 py-2 font-medium">
+                <th scope="col" className="px-3 py-2.5 font-medium">
                   {t.pipeline.colRead}
                 </th>
-                <th scope="col" className="px-2 py-2 font-medium">
+                <th scope="col" className="px-3 py-2.5 font-medium">
                   {t.pipeline.colQualified}
                 </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   {t.pipeline.colErrors}
                 </th>
               </tr>
@@ -268,23 +268,23 @@ export function PipelineControl() {
             <tbody className="divide-y divide-border">
               {runs.data?.map((run) => (
                 <tr key={run.id} className="hover:bg-surface-2">
-                  <td className="px-3 py-2 font-mono text-xs">
+                  <td className="px-4 py-2.5 font-mono text-xs">
                     r/{run.subredditName}
                   </td>
                   <td
-                    className={`px-2 py-2 text-xs ${
+                    className={`px-3 py-2.5 text-xs ${
                       RUN_STATUS_STYLES[run.status] ?? ""
                     }`}
                   >
                     {run.status}
                   </td>
-                  <td className="px-2 py-2 font-mono text-xs tabular-nums">
+                  <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
                     {run.fetched}
                   </td>
-                  <td className="px-2 py-2 font-mono text-xs tabular-nums">
+                  <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
                     {run.qualified}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs tabular-nums">
+                  <td className="px-4 py-2.5 font-mono text-xs tabular-nums">
                     {run.errorCount > 0 ? (
                       <span className="text-warn">{run.errorCount}</span>
                     ) : (

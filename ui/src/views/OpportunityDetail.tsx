@@ -57,7 +57,7 @@ export function OpportunityDetail() {
         />
       </header>
 
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold">
           {t.detail.job}
           <Explain title={t.explain.jtbd.title} body={t.explain.jtbd.body} />
@@ -73,7 +73,7 @@ export function OpportunityDetail() {
 
       <ValidationControls cluster={cluster} />
 
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-3 text-sm font-semibold">{t.detail.breakdown}</h3>
         <ScoreBreakdownBars breakdown={cluster.breakdown} />
       </section>

@@ -19,7 +19,7 @@ export function CommunityTags({
       {visible.map((name) => (
         <span
           key={name}
-          className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-soft"
+          className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent"
         >
           r/{name}
         </span>

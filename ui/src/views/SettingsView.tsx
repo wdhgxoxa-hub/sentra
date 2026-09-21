@@ -107,7 +107,7 @@ export function SettingsView() {
       </header>
 
       {/* --- Apariencia --- */}
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <Eye className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.appearance}
@@ -175,7 +175,7 @@ export function SettingsView() {
       )}
 
       {/* --- Fuente de datos --- */}
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <Database className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.source}
@@ -223,7 +223,7 @@ export function SettingsView() {
       </section>
 
       {/* --- Credenciales --- */}
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <KeyRound className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.credentials}
@@ -323,7 +323,7 @@ export function SettingsView() {
             <button
               type="submit"
               disabled={saveCredentials.isPending || !clientId || !clientSecret}
-              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {saveCredentials.isPending ? t.pipeline.saving : t.settings.save}
             </button>
@@ -381,7 +381,7 @@ export function SettingsView() {
       </section>
 
       {/* --- Motor de arquitectura (Gemini) --- */}
-      <section className="rounded-card border border-border bg-surface p-4">
+      <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <Sparkles className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.aiEngine}
@@ -463,7 +463,7 @@ export function SettingsView() {
                   },
                 )
               }
-              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {guardarGemini.isPending ? t.pipeline.saving : t.settings.saveKey}
             </button>
