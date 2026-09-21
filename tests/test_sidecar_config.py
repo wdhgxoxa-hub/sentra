@@ -300,3 +300,118 @@ class TestBlueprintEndpoint(ConfigTestCase):
         cuerpo = self.client.post("/api/blueprint", json={"cluster": cluster}).json()
         self.assertEqual(len(cuerpo["evidence"]), 1)
         self.assertEqual(cuerpo["distinctQuotes"], 1)
+
+
+class TestGeminiEndpoints(ConfigTestCase):
+    """Clave de Gemini y generacion de arquitectura.
+
+    Ningun test sale a la red: el cliente del SDK se sustituye por un doble.
+    """
+
+    CLAVE = "AIzaSy-CLAVE-FALSA-PARA-TESTS"
+
+    CLUSTER = {
+        "label": "invoice + manual",
+        "keywords": ["invoice"],
+        "subreddits": ["SaaS"],
+        "mentionCount": 3,
+        "urgencyTier": "HIGH",
+        "breakdown": {"finalScore": 74.0, "paidSignalFactor": 1.0},
+        "evidence": [],
+    }
+
+    def test_al_principio_no_hay_clave_configurada(self):
+        gemini = self.client.get("/api/config").json()["gemini"]
+        self.assertFalse(gemini["configured"])
+        self.assertEqual(gemini["model"], "gemini-2.5-pro")
+
+    def test_guardar_la_clave_la_escribe_en_el_env(self):
+        respuesta = self.client.post(
+            "/api/gemini", json={"apiKey": self.CLAVE, "model": "gemini-2.5-flash"}
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("RIR_GEMINI_API_KEY", self.env_path.read_text(encoding="utf-8"))
+
+        gemini = self.client.get("/api/config").json()["gemini"]
+        self.assertTrue(gemini["configured"])
+        self.assertEqual(gemini["model"], "gemini-2.5-flash")
+
+    def test_la_clave_nunca_vuelve_entera_al_frontend(self):
+        self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
+        cuerpo = self.client.get("/api/config").text
+        self.assertNotIn(self.CLAVE, cuerpo)
+        self.assertIn("…", self.client.get("/api/config").json()["gemini"]["keyMasked"])
+
+    def test_guardar_sin_clave_se_rechaza(self):
+        self.assertEqual(self.client.post("/api/gemini", json={"apiKey": "  "}).status_code, 400)
+
+    def test_probar_sin_clave_responde_que_no(self):
+        cuerpo = self.client.post("/api/gemini/test").json()
+        self.assertFalse(cuerpo["ok"])
+
+    def test_generar_sin_clave_responde_412_y_no_llama_al_modelo(self):
+        respuesta = self.client.post(
+            "/api/architect/generate", json={"cluster": self.CLUSTER}
+        )
+        self.assertEqual(respuesta.status_code, 412)
+
+    def test_generar_devuelve_el_texto_en_trozos(self):
+        from unittest import mock
+
+        self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
+
+        def falso(cluster, **kwargs):
+            yield "# FASE 1"
+            yield "\ncontenido"
+
+        with mock.patch(
+            "core.intelligence.gemini_architect.stream_architecture", falso
+        ):
+            respuesta = self.client.post(
+                "/api/architect/generate",
+                json={"cluster": self.CLUSTER, "language": "es"},
+            )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("# FASE 1", respuesta.text)
+        self.assertIn("contenido", respuesta.text)
+
+    def test_generar_usa_el_modelo_guardado(self):
+        from unittest import mock
+
+        self.client.post(
+            "/api/gemini", json={"apiKey": self.CLAVE, "model": "gemini-2.5-flash"}
+        )
+        vistos = {}
+
+        def falso(cluster, **kwargs):
+            vistos.update(kwargs)
+            yield "ok"
+
+        with mock.patch(
+            "core.intelligence.gemini_architect.stream_architecture", falso
+        ):
+            self.client.post("/api/architect/generate", json={"cluster": self.CLUSTER})
+
+        self.assertEqual(vistos["model"], "gemini-2.5-flash")
+        self.assertEqual(vistos["api_key"], self.CLAVE)
+
+    def test_un_fallo_del_modelo_viaja_como_error_y_no_tumba_el_sidecar(self):
+        from unittest import mock
+
+        self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
+
+        def falso(cluster, **kwargs):
+            yield "algo"
+            raise RuntimeError("se cayo el servicio")
+
+        with mock.patch(
+            "core.intelligence.gemini_architect.stream_architecture", falso
+        ):
+            respuesta = self.client.post(
+                "/api/architect/generate", json={"cluster": self.CLUSTER}
+            )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("se cayo el servicio", respuesta.text)
+        self.assertEqual(self.client.get("/api/health").status_code, 200)

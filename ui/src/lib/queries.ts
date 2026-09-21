@@ -250,3 +250,27 @@ export function useBlueprint(
     staleTime: 5 * 60 * 1000,
   });
 }
+
+// --- Motor de arquitectura -------------------------------------------
+
+/**
+ * Guarda la clave de Gemini.
+ *
+ * Al terminar invalida la configuracion para que la insignia de «configurada»
+ * y el modelo activo se refresquen sin recargar la ventana.
+ */
+export function useSaveGeminiKey() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ apiKey, model }: { apiKey: string; model: string }) =>
+      ipc.saveGeminiKey(apiKey, model),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.settings }),
+  });
+}
+
+/** Prueba la clave contra Google. Es mutacion: gasta cuota. */
+export function useTestGeminiKey() {
+  return useMutation({
+    mutationFn: () => ipc.testGeminiKey(),
+  });
+}

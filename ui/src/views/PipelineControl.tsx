@@ -1,5 +1,5 @@
 import { Pause, Play, Plus, Zap } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PipelineGraph } from "@/components/PipelineGraph";
 import { ScanProgressBar } from "@/components/ScanProgressBar";
@@ -32,7 +32,12 @@ export function PipelineControl() {
   const cancelar = useCancelScan();
   const guardar = useUpsertSubreddit();
 
-  const activos = useProgressStore((state) => Object.values(state.runs));
+  // El selector devuelve el mapa tal cual, que solo cambia de identidad
+  // cuando llega un evento. Construir aqui el array (Object.values) daba uno
+  // nuevo en cada render: Zustand lo comparaba por identidad, lo veia siempre
+  // distinto y renderizaba sin fin hasta que React desmontaba la vista.
+  const enCurso = useProgressStore((state) => state.runs);
+  const activos = useMemo(() => Object.values(enCurso), [enCurso]);
   const limpiar = useProgressStore((state) => state.clearFinished);
 
   const [name, setName] = useState("");

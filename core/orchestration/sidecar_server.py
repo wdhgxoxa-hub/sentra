@@ -125,6 +125,24 @@ class BlueprintRequest(BaseModel):
     language: str = "es"
 
 
+class GeminiRequest(BaseModel):
+    """Clave y modelo del motor de arquitectura."""
+
+    apiKey: str = ""
+    model: str = "gemini-2.5-pro"
+
+
+class ArchitectRequest(BaseModel):
+    """Peticion de arquitectura para un cluster.
+
+    Igual que el blueprint, el cluster viaja entero: quien lo pide ya lo leyo
+    de PostgreSQL.
+    """
+
+    cluster: Dict[str, Any] = Field(default_factory=dict)
+    language: str = "es"
+
+
 class ProbeResponse(BaseModel):
     ok: bool
     detail: str
@@ -320,6 +338,24 @@ def create_app(
     # aqui hay varios manejadores que la tocan.
     mode_holder = ["reddit" if _is_reddit_fetcher(dependencies.fetcher) else "synthetic"]
 
+    def _gemini_summary() -> Dict[str, Any]:
+        """Estado del motor de arquitectura, SIN devolver la clave.
+
+        Vale lo mismo que para el secreto de Reddit: una clave que llega al
+        frontend acaba en una captura o en el inspector.
+        """
+        from core.intelligence.gemini_architect import MODELO_POR_DEFECTO
+
+        values = load_dotenv(env_path, env={})
+        key = (values.get("RIR_GEMINI_API_KEY") or "").strip()
+        model = (values.get("RIR_GEMINI_MODEL") or "").strip() or MODELO_POR_DEFECTO
+
+        masked = ""
+        if key:
+            masked = key[:6] + "…" + key[-4:] if len(key) > 12 else "…"
+
+        return {"configured": bool(key), "keyMasked": masked, "model": model}
+
     def _credentials_summary() -> Dict[str, Any]:
         """
         Estado de las credenciales SIN devolver el secreto.
@@ -354,6 +390,7 @@ def create_app(
             "credentials": _credentials_summary(),
             "envPath": str(env_path or _default_env_path()),
             "syntheticPosts": synthetic_total(),
+            "gemini": _gemini_summary(),
         }
 
     @app.post("/api/config/mode", dependencies=[Depends(require_token)])
@@ -539,6 +576,77 @@ def create_app(
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # -- Motor de arquitectura (Gemini) --------------------------------
+
+    def _gemini_credenciales() -> tuple:
+        from core.intelligence.gemini_architect import MODELO_POR_DEFECTO
+
+        values = load_dotenv(env_path, env={})
+        key = (values.get("RIR_GEMINI_API_KEY") or "").strip()
+        model = (values.get("RIR_GEMINI_MODEL") or "").strip() or MODELO_POR_DEFECTO
+        return key, model
+
+    @app.post("/api/gemini", dependencies=[Depends(require_token)])
+    def save_gemini(request: GeminiRequest) -> Dict[str, Any]:
+        """Guarda la clave en el `.env` del proyecto."""
+        if not request.apiKey.strip():
+            raise HTTPException(status_code=400, detail="La clave no puede estar vacia")
+
+        update_dotenv(
+            {
+                "RIR_GEMINI_API_KEY": request.apiKey.strip(),
+                "RIR_GEMINI_MODEL": request.model.strip(),
+            },
+            env_path,
+        )
+        logger.info("Clave de Gemini guardada (modelo %s)", request.model)
+        return {"gemini": _gemini_summary()}
+
+    @app.post("/api/gemini/test", response_model=ProbeResponse,
+              dependencies=[Depends(require_token)])
+    def test_gemini() -> ProbeResponse:
+        from core.intelligence import gemini_architect
+
+        key, model = _gemini_credenciales()
+        ok, detalle = gemini_architect.probe_api_key(key, model=model)
+        return ProbeResponse(ok=ok, detail=detalle)
+
+    @app.post("/api/architect/generate", dependencies=[Depends(require_token)])
+    def architect_generate(request: ArchitectRequest) -> StreamingResponse:
+        """
+        Pide el plan de arquitectura y lo va sirviendo segun llega.
+
+        Se responde en texto plano por trozos y no de una vez: con un modelo
+        de razonamiento el documento tarda, y quien mira una pantalla quieta
+        da la aplicacion por colgada.
+        """
+        from core.intelligence import gemini_architect
+
+        key, model = _gemini_credenciales()
+        if not key:
+            raise HTTPException(
+                status_code=412,
+                detail="No hay clave de Gemini guardada. Se configura en Ajustes.",
+            )
+
+        def cuerpo():
+            try:
+                for trozo in gemini_architect.stream_architecture(
+                    request.cluster,
+                    api_key=key,
+                    model=model,
+                    language=request.language,
+                ):
+                    yield trozo
+            except Exception as exc:
+                # El fallo llega a mitad del texto ya enviado: no se puede
+                # cambiar el codigo de estado, asi que se escribe dentro del
+                # documento, donde quien lo lee lo va a ver.
+                logger.exception("Fallo generando la arquitectura")
+                yield f"\n\n> **Error del motor de arquitectura:** {exc}\n"
+
+        return StreamingResponse(cuerpo(), media_type="text/plain; charset=utf-8")
 
     # -- Especificacion de proyecto ------------------------------------
 

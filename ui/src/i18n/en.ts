@@ -189,11 +189,37 @@ export const en: Dictionary = {
     loading: "Asking the engine…",
     unreachable:
       "Could not read the engine settings. Language and theme still work; the data source and credentials need the engine running.",
+    aiEngine: "Architecture engine (Google Gemini)",
+    aiHint:
+      "The key comes from aistudio.google.com and is stored in the same .env as the Reddit ones. Without it, the architecture button on each opportunity stays disabled.",
+    apiKey: "API key",
+    showKey: "Show",
+    hideKey: "Hide",
+    model: "Model",
+    modelHint:
+      "Pro reasons deeper and takes longer; Flash answers sooner and is fine for a first pass.",
+    saveKey: "Save key",
+    testKey: "Test key",
     storedIn: "Stored in",
     secretNeverShown:
       "The secret is never shown once saved, not even to this window.",
   },
 
+  architect: {
+    open: "Generate architecture with Gemini",
+    regenerate: "Generate again",
+    close: "Hide architecture",
+    generating: "The model is writing…",
+    error: "The architecture could not be generated",
+    copy: "Copy as Markdown",
+    copied: "Copied to clipboard",
+    copyFailed: "Could not copy",
+    copyCode: "Copy block",
+    empty:
+      "Press it and Gemini drafts a two-phase build plan from this evidence: an MVP for 24-48 h and the full product for when it validates.",
+    warning:
+      "This is written by a generative model, not by the radar. Review the code and the schema before running them.",
+  },
   blueprint: {
     open: "View project specification (PRD)",
     close: "Hide specification",

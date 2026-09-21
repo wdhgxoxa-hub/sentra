@@ -188,11 +188,37 @@ export const es = {
     loading: "Consultando al motor…",
     unreachable:
       "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la fuente de datos y las credenciales necesitan que el motor esté en marcha.",
+    aiEngine: "Motor de arquitectura (Google Gemini)",
+    aiHint:
+      "La clave se pide en aistudio.google.com y se guarda en el mismo .env que las de Reddit. Sin ella, el botón de arquitectura de cada oportunidad queda inactivo.",
+    apiKey: "Clave de API",
+    showKey: "Mostrar",
+    hideKey: "Ocultar",
+    model: "Modelo",
+    modelHint:
+      "Pro razona más hondo y tarda más; Flash responde antes y sirve para tantear.",
+    saveKey: "Guardar clave",
+    testKey: "Probar clave",
     storedIn: "Se guardan en",
     secretNeverShown:
       "El secreto no se muestra nunca una vez guardado, ni siquiera a esta ventana.",
   },
 
+  architect: {
+    open: "Generar arquitectura con Gemini",
+    regenerate: "Volver a generar",
+    close: "Ocultar arquitectura",
+    generating: "El modelo está escribiendo…",
+    error: "No se pudo generar la arquitectura",
+    copy: "Copiar en Markdown",
+    copied: "Copiado al portapapeles",
+    copyFailed: "No se pudo copiar",
+    copyCode: "Copiar bloque",
+    empty:
+      "Púlsalo y Gemini redacta un plan de construcción en dos fases a partir de esta evidencia: un MVP para 24-48 h y el producto completo para cuando valide.",
+    warning:
+      "Esto lo escribe un modelo generativo, no el radar. Revisa el código y el esquema antes de ejecutarlos.",
+  },
   blueprint: {
     open: "Ver especificación del proyecto (PRD)",
     close: "Ocultar especificación",

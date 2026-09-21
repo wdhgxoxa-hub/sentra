@@ -1,4 +1,5 @@
 import { Quote, TrendingUp, Wrench } from "lucide-react";
+import { Suspense, lazy } from "react";
 
 import { BlueprintPanel } from "@/components/BlueprintPanel";
 import { CommunityTags } from "@/components/CommunityTags";
@@ -10,6 +11,15 @@ import { ValidationControls } from "@/components/ValidationControls";
 import { useClusterHistory, useOpportunityDetail } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
+
+// El panel arrastra el renderizador de Markdown y el resaltado de sintaxis.
+// Cargarlo aparte deja el arranque de la ventana como estaba: quien solo
+// mira la evidencia no paga ese peso.
+const ArchitectPanel = lazy(() =>
+  import("@/components/ArchitectPanel").then((modulo) => ({
+    default: modulo.ArchitectPanel,
+  })),
+);
 
 /** Ficha de una oportunidad: qué necesita la gente, cuánto pesa y por qué. */
 export function OpportunityDetail() {
@@ -55,6 +65,10 @@ export function OpportunityDetail() {
       </section>
 
       <BlueprintPanel clusterKey={cluster.clusterKey} />
+
+      <Suspense fallback={null}>
+        <ArchitectPanel clusterKey={cluster.clusterKey} />
+      </Suspense>
 
       <ValidationControls cluster={cluster} />
 

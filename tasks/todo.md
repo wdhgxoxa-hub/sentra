@@ -366,3 +366,16 @@ demostracion varias quejas comparten cuerpo y cambian el titulo, asi que cuentan
 como testimonios distintos y el documento dice "5 citas distintas" donde hay 2
 cuerpos. Compararlas tambien por cuerpo cambiaria el recuento, pero hay que
 decidir antes si dos personas que escriben lo mismo son una prueba o dos.
+
+## D31: El motor de arquitectura no se ha probado contra Gemini de verdad
+Todo el camino esta cubierto por tests con el cliente sustituido por un doble,
+y los endpoints responden, pero nadie ha visto una respuesta real del modelo:
+no hay clave de API en el proyecto. Falta comprobar el formato del Markdown que
+devuelve `gemini-2.5-pro`, cuanto tarda y si el streaming llega fluido.
+
+## D32: El plan de arquitectura no se guarda en ningun sitio
+El documento vive en el estado del componente. Al cambiar de vista se pierde y
+hay que volver a generarlo, gastando cuota otra vez. Guardarlo junto al cluster
+(una tabla `architecture_plans` o un campo jsonb) permitiria releerlo y
+comparar versiones, pero obliga a decidir que pasa cuando el cluster cambia y
+el plan se queda describiendo una evidencia vieja.

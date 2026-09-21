@@ -36,24 +36,28 @@ export function Sidebar() {
     >
       {/* El isotipo lleva su propio color de marca, asi que se sostiene igual
           sobre el fondo claro y sobre el oscuro. El nombre y el eslogan si
-          dependen del tema y usan los tonos de tinta. */}
-      <div className="drag-region mb-5 flex items-start gap-2.5 px-2 pt-1">
-        <img
-          src={isotipo}
-          alt=""
-          width={34}
-          height={34}
-          draggable={false}
-          className="size-[34px] shrink-0 select-none"
-        />
-        <div className="min-w-0 pt-0.5">
-          <p className="truncate text-[15px] font-semibold leading-none tracking-[0.18em] text-ink">
+          dependen del tema y usan los tonos de tinta.
+
+          El eslogan va debajo y no al lado: junto al nombre le quedaban unos
+          140 px y se partia en tres lineas cortas; a lo ancho del rail entra
+          en dos y se lee de un vistazo. */}
+      <div className="drag-region mb-6 px-2 pt-1">
+        <div className="flex items-center gap-3">
+          <img
+            src={isotipo}
+            alt=""
+            width={46}
+            height={46}
+            draggable={false}
+            className="size-[46px] shrink-0 select-none"
+          />
+          <p className="text-[20px] font-bold leading-none tracking-[0.22em] text-ink">
             {t.app.name}
           </p>
-          <p className="mt-1.5 text-[10px] leading-snug text-ink-soft">
-            {t.app.tagline}
-          </p>
         </div>
+        <p className="mt-3 text-[11px] font-medium leading-relaxed text-ink-soft">
+          {t.app.tagline}
+        </p>
       </div>
 
       <ul className="flex flex-col gap-0.5">

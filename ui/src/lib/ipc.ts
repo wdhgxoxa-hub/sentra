@@ -19,7 +19,10 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import {
   RADAR_EVENT_CHANNEL,
+  type ArchitectChunk,
+  ARCHITECT_EVENT_CHANNEL,
   type BlueprintDoc,
+  type GeminiSummary,
   type AppHealth,
   type BoardParams,
   type ClusterHistoryPoint,
@@ -120,6 +123,17 @@ export const ipc = {
   generateBlueprint: (clusterKey: string, language: string) =>
     invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language }),
 
+  /** [sidecar] Guarda la clave de Gemini en el .env del proyecto. */
+  saveGeminiKey: (apiKey: string, model: string) =>
+    invoke<GeminiSummary>("save_gemini_key", { params: { apiKey, model } }),
+
+  /** [sidecar] Comprueba contra Google que la clave sirve. */
+  testGeminiKey: () => invoke<ProbeResult>("test_gemini_key"),
+
+  /** [pg + sidecar] Genera el plan de arquitectura. Emite por el canal. */
+  generateArchitecture: (clusterKey: string, language: string) =>
+    invoke<string>("generate_architecture", { clusterKey, language }),
+
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),
 } as const;
@@ -135,5 +149,19 @@ export function onRadarEvent(
 ): Promise<UnlistenFn> {
   return listen<RadarEvent>(RADAR_EVENT_CHANNEL, (message) =>
     handler(message.payload),
+  );
+}
+
+/**
+ * Escucha el plan de arquitectura mientras se escribe.
+ *
+ * Se suscribe al montar y no al pulsar: los primeros trozos llegan antes de
+ * que un efecto disparado por el clic alcance a registrarse.
+ */
+export function onArchitectChunk(
+  handler: (chunk: ArchitectChunk) => void,
+): Promise<UnlistenFn> {
+  return listen<ArchitectChunk>(ARCHITECT_EVENT_CHANNEL, (event) =>
+    handler(event.payload),
   );
 }

@@ -137,11 +137,16 @@ export const useProgressStore = create<ProgressState>((set) => ({
     }),
 
   clearFinished: () =>
-    set((state) => ({
-      runs: Object.fromEntries(
-        Object.entries(state.runs).filter(([, run]) => run.status === "running"),
-      ),
-    })),
+    set((state) => {
+      const vivos = Object.entries(state.runs).filter(
+        ([, run]) => run.status === "running",
+      );
+      // Si no habia nada terminado, se devuelve el mismo estado: un objeto
+      // nuevo con el mismo contenido despertaria a todos los suscriptores
+      // para nada, y desde un efecto seria un bucle.
+      if (vivos.length === Object.keys(state.runs).length) return state;
+      return { runs: Object.fromEntries(vivos) };
+    }),
 }));
 
 // El estado global no sobrevive a un intercambio en caliente: los componentes

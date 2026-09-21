@@ -488,6 +488,9 @@ class TestSurface(SidecarTestCase):
                 "/api/credentials",
                 "/api/credentials/test",
                 "/api/blueprint",
+                "/api/gemini",
+                "/api/gemini/test",
+                "/api/architect/generate",
             },
         )
 

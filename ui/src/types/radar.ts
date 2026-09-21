@@ -490,6 +490,7 @@ export interface AppSettings {
   credentials: CredentialsSummary;
   envPath: string;
   syntheticPosts: number;
+  gemini: GeminiSummary;
 }
 
 export interface CredentialsInput {
@@ -593,4 +594,25 @@ export interface BlueprintDoc {
   /** Citas distintas: no es lo mismo que el numero de menciones. */
   distinctQuotes: number;
   markdown: string;
+}
+
+/** Canal por el que llega el plan de arquitectura mientras se escribe. */
+export const ARCHITECT_EVENT_CHANNEL = "sentra:architect";
+
+/** Modelos ofrecidos para el motor de arquitectura. */
+export const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash"] as const;
+export type GeminiModel = (typeof GEMINI_MODELS)[number];
+
+/** Estado del motor de arquitectura. La clave entera no sale del sidecar. */
+export interface GeminiSummary {
+  configured: boolean;
+  keyMasked: string;
+  model: string;
+}
+
+/** Un trozo del documento segun se genera. */
+export interface ArchitectChunk {
+  clusterKey: string;
+  text: string;
+  done: boolean;
 }

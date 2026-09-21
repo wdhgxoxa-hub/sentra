@@ -87,6 +87,10 @@ pub fn run() {
             commands::settings::test_reddit_connection,
             // Especificacion de proyecto
             commands::blueprint::generate_blueprint,
+            // Motor de arquitectura (Gemini)
+            commands::architect::save_gemini_key,
+            commands::architect::test_gemini_key,
+            commands::architect::generate_architecture,
             // Estado agregado
             commands::health::get_app_health,
         ])

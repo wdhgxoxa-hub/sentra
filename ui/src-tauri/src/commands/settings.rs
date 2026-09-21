@@ -26,6 +26,15 @@ pub struct CredentialsSummary {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GeminiSummary {
+    pub configured: bool,
+    /// Clave recortada. La entera no sale nunca del sidecar.
+    pub key_masked: String,
+    pub model: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// "synthetic" o "reddit".
     pub fetcher_mode: String,
@@ -33,6 +42,8 @@ pub struct AppSettings {
     pub env_path: String,
     /// Cuantos posts trae el corpus de demostracion.
     pub synthetic_posts: i64,
+    /// Estado del motor de arquitectura.
+    pub gemini: GeminiSummary,
 }
 
 #[derive(Debug, Deserialize)]

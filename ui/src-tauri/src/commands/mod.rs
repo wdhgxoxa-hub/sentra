@@ -9,7 +9,9 @@
 //!   que se cambia el estado del sistema sea facil de revisar.
 //! - `settings`: configuracion y credenciales, delegadas al sidecar.
 //! - `blueprint`: especificacion de proyecto, redactada por el motor.
+//! - `architect`: plan de construccion, redactado por Gemini.
 
+pub mod architect;
 pub mod blueprint;
 pub mod engine;
 pub mod health;
