@@ -1,69 +1,181 @@
+import { Search as SearchIcon, Sparkles, Type } from "lucide-react";
+
+import { Explain } from "@/components/Explain";
+import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { useHybridSearch } from "@/lib/queries";
+import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
+import type { HybridSearchHit } from "@/types/radar";
 
 /**
- * Consola de busqueda hibrida.
+ * Consola de búsqueda híbrida.
  *
- * Muestra el desglose RRF (rango denso y rango lexico) junto a cada
- * resultado: ver POR QUE aparecio algo es lo que separa una consola de
- * investigacion de una caja negra.
+ * Enseña POR QUÉ apareció cada resultado: si lo encontró la búsqueda por
+ * significado, la de palabras exactas, o ambas. Esa distinción es lo que
+ * separa una consola de investigación de una caja negra, y además explica
+ * los casos raros: una consulta sin vocabulario común que aun así acierta,
+ * o un nombre propio que solo rescata la búsqueda léxica.
  */
 export function SearchConsole() {
+  const t = useT();
   const searchQuery = useUiStore((state) => state.searchQuery);
   const setSearchQuery = useUiStore((state) => state.setSearchQuery);
   const results = useHybridSearch({ query: searchQuery, limit: 20 });
 
+  const examples = [
+    t.search.examples.billing,
+    t.search.examples.migration,
+    t.search.examples.support,
+    t.search.examples.pricing,
+  ];
+
+  const routeOf = (hit: HybridSearchHit) => {
+    if (hit.denseRank !== null && hit.bm25Rank !== null) return "both";
+    return hit.denseRank !== null ? "semantic" : "exact";
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">Buscar puntos de dolor</span>
+    <div className="flex max-w-4xl flex-col gap-5">
+      <header>
+        <h2 className="text-base font-semibold">{t.search.title}</h2>
+        <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+          {t.search.subtitle}
+        </p>
+      </header>
+
+      <div className="relative">
+        <SearchIcon
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[--color-ink-faint]"
+          aria-hidden="true"
+        />
         <input
           type="search"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="no puedo exportar facturas"
-          className="rounded-md border border-[--color-border-subtle] bg-[--color-surface-raised] px-3 py-2 text-sm"
+          placeholder={t.search.placeholder}
+          aria-label={t.search.title}
+          className="w-full rounded-lg border border-[--color-border] bg-[--color-surface] py-2.5 pl-9 pr-3 text-sm transition-colors focus:border-[--color-accent]"
         />
-      </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-[--color-ink-faint]">
+          {t.search.suggestions}
+        </span>
+        {examples.map((example) => (
+          <button
+            key={example}
+            type="button"
+            onClick={() => setSearchQuery(example)}
+            className="rounded-full border border-[--color-border] px-2.5 py-1 text-xs text-[--color-ink-soft] transition-colors hover:border-[--color-accent] hover:text-[--color-accent]"
+          >
+            {example}
+          </button>
+        ))}
+      </div>
 
       {results.isFetching && (
-        <p className="text-sm text-[--color-ink-muted]">Buscando...</p>
+        <p className="text-sm text-[--color-ink-faint]">{t.search.searching}</p>
       )}
 
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs uppercase text-[--color-ink-muted]">
-          <tr>
-            <th scope="col" className="py-1">
-              Texto
-            </th>
-            <th scope="col" className="py-1">
-              Denso
-            </th>
-            <th scope="col" className="py-1">
-              BM25
-            </th>
-            <th scope="col" className="py-1">
-              RRF
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[--color-border-subtle]">
-          {results.data?.map((hit) => (
-            <tr key={hit.id}>
-              <td className="max-w-md truncate py-2">{hit.text}</td>
-              <td className="py-2 font-mono tabular-nums">
-                {hit.denseRank ?? "-"}
-              </td>
-              <td className="py-2 font-mono tabular-nums">
-                {hit.bm25Rank ?? "-"}
-              </td>
-              <td className="py-2 font-mono tabular-nums">
-                {hit.rrfScore.toFixed(5)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {results.data?.length === 0 && !results.isFetching && (
+        <div className="rounded-[--radius-card] border border-dashed border-[--color-border] p-6 text-center">
+          <p className="text-sm font-medium">{t.search.empty}</p>
+          <p className="mt-1 text-xs text-[--color-ink-soft]">
+            {t.search.emptyHint}
+          </p>
+        </div>
+      )}
+
+      {results.data && results.data.length > 0 && (
+        <div className="overflow-hidden rounded-[--radius-card] border border-[--color-border] bg-[--color-surface]">
+          <table className="w-full text-sm">
+            <thead className="border-b border-[--color-border] bg-[--color-surface-2] text-left text-[11px] uppercase tracking-wide text-[--color-ink-faint]">
+              <tr>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t.search.colText}
+                </th>
+                <th scope="col" className="px-2 py-2 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles className="size-3" aria-hidden="true" />
+                    {t.search.colSemantic}
+                    <Explain
+                      title={t.explain.semantic.title}
+                      body={t.explain.semantic.body}
+                    />
+                  </span>
+                </th>
+                <th scope="col" className="px-2 py-2 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    <Type className="size-3" aria-hidden="true" />
+                    {t.search.colExact}
+                    <Explain
+                      title={t.explain.exact.title}
+                      body={t.explain.exact.body}
+                    />
+                  </span>
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    {t.search.colCombined}
+                    <Explain
+                      title={t.explain.rrf.title}
+                      body={t.explain.rrf.body}
+                      align="end"
+                    />
+                  </span>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-[--color-border]">
+              {results.data.map((hit) => {
+                const route = routeOf(hit);
+                return (
+                  <tr key={hit.id} className="hover:bg-[--color-surface-2]">
+                    <td className="max-w-md px-3 py-2.5">
+                      <p className="truncate">{hit.text}</p>
+                      <p className="mt-0.5 flex items-center gap-2 text-[11px] text-[--color-ink-faint]">
+                        <span className="font-mono">r/{hit.subreddit}</span>
+                        <span aria-hidden="true">·</span>
+                        <span
+                          className={
+                            route === "both"
+                              ? "text-[--color-accent]"
+                              : route === "semantic"
+                                ? "text-[--color-ok]"
+                                : "text-[--color-warn]"
+                          }
+                        >
+                          {route === "both"
+                            ? t.search.both
+                            : route === "semantic"
+                              ? t.search.onlySemantic
+                              : t.search.onlyExact}
+                        </span>
+                      </p>
+                    </td>
+                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-[--color-ink-soft]">
+                      {hit.denseRank ?? "—"}
+                    </td>
+                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-[--color-ink-soft]">
+                      {hit.bm25Rank ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <UrgencyBadge tier={hit.urgencyTier} />
+                        <span className="font-mono text-xs tabular-nums">
+                          {hit.rrfScore.toFixed(5)}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

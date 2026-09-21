@@ -36,6 +36,11 @@ import {
   type CancelResult,
   type UpsertSubredditParams,
   type ValidationStatus,
+  type AppSettings,
+  type CredentialsInput,
+  type CredentialsSummary,
+  type FetcherMode,
+  type ProbeResult,
 } from "@/types/radar";
 
 export const ipc = {
@@ -95,6 +100,20 @@ export const ipc = {
 
   /** [sidecar + pg] Interrumpe un escaneo en curso. */
   cancelScan: (runId: string) => invoke<CancelResult>("cancel_scan", { runId }),
+
+  /** [sidecar] Fuente de datos activa y estado de las credenciales. */
+  getSettings: () => invoke<AppSettings>("get_settings"),
+
+  /** [sidecar] Alterna entre el corpus de demostracion y Reddit. */
+  setFetcherMode: (mode: FetcherMode) =>
+    invoke<FetcherMode>("set_fetcher_mode", { mode }),
+
+  /** [sidecar] Guarda las credenciales en el .env del proyecto. */
+  saveRedditCredentials: (credentials: CredentialsInput) =>
+    invoke<CredentialsSummary>("save_reddit_credentials", { credentials }),
+
+  /** [sidecar] Pide un token real a Reddit con lo guardado. */
+  testRedditConnection: () => invoke<ProbeResult>("test_reddit_connection"),
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),

@@ -80,6 +80,11 @@ pub fn run() {
             commands::mutations::update_opportunity_status,
             commands::mutations::upsert_subreddit,
             commands::mutations::cancel_scan,
+            // Configuracion
+            commands::settings::get_settings,
+            commands::settings::set_fetcher_mode,
+            commands::settings::save_reddit_credentials,
+            commands::settings::test_reddit_connection,
             // Estado agregado
             commands::health::get_app_health,
         ])

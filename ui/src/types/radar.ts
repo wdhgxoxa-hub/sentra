@@ -467,6 +467,45 @@ export const VALIDATION_FLOW: ValidationStatus[] = [
 ];
 
 // ---------------------------------------------------------------------
+// Configuración
+// ---------------------------------------------------------------------
+
+export type FetcherMode = "synthetic" | "reddit";
+
+/**
+ * Estado de las credenciales.
+ *
+ * Nunca incluye el secreto: un secreto que viaja al frontend acaba en el
+ * inspector del navegador o en una captura de pantalla.
+ */
+export interface CredentialsSummary {
+  configured: boolean;
+  clientIdMasked: string;
+  userAgent: string;
+  hasUser: boolean;
+}
+
+export interface AppSettings {
+  fetcherMode: FetcherMode;
+  credentials: CredentialsSummary;
+  envPath: string;
+  syntheticPosts: number;
+}
+
+export interface CredentialsInput {
+  clientId: string;
+  clientSecret: string;
+  userAgent: string;
+  username?: string;
+  password?: string;
+}
+
+export interface ProbeResult {
+  ok: boolean;
+  detail: string;
+}
+
+// ---------------------------------------------------------------------
 // Ayudas de presentación
 // ---------------------------------------------------------------------
 

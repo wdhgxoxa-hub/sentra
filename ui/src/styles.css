@@ -1,36 +1,97 @@
 @import "tailwindcss";
 
 /**
- * Tailwind v4: la configuración vive en CSS, sin tailwind.config.js.
+ * Sistema de diseño
+ * =================
  *
- * Los colores de urgencia se definen en oklch porque mantiene la
- * luminosidad percibida constante entre tonos: CRITICAL y HIGH deben
- * distinguirse por matiz, no porque uno parezca más apagado que el otro.
+ * Tailwind v4: la configuración vive en CSS, sin `tailwind.config.js`.
+ *
+ * Todo el color se define en OKLCH. Importa porque su eje de luminosidad es
+ * perceptualmente uniforme: dos tonos con la misma L se ven igual de claros.
+ * En HSL, un amarillo y un azul con la misma "lightness" no lo parecen, y
+ * una escala de severidad construida así engaña al ojo — el naranja grita
+ * más que el rojo aunque el rojo sea más grave.
+ *
+ * El tema se controla con `data-theme` en <html>, no con la clase `dark`,
+ * para poder ofrecer "claro / oscuro / automático" sin pelearse con la
+ * preferencia del sistema.
  */
 
 @theme {
-  --color-urgency-critical: oklch(0.55 0.22 25);
-  --color-urgency-high: oklch(0.7 0.17 60);
-  --color-urgency-medium: oklch(0.8 0.12 95);
-  --color-urgency-low: oklch(0.65 0.03 250);
+  /* --- Severidad ---------------------------------------------------- */
+  /* Mismo croma y luminosidad parecida: se distinguen por TONO, no porque
+     uno parezca apagado. Quien no percibe el rojo sigue viendo el orden. */
+  --color-critical: oklch(0.58 0.21 25);
+  --color-critical-soft: oklch(0.58 0.21 25 / 0.14);
+  --color-high: oklch(0.70 0.18 55);
+  --color-high-soft: oklch(0.70 0.18 55 / 0.14);
+  --color-medium: oklch(0.78 0.15 90);
+  --color-medium-soft: oklch(0.78 0.15 90 / 0.14);
+  --color-low: oklch(0.68 0.08 240);
+  --color-low-soft: oklch(0.68 0.08 240 / 0.14);
 
-  --color-surface: oklch(0.99 0.002 250);
-  --color-surface-raised: oklch(1 0 0);
-  --color-border-subtle: oklch(0.9 0.005 250);
-  --color-ink: oklch(0.25 0.01 250);
-  --color-ink-muted: oklch(0.5 0.01 250);
+  /* --- Acento ------------------------------------------------------- */
+  --color-accent: oklch(0.62 0.19 265);
+  --color-accent-hover: oklch(0.56 0.20 265);
+  --color-accent-soft: oklch(0.62 0.19 265 / 0.12);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* --- Semánticos --------------------------------------------------- */
+  --color-ok: oklch(0.68 0.16 155);
+  --color-warn: oklch(0.75 0.16 75);
+  --color-danger: oklch(0.58 0.21 25);
+
+  /* --- Superficies (tema claro por defecto) ------------------------- */
+  --color-bg: oklch(0.98 0.003 265);
+  --color-surface: oklch(1 0 0);
+  --color-surface-2: oklch(0.965 0.004 265);
+  --color-border: oklch(0.90 0.006 265);
+  --color-border-strong: oklch(0.82 0.008 265);
+  --color-ink: oklch(0.22 0.012 265);
+  --color-ink-soft: oklch(0.46 0.012 265);
+  --color-ink-faint: oklch(0.62 0.010 265);
+
+  --font-sans: "Inter var", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius-card: 0.75rem;
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.04);
+  --shadow-pop: 0 4px 12px oklch(0 0 0 / 0.10), 0 12px 32px oklch(0 0 0 / 0.10);
+}
+
+/* --- Tema oscuro ---------------------------------------------------- */
+/* Se aplica tanto por elección explícita como por preferencia del sistema
+   cuando el usuario no ha elegido. */
+
+:root[data-theme="dark"] {
+  --color-bg: oklch(0.16 0.008 265);
+  --color-surface: oklch(0.20 0.010 265);
+  --color-surface-2: oklch(0.24 0.012 265);
+  --color-border: oklch(0.30 0.012 265);
+  --color-border-strong: oklch(0.40 0.014 265);
+  --color-ink: oklch(0.96 0.004 265);
+  --color-ink-soft: oklch(0.76 0.008 265);
+  --color-ink-faint: oklch(0.60 0.010 265);
+
+  --color-accent: oklch(0.70 0.17 265);
+  --color-accent-hover: oklch(0.76 0.16 265);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 12px oklch(0 0 0 / 0.24);
+  --shadow-pop: 0 4px 12px oklch(0 0 0 / 0.40), 0 12px 32px oklch(0 0 0 / 0.36);
 }
 
 @media (prefers-color-scheme: dark) {
-  @theme {
-    --color-surface: oklch(0.18 0.01 250);
-    --color-surface-raised: oklch(0.23 0.012 250);
-    --color-border-subtle: oklch(0.32 0.012 250);
-    --color-ink: oklch(0.95 0.005 250);
-    --color-ink-muted: oklch(0.72 0.01 250);
+  :root:not([data-theme="light"]) {
+    --color-bg: oklch(0.16 0.008 265);
+    --color-surface: oklch(0.20 0.010 265);
+    --color-surface-2: oklch(0.24 0.012 265);
+    --color-border: oklch(0.30 0.012 265);
+    --color-border-strong: oklch(0.40 0.014 265);
+    --color-ink: oklch(0.96 0.004 265);
+    --color-ink-soft: oklch(0.76 0.008 265);
+    --color-ink-faint: oklch(0.60 0.010 265);
+    --color-accent: oklch(0.70 0.17 265);
+    --color-accent-hover: oklch(0.76 0.16 265);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 12px oklch(0 0 0 / 0.24);
+    --shadow-pop: 0 4px 12px oklch(0 0 0 / 0.40), 0 12px 32px oklch(0 0 0 / 0.36);
   }
 }
 
@@ -41,13 +102,81 @@ body,
 }
 
 body {
-  background-color: var(--color-surface);
+  background-color: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* El contenido no debe quedar bajo la barra de título de Tauri. */
+/* Arrastrar la ventana por la cabecera (Tauri sin decoración nativa). */
 .drag-region {
   -webkit-app-region: drag;
+}
+.drag-region button,
+.drag-region select,
+.drag-region a {
+  -webkit-app-region: no-drag;
+}
+
+/* --- Microinteracciones --------------------------------------------- */
+
+@keyframes radar-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+/* Latido del indicador "escaneando". Solo el punto se mueve: animar la
+   tarjeta entera distrae de leer los números. */
+.pulse-dot {
+  animation: radar-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.enter {
+  animation: slide-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sweep {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Barra de progreso indeterminada: hay trabajo, no se sabe cuánto falta. */
+.sweeping {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-accent-soft) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: sweep 1.4s linear infinite;
+}
+
+/* Quien pide menos movimiento recibe el estado final, no la animación. */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .enter,
+  .sweeping {
+    animation: none;
+  }
+}
+
+/* --- Foco visible ---------------------------------------------------- */
+/* Se navega mucho con teclado en una herramienta de análisis. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- Barras de desplazamiento discretas ------------------------------ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
 }

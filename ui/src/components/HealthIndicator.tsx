@@ -1,61 +1,81 @@
-import { useAppHealth } from "@/lib/queries";
+import { AlertTriangle, Database, Cpu } from "lucide-react";
+
+import { Explain } from "@/components/Explain";
+import { useAppHealth, useSettings } from "@/lib/queries";
+import { useT } from "@/stores/settingsStore";
 
 /**
  * Estado de las tres piezas.
  *
- * Se informa de cada una por separado porque fallan por separado: la
- * ventana puede estar viva con PostgreSQL caido, o con la base bien y el
- * sidecar sin arrancar. Un unico punto verde ocultaria justo lo que hace
- * falta saber para arreglarlo.
+ * Se informa de cada una por separado porque fallan por separado: la ventana
+ * puede estar viva con la base caída, o con la base bien y el motor sin
+ * arrancar. Un único punto verde escondería justo lo que hace falta saber
+ * para arreglarlo.
  */
 export function HealthIndicator() {
+  const t = useT();
   const health = useAppHealth();
+  const settings = useSettings();
 
   if (health.isPending) {
-    return <span className="text-xs text-[--color-ink-muted]">comprobando...</span>;
+    return (
+      <p className="px-2 text-xs text-[--color-ink-faint]">{t.health.checking}</p>
+    );
   }
 
   if (health.isError || !health.data) {
     return (
-      <span className="text-xs text-[--color-urgency-critical]">
-        sin respuesta del backend
-      </span>
+      <p className="px-2 text-xs text-[--color-danger]">{t.health.noBackend}</p>
     );
   }
 
   const { postgres, sidecar, sidecarInfo } = health.data;
   const pieces = [
-    { label: "PostgreSQL", state: postgres },
-    { label: "Sidecar", state: sidecar },
+    { label: t.health.database, state: postgres, Icon: Database },
+    { label: t.health.engine, state: sidecar, Icon: Cpu },
   ];
 
   return (
-    <div className="flex items-center gap-3 text-xs">
-      {pieces.map(({ label, state }) => (
-        <span key={label} className="flex items-center gap-1" title={state.detail}>
-          <span
+    <div className="flex flex-col gap-1.5 px-2 text-xs">
+      {pieces.map(({ label, state, Icon }) => (
+        <div key={label} className="flex items-center gap-2" title={state.detail}>
+          <Icon
+            className={`size-3.5 shrink-0 ${
+              state.ok ? "text-[--color-ok]" : "text-[--color-danger]"
+            }`}
             aria-hidden="true"
-            className={
-              state.ok
-                ? "inline-block h-2 w-2 rounded-full bg-[--color-urgency-low]"
-                : "inline-block h-2 w-2 rounded-full bg-[--color-urgency-critical]"
-            }
           />
-          <span className={state.ok ? "text-[--color-ink-muted]" : "font-medium"}>
-            {label}
-            <span className="sr-only">{state.ok ? ": activo" : ": caido"}</span>
-          </span>
-        </span>
+          <span className="flex-1 truncate text-[--color-ink-soft]">{label}</span>
+          <span
+            className={`size-1.5 rounded-full ${
+              state.ok ? "bg-[--color-ok]" : "bg-[--color-danger]"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="sr-only">{state.ok ? t.health.up : t.health.down}</span>
+        </div>
       ))}
 
-      {/* Mientras el NLI corra en modo heuristico conviene que se vea. */}
+      {settings.data && (
+        <p className="pt-0.5 text-[11px] text-[--color-ink-faint]">
+          {settings.data.fetcherMode === "synthetic"
+            ? t.health.sourceSynthetic
+            : t.health.sourceReddit}
+        </p>
+      )}
+
+      {/* Mientras el clasificador opere por reglas conviene que se vea: las
+          etiquetas de intención valen menos de lo que aparentan. */}
       {sidecarInfo?.nli.engine === "heuristic" && (
-        <span
-          className="rounded bg-[--color-urgency-medium] px-1.5 py-0.5 text-black"
-          title="El clasificador zero-shot opera por reglas: transformers no esta instalado"
-        >
-          NLI heuristico
-        </span>
+        <p className="flex items-center gap-1 text-[11px] text-[--color-warn]">
+          <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+          {t.health.heuristicNli}
+          <Explain
+            title={t.health.heuristicNli}
+            body={t.health.heuristicNliHint}
+            align="start"
+          />
+        </p>
       )}
     </div>
   );

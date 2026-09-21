@@ -34,7 +34,7 @@ import os
 import sys
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -94,6 +94,30 @@ class SearchRequest(BaseModel):
         return value
 
 
+class ModeRequest(BaseModel):
+    mode: Literal["synthetic", "reddit"]
+
+
+class CredentialsRequest(BaseModel):
+    clientId: str
+    clientSecret: str
+    userAgent: str = "python:reddit-intelligence-radar:v0.5"
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+    @field_validator("clientId", "clientSecret")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not (value or "").strip():
+            raise ValueError("No puede estar vacio")
+        return value.strip()
+
+
+class ProbeResponse(BaseModel):
+    ok: bool
+    detail: str
+
+
 class CancelRequest(BaseModel):
     runId: str
 
@@ -134,6 +158,7 @@ def create_app(
     token: Optional[str] = None,
     persist_default: bool = True,
     postgres_dsn: Optional[str] = None,
+    env_path: Optional[str] = None,
 ) -> FastAPI:
     """
     Construye la aplicación sobre unas dependencias dadas.
@@ -144,6 +169,7 @@ def create_app(
         token: si se indica, cada petición debe traerlo en `X-Radar-Token`.
         persist_default: si los escaneos vuelcan a PostgreSQL por defecto.
         postgres_dsn: cadena de conexión para esa persistencia.
+        env_path: archivo de configuración que gestiona la vista de ajustes.
     """
     started_at = time.monotonic()
     dependencies = deps or create_default_dependencies()
@@ -274,6 +300,112 @@ def create_app(
         """
         active_runs.discard(run_id)
         cancelled_runs.discard(run_id)
+
+    # -- Configuracion -------------------------------------------------
+
+    # El modo vive en una lista de un elemento porque los closures de Python
+    # no pueden reasignar una variable del ambito exterior sin `nonlocal`, y
+    # aqui hay varios manejadores que la tocan.
+    mode_holder = ["reddit" if _is_reddit_fetcher(dependencies.fetcher) else "synthetic"]
+
+    def _credentials_summary() -> Dict[str, Any]:
+        """
+        Estado de las credenciales SIN devolver el secreto.
+
+        Un secreto que viaja al frontend acaba en el log de alguien, en una
+        captura de pantalla o en el inspector del navegador.
+        """
+        values = load_dotenv(env_path, env={})
+        client_id = (values.get("RIR_REDDIT_CLIENT_ID") or "").strip()
+        secret = (values.get("RIR_REDDIT_CLIENT_SECRET") or "").strip()
+
+        masked = ""
+        if client_id:
+            masked = (
+                client_id[:4] + "\u2026" + client_id[-2:]
+                if len(client_id) > 6
+                else "\u2026"
+            )
+
+        return {
+            "configured": bool(client_id and secret),
+            "clientIdMasked": masked,
+            "userAgent": (values.get("RIR_REDDIT_USER_AGENT") or "").strip(),
+            "hasUser": bool((values.get("RIR_REDDIT_USERNAME") or "").strip()),
+        }
+
+    @app.get("/api/config", dependencies=[Depends(require_token)])
+    def get_config() -> Dict[str, Any]:
+        """Lo que la vista de Configuracion necesita saber."""
+        return {
+            "fetcherMode": mode_holder[0],
+            "credentials": _credentials_summary(),
+            "envPath": str(env_path or _default_env_path()),
+            "syntheticPosts": synthetic_total(),
+        }
+
+    @app.post("/api/config/mode", dependencies=[Depends(require_token)])
+    def set_mode(request: ModeRequest) -> Dict[str, Any]:
+        """
+        Cambia la fuente de datos en caliente.
+
+        Los nodos leen `deps.fetcher` en cada llamada, asi que basta con
+        sustituirlo: no hace falta reconstruir el grafo ni reiniciar nada.
+        """
+        if request.mode == "synthetic":
+            from core.ingestion.synthetic import SyntheticFetcher
+
+            dependencies.fetcher = SyntheticFetcher()
+        else:
+            from .pipeline import RedditFetcher
+
+            dependencies.fetcher = RedditFetcher()
+
+        mode_holder[0] = request.mode
+        logger.info("Fuente de datos cambiada a '%s'", request.mode)
+        return {"fetcherMode": request.mode}
+
+    @app.post("/api/credentials", dependencies=[Depends(require_token)])
+    def save_credentials(request: CredentialsRequest) -> Dict[str, Any]:
+        """
+        Guarda las credenciales en el `.env`.
+
+        Se actualizan solo las claves de Reddit: el archivo suele tener mas
+        cosas (la conexion a PostgreSQL, rutas) y perderlas seria peor que
+        no poder guardar.
+        """
+        values = {
+            "RIR_REDDIT_CLIENT_ID": request.clientId,
+            "RIR_REDDIT_CLIENT_SECRET": request.clientSecret,
+            "RIR_REDDIT_USER_AGENT": request.userAgent,
+        }
+        if request.username:
+            values["RIR_REDDIT_USERNAME"] = request.username
+        if request.password:
+            values["RIR_REDDIT_PASSWORD"] = request.password
+
+        target = update_dotenv(values, env_path)
+        # Se registra que se guardo, nunca lo guardado.
+        logger.info("Credenciales de Reddit actualizadas en %s", target)
+        return {"saved": True, "envPath": str(target),
+                "credentials": _credentials_summary()}
+
+    @app.post("/api/credentials/test", response_model=ProbeResponse,
+              dependencies=[Depends(require_token)])
+    async def test_credentials() -> ProbeResponse:
+        """Intenta obtener un token real con lo que hay guardado."""
+        from core.ingestion.auth import RedditOAuth
+
+        values = load_dotenv(env_path, env={})
+        auth = RedditOAuth.from_env(env=values)
+        if auth is None:
+            return ProbeResponse(
+                ok=False,
+                detail="Faltan credenciales: guarda el Client ID y el Secret primero.",
+            )
+
+        ok, detail = await _probe_reddit(auth)
+        return ProbeResponse(ok=ok, detail=detail)
 
     # -- Cancelacion ---------------------------------------------------
 
@@ -426,6 +558,82 @@ def create_app(
 # Auxiliares
 # =====================================================================
 
+def _default_env_path() -> str:
+    """Ruta del `.env` del proyecto."""
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parents[2] / ".env")
+
+
+def _is_reddit_fetcher(fetcher: Any) -> bool:
+    return type(fetcher).__name__ == "RedditFetcher"
+
+
+def synthetic_total() -> int:
+    from core.ingestion.synthetic import total_posts
+
+    return total_posts()
+
+
+def load_dotenv(path: Optional[str], env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Lee un `.env` sin tocar el entorno del proceso."""
+    from core.ingestion.auth import load_dotenv as _load
+
+    return _load(path or _default_env_path(), env=env if env is not None else {})
+
+
+def update_dotenv(values: Dict[str, str], path: Optional[str] = None):
+    """
+    Escribe o actualiza claves en un `.env`, preservando el resto.
+
+    Se reescribe el archivo entero en lugar de anexar: anexar dejaria
+    duplicados y la ultima linea ganaria en silencio.
+    """
+    from pathlib import Path
+
+    target = Path(path or _default_env_path())
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = []
+    if target.exists():
+        lines = target.read_text(encoding="utf-8").splitlines()
+
+    pending = dict(values)
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in pending:
+                result.append(f"{key}={pending.pop(key)}")
+                continue
+        result.append(line)
+
+    for key, value in pending.items():
+        result.append(f"{key}={value}")
+
+    target.write_text("\n".join(result) + "\n", encoding="utf-8")
+    return target
+
+
+async def _probe_reddit(auth) -> tuple:
+    """
+    Comprueba las credenciales pidiendo un token real.
+
+    Se aisla en su propia funcion para poder sustituirla en las pruebas: un
+    test que salga a Reddit no es un test, es una tirada de dados.
+    """
+    from core.ingestion.auth import RedditAuthError
+
+    try:
+        token = await auth.get_token()
+        return True, f"Token obtenido correctamente ({len(token)} caracteres)."
+    except RedditAuthError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 def _sse(payload: Dict[str, Any]) -> str:
     """Serializa un evento en el formato `text/event-stream`."""
     return "data: " + json.dumps(payload, default=str) + "\n\n"
@@ -509,8 +717,16 @@ def run(
     host: str = DEFAULT_HOST,
     port: Optional[int] = None,
     token: Optional[str] = None,
+    mode: str = "reddit",
 ) -> None:
-    """Arranca el servidor con uvicorn."""
+    """
+    Arranca el servidor con uvicorn.
+
+    `mode` elige la fuente inicial. Se puede cambiar despues desde la
+    interfaz sin reiniciar, pero arrancar ya en el modo correcto evita que
+    el primer escaneo falle contra Reddit cuando lo que se queria era la
+    demostracion.
+    """
     import asyncio
 
     import uvicorn
@@ -531,7 +747,20 @@ def run(
             TOKEN_ENV_VAR,
         )
 
-    uvicorn.run(create_app(token=token), host=host, port=port, log_level="info")
+    deps = None
+    if mode == "synthetic":
+        from core.ingestion.synthetic import SyntheticFetcher
+
+        from .graph import RadarDependencies
+        from core.storage import LanceDBStore
+
+        store = LanceDBStore()
+        deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store)
+        logger.info("Arrancando en modo DEMOSTRACION (corpus sintetico)")
+
+    uvicorn.run(
+        create_app(deps=deps, token=token), host=host, port=port, log_level="info"
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -540,10 +769,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Sidecar del Reddit Intelligence Radar")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=None)
+    parser.add_argument(
+        "--mode",
+        choices=["reddit", "synthetic"],
+        default="reddit",
+        help="fuente de datos inicial ('synthetic' usa el corpus de demostracion)",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run(host=args.host, port=args.port)
+    run(host=args.host, port=args.port, mode=args.mode)
     return 0
 
 

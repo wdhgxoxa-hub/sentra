@@ -14,7 +14,12 @@ import { create } from "zustand";
 
 import type { UrgencyTier } from "@/types/radar";
 
-export type RadarView = "radar" | "opportunity" | "search" | "pipeline";
+export type RadarView =
+  | "radar"
+  | "opportunity"
+  | "search"
+  | "pipeline"
+  | "settings";
 
 interface UiState {
   view: RadarView;

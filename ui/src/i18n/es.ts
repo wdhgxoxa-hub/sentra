@@ -1,0 +1,301 @@
+/**
+ * Diccionario en español (idioma de referencia).
+ *
+ * `en.ts` debe cumplir este mismo tipo, así que añadir una clave aquí sin
+ * traducirla allí es un error de compilación, no un texto que aparece en
+ * español en medio de la interfaz inglesa.
+ */
+export const es = {
+  app: {
+    name: "Reddit Intelligence Radar",
+    tagline: "Encuentra problemas que la gente ya está pidiendo resolver",
+  },
+
+  nav: {
+    radar: "Radar en vivo",
+    search: "Búsqueda semántica",
+    pipeline: "Control del pipeline",
+    settings: "Configuración",
+    opportunity: "Oportunidad",
+  },
+
+  health: {
+    checking: "comprobando…",
+    database: "Base de datos",
+    engine: "Motor",
+    up: "activo",
+    down: "sin respuesta",
+    noBackend: "sin respuesta del backend",
+    heuristicNli: "NLI heurístico",
+    heuristicNliHint:
+      "El clasificador funciona con reglas, no con un modelo de lenguaje. Las etiquetas de intención y severidad son orientativas.",
+    sourceSynthetic: "Datos de demostración",
+    sourceReddit: "Reddit en vivo",
+  },
+
+  radar: {
+    title: "Oportunidades detectadas",
+    subtitle: "Problemas que se repiten en varias comunidades",
+    empty: "Todavía no hay ningún problema que supere el corte.",
+    emptyHint:
+      "Un dolor necesita repetirse en varias comunidades para convertirse en oportunidad. Lanza un escaneo desde Control del pipeline.",
+    loading: "Cargando…",
+    error: "No se pudo cargar el tablero.",
+    feedTitle: "Actividad reciente",
+    feedSubtitle: "Quejas sueltas, aún sin consolidar",
+    mentions: "menciones",
+    communities: "comunidades",
+    intensity: "Intensidad",
+    validate: "Validar",
+    points: "pts",
+    filterAll: "Todas",
+    filterPending: "Sin revisar",
+  },
+
+  detail: {
+    selectPrompt: "Elige una oportunidad del radar para ver su ficha.",
+    loading: "Cargando ficha…",
+    gone: "Esa oportunidad ya no está en el almacén.",
+    job: "Qué necesita la gente",
+    breakdown: "De dónde sale la puntuación",
+    evidence: "Lo que dijeron",
+    quotes: "citas",
+    solutions: "Herramientas que ya usan",
+    evolution: "Cómo ha evolucionado",
+    noEvolution:
+      "Una sola lectura por ahora. La evolución aparece cuando el mismo problema se detecta en escaneos sucesivos.",
+    validation: "Validación",
+    notes: "Notas de análisis",
+    notesPlaceholder: "Qué se construiría, para quién, y por qué ahora",
+    saveNotes: "Guardar notas",
+    decidedOn: "Decidido el",
+    noDecision: "Sin decisión registrada todavía",
+    saveError: "No se pudo guardar",
+    total: "Total",
+  },
+
+  search: {
+    title: "Búsqueda semántica",
+    subtitle:
+      "Busca por significado, no solo por palabras exactas. Compara ambas.",
+    placeholder: "no puedo exportar mis facturas",
+    searching: "Buscando…",
+    empty: "Sin resultados para esa consulta.",
+    emptyHint: "Prueba con una de las sugerencias, o lanza un escaneo primero.",
+    suggestions: "Prueba con",
+    colText: "Texto",
+    colSemantic: "Semántica",
+    colExact: "Exacta",
+    colCombined: "Combinada",
+    onlySemantic: "Solo por significado",
+    onlyExact: "Solo por palabras",
+    both: "Por ambas vías",
+    examples: {
+      billing: "Facturación rota",
+      migration: "Migración lenta",
+      support: "Soporte repetitivo",
+      pricing: "Precios confusos",
+    },
+  },
+
+  pipeline: {
+    title: "Control del pipeline",
+    subtitle: "Lanza escaneos y observa el motor trabajar",
+    running: "Escaneos en curso",
+    clearFinished: "Limpiar terminados",
+    cancel: "Cancelar",
+    watched: "Comunidades vigiladas",
+    addPlaceholder: "r/SaaS",
+    tagsPlaceholder: "vertical, prioritario",
+    tagsLabel: "Etiquetas (separadas por comas)",
+    order: "Orden",
+    subreddit: "Comunidad",
+    watch: "Vigilar",
+    saving: "Guardando…",
+    scan: "Escanear",
+    pause: "Pausar",
+    activate: "Activar",
+    lastRun: "última ejecución",
+    never: "nunca",
+    history: "Ejecuciones recientes",
+    colStatus: "Estado",
+    colRead: "Leídos",
+    colQualified: "Cualificados",
+    colErrors: "Errores",
+    cycle: "ciclo",
+    read: "leídos",
+    analysed: "analizados",
+    stored: "guardados",
+    clusters: "problemas",
+    qualified: "cualificados",
+    discard: "descartar",
+    nodes: {
+      fetch: "Descarga",
+      filter: "Filtrado",
+      intelligence: "Análisis",
+      storage: "Guardado",
+      quality_gate: "Corte",
+      aggregate: "Agrupado",
+    },
+    nodeHints: {
+      fetch: "Trae publicaciones de la comunidad elegida.",
+      filter: "Descarta el ruido: saludos, spam y publicidad encubierta.",
+      intelligence: "Lee cada queja y puntúa cuánto duele.",
+      storage: "Guarda todo para poder buscarlo después.",
+      quality_gate: "Aparta las quejas demasiado flojas.",
+      aggregate: "Junta las quejas que hablan del mismo problema.",
+    },
+  },
+
+  settings: {
+    title: "Configuración",
+    subtitle: "Credenciales, idioma y fuente de datos",
+    appearance: "Apariencia",
+    language: "Idioma",
+    theme: "Tema",
+    themeLight: "Claro",
+    themeDark: "Oscuro",
+    themeSystem: "Automático",
+    source: "Fuente de datos",
+    sourceHint:
+      "El modo demostración usa un conjunto fijo de publicaciones fabricadas. Todo lo demás —el análisis, el agrupado, la búsqueda— funciona igual.",
+    modeSynthetic: "Demostración",
+    modeSyntheticDesc: "{count} publicaciones fabricadas, siempre las mismas",
+    modeReddit: "Reddit real",
+    modeRedditDesc: "Requiere credenciales de la API de Reddit",
+    credentials: "Credenciales de Reddit",
+    credentialsHint:
+      "Se crean en reddit.com/prefs/apps eligiendo el tipo «script». Se guardan en el archivo .env del proyecto, nunca en la base de datos.",
+    clientId: "Client ID",
+    clientSecret: "Client Secret",
+    userAgent: "User Agent",
+    userAgentHint: "Reddit pide que identifique a la aplicación y a su autor.",
+    username: "Usuario (opcional)",
+    password: "Contraseña (opcional)",
+    userHint: "Si los rellenas, se usa el flujo en nombre del usuario, con más cuota.",
+    save: "Guardar credenciales",
+    saved: "Credenciales guardadas",
+    test: "Probar conexión",
+    testing: "Probando…",
+    configured: "Configuradas",
+    notConfigured: "Sin configurar",
+    storedIn: "Se guardan en",
+    secretNeverShown:
+      "El secreto no se muestra nunca una vez guardado, ni siquiera a esta ventana.",
+  },
+
+  validation: {
+    new: "Sin revisar",
+    triaged: "En estudio",
+    validated: "Validada",
+    rejected: "Descartada",
+    shipped: "Construida",
+  },
+
+  urgency: {
+    CRITICAL: "Crítica",
+    HIGH: "Alta",
+    MEDIUM: "Media",
+    LOW: "Baja",
+  },
+
+  intent: {
+    ready_to_buy: "Listo para comprar",
+    seeking_recommendation: "Busca recomendación",
+    seeking_alternative: "Busca alternativa",
+    comparing_products: "Comparando productos",
+    casual_discussion: "Conversación casual",
+    none: "Sin intención",
+  },
+
+  pain: {
+    severe_blocker: "Bloqueante grave",
+    time_consuming_friction: "Fricción costosa",
+    minor_inconvenience: "Molestia menor",
+    no_problem: "Sin problema",
+    none: "Sin clasificar",
+  },
+
+  /** Explicaciones didácticas de cada métrica. */
+  explain: {
+    jtbd: {
+      title: "Jobs-To-Be-Done",
+      body:
+        "La tarea que alguien intenta terminar y no puede. En vez de «quiere una app de facturas», dice «necesita cobrar sin copiar datos a mano». Enfocarse en la tarea evita construir una copia de lo que ya existe.",
+    },
+    spread: {
+      title: "Difusión",
+      body:
+        "En cuántas comunidades distintas aparece el problema. Diez quejas en un solo foro son un foro descontento; una queja en diez foros es un patrón de mercado.",
+    },
+    frequency: {
+      title: "Frecuencia",
+      body:
+        "Cuántas veces se repite dentro de cada comunidad. Mide si es un problema recurrente o algo que alguien dijo una vez.",
+    },
+    severity: {
+      title: "Severidad",
+      body:
+        "Cuánto duele. No es lo mismo «sería cómodo tenerlo» que «esto me bloquea el trabajo». Se deduce del lenguaje de cada mensaje.",
+    },
+    recency: {
+      title: "Recencia",
+      body:
+        "Cuán reciente es la queja más nueva. Decae exponencialmente: un problema del que nadie habla desde hace un año probablemente ya se resolvió.",
+    },
+    paidSignal: {
+      title: "Disposición a pagar",
+      body:
+        "Si alguien dijo explícitamente que pagaría, o mencionó lo que le cuesta el problema. Es la diferencia entre una molestia y un mercado.",
+    },
+    intensity: {
+      title: "Intensidad",
+      body:
+        "La suma ponderada de los cinco factores, de 0 a 100. A partir de 60 se considera una oportunidad que merece atención.",
+    },
+    rrf: {
+      title: "Fusión de resultados (RRF)",
+      body:
+        "Combina dos búsquedas: la que entiende el significado y la que busca palabras exactas. Un resultado que aparece alto en ambas sube al principio; uno que solo aparece en una, queda por debajo.",
+    },
+    semantic: {
+      title: "Búsqueda por significado",
+      body:
+        "Encuentra textos parecidos aunque no compartan ni una palabra. «Facturación rota» encuentra «no puedo exportar mis recibos». Falla con nombres propios raros.",
+    },
+    exact: {
+      title: "Búsqueda por palabras (BM25)",
+      body:
+        "Busca las palabras tal cual, dando más peso a las poco frecuentes. Es la que rescata nombres de herramientas como «pgpool» o «Stripe», donde el significado no ayuda.",
+    },
+    cluster: {
+      title: "Agrupado de problemas",
+      body:
+        "Junta las quejas que hablan de lo mismo aunque estén en foros distintos. Sin esto, cada mensaje se vería suelto y ningún patrón alcanzaría el corte.",
+    },
+    signalVsCluster: {
+      title: "Quejas y oportunidades",
+      body:
+        "Una queja suelta casi nunca justifica construir algo. Una oportunidad es un problema que se repite en varias comunidades. Por eso hay dos listas y dos umbrales distintos.",
+    },
+  },
+
+  common: {
+    close: "Cerrar",
+    retry: "Reintentar",
+    loading: "Cargando…",
+    whatIsThis: "Qué significa esto",
+  },
+};
+
+/**
+ * Forma que debe cumplir cualquier idioma.
+ *
+ * Los valores se relajan a `string` a propósito: lo que obliga el tipo es
+ * tener TODAS las claves, no repetir los textos en castellano.
+ */
+type Translated<T> = {
+  [K in keyof T]: T[K] extends string ? string : Translated<T[K]>;
+};
+
+export type Dictionary = Translated<typeof es>;

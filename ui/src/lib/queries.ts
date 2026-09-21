@@ -17,7 +17,10 @@ import {
 
 import { ipc } from "@/lib/ipc";
 import type {
+  AppSettings,
   BoardParams,
+  CredentialsInput,
+  FetcherMode,
   FeedParams,
   ScanParams,
   SearchParams,
@@ -47,6 +50,7 @@ export const queryKeys = {
   subreddits: ["radar", "subreddits"] as const,
   runs: (limit: number) => ["radar", "runs", limit] as const,
   health: ["radar", "health"] as const,
+  settings: ["radar", "settings"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
 } as const;
 
@@ -179,5 +183,46 @@ export function useUpsertSubreddit() {
 export function useCancelScan() {
   return useMutation({
     mutationFn: (runId: string) => ipc.cancelScan(runId),
+  });
+}
+
+// --- Configuracion ----------------------------------------------------
+
+export function useSettings() {
+  return useQuery<AppSettings>({
+    queryKey: queryKeys.settings,
+    queryFn: () => ipc.getSettings(),
+    // Si el motor no responde, reintentar cada pocos segundos llenaria el
+    // log de errores sin aportar nada: el indicador de salud ya lo dice.
+    retry: false,
+  });
+}
+
+export function useSetFetcherMode() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (mode: FetcherMode) => ipc.setFetcherMode(mode),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.settings }),
+  });
+}
+
+export function useSaveCredentials() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (credentials: CredentialsInput) =>
+      ipc.saveRedditCredentials(credentials),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.settings }),
+  });
+}
+
+/**
+ * Prueba la conexion con Reddit.
+ *
+ * Es una mutacion y no una consulta porque tiene efecto: pide un token real
+ * y consume cuota. No debe dispararse sola al montar la vista.
+ */
+export function useTestConnection() {
+  return useMutation({
+    mutationFn: () => ipc.testRedditConnection(),
   });
 }

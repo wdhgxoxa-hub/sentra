@@ -1,0 +1,357 @@
+import {
+  CheckCircle2,
+  Database,
+  Eye,
+  Globe,
+  KeyRound,
+  Monitor,
+  Moon,
+  Sun,
+  XCircle,
+} from "lucide-react";
+import { useState } from "react";
+
+import { Explain } from "@/components/Explain";
+import {
+  useSaveCredentials,
+  useSetFetcherMode,
+  useSettings,
+  useTestConnection,
+} from "@/lib/queries";
+import {
+  useSettingsStore,
+  useT,
+  type Language,
+  type Theme,
+} from "@/stores/settingsStore";
+import type { FetcherMode } from "@/types/radar";
+
+const LANGUAGES: Array<{ value: Language; label: string }> = [
+  { value: "es", label: "Español" },
+  { value: "en", label: "English" },
+];
+
+/**
+ * Configuración: apariencia, fuente de datos y credenciales.
+ *
+ * Existe para que no haya que abrir una terminal y editar un `.env` a mano.
+ * El secreto se envía una vez y no vuelve nunca: lo que se muestra después
+ * es solo si está configurado y un Client ID enmascarado.
+ */
+export function SettingsView() {
+  const t = useT();
+  const language = useSettingsStore((state) => state.language);
+  const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const theme = useSettingsStore((state) => state.theme);
+  const setTheme = useSettingsStore((state) => state.setTheme);
+
+  const settings = useSettings();
+  const setMode = useSetFetcherMode();
+  const saveCredentials = useSaveCredentials();
+  const testConnection = useTestConnection();
+
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [userAgent, setUserAgent] = useState(
+    "python:reddit-intelligence-radar:v0.5 (by /u/tu_usuario)",
+  );
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const themes: Array<{ value: Theme; label: string; Icon: typeof Sun }> = [
+    { value: "light", label: t.settings.themeLight, Icon: Sun },
+    { value: "dark", label: t.settings.themeDark, Icon: Moon },
+    { value: "system", label: t.settings.themeSystem, Icon: Monitor },
+  ];
+
+  const guardar = (event: React.FormEvent) => {
+    event.preventDefault();
+    saveCredentials.mutate(
+      { clientId, clientSecret, userAgent, username, password },
+      {
+        onSuccess: () => {
+          // El secreto se borra del formulario en cuanto viaja: no tiene
+          // por qué seguir en memoria ni visible en pantalla.
+          setClientSecret("");
+          setPassword("");
+        },
+      },
+    );
+  };
+
+  const campo =
+    "w-full rounded-lg border border-[--color-border] bg-[--color-surface-2] px-3 py-2 text-sm transition-colors focus:border-[--color-accent]";
+
+  return (
+    <div className="flex max-w-3xl flex-col gap-8">
+      <header>
+        <h2 className="text-base font-semibold">{t.settings.title}</h2>
+        <p className="mt-0.5 text-xs text-[--color-ink-soft]">
+          {t.settings.subtitle}
+        </p>
+      </header>
+
+      {/* --- Apariencia --- */}
+      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Eye className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          {t.settings.appearance}
+        </h3>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5 text-xs text-[--color-ink-soft]">
+              <Globe className="size-3.5" aria-hidden="true" />
+              {t.settings.language}
+            </span>
+            <select
+              value={language}
+              onChange={(event) => setLanguage(event.target.value as Language)}
+              className={campo}
+            >
+              {LANGUAGES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-[--color-ink-soft]">
+              {t.settings.theme}
+            </span>
+            <div
+              className="flex gap-1"
+              role="group"
+              aria-label={t.settings.theme}
+            >
+              {themes.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTheme(value)}
+                  aria-pressed={theme === value}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs transition-colors ${
+                    theme === value
+                      ? "border-[--color-accent] bg-[--color-accent-soft] text-[--color-accent]"
+                      : "border-[--color-border] hover:bg-[--color-surface-2]"
+                  }`}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- Fuente de datos --- */}
+      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <Database className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          {t.settings.source}
+        </h3>
+        <p className="mb-3 text-xs leading-relaxed text-[--color-ink-soft]">
+          {t.settings.sourceHint}
+        </p>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(["synthetic", "reddit"] as FetcherMode[]).map((mode) => {
+            const activo = settings.data?.fetcherMode === mode;
+            const titulo =
+              mode === "synthetic"
+                ? t.settings.modeSynthetic
+                : t.settings.modeReddit;
+            const descripcion =
+              mode === "synthetic"
+                ? t.settings.modeSyntheticDesc.replace(
+                    "{count}",
+                    String(settings.data?.syntheticPosts ?? 0),
+                  )
+                : t.settings.modeRedditDesc;
+
+            return (
+              <button
+                key={mode}
+                type="button"
+                disabled={setMode.isPending || !settings.data}
+                onClick={() => setMode.mutate(mode)}
+                aria-pressed={activo}
+                className={`rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
+                  activo
+                    ? "border-[--color-accent] bg-[--color-accent-soft]"
+                    : "border-[--color-border] hover:bg-[--color-surface-2]"
+                }`}
+              >
+                <span className="block text-sm font-medium">{titulo}</span>
+                <span className="mt-0.5 block text-xs text-[--color-ink-soft]">
+                  {descripcion}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* --- Credenciales --- */}
+      <section className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <KeyRound className="size-4 text-[--color-ink-soft]" aria-hidden="true" />
+          {t.settings.credentials}
+          {settings.data && (
+            <span
+              className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                settings.data.credentials.configured
+                  ? "bg-[--color-ok]/15 text-[--color-ok]"
+                  : "bg-[--color-surface-2] text-[--color-ink-faint]"
+              }`}
+            >
+              {settings.data.credentials.configured
+                ? `${t.settings.configured} · ${settings.data.credentials.clientIdMasked}`
+                : t.settings.notConfigured}
+            </span>
+          )}
+        </h3>
+        <p className="mb-3 text-xs leading-relaxed text-[--color-ink-soft]">
+          {t.settings.credentialsHint}
+        </p>
+
+        <form onSubmit={guardar} className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-[--color-ink-soft]">
+                {t.settings.clientId}
+              </span>
+              <input
+                value={clientId}
+                onChange={(event) => setClientId(event.target.value)}
+                autoComplete="off"
+                className={campo}
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-[--color-ink-soft]">
+                {t.settings.clientSecret}
+              </span>
+              <input
+                type="password"
+                value={clientSecret}
+                onChange={(event) => setClientSecret(event.target.value)}
+                autoComplete="off"
+                className={campo}
+              />
+            </label>
+          </div>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1 text-xs text-[--color-ink-soft]">
+              {t.settings.userAgent}
+              <Explain
+                title={t.settings.userAgent}
+                body={t.settings.userAgentHint}
+              />
+            </span>
+            <input
+              value={userAgent}
+              onChange={(event) => setUserAgent(event.target.value)}
+              className={`${campo} font-mono text-xs`}
+            />
+          </label>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-[--color-ink-soft]">
+              {t.settings.userHint}
+            </summary>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[--color-ink-soft]">
+                  {t.settings.username}
+                </span>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  autoComplete="off"
+                  className={campo}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[--color-ink-soft]">
+                  {t.settings.password}
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="off"
+                  className={campo}
+                />
+              </label>
+            </div>
+          </details>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={saveCredentials.isPending || !clientId || !clientSecret}
+              className="rounded-lg bg-[--color-accent] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[--color-accent-hover] disabled:opacity-40"
+            >
+              {saveCredentials.isPending ? t.pipeline.saving : t.settings.save}
+            </button>
+
+            <button
+              type="button"
+              disabled={
+                testConnection.isPending || !settings.data?.credentials.configured
+              }
+              onClick={() => testConnection.mutate()}
+              className="rounded-lg border border-[--color-border] px-3 py-2 text-sm transition-colors hover:bg-[--color-surface-2] disabled:opacity-40"
+            >
+              {testConnection.isPending ? t.settings.testing : t.settings.test}
+            </button>
+
+            {saveCredentials.isSuccess && !saveCredentials.isPending && (
+              <span className="inline-flex items-center gap-1 text-xs text-[--color-ok]">
+                <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                {t.settings.saved}
+              </span>
+            )}
+          </div>
+
+          {(saveCredentials.isError || testConnection.isError) && (
+            <p className="text-xs text-[--color-danger]">
+              {String(saveCredentials.error ?? testConnection.error)}
+            </p>
+          )}
+
+          {testConnection.data && (
+            <p
+              className={`flex items-start gap-1.5 rounded-lg p-2.5 text-xs ${
+                testConnection.data.ok
+                  ? "bg-[--color-ok]/10 text-[--color-ok]"
+                  : "bg-[--color-danger]/10 text-[--color-danger]"
+              }`}
+            >
+              {testConnection.data.ok ? (
+                <CheckCircle2 className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <XCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+              )}
+              {testConnection.data.detail}
+            </p>
+          )}
+
+          {settings.data && (
+            <p className="text-[11px] text-[--color-ink-faint]">
+              {t.settings.storedIn}{" "}
+              <code className="font-mono">{settings.data.envPath}</code>.{" "}
+              {t.settings.secretNeverShown}
+            </p>
+          )}
+        </form>
+      </section>
+    </div>
+  );
+}

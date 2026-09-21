@@ -1,30 +1,24 @@
 import { useEffect } from "react";
 
-import { HealthIndicator } from "@/components/HealthIndicator";
+import { Sidebar } from "@/components/Sidebar";
 import { onRadarEvent } from "@/lib/ipc";
 import { queryClient, queryKeys } from "@/lib/queries";
 import { useProgressStore } from "@/stores/progressStore";
-import { useUiStore, type RadarView } from "@/stores/uiStore";
+import { useT } from "@/stores/settingsStore";
+import { useUiStore } from "@/stores/uiStore";
 import { OpportunityDetail } from "@/views/OpportunityDetail";
 import { PipelineControl } from "@/views/PipelineControl";
 import { RadarViewPage } from "@/views/RadarView";
 import { SearchConsole } from "@/views/SearchConsole";
-
-const TABS: Array<{ id: RadarView; label: string }> = [
-  { id: "radar", label: "Radar" },
-  { id: "opportunity", label: "Oportunidad" },
-  { id: "search", label: "Búsqueda" },
-  { id: "pipeline", label: "Pipeline" },
-];
+import { SettingsView } from "@/views/SettingsView";
 
 export default function App() {
+  const t = useT();
   const view = useUiStore((state) => state.view);
-  const setView = useUiStore((state) => state.setView);
-
   const applyProgress = useProgressStore((state) => state.apply);
 
-  // Un unico suscriptor para todo el progreso: alimenta el store y, cuando
-  // el escaneo termina, invalida la cache en lugar de sondear.
+  // Un único suscriptor para todo el progreso: alimenta el store y, cuando
+  // el escaneo termina, invalida la caché en lugar de sondear.
   useEffect(() => {
     const unlisten = onRadarEvent((event) => {
       applyProgress(event);
@@ -38,39 +32,23 @@ export default function App() {
   }, [applyProgress]);
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="drag-region flex items-center gap-1 border-b border-[--color-border-subtle] px-4 py-2">
-        <h1 className="mr-4 text-sm font-semibold tracking-tight">
-          Reddit Intelligence Radar
-        </h1>
-        <nav className="flex gap-1" aria-label="Vistas principales">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setView(tab.id)}
-              aria-current={view === tab.id ? "page" : undefined}
-              className={
-                view === tab.id
-                  ? "rounded-md bg-[--color-surface-raised] px-3 py-1 text-sm font-medium"
-                  : "rounded-md px-3 py-1 text-sm text-[--color-ink-muted] hover:bg-[--color-surface-raised]"
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+    <div className="flex h-full bg-[--color-bg]">
+      <Sidebar />
 
-        <div className="ml-auto">
-          <HealthIndicator />
+      <main className="min-w-0 flex-1 overflow-auto">
+        {/* Franja superior fina: da sitio para arrastrar la ventana y sitúa
+            en qué sección se está sin repetir el título de cada vista. */}
+        <div className="drag-region sticky top-0 z-10 border-b border-[--color-border] bg-[--color-bg]/80 px-6 py-2.5 backdrop-blur">
+          <p className="text-xs text-[--color-ink-faint]">{t.app.tagline}</p>
         </div>
-      </header>
 
-      <main className="min-h-0 flex-1 overflow-auto p-4">
-        {view === "radar" && <RadarViewPage />}
-        {view === "opportunity" && <OpportunityDetail />}
-        {view === "search" && <SearchConsole />}
-        {view === "pipeline" && <PipelineControl />}
+        <div className="p-6">
+          {view === "radar" && <RadarViewPage />}
+          {view === "opportunity" && <OpportunityDetail />}
+          {view === "search" && <SearchConsole />}
+          {view === "pipeline" && <PipelineControl />}
+          {view === "settings" && <SettingsView />}
+        </div>
       </main>
     </div>
   );

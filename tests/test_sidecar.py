@@ -483,6 +483,10 @@ class TestSurface(SidecarTestCase):
                 "/api/scan/stream",
                 "/api/scan/cancel",
                 "/api/search",
+                "/api/config",
+                "/api/config/mode",
+                "/api/credentials",
+                "/api/credentials/test",
             },
         )
 

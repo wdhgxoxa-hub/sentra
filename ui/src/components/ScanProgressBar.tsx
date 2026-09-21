@@ -1,98 +1,127 @@
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+
+import { PipelineGraph } from "@/components/PipelineGraph";
+import { useT } from "@/stores/settingsStore";
 import {
   completionRatio,
   useProgressStore,
   type ScanProgress,
 } from "@/stores/progressStore";
-import { NODE_LABELS, PIPELINE_NODES } from "@/types/radar";
 
 /**
- * Avance de un escaneo, nodo a nodo.
+ * Avance de un escaneo.
  *
- * Se muestra qué fase va y con qué números, no solo un porcentaje: cuando
- * un escaneo tarda, lo que tranquiliza es ver que descargó 25 posts y está
- * analizando, no una barra al 40 % sin más.
+ * Muestra la fase y los contadores, no solo un porcentaje: cuando algo
+ * tarda, lo que tranquiliza es ver «descargados 25, analizando», no una
+ * barra al 40 % sin contexto.
  */
-export function ScanProgressBar({ progress }: { progress: ScanProgress }) {
+export function ScanProgressBar({
+  progress,
+  onCancel,
+}: {
+  progress: ScanProgress;
+  onCancel?: () => void;
+}) {
+  const t = useT();
   const clear = useProgressStore((state) => state.clear);
   const ratio = completionRatio(progress);
   const stats = progress.stats;
 
-  const barColor =
-    progress.status === "error"
-      ? "bg-[--color-urgency-critical]"
-      : progress.status === "finished"
-        ? "bg-[--color-urgency-low]"
-        : "bg-[--color-urgency-high]";
+  const running = progress.status === "running";
+  const failed = progress.status === "error";
+
+  const barColor = failed
+    ? "bg-[--color-danger]"
+    : running
+      ? "bg-[--color-accent]"
+      : "bg-[--color-ok]";
+
+  const StatusIcon = failed ? AlertCircle : running ? Loader2 : CheckCircle2;
 
   return (
-    <div className="rounded-md border border-[--color-border-subtle] p-3">
+    <div className="enter rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-3 shadow-[--shadow-card]">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">r/{progress.subreddit}</span>
-        <div className="flex items-center gap-2 text-xs text-[--color-ink-muted]">
-          <span>ciclo {progress.cycle}</span>
-          {progress.status !== "running" && (
+        <span className="flex min-w-0 items-center gap-2">
+          <StatusIcon
+            className={`size-4 shrink-0 ${
+              failed
+                ? "text-[--color-danger]"
+                : running
+                  ? "animate-spin text-[--color-accent]"
+                  : "text-[--color-ok]"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="truncate font-mono text-sm">r/{progress.subreddit}</span>
+          <span className="shrink-0 rounded bg-[--color-surface-2] px-1.5 py-0.5 text-[11px] text-[--color-ink-soft]">
+            {t.pipeline.cycle} {progress.cycle}
+          </span>
+        </span>
+
+        <div className="flex shrink-0 items-center gap-1">
+          {running && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-md px-2 py-0.5 text-xs text-[--color-ink-soft] transition-colors hover:bg-[--color-surface-2] hover:text-[--color-danger]"
+            >
+              {t.pipeline.cancel}
+            </button>
+          )}
+          {!running && (
             <button
               type="button"
               onClick={() => clear(progress.runId)}
-              className="rounded px-1.5 py-0.5 hover:bg-[--color-surface-raised]"
+              aria-label={t.pipeline.discard}
+              className="rounded-md p-1 text-[--color-ink-faint] transition-colors hover:bg-[--color-surface-2] hover:text-[--color-ink]"
             >
-              descartar
+              <X className="size-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
       <div
-        className="mt-2 h-2 overflow-hidden rounded-full bg-[--color-border-subtle]"
+        className={`mt-2.5 h-1.5 overflow-hidden rounded-full bg-[--color-surface-2] ${
+          running && ratio === 0 ? "sweeping" : ""
+        }`}
         role="progressbar"
         aria-valuenow={Math.round(ratio * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`Progreso del escaneo de r/${progress.subreddit}`}
+        aria-label={`${t.pipeline.running}: r/${progress.subreddit}`}
       >
         <div
-          className={`h-2 rounded-full transition-[width] duration-300 ${barColor}`}
+          className={`h-full rounded-full transition-[width] duration-500 ease-out ${barColor}`}
           style={{ width: `${Math.round(ratio * 100)}%` }}
         />
       </div>
 
-      <ol className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-        {PIPELINE_NODES.map((node) => {
-          const done = progress.completed.includes(node);
-          const active = progress.currentNode === node;
-          return (
-            <li
-              key={node}
-              className={
-                active
-                  ? "font-semibold"
-                  : done
-                    ? "text-[--color-ink-muted]"
-                    : "text-[--color-ink-muted] opacity-50"
-              }
-            >
-              <span aria-hidden="true">{done ? "✓" : active ? "•" : "·"}</span>{" "}
-              {NODE_LABELS[node]}
-            </li>
-          );
-        })}
-      </ol>
+      <div className="mt-2.5">
+        <PipelineGraph
+          completed={progress.completed}
+          current={progress.currentNode}
+          compact
+        />
+      </div>
 
-      <p className="mt-2 font-mono text-xs tabular-nums text-[--color-ink-muted]">
-        leídos {stats.fetched ?? 0} · analizados {stats.analyzed ?? 0} · guardados{" "}
-        {stats.stored ?? 0} · clusters {stats.clusters ?? 0}
+      <p className="mt-2 font-mono text-[11px] tabular-nums text-[--color-ink-soft]">
+        {t.pipeline.read} {stats.fetched ?? 0} · {t.pipeline.analysed}{" "}
+        {stats.analyzed ?? 0} · {t.pipeline.stored}{" "}
+        {stats.stored ?? 0} · {t.pipeline.clusters} {stats.clusters ?? 0}
         {progress.status === "finished" && progress.clusters !== null && (
-          <> · cualificados {progress.clusters}</>
+          <>
+            {" "}
+            · {t.pipeline.qualified} {progress.clusters}
+          </>
         )}
       </p>
 
       {progress.message && (
         <p
-          className={
-            progress.status === "error"
-              ? "mt-1 text-xs text-[--color-urgency-critical]"
-              : "mt-1 text-xs text-[--color-urgency-medium]"
-          }
+          className={`mt-1.5 text-xs ${
+            failed ? "text-[--color-danger]" : "text-[--color-warn]"
+          }`}
         >
           {progress.message}
         </p>

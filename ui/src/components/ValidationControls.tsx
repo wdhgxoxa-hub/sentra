@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 
 import { useUpdateOpportunityStatus } from "@/lib/queries";
+import { useT } from "@/stores/settingsStore";
 import {
   VALIDATION_FLOW,
-  VALIDATION_LABELS,
   type OpportunityCluster,
+  type ValidationStatus,
 } from "@/types/radar";
 
 /**
- * Controles de validación humana de una oportunidad.
+ * Controles de validación de una oportunidad.
  *
  * Las notas se editan en local y se guardan al pulsar, no en cada tecla: un
- * análisis comercial se escribe en párrafos, y persistir cada pulsación
- * llenaría la tabla de versiones a medio redactar.
+ * análisis se escribe en párrafos, y persistir cada pulsación llenaría la
+ * tabla de versiones a medio redactar.
  */
 export function ValidationControls({ cluster }: { cluster: OpportunityCluster }) {
+  const t = useT();
   const mutation = useUpdateOpportunityStatus();
   const [notes, setNotes] = useState(cluster.validationNotes ?? "");
 
@@ -23,7 +25,7 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
     setNotes(cluster.validationNotes ?? "");
   }, [cluster.clusterKey, cluster.validationNotes]);
 
-  const guardar = (status: (typeof VALIDATION_FLOW)[number]) =>
+  const guardar = (status: ValidationStatus) =>
     mutation.mutate({
       clusterKey: cluster.clusterKey,
       status,
@@ -33,15 +35,18 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
   const sucio = notes.trim() !== (cluster.validationNotes ?? "").trim();
 
   return (
-    <section aria-labelledby="validacion" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="validacion"
+      className="flex flex-col gap-3 rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-4"
+    >
       <h3 id="validacion" className="text-sm font-semibold">
-        Validación
+        {t.detail.validation}
       </h3>
 
       <div
-        className="flex flex-wrap gap-1"
+        className="flex flex-wrap gap-1.5"
         role="group"
-        aria-label="Estado de validación"
+        aria-label={t.detail.validation}
       >
         {VALIDATION_FLOW.map((status) => {
           const activo = cluster.validationStatus === status;
@@ -52,28 +57,26 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
               aria-pressed={activo}
               disabled={mutation.isPending}
               onClick={() => guardar(status)}
-              className={
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                 activo
-                  ? "rounded-md bg-[--color-ink] px-3 py-1 text-sm text-[--color-surface]"
-                  : "rounded-md border border-[--color-border-subtle] px-3 py-1 text-sm hover:bg-[--color-surface-raised] disabled:opacity-50"
-              }
+                  ? "bg-[--color-accent] text-white"
+                  : "border border-[--color-border] text-[--color-ink-soft] hover:bg-[--color-surface-2] hover:text-[--color-ink]"
+              }`}
             >
-              {VALIDATION_LABELS[status]}
+              {t.validation[status]}
             </button>
           );
         })}
       </div>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-xs text-[--color-ink-muted]">
-          Notas de análisis
-        </span>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs text-[--color-ink-soft]">{t.detail.notes}</span>
         <textarea
           value={notes}
           rows={3}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder="Qué se construiría, para quién, y por qué ahora"
-          className="rounded-md border border-[--color-border-subtle] bg-[--color-surface-raised] px-3 py-2 text-sm"
+          placeholder={t.detail.notesPlaceholder}
+          className="rounded-lg border border-[--color-border] bg-[--color-surface-2] px-3 py-2 text-sm transition-colors focus:border-[--color-accent]"
         />
       </label>
 
@@ -82,23 +85,23 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
           type="button"
           disabled={mutation.isPending}
           onClick={() => guardar(cluster.validationStatus)}
-          className="self-start rounded-md border border-[--color-border-subtle] px-3 py-1 text-sm hover:bg-[--color-surface-raised] disabled:opacity-50"
+          className="self-start rounded-lg border border-[--color-border] px-3 py-1.5 text-xs transition-colors hover:bg-[--color-surface-2] disabled:opacity-50"
         >
-          Guardar notas
+          {t.detail.saveNotes}
         </button>
       )}
 
-      <p className="text-xs text-[--color-ink-muted]">
-        {mutation.isError && (
-          <span className="text-[--color-urgency-critical]">
-            No se pudo guardar: {String(mutation.error)}
+      <p className="text-[11px] text-[--color-ink-faint]">
+        {mutation.isError ? (
+          <span className="text-[--color-danger]">
+            {t.detail.saveError}: {String(mutation.error)}
           </span>
-        )}
-        {!mutation.isError && cluster.validatedAt && (
-          <>Decidido el {cluster.validatedAt.slice(0, 16)}</>
-        )}
-        {!mutation.isError && !cluster.validatedAt && (
-          <>Sin decisión registrada todavía</>
+        ) : cluster.validatedAt ? (
+          <>
+            {t.detail.decidedOn} {cluster.validatedAt.slice(0, 16)}
+          </>
+        ) : (
+          t.detail.noDecision
         )}
       </p>
     </section>
