@@ -258,11 +258,29 @@ solo produce fallos en tiempo de ejecucion.
 
 # Deuda abierta tras D14 y D16
 
-## D17: Tres comandos de escritura siguen sin implementar
-update_opportunity_status, upsert_subreddit y cancel_scan. Estan en la
-especificacion de la Fase 6 pero no en ipc.ts ni en Rust. Sin ellos, el ciclo
-de validacion humana (new -> triaged -> validated) no se puede operar desde la
-interfaz, aunque el esquema lo soporte.
+## D17: CERRADA (2026-09-21) - comandos de escritura
+Migracion `003_human_validation.sql` + `ui/src-tauri/src/commands/mutations.rs`:
+  update_opportunity_status(cluster_key, status, notes, assigned_to)
+  upsert_subreddit(params)   con etiquetas y pausa/activacion
+  cancel_scan(run_id)
+
+Decision central: la validacion va por `cluster_key`, en su propia tabla
+`cluster_validations`, NO por fila de `opportunity_clusters`. Esa tabla guarda
+una lectura por ejecucion (migracion 002), asi que validar una fila seria
+validar una foto. Lo que un analista valida es el PROBLEMA, que sobrevive a
+cada escaneo. Verificado: una sola decision se aplica a las 4 lecturas del
+mismo problema, incluida la de 60 puntos y 1 mencion.
+
+Los estados son los del ENUM existente (new, triaged, validated, rejected,
+shipped), equivalentes a los citados en el encargo (unreviewed, investigating,
+built). Renombrarlos exigiria migrar datos y tocar el indice parcial sin ganar
+nada; si se quieren los otros nombres, es una migracion aparte.
+
+UI: `ValidationControls` en la ficha y `SubredditForm` mas pausar/activar y
+cancelar en el Centro de Control, con invalidacion de cache en TanStack Query.
+
+Verificado con 9 pruebas de integracion en Rust contra una base desechable
+levantada con las migraciones reales.
 
 ## D18: CERRADA (2026-09-21) - ciclo de vida del sidecar
 `ui/src-tauri/src/sidecar.rs`: al abrir, comprueba si el sidecar ya responde
@@ -312,13 +330,34 @@ Lo introduje yo en la Fase 4 al cambiar `table_names()` por `list_tables()`
 para silenciar un DeprecationWarning: silenciar un aviso sin comprobar que
 el sustituto devuelve lo mismo.
 
-## D22: El escaneo no se puede cancelar
-`cancel_scan` sigue sin existir. Una vez lanzado, un escaneo corre hasta el
-final: `trigger_scan` mantiene abierta la conexion SSE y no hay forma de
-interrumpirla desde la interfaz.
+## D22: CERRADA (2026-09-21) - cancelacion de escaneos
+`POST /api/scan/cancel` en el sidecar, cooperativa: el grafo se corta ENTRE
+nodos, nunca a mitad de uno, porque abortar un nodo a media escritura dejaria
+el almacen inconsistente. Lo cosechado hasta el corte se conserva, marcado
+como `cancelled`.
+El cliente puede fijar el `runId` al lanzar el escaneo; sin eso no hay forma
+de cancelar algo que aun no ha empezado a responder.
+`cancel_scan` en Rust avisa al sidecar y marca la ejecucion en PostgreSQL, y
+ninguna de las dos cosas depende de que la otra funcione.
+Verificado: run:started -> run:cancelled, 0 de 6 nodos ejecutados.
 
 ## D23: El progreso no distingue ciclos en la barra
 Con el grafo ciclico, los nodos se repiten en cada vuelta. La barra no
 retrocede (los nodos ya vistos no se recuentan), pero tampoco refleja que
 queda otra vuelta: al final del ciclo 1 marca 100 % aunque vaya a haber un
 ciclo 2. El numero de ciclo si se muestra aparte.
+
+## D24: El estado de validacion no filtra el tablero
+`cluster_validations` ya alimenta `v_opportunity_board`, pero el Radar View no
+ofrece filtrar por estado. Con muchas oportunidades, lo ya descartado seguira
+ocupando sitio junto a lo que nadie ha mirado.
+
+## D25: No hay forma de deshacer una validacion
+Se puede cambiar el estado, pero no borrar la fila de `cluster_validations`:
+una oportunidad marcada por error se queda con historial de decision aunque
+vuelva a 'new'. Falta un `clear_validation` o equivalente.
+
+## D26: Los tests de Rust comparten una base de datos
+`rir_mutations_test` se crea una vez y los tests usan claves distintas para no
+pisarse. Funciona, pero es un acuerdo tacito: un test nuevo que reutilice una
+clave existente fallara de forma confusa.

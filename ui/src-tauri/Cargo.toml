@@ -52,4 +52,4 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
 # El test de ciclo de vida del sidecar necesita un runtime async completo.
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }

@@ -182,6 +182,12 @@ export interface OpportunityCluster {
   runId: string | null;
   runStartedAt: string | null;
   createdAt: string;
+
+  /** Estado del juicio humano. 'new' si nadie lo ha mirado todavía. */
+  validationStatus: ValidationStatus;
+  validationNotes: string | null;
+  validationAssignee: string | null;
+  validatedAt: string | null;
 }
 
 /** Una lectura histórica de un cluster, para la curva de evolución. */
@@ -286,14 +292,6 @@ export interface ScanParams {
   subreddit: string;
   limit?: number;
   sort?: ListingSort;
-}
-
-export interface UpsertSubredditParams {
-  name: string;
-  listing: ListingSort;
-  limitPerPage: number;
-  minOpportunityScore: number;
-  scanIntervalMinutes: number;
 }
 
 // ---------------------------------------------------------------------
@@ -408,6 +406,65 @@ export interface AppHealth {
     uptimeSeconds: number;
   } | null;
 }
+
+// ---------------------------------------------------------------------
+// Escrituras
+// ---------------------------------------------------------------------
+
+/**
+ * Juicio humano sobre un problema recurrente.
+ *
+ * Va por `clusterKey` y no por el id de una lectura: `opportunity_clusters`
+ * guarda una fila por ejecución, y validar una fila sería validar una foto.
+ */
+export interface ClusterValidation {
+  clusterKey: string;
+  status: ValidationStatus;
+  notes: string | null;
+  assignedTo: string | null;
+  validatedAt: string | null;
+  /** Puntuación que tenía el problema cuando se tomó la decisión. */
+  scoreAtDecision: number | null;
+  updatedAt: string;
+}
+
+export interface UpsertSubredditParams {
+  name: string;
+  listing?: ListingSort;
+  limitPerPage?: number;
+  minOpportunityScore?: number;
+  scanIntervalMinutes?: number;
+  status?: SubredditStatus;
+  tags?: string[];
+}
+
+export interface SubredditRow {
+  subredditId: string;
+  name: string;
+  listing: ListingSort;
+  status: SubredditStatus;
+  limitPerPage: number;
+  minOpportunityScore: number;
+  scanIntervalMinutes: number;
+  tags: string[];
+}
+
+export interface CancelResult {
+  runId: string;
+  /** El sidecar tenía ese escaneo en marcha. */
+  wasActive: boolean;
+  /** Se marcó la ejecución como cancelada en PostgreSQL. */
+  markedInDatabase: boolean;
+}
+
+/** Transiciones ofrecidas en la ficha, en el orden natural del flujo. */
+export const VALIDATION_FLOW: ValidationStatus[] = [
+  "new",
+  "triaged",
+  "validated",
+  "rejected",
+  "shipped",
+];
 
 // ---------------------------------------------------------------------
 // Ayudas de presentación

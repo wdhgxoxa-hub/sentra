@@ -10,9 +10,8 @@
  *   [pg]      Rust contra PostgreSQL.
  *   [sidecar] Rust reenvia al proceso Python por HTTP local.
  *
- * Pendientes de implementar en Rust (deuda D17), por eso NO se declaran
- * aqui: update_opportunity_status, upsert_subreddit y cancel_scan.
- * Declararlos sin backend solo produciria fallos en tiempo de ejecucion.
+ * Todos los declarados aqui existen en Rust: declarar un comando sin
+ * backend solo produce fallos en tiempo de ejecucion.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -32,6 +31,11 @@ import {
   type ScanParams,
   type SearchParams,
   type SubredditHealth,
+  type SubredditRow,
+  type ClusterValidation,
+  type CancelResult,
+  type UpsertSubredditParams,
+  type ValidationStatus,
 } from "@/types/radar";
 
 export const ipc = {
@@ -70,6 +74,27 @@ export const ipc = {
    */
   triggerScan: (params: ScanParams) =>
     invoke<RadarEvent>("trigger_scan", { params }),
+
+  /** [pg] Registra el juicio humano sobre un problema recurrente. */
+  updateOpportunityStatus: (
+    clusterKey: string,
+    status: ValidationStatus,
+    notes?: string | null,
+    assignedTo?: string | null,
+  ) =>
+    invoke<ClusterValidation>("update_opportunity_status", {
+      clusterKey,
+      status,
+      notes: notes ?? null,
+      assignedTo: assignedTo ?? null,
+    }),
+
+  /** [pg] Alta o edicion de un subreddit vigilado. */
+  upsertSubreddit: (params: UpsertSubredditParams) =>
+    invoke<SubredditRow>("upsert_subreddit", { params }),
+
+  /** [sidecar + pg] Interrumpe un escaneo en curso. */
+  cancelScan: (runId: string) => invoke<CancelResult>("cancel_scan", { runId }),
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),

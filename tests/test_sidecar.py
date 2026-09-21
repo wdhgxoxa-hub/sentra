@@ -314,6 +314,82 @@ class TestScanStream(SidecarTestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class TestCancellation(SidecarTestCase):
+    """
+    Cancelacion cooperativa: el grafo se interrumpe ENTRE nodos, no a mitad
+    de uno. Matar un nodo a media escritura dejaria el almacen inconsistente,
+    y un escaneo cancelado debe poder conservar lo ya cosechado.
+    """
+
+    def test_cancelling_an_unknown_run_reports_it_was_not_active(self):
+        body = self.client.post(
+            "/api/scan/cancel", json={"runId": "no-existe"}
+        ).json()
+        self.assertFalse(body["wasActive"])
+
+    def test_a_scan_can_be_cancelled_before_it_starts(self):
+        """
+        Se pre-registra la cancelacion y luego se lanza el escaneo con ese
+        mismo id: el flujo debe cortarse en la primera comprobacion.
+        """
+        run_id = "run-de-prueba"
+        self.client.post("/api/scan/cancel", json={"runId": run_id})
+
+        with self.client.stream(
+            "POST", "/api/scan/stream",
+            json={"subreddit": "smallbusiness", "runId": run_id},
+        ) as response:
+            eventos = _parse_sse("".join(response.iter_text()))
+
+        tipos = [e["type"] for e in eventos]
+        self.assertIn("run:cancelled", tipos)
+        self.assertNotIn("run:finished", tipos)
+
+    def test_a_cancelled_scan_does_not_run_every_node(self):
+        run_id = "run-cortado"
+        self.client.post("/api/scan/cancel", json={"runId": run_id})
+
+        with self.client.stream(
+            "POST", "/api/scan/stream",
+            json={"subreddit": "smallbusiness", "runId": run_id},
+        ) as response:
+            eventos = _parse_sse("".join(response.iter_text()))
+
+        nodos = [e["node"] for e in eventos if e["type"] == "run:progress"]
+        self.assertLess(len(nodos), 6, "no deberia completar el grafo entero")
+
+    def test_the_client_can_propose_the_run_id(self):
+        """Sin poder fijar el id, no hay forma de cancelar lo que aun no existe."""
+        with self.client.stream(
+            "POST", "/api/scan/stream",
+            json={"subreddit": "smallbusiness", "runId": "id-elegido"},
+        ) as response:
+            eventos = _parse_sse("".join(response.iter_text()))
+        self.assertEqual(eventos[0]["runId"], "id-elegido")
+
+    def test_cancellation_is_forgotten_after_the_run_ends(self):
+        """Si no se olvidara, el siguiente escaneo con ese id naceria muerto."""
+        run_id = "run-reutilizado"
+        self.client.post("/api/scan/cancel", json={"runId": run_id})
+        with self.client.stream(
+            "POST", "/api/scan/stream",
+            json={"subreddit": "smallbusiness", "runId": run_id},
+        ) as response:
+            response.read()
+
+        with self.client.stream(
+            "POST", "/api/scan/stream",
+            json={"subreddit": "smallbusiness", "runId": run_id},
+        ) as response:
+            eventos = _parse_sse("".join(response.iter_text()))
+        self.assertEqual(eventos[-1]["type"], "run:finished")
+
+    def test_cancel_is_protected_by_the_token(self):
+        app = create_app(deps=self.deps, token="secreto", persist_default=False)
+        response = TestClient(app).post("/api/scan/cancel", json={"runId": "x"})
+        self.assertEqual(response.status_code, 401)
+
+
 class TestSearch(SidecarTestCase):
 
     def _index(self):
@@ -401,7 +477,13 @@ class TestSurface(SidecarTestCase):
         }
         self.assertEqual(
             paths,
-            {"/api/health", "/api/scan", "/api/scan/stream", "/api/search"},
+            {
+                "/api/health",
+                "/api/scan",
+                "/api/scan/stream",
+                "/api/scan/cancel",
+                "/api/search",
+            },
         )
 
 

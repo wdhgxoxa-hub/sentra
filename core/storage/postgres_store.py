@@ -717,6 +717,7 @@ class PostgresStore:
         trigger_source: str = "graph",
         classifier_engine: str = "heuristic",
         embedding_model: Optional[str] = None,
+        status: str = "completed",
     ) -> Dict[str, Any]:
         """
         Vuelca el estado final del grafo en una única transacción.
@@ -792,6 +793,7 @@ class PostgresStore:
             run_id,
             stats=state.get("stats") or {},
             errors=state.get("errors") or [],
+            status=status,
             cycles=int(state.get("cycle", 0)),
             last_cursor=state.get("cursor"),
         )

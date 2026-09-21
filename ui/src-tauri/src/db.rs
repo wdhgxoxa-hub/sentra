@@ -30,6 +30,12 @@ pub enum RadarError {
 
     #[error("{0}")]
     Sidecar(String),
+
+    /// Datos que el usuario puede corregir: un estado desconocido, un
+    /// nombre vacio. Se distingue de los fallos de infraestructura porque
+    /// la interfaz debe tratarlos de otra manera.
+    #[error("{0}")]
+    Invalid(String),
 }
 
 /// Tauri necesita serializar el error para devolverlo al WebView.

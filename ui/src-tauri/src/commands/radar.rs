@@ -140,6 +140,10 @@ struct OpportunityClusterRow {
     run_id: Option<String>,
     run_started_at: Option<String>,
     created_at: String,
+    validation_status: String,
+    validation_notes: Option<String>,
+    validation_assignee: Option<String>,
+    validated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -178,6 +182,11 @@ pub struct OpportunityCluster {
     pub run_id: Option<String>,
     pub run_started_at: Option<String>,
     pub created_at: String,
+    /// Juicio humano sobre el problema. 'new' si nadie lo ha mirado.
+    pub validation_status: String,
+    pub validation_notes: Option<String>,
+    pub validation_assignee: Option<String>,
+    pub validated_at: Option<String>,
 }
 
 impl From<OpportunityClusterRow> for OpportunityCluster {
@@ -212,6 +221,10 @@ impl From<OpportunityClusterRow> for OpportunityCluster {
             run_id: row.run_id,
             run_started_at: row.run_started_at,
             created_at: row.created_at,
+            validation_status: row.validation_status,
+            validation_notes: row.validation_notes,
+            validation_assignee: row.validation_assignee,
+            validated_at: row.validated_at,
         }
     }
 }
@@ -245,7 +258,11 @@ const BOARD_COLUMNS: &str = r#"
     representative_content,
     run_id::text               AS run_id,
     run_started_at::text       AS run_started_at,
-    created_at::text           AS created_at
+    created_at::text           AS created_at,
+    validation_status::text    AS validation_status,
+    validation_notes,
+    validation_assignee,
+    validated_at::text         AS validated_at
 "#;
 
 /// Tablero de problemas recurrentes consolidados (migracion 002).

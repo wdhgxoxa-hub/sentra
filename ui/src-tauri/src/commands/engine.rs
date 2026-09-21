@@ -38,6 +38,13 @@ pub fn sidecar_url() -> String {
 }
 
 /// Aplica el token al request si esta configurado.
+///
+/// Se reexporta para que los comandos de mutacion hablen con el sidecar sin
+/// duplicar la logica del encabezado.
+pub fn with_token_pub(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    with_token(builder)
+}
+
 fn with_token(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
     match std::env::var(TOKEN_ENV_VAR) {
         Ok(token) if !token.is_empty() => builder.header(TOKEN_HEADER, token),

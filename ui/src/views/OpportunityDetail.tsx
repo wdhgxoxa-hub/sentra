@@ -1,5 +1,7 @@
 import { ScoreBreakdownBars } from "@/components/ScoreBreakdownBars";
+import { ValidationControls } from "@/components/ValidationControls";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
+import { VALIDATION_LABELS } from "@/types/radar";
 import { useClusterHistory, useOpportunityDetail } from "@/lib/queries";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -37,7 +39,12 @@ export function OpportunityDetail() {
       <header className="flex items-center gap-3">
         <h2 className="text-lg font-semibold">{cluster.label}</h2>
         <UrgencyBadge tier={cluster.urgencyTier} />
+        <span className="rounded-full border border-[--color-border-subtle] px-2 py-0.5 text-xs">
+          {VALIDATION_LABELS[cluster.validationStatus]}
+        </span>
       </header>
+
+      <ValidationControls cluster={cluster} />
 
       <section>
         <h3 className="mb-1 text-sm font-semibold">Jobs-To-Be-Done</h3>

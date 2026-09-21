@@ -66,6 +66,9 @@ class ScanRequest(BaseModel):
     limit: int = Field(default=25, ge=1, le=100)
     sort: str = Field(default="hot")
     persist: Optional[bool] = None
+    # Quien invoca puede fijar el identificador. Sin eso no hay forma de
+    # cancelar un escaneo que todavia no ha empezado a responder.
+    runId: Optional[str] = None
 
     @field_validator("subreddit")
     @classmethod
@@ -89,6 +92,17 @@ class SearchRequest(BaseModel):
         if not (value or "").strip():
             raise ValueError("La consulta no puede estar vacia")
         return value
+
+
+class CancelRequest(BaseModel):
+    runId: str
+
+
+class CancelResponse(BaseModel):
+    runId: str
+    # False si no habia ningun escaneo con ese id en marcha. No es un error:
+    # puede ser una cancelacion anticipada, o llegar tarde.
+    wasActive: bool
 
 
 class ScanResponse(BaseModel):
@@ -142,6 +156,12 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
     )
+
+    # Escaneos en marcha y cancelaciones pendientes. Un dict basta: FastAPI
+    # atiende sobre un unico bucle de eventos, sin concurrencia real entre
+    # estas lecturas y escrituras.
+    active_runs: set = set()
+    cancelled_runs: set = set()
 
     def require_token(
         x_radar_token: Optional[str] = Header(default=None, alias=TOKEN_HEADER),
@@ -245,6 +265,39 @@ def create_app(
         )
 
 
+    def _forget(run_id: str) -> None:
+        """
+        Olvida un escaneo terminado.
+
+        Sin esto, reutilizar un identificador cancelado haria que el
+        siguiente escaneo con ese id naciera muerto.
+        """
+        active_runs.discard(run_id)
+        cancelled_runs.discard(run_id)
+
+    # -- Cancelacion ---------------------------------------------------
+
+    @app.post("/api/scan/cancel", response_model=CancelResponse,
+              dependencies=[Depends(require_token)])
+    def cancel(request: CancelRequest) -> CancelResponse:
+        """
+        Solicita la interrupcion de un escaneo.
+
+        Es cooperativa: el grafo se corta ENTRE nodos, nunca a mitad de uno.
+        Abortar un nodo a media escritura dejaria el almacen inconsistente,
+        y lo cosechado hasta ese punto es valido y merece conservarse.
+
+        Se admite cancelar un id que aun no ha arrancado: quien lanza el
+        escaneo puede fijar el suyo, y entre la peticion y el primer nodo
+        hay tiempo de sobra para arrepentirse.
+        """
+        was_active = request.runId in active_runs
+        cancelled_runs.add(request.runId)
+        logger.info(
+            "Cancelacion solicitada para %s (activo=%s)", request.runId, was_active
+        )
+        return CancelResponse(runId=request.runId, wasActive=was_active)
+
     # -- Escaneo con progreso en vivo -----------------------------------
 
     @app.post("/api/scan/stream", dependencies=[Depends(require_token)])
@@ -260,10 +313,11 @@ def create_app(
         ejecución en PostgreSQL, que solo existe tras persistir, viaja
         aparte en el evento final.
         """
-        run_id = str(uuid.uuid4())
+        run_id = request.runId or str(uuid.uuid4())
         should_persist = persist_default if request.persist is None else request.persist
 
         async def emitir():
+            active_runs.add(run_id)
             yield _sse({
                 "type": "run:started",
                 "runId": run_id,
@@ -271,25 +325,34 @@ def create_app(
             })
 
             final_state: Dict[str, Any] = {}
+            cancelled = run_id in cancelled_runs
             try:
-                async for kind, payload in pipeline.astream_state(
-                    subreddit=request.subreddit,
-                    limit=request.limit,
-                    sort=request.sort,
-                ):
-                    if kind == "node":
-                        state = payload["state"]
-                        yield _sse({
-                            "type": "run:progress",
-                            "runId": run_id,
-                            "node": payload["node"],
-                            "cycle": int(state.get("cycle", 0)) or 1,
-                            "stats": dict(state.get("stats") or {}),
-                        })
-                    else:
-                        final_state = payload or {}
+                if not cancelled:
+                    async for kind, payload in pipeline.astream_state(
+                        subreddit=request.subreddit,
+                        limit=request.limit,
+                        sort=request.sort,
+                    ):
+                        if kind == "node":
+                            state = payload["state"]
+                            final_state = state
+                            yield _sse({
+                                "type": "run:progress",
+                                "runId": run_id,
+                                "node": payload["node"],
+                                "cycle": int(state.get("cycle", 0)) or 1,
+                                "stats": dict(state.get("stats") or {}),
+                            })
+                            # Se comprueba ENTRE nodos: cortar a mitad de uno
+                            # dejaria el almacen a medio escribir.
+                            if run_id in cancelled_runs:
+                                cancelled = True
+                                break
+                        else:
+                            final_state = payload or {}
             except Exception as exc:
                 logger.exception("Fallo ejecutando el pipeline en streaming")
+                _forget(run_id)
                 yield _sse({
                     "type": "run:error",
                     "runId": run_id,
@@ -299,14 +362,20 @@ def create_app(
 
             persisted_run_id = None
             persist_error = None
-            if should_persist:
+            if should_persist and final_state:
+                # Un escaneo cancelado conserva lo cosechado, marcado como
+                # tal: media cosecha sigue siendo informacion.
                 persisted_run_id, _, persist_error = await _persist(
-                    final_state, dependencies, postgres_dsn
+                    final_state,
+                    dependencies,
+                    postgres_dsn,
+                    status="cancelled" if cancelled else "completed",
                 )
 
             result = pipeline.summarize(final_state)
+            _forget(run_id)
             yield _sse({
-                "type": "run:finished",
+                "type": "run:cancelled" if cancelled else "run:finished",
                 "runId": run_id,
                 "persistedRunId": persisted_run_id,
                 "persistError": persist_error,
@@ -391,6 +460,7 @@ async def _persist(
     state: Dict[str, Any],
     deps: RadarDependencies,
     postgres_dsn: Optional[str],
+    status: str = "completed",
 ) -> tuple[Optional[str], bool, Optional[str]]:
     """
     Vuelca el estado final en PostgreSQL.
@@ -422,6 +492,7 @@ async def _persist(
                         state,
                         trigger_source="sidecar",
                         embedding_model=getattr(embedder, "name", None),
+                        status=status,
                     )
 
             summary = run_async(_inner())

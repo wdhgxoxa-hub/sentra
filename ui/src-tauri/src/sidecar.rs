@@ -176,6 +176,12 @@ impl SidecarManager {
     }
 }
 
+/// Raiz del proyecto, para los tests de otros modulos.
+#[cfg(test)]
+pub fn project_root_for_tests() -> Option<std::path::PathBuf> {
+    SidecarManager::project_dir()
+}
+
 impl Default for SidecarManager {
     fn default() -> Self {
         Self::new()

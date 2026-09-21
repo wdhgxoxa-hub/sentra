@@ -21,6 +21,8 @@ import type {
   FeedParams,
   ScanParams,
   SearchParams,
+  UpsertSubredditParams,
+  ValidationStatus,
 } from "@/types/radar";
 
 export const queryClient = new QueryClient({
@@ -135,3 +137,47 @@ export function useTriggerScan() {
   });
 }
 
+/**
+ * Registra el juicio humano sobre una oportunidad.
+ *
+ * Invalida todo el arbol `radar`: el estado de validacion viaja dentro de
+ * `v_opportunity_board`, asi que el tablero, la ficha y el feed lo muestran.
+ */
+export function useUpdateOpportunityStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      clusterKey,
+      status,
+      notes,
+      assignedTo,
+    }: {
+      clusterKey: string;
+      status: ValidationStatus;
+      notes?: string | null;
+      assignedTo?: string | null;
+    }) => ipc.updateOpportunityStatus(clusterKey, status, notes, assignedTo),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.radar }),
+  });
+}
+
+export function useUpsertSubreddit() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (params: UpsertSubredditParams) => ipc.upsertSubreddit(params),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: queryKeys.subreddits }),
+  });
+}
+
+/**
+ * Cancela un escaneo en curso.
+ *
+ * No invalida nada al terminar: el evento `run:cancelled` que llega por el
+ * canal ya dispara el refresco, y hacerlo aqui duplicaria las consultas.
+ */
+export function useCancelScan() {
+  return useMutation({
+    mutationFn: (runId: string) => ipc.cancelScan(runId),
+  });
+}
