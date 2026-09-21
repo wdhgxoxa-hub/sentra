@@ -7,8 +7,8 @@
  */
 export const es = {
   app: {
-    name: "Reddit Intelligence Radar",
-    tagline: "Encuentra problemas que la gente ya está pidiendo resolver",
+    name: "SENTRA",
+    tagline: "Escucha el mercado antes de construir",
   },
 
   error: {

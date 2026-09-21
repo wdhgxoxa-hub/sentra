@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Reddit Intelligence Radar",
+  "productName": "SENTRA",
   "version": "0.1.0",
   "identifier": "com.reddit-intelligence-radar.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Reddit Intelligence Radar",
+        "title": "SENTRA - Market Intelligence Radar",
         "width": 1440,
         "height": 900,
         "minWidth": 960,

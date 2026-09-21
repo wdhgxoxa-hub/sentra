@@ -1,4 +1,4 @@
-//! Reddit Intelligence Radar: aplicacion de escritorio.
+//! SENTRA: aplicacion de escritorio.
 //!
 //! Reparto de responsabilidades entre los tres procesos:
 //!

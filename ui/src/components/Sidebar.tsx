@@ -1,5 +1,6 @@
 import { Radar, Search, Settings, SlidersHorizontal, Target } from "lucide-react";
 
+import isotipo from "@/assets/isotipo.png";
 import { HealthIndicator } from "@/components/HealthIndicator";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore, type RadarView } from "@/stores/uiStore";
@@ -33,14 +34,24 @@ export function Sidebar() {
       aria-label={t.app.name}
       className="flex w-56 shrink-0 flex-col gap-1 border-r border-border bg-surface p-3"
     >
-      <div className="drag-region mb-4 flex items-center gap-2 px-2 pt-1">
-        <span className="relative flex size-2.5">
-          <span className="pulse-dot absolute inline-flex size-full rounded-full bg-accent" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight">
+      {/* El isotipo lleva su propio color de marca, asi que se sostiene igual
+          sobre el fondo claro y sobre el oscuro. El nombre y el eslogan si
+          dependen del tema y usan los tonos de tinta. */}
+      <div className="drag-region mb-5 flex items-start gap-2.5 px-2 pt-1">
+        <img
+          src={isotipo}
+          alt=""
+          width={34}
+          height={34}
+          draggable={false}
+          className="size-[34px] shrink-0 select-none"
+        />
+        <div className="min-w-0 pt-0.5">
+          <p className="truncate text-[15px] font-semibold leading-none tracking-[0.18em] text-ink">
             {t.app.name}
+          </p>
+          <p className="mt-1.5 text-[10px] leading-snug text-ink-soft">
+            {t.app.tagline}
           </p>
         </div>
       </div>

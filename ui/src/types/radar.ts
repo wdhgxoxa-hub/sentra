@@ -1,5 +1,5 @@
 /**
- * Contratos del Reddit Intelligence Radar
+ * Contratos de SENTRA
  * =======================================
  *
  * Espejo de los tipos del esquema PostgreSQL y de los modelos Pydantic del

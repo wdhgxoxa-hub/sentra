@@ -9,8 +9,8 @@ import type { Dictionary } from "@/i18n/es";
  */
 export const en: Dictionary = {
   app: {
-    name: "Reddit Intelligence Radar",
-    tagline: "Find problems people are already asking someone to solve",
+    name: "SENTRA",
+    tagline: "Hear the market before you build",
   },
 
   error: {
