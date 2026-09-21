@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { HealthIndicator } from "@/components/HealthIndicator";
 import { onRadarEvent } from "@/lib/ipc";
 import { queryClient, queryKeys } from "@/lib/queries";
+import { useProgressStore } from "@/stores/progressStore";
 import { useUiStore, type RadarView } from "@/stores/uiStore";
 import { OpportunityDetail } from "@/views/OpportunityDetail";
 import { PipelineControl } from "@/views/PipelineControl";
@@ -20,9 +21,13 @@ export default function App() {
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
 
-  // Cuando termina un escaneo, se invalida la caché en lugar de sondear.
+  const applyProgress = useProgressStore((state) => state.apply);
+
+  // Un unico suscriptor para todo el progreso: alimenta el store y, cuando
+  // el escaneo termina, invalida la cache en lugar de sondear.
   useEffect(() => {
     const unlisten = onRadarEvent((event) => {
+      applyProgress(event);
       if (event.type === "run:finished" || event.type === "run:error") {
         queryClient.invalidateQueries({ queryKey: queryKeys.radar });
       }
@@ -30,7 +35,7 @@ export default function App() {
     return () => {
       void unlisten.then((stop) => stop());
     };
-  }, []);
+  }, [applyProgress]);
 
   return (
     <div className="flex h-full flex-col">

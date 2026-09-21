@@ -301,23 +301,66 @@ export interface UpsertSubredditParams {
 // ---------------------------------------------------------------------
 
 export interface RunStats {
-  fetched: number;
-  filteredIn: number;
-  filteredOut: number;
-  analyzed: number;
-  stored: number;
-  qualified: number;
-  clusters: number;
-  qualifiedClusters: number;
+  fetched?: number;
+  filtered_in?: number;
+  filtered_out?: number;
+  analyzed?: number;
+  stored?: number;
+  qualified?: number;
+  rejected?: number;
+  clusters?: number;
+  qualified_clusters?: number;
 }
 
+/** Nodos del grafo, en el orden en que se ejecutan. */
+export const PIPELINE_NODES = [
+  "fetch",
+  "filter",
+  "intelligence",
+  "storage",
+  "quality_gate",
+  "aggregate",
+] as const;
+
+export type PipelineNode = (typeof PIPELINE_NODES)[number];
+
+export const NODE_LABELS: Record<PipelineNode, string> = {
+  fetch: "Descarga",
+  filter: "Filtrado",
+  intelligence: "Análisis",
+  storage: "Persistencia",
+  quality_gate: "Corte de calidad",
+  aggregate: "Agregación",
+};
+
+/**
+ * Progreso de un escaneo, empujado por Rust.
+ *
+ * `runId` identifica el escaneo desde que abre el flujo; `persistedRunId`
+ * solo existe al final, porque hasta entonces no hay fila en PostgreSQL.
+ */
 export type RadarEvent =
   | { type: "run:started"; runId: string; subreddit: string }
-  | { type: "run:progress"; runId: string; cycle: number; stats: RunStats }
-  | { type: "run:finished"; runId: string; qualified: number; clusters: number }
+  | {
+      type: "run:progress";
+      runId: string;
+      node: PipelineNode;
+      cycle: number;
+      stats: RunStats;
+    }
+  | {
+      type: "run:finished";
+      runId: string;
+      persistedRunId: string | null;
+      persistError: string | null;
+      qualified: number;
+      clusters: number;
+      stats: RunStats;
+      errors: string[];
+    }
   | { type: "run:error"; runId: string; message: string };
 
-export const RADAR_EVENT_CHANNEL = "radar://event";
+export const RADAR_EVENT_CHANNEL = "radar:events";
 
 // ---------------------------------------------------------------------
 // Resultado de un escaneo (respuesta del sidecar)

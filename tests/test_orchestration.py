@@ -525,6 +525,47 @@ class TestPipeline(OrchestrationTestCase):
         self.assertIn("qualified_clusters", result)
         self.assertIn("clusters", result)
 
+    def test_astream_state_emits_one_event_per_node(self):
+        """
+        El streaming es lo que permite pintar avance sin sondear. Debe emitir
+        un evento por nodo ejecutado, en orden, y cerrar con el estado final.
+        """
+        pipeline = RadarPipeline(deps=self.deps)
+
+        async def recoger():
+            return [item async for item in pipeline.astream_state("smallbusiness", limit=5)]
+
+        eventos = asyncio.run(recoger())
+        nodos = [payload["node"] for kind, payload in eventos if kind == "node"]
+        self.assertEqual(
+            nodos,
+            ["fetch", "filter", "intelligence", "storage", "quality_gate", "aggregate"],
+        )
+
+    def test_astream_state_closes_with_the_final_state(self):
+        pipeline = RadarPipeline(deps=self.deps)
+
+        async def recoger():
+            return [item async for item in pipeline.astream_state("smallbusiness", limit=5)]
+
+        eventos = asyncio.run(recoger())
+        kind, final = eventos[-1]
+        self.assertEqual(kind, "final")
+        self.assertTrue(final.get("signals"), "el estado final debe permitir persistir")
+
+    def test_astream_state_reports_growing_statistics(self):
+        """Cada nodo aporta sus contadores: eso es la barra de progreso."""
+        pipeline = RadarPipeline(deps=self.deps)
+
+        async def recoger():
+            return [item async for item in pipeline.astream_state("smallbusiness", limit=5)]
+
+        eventos = asyncio.run(recoger())
+        por_nodo = {p["node"]: p["state"].get("stats", {}) for k, p in eventos if k == "node"}
+        self.assertIn("fetched", por_nodo["fetch"])
+        self.assertIn("analyzed", por_nodo["intelligence"])
+        self.assertIn("clusters", por_nodo["aggregate"])
+
     def test_run_state_exposes_what_persistence_needs(self):
         """El resumen descarta lo que hay que escribir en la base."""
         state = RadarPipeline(deps=self.deps).run_state("smallbusiness", limit=10)

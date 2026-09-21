@@ -12,7 +12,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Awaitable, Dict, List, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 from core.storage import LanceDBStore
 
@@ -168,6 +177,46 @@ class RadarPipeline:
         return await self._graph.ainvoke(
             new_state(subreddit=subreddit, limit=limit, sort=sort)
         )
+
+    async def astream_state(
+        self,
+        subreddit: str,
+        limit: int = 25,
+        sort: str = "hot",
+    ) -> AsyncIterator[Tuple[str, Any]]:
+        """
+        Ejecuta el grafo emitiendo el avance nodo a nodo.
+
+        Es lo que permite pintar una barra de progreso sin sondear: un
+        escaneo puede durar minutos y preguntar "¿ya?" cada segundo es ruido
+        para todas las capas.
+
+        Emite tuplas:
+
+            ("node",  {"node": <nombre>, "state": <estado acumulado>})
+            ("final", <estado final completo>)
+
+        Se piden los dos modos de LangGraph a la vez porque cada uno aporta
+        la mitad: `updates` dice QUÉ nodo acaba de correr y `values` trae el
+        estado acumulado tras ese nodo.
+        """
+        last_state: Optional[RadarState] = None
+        pending_node: Optional[str] = None
+
+        async for mode, chunk in self._graph.astream(
+            new_state(subreddit=subreddit, limit=limit, sort=sort),
+            stream_mode=["updates", "values"],
+        ):
+            if mode == "updates":
+                pending_node = next(iter(chunk), None)
+                continue
+
+            last_state = chunk
+            if pending_node:
+                yield ("node", {"node": pending_node, "state": chunk})
+                pending_node = None
+
+        yield ("final", last_state or {})
 
     def run(
         self,

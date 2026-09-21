@@ -28,13 +28,16 @@ Ejecución:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .graph import RadarDependencies
@@ -241,6 +244,89 @@ def create_app(
             persistError=persist_error,
         )
 
+
+    # -- Escaneo con progreso en vivo -----------------------------------
+
+    @app.post("/api/scan/stream", dependencies=[Depends(require_token)])
+    async def scan_stream(request: ScanRequest) -> StreamingResponse:
+        """
+        Igual que `/api/scan`, pero emitiendo el avance nodo a nodo por SSE.
+
+        Un escaneo puede durar minutos. Sin esto, la interfaz solo puede
+        sondear, que es ruido para todas las capas y llega tarde igual.
+
+        El `runId` se genera al abrir el flujo y viaja en todos los eventos:
+        sin un identificador estable no se pueden correlacionar. El id de la
+        ejecución en PostgreSQL, que solo existe tras persistir, viaja
+        aparte en el evento final.
+        """
+        run_id = str(uuid.uuid4())
+        should_persist = persist_default if request.persist is None else request.persist
+
+        async def emitir():
+            yield _sse({
+                "type": "run:started",
+                "runId": run_id,
+                "subreddit": request.subreddit,
+            })
+
+            final_state: Dict[str, Any] = {}
+            try:
+                async for kind, payload in pipeline.astream_state(
+                    subreddit=request.subreddit,
+                    limit=request.limit,
+                    sort=request.sort,
+                ):
+                    if kind == "node":
+                        state = payload["state"]
+                        yield _sse({
+                            "type": "run:progress",
+                            "runId": run_id,
+                            "node": payload["node"],
+                            "cycle": int(state.get("cycle", 0)) or 1,
+                            "stats": dict(state.get("stats") or {}),
+                        })
+                    else:
+                        final_state = payload or {}
+            except Exception as exc:
+                logger.exception("Fallo ejecutando el pipeline en streaming")
+                yield _sse({
+                    "type": "run:error",
+                    "runId": run_id,
+                    "message": f"{type(exc).__name__}: {exc}",
+                })
+                return
+
+            persisted_run_id = None
+            persist_error = None
+            if should_persist:
+                persisted_run_id, _, persist_error = await _persist(
+                    final_state, dependencies, postgres_dsn
+                )
+
+            result = pipeline.summarize(final_state)
+            yield _sse({
+                "type": "run:finished",
+                "runId": run_id,
+                "persistedRunId": persisted_run_id,
+                "persistError": persist_error,
+                "qualified": len(result.get("qualified") or []),
+                "clusters": len(result.get("qualified_clusters") or []),
+                "stats": dict(result.get("stats") or {}),
+                "errors": list(result.get("errors") or []),
+            })
+
+        return StreamingResponse(
+            emitir(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                # Sin esto, un proxy intermedio podria retener el flujo y
+                # entregarlo de golpe al final, que es justo lo contrario.
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     # -- Búsqueda ------------------------------------------------------
 
     @app.post("/api/search", response_model=SearchResponse,
@@ -270,6 +356,11 @@ def create_app(
 # =====================================================================
 # Auxiliares
 # =====================================================================
+
+def _sse(payload: Dict[str, Any]) -> str:
+    """Serializa un evento en el formato `text/event-stream`."""
+    return "data: " + json.dumps(payload, default=str) + "\n\n"
+
 
 def _safe(fn, default):
     try:

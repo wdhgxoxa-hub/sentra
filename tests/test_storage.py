@@ -146,6 +146,31 @@ class TestInsertion(StoreTestCase):
         self.assertTrue(stored["workaround_detected"])
 
 
+class TestReopening(StoreTestCase):
+    """
+    Regresion: `list_tables()` devuelve un ListTablesResponse, no una lista,
+    asi que comprobar `nombre in lista` daba siempre falso y el almacen
+    intentaba recrear una tabla existente. Reventaba al abrir cualquier
+    almacen con datos, que es justo el caso de produccion; los demas tests
+    no lo veian porque cada uno estrena directorio.
+    """
+
+    def test_an_existing_store_can_be_reopened(self):
+        self.store.insert_opportunities([_record("a1", "primer registro")])
+        reabierto = LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
+        self.assertEqual(reabierto.count_records(), 1)
+
+    def test_reopening_preserves_the_records(self):
+        self.store.insert_opportunities([_record("a1", "texto original")])
+        reabierto = LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
+        self.assertEqual(reabierto.get_by_id("a1")["text"], "texto original")
+
+    def test_a_third_open_still_works(self):
+        LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
+        tercero = LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
+        self.assertEqual(tercero.count_records(), 0)
+
+
 class TestGetById(StoreTestCase):
 
     def setUp(self):

@@ -30,7 +30,6 @@ import {
   type RadarEvent,
   type RadarFeedEntry,
   type ScanParams,
-  type ScanResult,
   type SearchParams,
   type SubredditHealth,
 } from "@/types/radar";
@@ -63,9 +62,14 @@ export const ipc = {
   searchHybrid: (params: SearchParams) =>
     invoke<HybridSearchHit[]>("search_hybrid", { params }),
 
-  /** [sidecar] Escaneo completo. Puede tardar minutos. */
+  /**
+   * [sidecar] Escaneo completo. Puede tardar minutos.
+   *
+   * El avance llega por `onRadarEvent`; lo que devuelve la promesa es el
+   * ultimo evento del flujo (`run:finished` o `run:error`).
+   */
   triggerScan: (params: ScanParams) =>
-    invoke<ScanResult>("trigger_scan", { params }),
+    invoke<RadarEvent>("trigger_scan", { params }),
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),

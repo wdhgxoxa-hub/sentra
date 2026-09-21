@@ -169,11 +169,26 @@ class LanceDBStore:
             pa.field("vector", pa.list_(pa.float32(), self.vector_dim))
         ])
 
+    def _existing_tables(self) -> List[str]:
+        """
+        Nombres de las tablas ya presentes en el dataset.
+
+        `list_tables()` sustituyó a `table_names()`, pero no devuelve una
+        lista: devuelve un `ListTablesResponse`. Preguntarle `nombre in
+        respuesta` da siempre falso, de modo que el almacén intentaba
+        recrear una tabla existente y reventaba al abrir cualquier almacén
+        con datos. Se normaliza aquí a una lista de nombres.
+        """
+        lister = getattr(self._db, "list_tables", None)
+        if lister is None:
+            return list(self._db.table_names())
+
+        response = lister()
+        return list(getattr(response, "tables", response))
+
     def _init_table(self) -> None:
         """Abre o crea la tabla de oportunidades en el dataset .lance."""
-        # list_tables() sustituye a table_names() en LanceDB >= 0.13.
-        lister = getattr(self._db, "list_tables", None) or self._db.table_names
-        tables = lister()
+        tables = self._existing_tables()
         schema = self._get_schema()
         if self.TABLE_NAME in tables:
             self._table = self._db.open_table(self.TABLE_NAME)

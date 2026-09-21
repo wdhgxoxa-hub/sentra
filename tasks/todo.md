@@ -264,18 +264,61 @@ especificacion de la Fase 6 pero no en ipc.ts ni en Rust. Sin ellos, el ciclo
 de validacion humana (new -> triaged -> validated) no se puede operar desde la
 interfaz, aunque el esquema lo soporte.
 
-## D18: Tauri no arranca ni supervisa el sidecar
-Hay que lanzarlo a mano (`python -m core.orchestration.sidecar_server`). Falta
-gestionar su ciclo de vida desde Rust (arrancar al abrir, parar al cerrar,
-reintentar si muere). El indicador de salud ya avisa cuando no responde.
+## D18: CERRADA (2026-09-21) - ciclo de vida del sidecar
+`ui/src-tauri/src/sidecar.rs`: al abrir, comprueba si el sidecar ya responde
+y, si no, lo lanza con `python -m core.orchestration.sidecar_server`; sondea
+/api/health hasta 30 s (la primera arrancada carga el modelo de embeddings);
+al cerrar la ventana lo recoge, y tambien en Drop por si el proceso muere de
+forma abrupta.
 
-## D19: Los eventos de progreso no se emiten
-`RadarEvent` esta definido en TypeScript y App.tsx ya escucha, pero Rust no
-emite nada: un escaneo largo no muestra avance. Requiere streaming desde el
-sidecar (SSE o websocket) o sondeo de pipeline_runs.
+Regla central: SOLO SE MATA LO QUE SE ARRANCO. Si ya habia un sidecar vivo
+(una consola de desarrollo, otra instancia), cerrar la app no se lo lleva.
+
+En Windows se lanza con CREATE_NO_WINDOW para que no aparezca una consola
+negra detras de la ventana.
+
+Verificado con 4 pruebas en Rust, incluida una que arranca un sidecar real,
+comprueba que contesta y verifica que muere tras shutdown.
+
+## D19: CERRADA (2026-09-21) - progreso en tiempo real
+`RadarPipeline.astream_state()` usa `stream_mode=["updates","values"]` de
+LangGraph: `updates` dice QUE nodo acaba de correr y `values` trae el estado
+acumulado tras el. El sidecar lo expone en `POST /api/scan/stream` por SSE, y
+Rust lo retransmite al WebView por el canal `radar:events`.
+
+La interfaz pinta la barra con `progressStore` (Zustand, porque son eventos
+empujados y no cache de nada) y `ScanProgressBar`, que muestra la fase y los
+contadores: cuando un escaneo tarda, lo que tranquiliza es ver "descargados
+25, analizando", no un 40 % sin contexto.
+
+Verificado consumiendo el SSE como lo hace Rust: los eventos llegan
+escalonados (+141 ms started, +156 fetch, +703 intelligence, +891 finished),
+lo que demuestra que es streaming y no un volcado al final.
 
 ## D20: uvicorn impone ProactorEventLoop en Windows
 psycopg no funciona sobre el. Se resuelve ejecutando la persistencia en un
 hilo con su propio SelectorEventLoop (`asyncio.to_thread` + `run_async`).
 Funciona, pero conviene recordarlo antes de anadir mas codigo async con
 psycopg dentro del sidecar.
+
+## D21: LanceDB no se podia reabrir con datos  (CERRADA el 2026-09-21)
+Encontrado al arrancar el sidecar supervisado: `list_tables()` devuelve un
+`ListTablesResponse`, no una lista, asi que `nombre in respuesta` daba
+siempre falso y `_init_table` intentaba recrear una tabla existente. El
+almacen reventaba al abrirse con datos, que es el caso de produccion; los
+tests no lo veian porque cada uno estrena directorio temporal.
+Corregido con `_existing_tables()` y tres pruebas de reapertura.
+Lo introduje yo en la Fase 4 al cambiar `table_names()` por `list_tables()`
+para silenciar un DeprecationWarning: silenciar un aviso sin comprobar que
+el sustituto devuelve lo mismo.
+
+## D22: El escaneo no se puede cancelar
+`cancel_scan` sigue sin existir. Una vez lanzado, un escaneo corre hasta el
+final: `trigger_scan` mantiene abierta la conexion SSE y no hay forma de
+interrumpirla desde la interfaz.
+
+## D23: El progreso no distingue ciclos en la barra
+Con el grafo ciclico, los nodos se repiten en cada vuelta. La barra no
+retrocede (los nodos ya vistos no se recuentan), pero tampoco refleja que
+queda otra vuelta: al final del ciclo 1 marca 100 % aunque vaya a haber un
+ciclo 2. El numero de ciclo si se muestra aparte.

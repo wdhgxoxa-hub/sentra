@@ -26,7 +26,15 @@ thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
+  "stream",
 ] }
+
+# Para consumir el flujo SSE del sidecar trozo a trozo.
+futures-util = "0.3"
+
+# El ciclo de vida del sidecar deja rastro en el log de la aplicacion.
+log = "0.4"
+tauri-plugin-log = "2"
 
 # Las consultas castean a tipos primitivos en SQL (::text, ::float8), de modo
 # que no hacen falta las features de uuid, chrono ni decimal: menos superficie
@@ -41,3 +49,7 @@ sqlx = { version = "0.8", default-features = false, features = [
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+[dev-dependencies]
+# El test de ciclo de vida del sidecar necesita un runtime async completo.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }

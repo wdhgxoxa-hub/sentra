@@ -1,13 +1,39 @@
+import { ScanProgressBar } from "@/components/ScanProgressBar";
 import { useRuns, useSubreddits, useTriggerScan } from "@/lib/queries";
+import { useProgressStore } from "@/stores/progressStore";
 
 /** Centro de control: disparar escaneos y leer la telemetria del grafo. */
 export function PipelineControl() {
   const subreddits = useSubreddits();
   const runs = useRuns(20);
   const scan = useTriggerScan();
+  const activos = useProgressStore((state) => Object.values(state.runs));
+  const limpiar = useProgressStore((state) => state.clearFinished);
 
   return (
     <div className="flex flex-col gap-6">
+      {activos.length > 0 && (
+        <section aria-labelledby="progreso">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 id="progreso" className="text-base font-semibold">
+              Escaneos en curso
+            </h2>
+            <button
+              type="button"
+              onClick={limpiar}
+              className="text-xs text-[--color-ink-muted] hover:underline"
+            >
+              limpiar terminados
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {activos.map((progreso) => (
+              <ScanProgressBar key={progreso.runId} progress={progreso} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-2 text-base font-semibold">Subreddits vigilados</h2>
         <ul className="flex flex-col gap-2">

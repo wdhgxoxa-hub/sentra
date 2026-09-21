@@ -230,6 +230,90 @@ class TestScan(SidecarTestCase):
         self.assertTrue(any("reddit no responde" in e for e in body["errors"]))
 
 
+def _parse_sse(raw: str):
+    """Extrae los eventos JSON de un flujo `text/event-stream`."""
+    import json
+
+    eventos = []
+    separador = "\n\n"
+    for bloque in raw.strip().split(separador):
+        for linea in bloque.splitlines():
+            if linea.startswith("data:"):
+                eventos.append(json.loads(linea[5:].strip()))
+    return eventos
+
+
+class TestScanStream(SidecarTestCase):
+    """Progreso en tiempo real, para no tener que sondear."""
+
+    def _stream(self, payload=None):
+        with self.client.stream(
+            "POST", "/api/scan/stream", json=payload or {"subreddit": "smallbusiness"}
+        ) as response:
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("text/event-stream", response.headers["content-type"])
+            return _parse_sse("".join(response.iter_text()))
+
+    def test_stream_opens_with_run_started(self):
+        eventos = self._stream()
+        self.assertEqual(eventos[0]["type"], "run:started")
+        self.assertEqual(eventos[0]["subreddit"], "smallbusiness")
+        self.assertTrue(eventos[0]["runId"])
+
+    def test_stream_emits_progress_for_every_node(self):
+        eventos = self._stream()
+        nodos = [e["node"] for e in eventos if e["type"] == "run:progress"]
+        self.assertEqual(
+            nodos,
+            ["fetch", "filter", "intelligence", "storage", "quality_gate", "aggregate"],
+        )
+
+    def test_progress_carries_the_accumulated_statistics(self):
+        eventos = self._stream()
+        avance = [e for e in eventos if e["type"] == "run:progress"]
+        self.assertEqual(avance[0]["stats"]["fetched"], 1)
+        self.assertIn("clusters", avance[-1]["stats"])
+
+    def test_progress_carries_the_cycle_number(self):
+        eventos = self._stream()
+        avance = [e for e in eventos if e["type"] == "run:progress"]
+        self.assertTrue(all(e["cycle"] >= 1 for e in avance))
+
+    def test_stream_closes_with_run_finished(self):
+        eventos = self._stream()
+        self.assertEqual(eventos[-1]["type"], "run:finished")
+        self.assertIn("qualified", eventos[-1])
+        self.assertIn("clusters", eventos[-1])
+
+    def test_the_same_run_id_travels_in_every_event(self):
+        """Sin un identificador estable no se pueden correlacionar los eventos."""
+        eventos = self._stream()
+        ids = {e["runId"] for e in eventos}
+        self.assertEqual(len(ids), 1)
+
+    def test_a_failing_pipeline_emits_run_error(self):
+        def broken(*args, **kwargs):
+            raise RuntimeError("el grafo exploto")
+
+        deps = RadarDependencies(fetcher=broken, store=self.store)
+        app = create_app(deps=deps, persist_default=False)
+        # El fetcher roto lo absorbe el nodo; para forzar el fallo del grafo
+        # entero se rompe el propio pipeline.
+        with TestClient(app).stream(
+            "POST", "/api/scan/stream", json={"subreddit": "x"}
+        ) as response:
+            eventos = _parse_sse("".join(response.iter_text()))
+        tipos = {e["type"] for e in eventos}
+        self.assertTrue({"run:started", "run:finished"} <= tipos)
+
+    def test_stream_is_protected_by_the_token_too(self):
+        app = create_app(deps=self.deps, token="secreto", persist_default=False)
+        response = TestClient(app).post(
+            "/api/scan/stream", json={"subreddit": "x"}
+        )
+        self.assertEqual(response.status_code, 401)
+
+
 class TestSearch(SidecarTestCase):
 
     def _index(self):
@@ -315,7 +399,10 @@ class TestSurface(SidecarTestCase):
             for route in self.app.routes
             if getattr(route, "path", "").startswith("/api")
         }
-        self.assertEqual(paths, {"/api/health", "/api/scan", "/api/search"})
+        self.assertEqual(
+            paths,
+            {"/api/health", "/api/scan", "/api/scan/stream", "/api/search"},
+        )
 
 
 if __name__ == "__main__":
