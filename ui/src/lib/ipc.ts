@@ -19,6 +19,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import {
   RADAR_EVENT_CHANNEL,
+  type BlueprintDoc,
   type AppHealth,
   type BoardParams,
   type ClusterHistoryPoint,
@@ -114,6 +115,10 @@ export const ipc = {
 
   /** [sidecar] Pide un token real a Reddit con lo guardado. */
   testRedditConnection: () => invoke<ProbeResult>("test_reddit_connection"),
+
+  /** [pg + sidecar] Redacta la especificacion de proyecto de un cluster. */
+  generateBlueprint: (clusterKey: string, language: string) =>
+    invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language }),
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),

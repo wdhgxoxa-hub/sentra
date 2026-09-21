@@ -18,6 +18,7 @@ import {
 import { ipc } from "@/lib/ipc";
 import type {
   AppSettings,
+  BlueprintDoc,
   BoardParams,
   CredentialsInput,
   FetcherMode,
@@ -52,6 +53,8 @@ export const queryKeys = {
   health: ["radar", "health"] as const,
   settings: ["radar", "settings"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
+  blueprint: (key: string, language: string) =>
+    ["radar", "blueprint", key, language] as const,
 } as const;
 
 // --- Lecturas ---------------------------------------------------------
@@ -224,5 +227,26 @@ export function useSaveCredentials() {
 export function useTestConnection() {
   return useMutation({
     mutationFn: () => ipc.testRedditConnection(),
+  });
+}
+
+/**
+ * Especificacion de proyecto de un cluster.
+ *
+ * No se pide al abrir la ficha: se redacta cuando alguien lo pulsa. El
+ * documento depende del idioma, que forma parte de la clave, asi que cambiar
+ * de idioma lo vuelve a pedir en lugar de servir el anterior.
+ */
+export function useBlueprint(
+  clusterKey: string | null,
+  language: string,
+  enabled: boolean,
+) {
+  return useQuery<BlueprintDoc>({
+    queryKey: queryKeys.blueprint(clusterKey ?? "", language),
+    queryFn: () => ipc.generateBlueprint(clusterKey as string, language),
+    enabled: enabled && Boolean(clusterKey),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 }

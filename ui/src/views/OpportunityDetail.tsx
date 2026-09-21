@@ -1,5 +1,6 @@
 import { Quote, TrendingUp, Wrench } from "lucide-react";
 
+import { BlueprintPanel } from "@/components/BlueprintPanel";
 import { CommunityTags } from "@/components/CommunityTags";
 import { Explain } from "@/components/Explain";
 import { IntensityBar } from "@/components/IntensityBar";
@@ -52,6 +53,8 @@ export function OpportunityDetail() {
         </h3>
         <p className="text-sm leading-relaxed">{cluster.jobStatement}</p>
       </section>
+
+      <BlueprintPanel clusterKey={cluster.clusterKey} />
 
       <ValidationControls cluster={cluster} />
 

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
 import { onRadarEvent } from "@/lib/ipc";
 import { queryClient, queryKeys } from "@/lib/queries";
@@ -43,11 +44,16 @@ export default function App() {
         </div>
 
         <div className="p-6">
-          {view === "radar" && <RadarViewPage />}
-          {view === "opportunity" && <OpportunityDetail />}
-          {view === "search" && <SearchConsole />}
-          {view === "pipeline" && <PipelineControl />}
-          {view === "settings" && <SettingsView />}
+          {/* Cada vista va envuelta por separado: si una revienta, la barra
+              lateral sigue respondiendo y basta con cambiar de sección, que
+              además rearma el limite. */}
+          <ErrorBoundary textos={t.error} resetKey={view}>
+            {view === "radar" && <RadarViewPage />}
+            {view === "opportunity" && <OpportunityDetail />}
+            {view === "search" && <SearchConsole />}
+            {view === "pipeline" && <PipelineControl />}
+            {view === "settings" && <SettingsView />}
+          </ErrorBoundary>
         </div>
       </main>
     </div>

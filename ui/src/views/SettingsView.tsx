@@ -147,6 +147,18 @@ export function SettingsView() {
         </div>
       </section>
 
+      {/* El motor puede no estar levantado. Se dice aquí, una sola vez: las
+          dos secciones siguientes dependen de el y se quedarían mudas sin
+          explicación. */}
+      {settings.isPending && (
+        <p className="text-sm text-ink-faint">{t.settings.loading}</p>
+      )}
+      {settings.isError && (
+        <p className="rounded-card border border-danger/30 bg-surface p-3 text-xs leading-relaxed text-danger">
+          {t.settings.unreachable}
+        </p>
+      )}
+
       {/* --- Fuente de datos --- */}
       <section className="rounded-card border border-border bg-surface p-4">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
@@ -200,7 +212,7 @@ export function SettingsView() {
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <KeyRound className="size-4 text-ink-soft" aria-hidden="true" />
           {t.settings.credentials}
-          {settings.data && (
+          {settings.data?.credentials && (
             <span
               className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 settings.data.credentials.configured
@@ -304,7 +316,7 @@ export function SettingsView() {
             <button
               type="button"
               disabled={
-                testConnection.isPending || !settings.data?.credentials.configured
+                testConnection.isPending || !settings.data?.credentials?.configured
               }
               onClick={() => testConnection.mutate()}
               className="rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-surface-2 disabled:opacity-40"

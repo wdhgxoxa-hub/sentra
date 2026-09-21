@@ -85,6 +85,8 @@ pub fn run() {
             commands::settings::set_fetcher_mode,
             commands::settings::save_reddit_credentials,
             commands::settings::test_reddit_connection,
+            // Especificacion de proyecto
+            commands::blueprint::generate_blueprint,
             // Estado agregado
             commands::health::get_app_health,
         ])

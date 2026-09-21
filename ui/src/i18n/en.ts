@@ -13,6 +13,12 @@ export const en: Dictionary = {
     tagline: "Find problems people are already asking someone to solve",
   },
 
+  error: {
+    title: "This view could not be rendered",
+    hint: "The failure stops here: the rest of the app keeps working. Switch section in the left menu, or try again.",
+    details: "Show technical detail",
+    retry: "Try again",
+  },
   nav: {
     radar: "Live radar",
     search: "Semantic search",
@@ -180,11 +186,35 @@ export const en: Dictionary = {
     testing: "Testing…",
     configured: "Configured",
     notConfigured: "Not configured",
+    loading: "Asking the engine…",
+    unreachable:
+      "Could not read the engine settings. Language and theme still work; the data source and credentials need the engine running.",
     storedIn: "Stored in",
     secretNeverShown:
       "The secret is never shown once saved, not even to this window.",
   },
 
+  blueprint: {
+    open: "View project specification (PRD)",
+    close: "Hide specification",
+    title: "Project specification",
+    loading: "Writing the document…",
+    error: "The specification could not be written",
+    copy: "Copy document as Markdown",
+    copied: "Copied to clipboard",
+    copyFailed: "Could not copy",
+    value: "Value proposition",
+    summary: "Executive summary",
+    problem: "The actual problem",
+    solution: "The software to build",
+    mvp: "MVP scope",
+    fail: "Why current workarounds fail",
+    money: "Business model",
+    evidence: "What people say, in their own words",
+    quotes: "distinct quotes",
+    derived:
+      "Derived from the stored evidence, with nothing made up: where there is no data, it says so.",
+  },
   validation: {
     new: "Unreviewed",
     triaged: "Investigating",

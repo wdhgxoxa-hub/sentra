@@ -559,3 +559,38 @@ export function hasBlockingRisk(riskFlags: readonly string[]): boolean {
     (BLOCKING_RISK_FLAGS as readonly string[]).includes(flag),
   );
 }
+
+/** Una fase del alcance propuesto en la especificacion. */
+export interface BlueprintPhase {
+  name: string;
+  items: string[];
+}
+
+/** Una cita textual que sostiene el documento. */
+export interface BlueprintQuote {
+  quote: string;
+  subreddit: string;
+  author: string;
+  url: string;
+}
+
+/**
+ * Especificacion de proyecto redactada por el motor.
+ *
+ * Se regenera a partir de la evidencia cada vez que se pide, asi que no puede
+ * quedar desfasada respecto al cluster que describe.
+ */
+export interface BlueprintDoc {
+  productName: string;
+  oneLiner: string;
+  executiveSummary: string;
+  problem: string;
+  solution: string;
+  mvp: BlueprintPhase[];
+  whyExistingFail: string;
+  monetisation: string;
+  evidence: BlueprintQuote[];
+  /** Citas distintas: no es lo mismo que el numero de menciones. */
+  distinctQuotes: number;
+  markdown: string;
+}

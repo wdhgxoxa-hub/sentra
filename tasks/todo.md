@@ -353,3 +353,16 @@ resuelto seguira ocupando sitio junto a lo que nadie ha mirado.
 `RedditFetcher` las lee del .env al construirse, pero la ventana no avisa de
 que faltan: el usuario solo lo descubre cuando un escaneo falla. El indicador
 de salud podria mostrarlo, ya que /api/health conoce el estado del sidecar.
+
+## D29: El PRD en ingles incrusta el enunciado JTBD en espanol
+`job_statement` lo redacta `jtbd_analyzer` siempre en espanol, y el blueprint lo
+cita literalmente en la seccion "The software to build". Es dato real, no
+traduccion inventada, pero rompe la lectura del documento en ingles. Sale de la
+misma raiz que D4: el motor es monolingue.
+
+## D30: La deduplicacion de citas compara el texto entero
+`_citas` descarta una cita solo si el texto completo coincide. En el corpus de
+demostracion varias quejas comparten cuerpo y cambian el titulo, asi que cuentan
+como testimonios distintos y el documento dice "5 citas distintas" donde hay 2
+cuerpos. Compararlas tambien por cuerpo cambiaria el recuento, pero hay que
+decidir antes si dos personas que escriben lo mismo son una prueba o dos.

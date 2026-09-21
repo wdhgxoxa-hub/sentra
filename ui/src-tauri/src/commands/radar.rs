@@ -310,6 +310,17 @@ pub async fn get_opportunity_detail(
     state: State<'_, AppState>,
     cluster_key: String,
 ) -> RadarResult<Option<OpportunityCluster>> {
+    cluster_por_clave(&state.pool, &cluster_key).await
+}
+
+/// La misma lectura, sin pasar por el comando.
+///
+/// La necesita el generador de especificaciones, que parte del cluster tal
+/// como esta en la base y no de lo que la ventana tuviera cargado.
+pub async fn cluster_por_clave(
+    pool: &sqlx::PgPool,
+    cluster_key: &str,
+) -> RadarResult<Option<OpportunityCluster>> {
     let sql = format!(
         r#"
         SELECT {BOARD_COLUMNS}
@@ -323,7 +334,7 @@ pub async fn get_opportunity_detail(
     let row = sqlx::query_as::<_, OpportunityClusterRow>(&sql)
         .bind(LOCAL_TENANT)
         .bind(cluster_key)
-        .fetch_optional(&state.pool)
+        .fetch_optional(pool)
         .await?;
 
     Ok(row.map(Into::into))

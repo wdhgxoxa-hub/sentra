@@ -11,6 +11,12 @@ export const es = {
     tagline: "Encuentra problemas que la gente ya está pidiendo resolver",
   },
 
+  error: {
+    title: "Esta vista no se pudo pintar",
+    hint: "El fallo se queda aqui: el resto de la aplicación sigue funcionando. Puedes cambiar de sección en el menú de la izquierda o volver a intentarlo.",
+    details: "Ver detalle técnico",
+    retry: "Reintentar",
+  },
   nav: {
     radar: "Radar en vivo",
     search: "Búsqueda semántica",
@@ -179,11 +185,35 @@ export const es = {
     testing: "Probando…",
     configured: "Configuradas",
     notConfigured: "Sin configurar",
+    loading: "Consultando al motor…",
+    unreachable:
+      "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la fuente de datos y las credenciales necesitan que el motor esté en marcha.",
     storedIn: "Se guardan en",
     secretNeverShown:
       "El secreto no se muestra nunca una vez guardado, ni siquiera a esta ventana.",
   },
 
+  blueprint: {
+    open: "Ver especificación del proyecto (PRD)",
+    close: "Ocultar especificación",
+    title: "Especificación del proyecto",
+    loading: "Redactando el documento…",
+    error: "No se pudo redactar la especificación",
+    copy: "Copiar documento en Markdown",
+    copied: "Copiado al portapapeles",
+    copyFailed: "No se pudo copiar",
+    value: "Propuesta de valor",
+    summary: "Resumen ejecutivo",
+    problem: "La problemática real",
+    solution: "El software a construir",
+    mvp: "Alcance del MVP",
+    fail: "Por qué fallan las soluciones actuales",
+    money: "Modelo de negocio",
+    evidence: "Lo que dice la gente, con sus palabras",
+    quotes: "citas distintas",
+    derived:
+      "Documento derivado de la evidencia guardada, sin inventar nada: donde no hay dato, lo dice.",
+  },
   validation: {
     new: "Sin revisar",
     triaged: "En estudio",

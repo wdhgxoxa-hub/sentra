@@ -247,3 +247,56 @@ class TestCredentialsProbe(ConfigTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBlueprintEndpoint(ConfigTestCase):
+    """El endpoint que sintetiza la especificacion de proyecto."""
+
+    CLUSTER = {
+        "clusterKey": "complaint:invoice|manual",
+        "label": "invoice + manual",
+        "intentType": "complaint",
+        "keywords": ["invoice", "manual"],
+        "subreddits": ["SaaS", "accounting"],
+        "mentionCount": 4,
+        "communityCount": 2,
+        "jobStatement": "algo",
+        "currentSolutions": [],
+        "paidSignalFactor": 1.0,
+        "severityFactor": 0.8,
+        "recencyFactor": 0.9,
+        "finalScore": 74.0,
+        "urgencyTier": "HIGH",
+        "evidence": [
+            {"quote": "todo roto", "subreddit": "SaaS", "author": "ana", "url": "u"}
+        ],
+    }
+
+    def _pedir(self, **extra):
+        cuerpo = {"cluster": self.CLUSTER}
+        cuerpo.update(extra)
+        return self.client.post("/api/blueprint", json=cuerpo)
+
+    def test_devuelve_el_documento_completo(self):
+        respuesta = self._pedir()
+        self.assertEqual(respuesta.status_code, 200)
+        cuerpo = respuesta.json()
+        for clave in ("productName", "oneLiner", "problem", "mvp", "markdown"):
+            self.assertIn(clave, cuerpo)
+        self.assertTrue(cuerpo["markdown"].startswith("# "))
+
+    def test_respeta_el_idioma_pedido(self):
+        self.assertIn("Resumen", self._pedir(language="es").json()["markdown"])
+        self.assertIn("Executive", self._pedir(language="en").json()["markdown"])
+
+    def test_un_cluster_sin_datos_no_tumba_el_sidecar(self):
+        respuesta = self.client.post("/api/blueprint", json={"cluster": {}})
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.json()["markdown"].strip())
+
+    def test_el_puente_recibe_las_citas_deduplicadas(self):
+        repetida = {"quote": "igual", "subreddit": "SaaS", "author": "a", "url": "u"}
+        cluster = dict(self.CLUSTER, evidence=[repetida, dict(repetida)])
+        cuerpo = self.client.post("/api/blueprint", json={"cluster": cluster}).json()
+        self.assertEqual(len(cuerpo["evidence"]), 1)
+        self.assertEqual(cuerpo["distinctQuotes"], 1)

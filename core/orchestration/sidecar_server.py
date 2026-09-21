@@ -113,6 +113,18 @@ class CredentialsRequest(BaseModel):
         return value.strip()
 
 
+class BlueprintRequest(BaseModel):
+    """Peticion de especificacion de proyecto.
+
+    El cluster viaja entero en el cuerpo en lugar de por clave: quien lo pide
+    (el puente de Rust) ya lo ha leido de PostgreSQL, y volver a consultarlo
+    aqui abriria una segunda fuente de verdad que podria discrepar.
+    """
+
+    cluster: Dict[str, Any] = Field(default_factory=dict)
+    language: str = "es"
+
+
 class ProbeResponse(BaseModel):
     ok: bool
     detail: str
@@ -527,6 +539,20 @@ def create_app(
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # -- Especificacion de proyecto ------------------------------------
+
+    @app.post("/api/blueprint", dependencies=[Depends(require_token)])
+    def blueprint(request: BlueprintRequest) -> Dict[str, Any]:
+        """
+        Sintetiza el PRD de un cluster.
+
+        La sintesis es determinista y no toca disco ni red, asi que responde
+        en el mismo hilo: no hay nada que esperar.
+        """
+        from core.intelligence.blueprint import build_blueprint
+
+        return build_blueprint(request.cluster, request.language).to_dict()
 
     # -- Búsqueda ------------------------------------------------------
 

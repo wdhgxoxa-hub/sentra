@@ -8,7 +8,9 @@
 //! - `mutations`: las escrituras, juntas para que la superficie con la
 //!   que se cambia el estado del sistema sea facil de revisar.
 //! - `settings`: configuracion y credenciales, delegadas al sidecar.
+//! - `blueprint`: especificacion de proyecto, redactada por el motor.
 
+pub mod blueprint;
 pub mod engine;
 pub mod health;
 pub mod mutations;

@@ -487,6 +487,7 @@ class TestSurface(SidecarTestCase):
                 "/api/config/mode",
                 "/api/credentials",
                 "/api/credentials/test",
+                "/api/blueprint",
             },
         )
 
