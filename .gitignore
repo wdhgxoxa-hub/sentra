@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------
+# Reddit Intelligence Radar - .gitignore
+# ---------------------------------------------------------------
+
+# Clones de terceros (57 repos de referencia, se regeneran con
+# scripts/clone_manager.py a partir de logs/repo_catalog.json)
+repos/
+
+# Entornos virtuales
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Bytecode y caches de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Empaquetado
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Almacenes vectoriales: LanceDB / ChromaDB / SQLite
+data/lancedb/
+data/test_lance/
+*.lance/
+*.lance
+.lancedb/
+chroma/
+.chroma/
+chroma.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+
+# Logs de depuración (se conservan los artefactos .json/.md del pipeline)
+*.log
+logs/*.log
+logs/debug/
+
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+token.json
+
+# Temporales del sistema y del editor
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.code-workspace
+
+# Modelos descargados / caches de HuggingFace y ONNX
+models/
+.cache/
+*.onnx
+*.safetensors
+*.bin
