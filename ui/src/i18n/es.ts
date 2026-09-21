@@ -64,8 +64,6 @@ export const es = {
     gone: "Esa oportunidad ya no está en el almacén.",
     job: "Qué necesita la gente",
     breakdown: "De dónde sale la puntuación",
-    evidence: "Lo que dijeron",
-    quotes: "citas",
     solutions: "Herramientas que ya usan",
     evolution: "Cómo ha evolucionado",
     noEvolution:
@@ -239,6 +237,18 @@ export const es = {
     quotes: "citas distintas",
     derived:
       "Documento derivado de la evidencia guardada, sin inventar nada: donde no hay dato, lo dice.",
+  },
+  quotes: {
+    title: "Lo que dijeron",
+    count: "citas",
+    translate: "Traducir al español",
+    showOriginal: "Ver original",
+    translating: "Traduciendo…",
+    error: "No se pudieron traducir las citas",
+    approximate: "Traducción aproximada: solo se ha traducido lo reconocido.",
+    approximateShort: "aproximada",
+    offlineHint:
+      "Sin clave de Gemini traduce el motor sin conexión, que solo reconoce expresiones frecuentes.",
   },
   validation: {
     new: "Sin revisar",

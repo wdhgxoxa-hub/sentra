@@ -76,6 +76,7 @@ pub fn run() {
             // Motor Python
             commands::engine::search_hybrid,
             commands::engine::trigger_scan,
+            commands::engine::translate_quotes,
             // Escrituras
             commands::mutations::update_opportunity_status,
             commands::mutations::upsert_subreddit,

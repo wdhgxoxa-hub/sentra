@@ -1,8 +1,9 @@
-import { Quote, TrendingUp, Wrench } from "lucide-react";
+import { TrendingUp, Wrench } from "lucide-react";
 import { Suspense, lazy } from "react";
 
 import { BlueprintPanel } from "@/components/BlueprintPanel";
 import { CommunityTags } from "@/components/CommunityTags";
+import { EvidenceQuotes } from "@/components/EvidenceQuotes";
 import { Explain } from "@/components/Explain";
 import { IntensityBar } from "@/components/IntensityBar";
 import { ScoreBreakdownBars } from "@/components/ScoreBreakdownBars";
@@ -77,30 +78,7 @@ export function OpportunityDetail() {
         <ScoreBreakdownBars breakdown={cluster.breakdown} />
       </section>
 
-      <section>
-        <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-          <Quote className="size-4 text-ink-soft" aria-hidden="true" />
-          {t.detail.evidence}
-          <span className="text-xs font-normal text-ink-faint">
-            ({cluster.evidence.length} {t.detail.quotes})
-          </span>
-        </h3>
-        <ul className="flex flex-col gap-2">
-          {cluster.evidence.map((quote) => (
-            <li
-              key={quote.signalId}
-              className="rounded-card border-l-2 border-accent bg-surface py-2 pl-3 pr-3"
-            >
-              <p className="text-sm italic leading-relaxed">{quote.quote}</p>
-              <p className="mt-1 flex items-center gap-2 text-[11px] text-ink-faint">
-                <span className="font-mono">r/{quote.subreddit}</span>
-                <span aria-hidden="true">·</span>
-                <span>{quote.author}</span>
-              </p>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <EvidenceQuotes quotes={cluster.evidence} />
 
       {cluster.currentSolutions.length > 0 && (
         <section>

@@ -235,3 +235,62 @@ pub async fn sidecar_health(client: &reqwest::Client) -> Option<serde_json::Valu
         None
     }
 }
+
+/// Una cita traducida.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuoteTranslation {
+    pub text: String,
+    /// "gemini" o "offline".
+    pub engine: String,
+    /// True cuando el texto solo esta traducido en parte.
+    pub approximate: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct TranslateBody {
+    texts: Vec<String>,
+    target: String,
+}
+
+/// Traduce las citas de una oportunidad al idioma de la interfaz.
+///
+/// El sidecar decide el motor segun haya clave de Gemini o no, y responde
+/// siempre: una cita sin traducir se lee, un hueco no.
+#[tauri::command]
+pub async fn translate_quotes(
+    state: State<'_, AppState>,
+    texts: Vec<String>,
+    target: String,
+) -> RadarResult<Vec<QuoteTranslation>> {
+    if texts.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let response = with_token(
+        state
+            .http
+            .post(format!("{}/api/translate", sidecar_url()))
+            .timeout(Duration::from_secs(120))
+            .json(&TranslateBody { texts, target }),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        return Err(RadarError::Sidecar(format!(
+            "No se pudo traducir ({status}): {detail}"
+        )));
+    }
+
+    #[derive(Deserialize)]
+    struct Envelope {
+        translations: Vec<QuoteTranslation>,
+    }
+
+    let envelope: Envelope = response.json().await.map_err(transport_error)?;
+    Ok(envelope.translations)
+}

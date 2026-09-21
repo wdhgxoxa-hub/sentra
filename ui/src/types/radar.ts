@@ -616,3 +616,15 @@ export interface ArchitectChunk {
   text: string;
   done: boolean;
 }
+
+/**
+ * Una cita traducida.
+ *
+ * `approximate` marca lo que el motor sin conexion solo pudo traducir en
+ * parte: leerlo como una traduccion buena cambiaria la lectura de la queja.
+ */
+export interface QuoteTranslation {
+  text: string;
+  engine: "gemini" | "offline";
+  approximate: boolean;
+}

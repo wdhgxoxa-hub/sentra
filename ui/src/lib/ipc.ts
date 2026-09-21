@@ -23,6 +23,7 @@ import {
   ARCHITECT_EVENT_CHANNEL,
   type BlueprintDoc,
   type GeminiSummary,
+  type QuoteTranslation,
   type AppHealth,
   type BoardParams,
   type ClusterHistoryPoint,
@@ -122,6 +123,10 @@ export const ipc = {
   /** [pg + sidecar] Redacta la especificacion de proyecto de un cluster. */
   generateBlueprint: (clusterKey: string, language: string) =>
     invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language }),
+
+  /** [sidecar] Traduce citas al idioma de la interfaz. */
+  translateQuotes: (texts: string[], target: string) =>
+    invoke<QuoteTranslation[]>("translate_quotes", { texts, target }),
 
   /** [sidecar] Guarda la clave de Gemini en el .env del proyecto. */
   saveGeminiKey: (apiKey: string, model: string) =>

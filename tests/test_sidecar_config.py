@@ -415,3 +415,49 @@ class TestGeminiEndpoints(ConfigTestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn("se cayo el servicio", respuesta.text)
         self.assertEqual(self.client.get("/api/health").status_code, 200)
+
+
+class TestTranslateEndpoint(ConfigTestCase):
+    """Traduccion de citas. Sin clave configurada usa el motor sin conexion."""
+
+    def test_devuelve_una_traduccion_por_texto(self):
+        respuesta = self.client.post(
+            "/api/translate",
+            json={"texts": ["Manual invoice workflow is broken", "Nice to meet you all."],
+                  "target": "es"},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        traducciones = respuesta.json()["translations"]
+        self.assertEqual(len(traducciones), 2)
+        self.assertEqual(traducciones[0]["engine"], "offline")
+
+    def test_traduce_el_corpus_de_demostracion(self):
+        cuerpo = self.client.post(
+            "/api/translate",
+            json={"texts": ["Manual invoice workflow is broken"], "target": "es"},
+        ).json()
+        self.assertIn("roto", cuerpo["translations"][0]["text"].lower())
+        self.assertFalse(cuerpo["translations"][0]["approximate"])
+
+    def test_lo_desconocido_vuelve_marcado_como_aproximado(self):
+        cuerpo = self.client.post(
+            "/api/translate",
+            json={"texts": ["Quuxbar zyzzyva frobnicate"], "target": "es"},
+        ).json()
+        self.assertTrue(cuerpo["translations"][0]["approximate"])
+
+    def test_sin_textos_responde_una_lista_vacia(self):
+        cuerpo = self.client.post("/api/translate", json={"texts": []}).json()
+        self.assertEqual(cuerpo["translations"], [])
+
+    def test_rechaza_tandas_desproporcionadas(self):
+        respuesta = self.client.post(
+            "/api/translate", json={"texts": ["x"] * 200, "target": "es"}
+        )
+        self.assertEqual(respuesta.status_code, 422)
+
+    def test_un_idioma_desconocido_no_revienta(self):
+        respuesta = self.client.post(
+            "/api/translate", json={"texts": ["hello"], "target": "klingon"}
+        )
+        self.assertEqual(respuesta.status_code, 200)

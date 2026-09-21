@@ -66,8 +66,6 @@ export const en: Dictionary = {
     gone: "That opportunity is no longer in the store.",
     job: "What people need",
     breakdown: "Where the score comes from",
-    evidence: "What they said",
-    quotes: "quotes",
     solutions: "Tools they already use",
     evolution: "How it evolved",
     noEvolution:
@@ -240,6 +238,18 @@ export const en: Dictionary = {
     quotes: "distinct quotes",
     derived:
       "Derived from the stored evidence, with nothing made up: where there is no data, it says so.",
+  },
+  quotes: {
+    title: "What they said",
+    count: "quotes",
+    translate: "Translate to English",
+    showOriginal: "Show original",
+    translating: "Translating…",
+    error: "The quotes could not be translated",
+    approximate: "Approximate translation: only the recognised parts were translated.",
+    approximateShort: "approximate",
+    offlineHint:
+      "Without a Gemini key the offline engine translates, and it only knows common phrases.",
   },
   validation: {
     new: "Unreviewed",

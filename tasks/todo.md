@@ -379,3 +379,10 @@ hay que volver a generarlo, gastando cuota otra vez. Guardarlo junto al cluster
 (una tabla `architecture_plans` o un campo jsonb) permitiria releerlo y
 comparar versiones, pero obliga a decidir que pasa cuando el cluster cambia y
 el plan se queda describiendo una evidencia vieja.
+
+## D33: Sin clave de Gemini, la traduccion solo cubre el corpus de demostracion
+El motor sin conexion tiene traducidas a mano las 23 frases del corpus
+sintetico y un diccionario de expresiones frecuentes. Con quejas reales de
+Reddit, la mayoria caera en el caso "no reconozco nada": se devuelve el texto
+original marcado como aproximado, que es honesto pero no traduce. La
+traduccion util de verdad necesita la clave de Gemini.

@@ -143,6 +143,17 @@ class ArchitectRequest(BaseModel):
     language: str = "es"
 
 
+class TranslateRequest(BaseModel):
+    """Tanda de citas a traducir.
+
+    El limite esta para que una vista con muchas citas no dispare una peticion
+    enorme al modelo por accidente.
+    """
+
+    texts: List[str] = Field(default_factory=list, max_length=60)
+    target: str = "es"
+
+
 class ProbeResponse(BaseModel):
     ok: bool
     detail: str
@@ -576,6 +587,30 @@ def create_app(
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # -- Traduccion de citas -------------------------------------------
+
+    @app.post("/api/translate", dependencies=[Depends(require_token)])
+    def translate_quotes(request: TranslateRequest) -> Dict[str, Any]:
+        """
+        Traduce citas al idioma de la interfaz.
+
+        Con clave de Gemini traduce el modelo; sin ella responde el motor sin
+        conexion. Nunca devuelve error por esto: la vista tiene que poder
+        pintar algo siempre, y una cita sin traducir se lee, un hueco no.
+        """
+        from core.intelligence import translator
+
+        key, model = _gemini_credenciales()
+        traducciones = translator.translate(
+            request.texts,
+            request.target,
+            api_key=key,
+            # Traducir no necesita el razonamiento del Pro y se pide a menudo:
+            # el modelo rapido cuesta menos y responde antes.
+            model=translator.MODELO_POR_DEFECTO,
+        )
+        return {"translations": [t.to_dict() for t in traducciones]}
 
     # -- Motor de arquitectura (Gemini) --------------------------------
 
