@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/**
+ * Tailwind v4: la configuración vive en CSS, sin tailwind.config.js.
+ *
+ * Los colores de urgencia se definen en oklch porque mantiene la
+ * luminosidad percibida constante entre tonos: CRITICAL y HIGH deben
+ * distinguirse por matiz, no porque uno parezca más apagado que el otro.
+ */
+
+@theme {
+  --color-urgency-critical: oklch(0.55 0.22 25);
+  --color-urgency-high: oklch(0.7 0.17 60);
+  --color-urgency-medium: oklch(0.8 0.12 95);
+  --color-urgency-low: oklch(0.65 0.03 250);
+
+  --color-surface: oklch(0.99 0.002 250);
+  --color-surface-raised: oklch(1 0 0);
+  --color-border-subtle: oklch(0.9 0.005 250);
+  --color-ink: oklch(0.25 0.01 250);
+  --color-ink-muted: oklch(0.5 0.01 250);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-surface: oklch(0.18 0.01 250);
+    --color-surface-raised: oklch(0.23 0.012 250);
+    --color-border-subtle: oklch(0.32 0.012 250);
+    --color-ink: oklch(0.95 0.005 250);
+    --color-ink-muted: oklch(0.72 0.01 250);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* El contenido no debe quedar bajo la barra de título de Tauri. */
+.drag-region {
+  -webkit-app-region: drag;
+}

@@ -81,3 +81,12 @@ models/
 *.onnx
 *.safetensors
 *.bin
+
+# Frontend (Tauri + React)
+ui/node_modules/
+ui/dist/
+ui/.vite/
+ui/.tsbuild/
+ui/src-tauri/target/
+ui/src-tauri/gen/
+*.tsbuildinfo

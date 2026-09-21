@@ -112,6 +112,11 @@ class TestDiscovery(MigrationDirTestCase):
         self.assertEqual(migrations[0].version, 1)
         self.assertEqual(migrations[0].name, "initial_schema")
 
+    def test_real_migrations_have_contiguous_versions(self):
+        """Un hueco en la numeracion suele ser una migracion perdida."""
+        versions = [m.version for m in discover_migrations(REAL_MIGRATIONS)]
+        self.assertEqual(versions, list(range(1, len(versions) + 1)))
+
 
 class TestChecksum(MigrationDirTestCase):
 
@@ -181,14 +186,25 @@ class TestApplyingMigrations(unittest.TestCase):
         with psycopg.connect(self.dsn) as conn:
             return conn.execute(sql, params).fetchall()
 
-    def test_applies_the_initial_schema(self):
+    def test_applies_every_pending_migration(self):
+        """Se compara con las migraciones que hay, no con un numero fijo:
+        el test debe seguir siendo valido cuando se anada la 003."""
+        total = len(discover_migrations(REAL_MIGRATIONS))
         report = migrate(self.dsn, REAL_MIGRATIONS)
-        self.assertEqual(len(report["applied"]), 1)
-        tables = self._query(
-            "SELECT count(*) FROM information_schema.tables "
-            "WHERE table_schema = 'radar' AND table_type = 'BASE TABLE'"
+        self.assertEqual(len(report["applied"]), total)
+
+        # Se comprueba que estan las tablas del dominio, no cuantas hay:
+        # un conteo fijo se rompe con cada migracion nueva.
+        tables = {
+            r[0] for r in self._query(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'radar' AND table_type = 'BASE TABLE'"
+            )
+        }
+        self.assertTrue(
+            {"tenants", "subreddits", "pipeline_runs", "raw_posts",
+             "raw_comments", "analyzed_signals", "jtbd_opportunities"} <= tables
         )
-        self.assertEqual(tables[0][0], 7)
 
     def test_creates_the_control_table(self):
         migrate(self.dsn, REAL_MIGRATIONS)
@@ -205,14 +221,17 @@ class TestApplyingMigrations(unittest.TestCase):
         self.assertGreaterEqual(rows[0][0], 0)
 
     def test_running_twice_applies_nothing_new(self):
+        total = len(discover_migrations(REAL_MIGRATIONS))
         migrate(self.dsn, REAL_MIGRATIONS)
         second = migrate(self.dsn, REAL_MIGRATIONS)
         self.assertEqual(second["applied"], [])
-        self.assertEqual(len(second["already_applied"]), 1)
+        self.assertEqual(len(second["already_applied"]), total)
+        self.assertEqual(second["pending"], [])
 
     def test_dry_run_changes_nothing(self):
+        total = len(discover_migrations(REAL_MIGRATIONS))
         report = migrate(self.dsn, REAL_MIGRATIONS, dry_run=True)
-        self.assertEqual(len(report["pending"]), 1)
+        self.assertEqual(len(report["pending"]), total)
         tables = self._query(
             "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'radar'"
         )
@@ -269,6 +288,17 @@ class TestApplyingMigrations(unittest.TestCase):
         migrate(self.dsn, REAL_MIGRATIONS)
         rows = self._query("SELECT slug FROM radar.tenants")
         self.assertIn("local", [r[0] for r in rows])
+
+    def test_the_cluster_tables_exist_after_migrating(self):
+        migrate(self.dsn, REAL_MIGRATIONS)
+        rows = self._query(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'radar' AND table_name LIKE 'opportunity_cluster%%'"
+        )
+        names = {r[0] for r in rows}
+        self.assertEqual(
+            names, {"opportunity_clusters", "opportunity_cluster_signals"}
+        )
 
 
 if __name__ == "__main__":

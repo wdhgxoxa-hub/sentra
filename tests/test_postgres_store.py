@@ -19,6 +19,7 @@ import unittest
 
 from core.storage.postgres_store import (
     DEFAULT_TENANT_ID,
+    cluster_to_row,
     run_async,
     PostgresStore,
     compute_content_hash,
@@ -421,6 +422,234 @@ class TestPostgresIntegration(unittest.TestCase):
         self.assertIsNone(
             self._run(lambda s: s.get_run(str(uuid.uuid4())))
         )
+
+
+# =====================================================================
+# Clusters de oportunidad (deuda D12)
+# =====================================================================
+
+class TestClusterRowMapping(unittest.TestCase):
+    """Mapeo puro del cluster agregado a su fila."""
+
+    @classmethod
+    def setUpClass(cls):
+        from core.intelligence import IntelligenceEngine
+        from core.orchestration.aggregation import build_clusters, cluster_to_dict
+
+        engine = IntelligenceEngine(use_transformers_if_available=False)
+        signals = [
+            engine.analyze_signal(
+                item_id=f"t3_{i}",
+                title="Manual invoice export is broken",
+                body=("The export is completely broken and frustrating. "
+                      "I would pay for a tool that fixes this manual invoice process."),
+                author=f"u/{i}",
+                subreddit=sub,
+                created_utc=4102444800.0,
+                url=f"https://reddit.com/{i}",
+            )
+            for i, sub in enumerate(["a1", "b2", "c3", "d4", "e5"])
+        ]
+        cls.cluster = cluster_to_dict(build_clusters(signals)[0])
+
+    def test_row_carries_the_cluster_identity(self):
+        row = cluster_to_row(self.cluster, qualified=True)
+        self.assertEqual(row["cluster_key"], self.cluster["key"])
+        self.assertEqual(row["label"], self.cluster["label"])
+
+    def test_row_carries_the_aggregated_counts(self):
+        row = cluster_to_row(self.cluster)
+        self.assertEqual(row["mention_count"], 5)
+        self.assertEqual(row["community_count"], 5)
+
+    def test_row_flattens_the_score_breakdown(self):
+        row = cluster_to_row(self.cluster)
+        self.assertEqual(row["final_score"], self.cluster["opportunity_score"])
+        self.assertEqual(
+            row["spread_factor"], self.cluster["score_breakdown"]["spread_factor"]
+        )
+
+    def test_row_records_whether_it_qualified(self):
+        self.assertTrue(cluster_to_row(self.cluster, qualified=True)["qualified"])
+        self.assertFalse(cluster_to_row(self.cluster, qualified=False)["qualified"])
+
+    def test_row_keeps_the_evidence(self):
+        row = cluster_to_row(self.cluster)
+        self.assertTrue(row["evidence"])
+
+
+CLUSTER_TEST_DB = "rir_cluster_test"
+
+
+@unittest.skipUnless(POSTGRES_AVAILABLE, "PostgreSQL no disponible")
+class TestClusterPersistence(unittest.TestCase):
+    """
+    Los clusters agregados, dentro de la transacción de persist_state.
+
+    Base de datos propia y limpieza entre pruebas: estos tests cuentan filas,
+    así que no pueden compartir almacén con nadie.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import psycopg
+        from pathlib import Path
+
+        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
+            conn.execute(f'DROP DATABASE IF EXISTS "{CLUSTER_TEST_DB}" WITH (FORCE)')
+            conn.execute(f'CREATE DATABASE "{CLUSTER_TEST_DB}"')
+
+        cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={CLUSTER_TEST_DB}")
+
+        from scripts.migrate import migrate
+
+        migrate(cls.dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
+
+        from core.intelligence import IntelligenceEngine
+
+        engine = IntelligenceEngine(use_transformers_if_available=False)
+        cls.signal = engine.analyze_signal(
+            item_id="t3_abc",
+            title="Manual invoice exports take hours",
+            body="I waste so much time every week exporting invoices.",
+            author="u/x",
+            subreddit="SaaS",
+            created_utc=1758000000.0,
+            url="https://reddit.com/x",
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        import psycopg
+
+        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
+            conn.execute(f'DROP DATABASE IF EXISTS "{CLUSTER_TEST_DB}" WITH (FORCE)')
+
+    def setUp(self):
+        import psycopg
+
+        with psycopg.connect(self.dsn, autocommit=True) as conn:
+            conn.execute(
+                "TRUNCATE radar.opportunity_clusters, radar.raw_posts, "
+                "radar.pipeline_runs, radar.subreddits CASCADE"
+            )
+
+    def _store(self):
+        return PostgresStore(dsn=self.dsn)
+
+    def _run(self, coro_factory):
+        async def main():
+            async with self._store() as store:
+                return await coro_factory(store)
+
+        return run_async(main())
+
+    def _state_with_clusters(self):
+        from core.orchestration.aggregation import build_clusters, cluster_to_dict
+
+        cluster = cluster_to_dict(build_clusters([self.signal])[0])
+        return {
+            "subreddit": "SaaS",
+            "filtered_items": [dict(TestRowMapping.POST)],
+            "signals": [self.signal],
+            "qualified": [{"id": "t3_abc"}],
+            "clusters": [cluster],
+            "qualified_clusters": [cluster],
+            "stats": {"fetched": 1},
+            "errors": [],
+            "cycle": 1,
+        }
+
+    def test_persist_state_reports_stored_clusters(self):
+        summary = self._run(lambda s: s.persist_state(self._state_with_clusters()))
+        self.assertEqual(summary["clusters"], 1)
+
+    def test_cluster_lands_on_the_board(self):
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            return await store.fetch_opportunity_board(limit=10)
+
+        board = self._run(persist)
+        self.assertEqual(len(board), 1)
+        self.assertTrue(board[0]["label"])
+        self.assertEqual(board[0]["community_count"], 1)
+
+    def test_cluster_is_linked_to_its_signals(self):
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            return await store.fetch_opportunity_board(limit=10)
+
+        board = self._run(persist)
+        self.assertEqual(board[0]["linked_signals"], 1)
+
+    def test_one_signal_is_marked_as_representative(self):
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            return await store._fetchall(
+                "SELECT is_representative FROM opportunity_cluster_signals"
+            )
+
+        rows = self._run(persist)
+        self.assertEqual(sum(1 for r in rows if r["is_representative"]), 1)
+
+    def test_qualified_flag_is_persisted(self):
+        async def persist(store):
+            state = self._state_with_clusters()
+            state["qualified_clusters"] = []       # no supera el corte
+            await store.persist_state(state)
+            return await store.fetch_opportunity_board(limit=10, qualified_only=True)
+
+        self.assertEqual(self._run(persist), [])
+
+    def test_each_run_adds_a_new_reading_of_the_same_cluster(self):
+        """El historial es la señal: no se pisa la lectura anterior."""
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            await store.persist_state(self._state_with_clusters())
+            return await store.fetch_cluster_history(
+                self._state_with_clusters()["clusters"][0]["key"]
+            )
+
+        history = self._run(persist)
+        self.assertEqual(len(history), 2, "dos ejecuciones, dos lecturas")
+
+    def test_state_without_clusters_is_harmless(self):
+        state = {
+            "subreddit": "SaaS",
+            "filtered_items": [dict(TestRowMapping.POST)],
+            "signals": [self.signal],
+            "qualified": [],
+            "stats": {},
+            "errors": [],
+            "cycle": 1,
+        }
+        summary = self._run(lambda s: s.persist_state(state))
+        self.assertEqual(summary["clusters"], 0)
+
+    def test_deleting_a_cluster_unlinks_its_signals(self):
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            await store.connection.execute("DELETE FROM opportunity_clusters")
+            await store.connection.commit()
+            return await store._fetchall(
+                "SELECT count(*) AS n FROM opportunity_cluster_signals"
+            )
+
+        self.assertEqual(self._run(persist)[0]["n"], 0)
+
+    def test_a_cluster_wider_than_its_evidence_is_rejected(self):
+        """No puede abarcar más comunidades que menciones tiene."""
+        import psycopg
+
+        async def persist(store):
+            await store.persist_state(self._state_with_clusters())
+            await store.connection.execute(
+                "UPDATE opportunity_clusters SET community_count = 99"
+            )
+            await store.connection.commit()
+
+        with self.assertRaises(psycopg.errors.CheckViolation):
+            self._run(persist)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,6 @@
+# Tauri en Windows necesita la cadena MSVC: el enlazador GNU no produce un
+# binario compatible con WebView2. El toolchain por defecto de esta maquina
+# es gnu, asi que se fija aqui, por proyecto, sin tocar la configuracion
+# global de rustup.
+[toolchain]
+channel = "stable-x86_64-pc-windows-msvc"

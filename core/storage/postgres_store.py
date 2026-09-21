@@ -244,6 +244,42 @@ def signal_to_row(
     }
 
 
+def cluster_to_row(cluster: Dict[str, Any], qualified: bool = False) -> Dict[str, Any]:
+    """
+    Traduce un cluster agregado a una fila de `opportunity_clusters`.
+
+    El desglose del scoring se aplana en columnas en lugar de guardarse como
+    JSON: son cinco números que el frontend pinta en cada ficha y sobre los
+    que se querrá ordenar y filtrar.
+    """
+    breakdown = cluster.get("score_breakdown") or {}
+
+    return {
+        "cluster_key": cluster.get("key", ""),
+        "label": cluster.get("label", ""),
+        "intent_type": cluster.get("intent_type", ""),
+        "keywords": list(cluster.get("keywords") or []),
+        "subreddits": list(cluster.get("subreddits") or []),
+        "mention_count": int(cluster.get("mention_count", 0)),
+        "community_count": int(cluster.get("community_count", 0)),
+        "representative_reddit_id": cluster.get("representative_id"),
+        "job_statement": cluster.get("job_statement", ""),
+        "current_solutions": list(cluster.get("current_solutions") or []),
+        "risk_flags": list(cluster.get("risk_flags") or []),
+        "spread_factor": breakdown.get("spread_factor", 0.0),
+        "frequency_factor": breakdown.get("frequency_factor", 0.0),
+        "severity_factor": breakdown.get("severity_factor", 0.0),
+        "recency_factor": breakdown.get("recency_factor", 0.0),
+        "paid_signal_factor": breakdown.get("paid_signal_factor", 0.0),
+        "raw_score": breakdown.get("raw_score", 0.0),
+        "final_score": cluster.get("opportunity_score", 0.0),
+        "urgency_tier": cluster.get("urgency_tier", "LOW"),
+        "qualified": bool(qualified),
+        "evidence": list(cluster.get("evidence") or []),
+        "signal_ids": list(cluster.get("signal_ids") or []),
+    }
+
+
 def opportunity_to_row(signal: Any, signal_uuid: str) -> Dict[str, Any]:
     """Traduce la parte JTBD de una señal a una fila de `jtbd_opportunities`."""
     jtbd = signal.jtbd
@@ -599,6 +635,80 @@ class PostgresStore:
         )
         return str(result["id"])
 
+    async def save_cluster(
+        self,
+        cluster: Dict[str, Any],
+        run_id: Optional[str],
+        signal_uuids: Dict[str, str],
+        qualified: bool = False,
+    ) -> Optional[str]:
+        """
+        Inserta un cluster y lo enlaza con las señales que lo sostienen.
+
+        `signal_uuids` mapea el identificador de Reddit al uuid de la señal
+        ya persistida. Las señales que no estén ahí (por ejemplo, de una
+        ejecución anterior) se omiten del enlace: la fila del cluster
+        conserva el recuento correcto de todos modos.
+        """
+        row = cluster_to_row(cluster, qualified=qualified)
+        if not row["cluster_key"]:
+            logger.warning("Cluster sin clave, se omite")
+            return None
+
+        representative_uuid = signal_uuids.get(row["representative_reddit_id"] or "")
+
+        result = await self._fetchone(
+            """
+            INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label,
+                intent_type, keywords, subreddits, mention_count, community_count,
+                representative_signal_id, representative_reddit_id, job_statement,
+                current_solutions, risk_flags, spread_factor, frequency_factor,
+                severity_factor, recency_factor, paid_signal_factor, raw_score,
+                final_score, urgency_tier, qualified, evidence)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                    %s,%s,%s,%s)
+            ON CONFLICT (tenant_id, run_id, cluster_key) DO UPDATE
+                SET final_score = EXCLUDED.final_score,
+                    qualified   = EXCLUDED.qualified,
+                    updated_at  = now()
+            RETURNING id
+            """,
+            (
+                self.tenant_id, run_id, row["cluster_key"], row["label"],
+                row["intent_type"], row["keywords"], row["subreddits"],
+                row["mention_count"], row["community_count"],
+                representative_uuid, row["representative_reddit_id"],
+                row["job_statement"], row["current_solutions"], row["risk_flags"],
+                row["spread_factor"], row["frequency_factor"],
+                row["severity_factor"], row["recency_factor"],
+                row["paid_signal_factor"], row["raw_score"], row["final_score"],
+                row["urgency_tier"], row["qualified"],
+                json.dumps(row["evidence"], default=str),
+            ),
+        )
+        cluster_id = str(result["id"])
+
+        for reddit_id in row["signal_ids"]:
+            signal_uuid = signal_uuids.get(reddit_id)
+            if not signal_uuid:
+                continue
+            await self.connection.execute(
+                """
+                INSERT INTO opportunity_cluster_signals
+                    (cluster_id, signal_id, tenant_id, is_representative)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (cluster_id, signal_id) DO NOTHING
+                """,
+                (
+                    cluster_id,
+                    signal_uuid,
+                    self.tenant_id,
+                    signal_uuid == representative_uuid,
+                ),
+            )
+
+        return cluster_id
+
     # -- Puente con el grafo -----------------------------------------------
 
     async def persist_state(
@@ -636,6 +746,7 @@ class PostgresStore:
 
             signals_saved = 0
             opportunities_saved = 0
+            signal_uuids: Dict[str, str] = {}
 
             for signal in state.get("signals") or []:
                 signal_uuid = await self.save_signal(
@@ -649,9 +760,26 @@ class PostgresStore:
                 if signal_uuid is None:
                     continue
                 signals_saved += 1
+                signal_uuids[signal.id] = signal_uuid
 
                 await self.save_opportunity(signal, signal_uuid)
                 opportunities_saved += 1
+
+            # Los clusters van después de las señales: necesitan sus uuid
+            # para poblar la tabla pivote.
+            qualified_keys = {
+                c.get("key") for c in (state.get("qualified_clusters") or [])
+            }
+            clusters_saved = 0
+            for cluster in state.get("clusters") or []:
+                saved = await self.save_cluster(
+                    cluster,
+                    run_id=run_id,
+                    signal_uuids=signal_uuids,
+                    qualified=cluster.get("key") in qualified_keys,
+                )
+                if saved:
+                    clusters_saved += 1
 
             await self.connection.commit()
         except Exception:
@@ -674,7 +802,59 @@ class PostgresStore:
             "posts": len(posts),
             "signals": signals_saved,
             "opportunities": opportunities_saved,
+            "clusters": clusters_saved,
         }
+
+    async def fetch_opportunity_board(
+        self,
+        limit: int = 50,
+        min_score: float = 0.0,
+        qualified_only: bool = False,
+        urgency_tiers: Optional[Sequence[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Alimenta el tablero de oportunidades consolidadas del frontend."""
+        clauses = ["tenant_id = %s", "final_score >= %s"]
+        params: List[Any] = [self.tenant_id, min_score]
+
+        if qualified_only:
+            clauses.append("qualified")
+        if urgency_tiers:
+            clauses.append("urgency_tier = ANY(%s)")
+            params.append(list(urgency_tiers))
+
+        params.append(limit)
+        return await self._fetchall(
+            f"""
+            SELECT * FROM v_opportunity_board
+            WHERE {' AND '.join(clauses)}
+            ORDER BY final_score DESC, created_at DESC
+            LIMIT %s
+            """,
+            params,
+        )
+
+    async def fetch_cluster_history(
+        self,
+        cluster_key: str,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Lecturas sucesivas de un mismo problema, de la más reciente atrás.
+
+        Es lo que permite ver que un dolor pasó de 2 a 9 comunidades: ese
+        movimiento vale más que la foto fija.
+        """
+        return await self._fetchall(
+            """
+            SELECT id, run_id, final_score, urgency_tier, mention_count,
+                   community_count, qualified, created_at
+            FROM opportunity_clusters
+            WHERE tenant_id = %s AND cluster_key = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (self.tenant_id, cluster_key, limit),
+        )
 
     # -- Consulta ----------------------------------------------------------
 

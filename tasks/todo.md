@@ -200,14 +200,48 @@ esta preparada para mas; el extractor no.
 solo escribe posts: el grafo de Fase 5 no ingiere hilos de comentarios.
 Queda listo para cuando lo haga.
 
-## D12: Los clusters de oportunidad no se persisten
-`aggregation_node` los calcula en memoria y el pipeline los devuelve, pero no
-hay tabla `opportunity_clusters` ni migracion 002. El frontend tendria que
-recalcularlos en cada consulta, y no habria historico de como evoluciona una
-oportunidad entre ejecuciones. Es la siguiente migracion natural.
+## D12: CERRADA (2026-09-21) - clusters persistidos
+Migracion `002_opportunity_clusters.sql`: tabla `opportunity_clusters` con el
+desglose de scoring aplanado en columnas, y pivote N:M
+`opportunity_cluster_signals`. Una fila por (ejecucion, cluster_key), no un
+upsert: el historial de como evoluciona una oportunidad ES la senal.
+`persist_state()` los escribe dentro de su transaccion; `fetch_opportunity_board`
+y `fetch_cluster_history` los leen. Vista `v_opportunity_board`.
+Verificado con 15 pruebas nuevas, incluidas cascada de la pivote y el CHECK
+que impide que un cluster abarque mas comunidades que menciones tiene.
 
 ## D13: La agrupacion lexica puede sobre-fusionar
 Dos senales se unen si comparten UNA keyword del vocabulario de dolor y la
 intencion JTBD. Terminos muy comunes ('manual', 'every day') podrian juntar
 problemas distintos. Conviene medirlo sobre datos reales y, si ocurre,
 ponderar los terminos por frecuencia inversa antes de unir.
+
+---
+
+# Fase 7: Frontend de escritorio (en curso)
+
+## Tarea 16: Bootstrap del workspace  (HECHO)
+- [x] `ui/` con Vite 6, React 19, TypeScript 5.7, Tailwind v4
+- [x] `ui/src/types/radar.ts`: contratos espejo de los ENUM de las migraciones
+- [x] TanStack Query (datos de servidor) + Zustand (estado de interfaz)
+- [x] `ui/src-tauri/`: Cargo.toml, tauri.conf.json, capabilities, comandos
+- [x] `rust-toolchain.toml` fija MSVC por proyecto (el default de la maquina
+      es gnu, con el que Tauri no enlaza en Windows)
+- Verificado: `npm run build` -> 90 modulos, 274 KB (84 KB gzip)
+
+## D14: El sidecar Python no se lanza desde Tauri
+`commands/engine.rs` (search_hybrid, trigger_scan) devuelve NotImplemented con
+un mensaje explicito en lugar de fingir una lista vacia, que se confundiria
+con "no hay resultados". Falta: arrancar el proceso Python desde Rust, exponer
+su API local y cablear los eventos de progreso.
+
+## D15: Faltan iconos de la aplicacion
+Se retiro `bundle.icon` de tauri.conf.json porque apuntaba a un .ico
+inexistente y rompia el empaquetado. Generar con `npm run tauri icon <png>`
+antes del primer build de distribucion.
+
+## D16: Comandos IPC incompletos
+Implementados: get_radar_feed y get_opportunity_board. Especificados pero sin
+implementar: get_cluster_history, get_opportunity_detail, list_subreddits,
+list_runs, update_opportunity_status, upsert_subreddit, cancel_scan.
+`ui/src/lib/ipc.ts` ya los declara, asi que el contrato esta fijado.
