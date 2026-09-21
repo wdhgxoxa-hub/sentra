@@ -25,6 +25,13 @@ onnxruntime==1.30.0
 langgraph==1.2.11
 mcp==1.29.0
 
+# --- Fase 6: rastro relacional ---
+# El motor funciona sin PostgreSQL (LanceDB basta para buscar); psycopg solo
+# hace falta para el rastro auditable y para alimentar al frontend. Por eso
+# core.storage no lo importa en su __init__: se importa explícitamente desde
+# core.storage.postgres_store.
+psycopg[binary]==3.3.5
+
 # --- Opcional: NLI zero-shot real (Fase 3) ---
 # Sin estos paquetes, ZeroShotNLIClassifier opera SIEMPRE en su modo heurístico
 # de reserva. Habilitarlos supone ~2,5 GB de PyTorch más ~1,6 GB de modelo.

@@ -71,7 +71,34 @@
 
 ---
 
+# Fase 6: Arquitectura de datos PostgreSQL y especificacion del frontend
+
+## Tarea 13: Esquema relacional  (PASO 1.1)
+- [x] `sql/schema.sql`: 7 tablas, 2 vistas, 11 ENUM, 54 indices, 6 politicas RLS, 3 triggers
+- [x] Ejecutado de verdad contra PostgreSQL 18.6, sin errores
+- Verificado: 7 constraints rechazan lo que deben; cascadas CASCADE y SET NULL;
+  versionado por content_hash; FTS en 'english' y 'simple'; trigram; EXPLAIN
+  confirma que el indice parcial del dashboard se usa
+
+## Tarea 14: Adaptador Python  (PASO 1.2)
+- [x] `core/storage/postgres_store.py`: funciones puras de mapeo + repositorio asincrono
+- [x] `persist_state()` vuelca el RadarState del grafo en una transaccion
+- [x] `run_async()` resuelve la incompatibilidad de psycopg con ProactorEventLoop en Windows
+- Verificado: 39 pruebas (29 de mapeo sin BD + 10 de integracion real)
+
+## Tarea 15: Documentacion arquitectonica  (PASO 2)
+- [x] `docs/ARQUITECTURA_POSTGRES_Y_FRONTEND.md`
+- [x] Contratos TypeScript, tabla de comandos IPC, eventos, estructura de carpetas
+- NOTA: el frontend es ESPECIFICACION. No hay codigo de UI escrito.
+
+## Checkpoint F
+- [x] Suite acumulada: 215 pruebas en verde
+- [x] Commit
+
+---
+
 # Deuda tecnica abierta
+
 
 ## D1: NLI zero-shot de Fase 3 corriendo en modo heuristico  (PRIORIDAD ALTA)
 `transformers` y `torch` estan AUSENTES, por lo que `ZeroShotNLIClassifier.hf_pipeline`
@@ -150,3 +177,19 @@ escaneo real sigue PENDIENTE de que el usuario cree la app y aporte credenciales
 Pendiente tras el smoke: los endpoints de hilo (fetch_thread_comments y
 fetch_full_thread) siguen usando solo el endpoint publico .json y no se han
 migrado a OAuth. Necesitan el mismo tratamiento que fetch_subreddit_page.
+
+## D9: El esquema no tiene versionado de migraciones
+`sql/schema.sql` crea todo desde cero. No hay `schema_migrations` ni archivos
+numerados, asi que el primer cambio en produccion seria manual y sin vuelta
+atras. Recomendacion: `sql/migrations/NNN_*.sql` + tabla de control, sin ORM
+(el proyecto no usa SQLAlchemy y anadirlo solo para migrar seria desmedido).
+
+## D10: competitors_mentioned se alimenta de un solo campo
+`opportunity_to_row` rellena el array con `current_solution` unicamente,
+porque el motor de Fase 3 no extrae una lista de competidores. La columna
+esta preparada para mas; el extractor no.
+
+## D11: El adaptador solo persiste posts, no comentarios
+`raw_comments` existe en el esquema y esta indexada, pero `persist_state`
+solo escribe posts: el grafo de Fase 5 no ingiere hilos de comentarios.
+Queda listo para cuando lo haga.
