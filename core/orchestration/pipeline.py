@@ -173,7 +173,12 @@ class RadarPipeline:
 
         return {
             "subreddit": final.get("subreddit", ""),
+            # Señales individuales que pasaron el filtro de higiene.
             "qualified": qualified,
+            # Problemas recurrentes consolidados que superan el corte de
+            # oportunidad: esto es lo que merece que alguien construya algo.
+            "qualified_clusters": list(final.get("qualified_clusters") or []),
+            "clusters": list(final.get("clusters") or []),
             "stored_ids": list(final.get("stored_ids") or []),
             "stats": dict(final.get("stats") or {}),
             "errors": list(final.get("errors") or []),

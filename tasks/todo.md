@@ -128,14 +128,17 @@ y lo usa internamente para recorrer la cadena. `RedditFetcher` traduce el
 cursor en ambos sentidos, de modo que el ciclo del grafo avanza de verdad.
 Verificado con 13 pruebas nuevas sobre payloads con la forma real de Reddit.
 
-## D6: El corte de 60 puntos es inalcanzable para una senal individual
-El scoring de Fase 3 esta calibrado para oportunidades AGREGADAS: `spread` y
-`frequency` miden difusion entre comunidades y repeticion. Una senal suelta los
-tiene en el minimo (0.2 cada uno), con lo que su techo real ronda los 25-45 puntos.
-El corte por defecto se mantiene en 60.0 como se especifico, pero `min_score` es
-ahora configurable en `build_graph`, `RadarPipeline` y `create_server`.
-Decision pendiente: bajar el corte, o aplicar el gate sobre clusters agregados
-en lugar de senales individuales (lo segundo es lo que el scoring presupone).
+## D6: CERRADA (2026-09-21) - dos umbrales y agregacion real
+El corte de 60 no estaba mal: se aplicaba al objeto equivocado. Ahora:
+  SIGNAL_THRESHOLD = 20.0              filtro de higiene sobre el mensaje
+  OPPORTUNITY_CLUSTER_THRESHOLD = 60.0 corte sobre el problema consolidado
+`core/orchestration/aggregation.py` agrupa senales por interseccion de
+intencion JTBD y vocabulario de dolor (union-find, transitivo) y recalcula
+spread/frequency con metricas agregadas. Un cluster de 6 menciones en 5
+comunidades alcanza 73.5 puntos (HIGH); la mejor senal suelta se queda en 60.
+Corregido de paso: `intelligence_node` pasaba a cada senal el numero de
+comunidades del LOTE, inflando su spread con contexto ajeno. Ahora una senal
+individual se puntua como lo que es, una sola voz.
 
 ## D7: El filtro de dolor busca terminos de dominio, no frustracion
 Las 33 expresiones de `PAIN_POINT_KEYWORDS` son terminos de negocio ('manual',
@@ -178,11 +181,14 @@ Pendiente tras el smoke: los endpoints de hilo (fetch_thread_comments y
 fetch_full_thread) siguen usando solo el endpoint publico .json y no se han
 migrado a OAuth. Necesitan el mismo tratamiento que fetch_subreddit_page.
 
-## D9: El esquema no tiene versionado de migraciones
-`sql/schema.sql` crea todo desde cero. No hay `schema_migrations` ni archivos
-numerados, asi que el primer cambio en produccion seria manual y sin vuelta
-atras. Recomendacion: `sql/migrations/NNN_*.sql` + tabla de control, sin ORM
-(el proyecto no usa SQLAlchemy y anadirlo solo para migrar seria desmedido).
+## D9: CERRADA (2026-09-21) - gestor de migraciones
+`sql/schema.sql` pasa a ser `sql/migrations/001_initial_schema.sql`, unica
+fuente de verdad. `scripts/migrate.py` aplica lo pendiente con control en
+`public.schema_migrations`: orden numerico (010 tras 002), una transaccion
+por migracion y huella de contenido que impide editar una ya aplicada.
+Sin Alembic: vive sobre SQLAlchemy y el proyecto no usa ORM.
+Verificado con 24 pruebas, incluidas migracion rota (no deja rastro) y
+migracion alterada tras aplicarse (se detecta).
 
 ## D10: competitors_mentioned se alimenta de un solo campo
 `opportunity_to_row` rellena el array con `current_solution` unicamente,
@@ -193,3 +199,15 @@ esta preparada para mas; el extractor no.
 `raw_comments` existe en el esquema y esta indexada, pero `persist_state`
 solo escribe posts: el grafo de Fase 5 no ingiere hilos de comentarios.
 Queda listo para cuando lo haga.
+
+## D12: Los clusters de oportunidad no se persisten
+`aggregation_node` los calcula en memoria y el pipeline los devuelve, pero no
+hay tabla `opportunity_clusters` ni migracion 002. El frontend tendria que
+recalcularlos en cada consulta, y no habria historico de como evoluciona una
+oportunidad entre ejecuciones. Es la siguiente migracion natural.
+
+## D13: La agrupacion lexica puede sobre-fusionar
+Dos senales se unen si comparten UNA keyword del vocabulario de dolor y la
+intencion JTBD. Terminos muy comunes ('manual', 'every day') podrian juntar
+problemas distintos. Conviene medirlo sobre datos reales y, si ocurre,
+ponderar los terminos por frecuencia inversa antes de unir.

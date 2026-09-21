@@ -311,6 +311,16 @@ class TestIntelligenceNode(OrchestrationTestCase):
         signal = intelligence_node(self.state, self.deps)["signals"][0]
         self.assertTrue(signal.jtbd.job_statement)
 
+    def test_a_signal_is_scored_as_a_single_voice(self):
+        """
+        El `spread` de una señal individual no debe heredar el contexto del
+        lote: venir acompañada de otras quejas no la hace más difundida. La
+        difusión real la mide la agregación.
+        """
+        signal = intelligence_node(self.state, self.deps)["signals"][0]
+        self.assertEqual(signal.temporal_metrics.community_count, 1)
+        self.assertAlmostEqual(signal.score_breakdown.spread_factor, 0.2)
+
 
 class TestStorageNode(OrchestrationTestCase):
 
@@ -428,7 +438,7 @@ class TestGraphCycle(OrchestrationTestCase):
 
     def test_graph_stores_even_what_the_gate_later_rejects(self):
         """El gate decide lo que se REPORTA, no lo que se GUARDA."""
-        graph = build_graph(self.deps)
+        graph = build_graph(self.deps, min_score=99.0)
         final = graph.invoke(new_state(subreddit="smallbusiness"))
         self.assertEqual(final["qualified"], [])
         self.assertIn("t3_pain", final["stored_ids"])
@@ -507,6 +517,13 @@ class TestPipeline(OrchestrationTestCase):
         pipeline = RadarPipeline(deps=self.deps, min_score=REACHABLE_CUT)
         result = pipeline.run("smallbusiness", limit=10)
         self.assertIn("t3_pain", {q["id"] for q in result["qualified"]})
+
+    def test_run_reports_both_tiers(self):
+        """El resumen distingue señales sueltas de oportunidades consolidadas."""
+        result = RadarPipeline(deps=self.deps).run("smallbusiness", limit=10)
+        self.assertIn("qualified", result)
+        self.assertIn("qualified_clusters", result)
+        self.assertIn("clusters", result)
 
     def test_run_reports_statistics(self):
         result = RadarPipeline(deps=self.deps).run("smallbusiness", limit=10)
@@ -637,6 +654,359 @@ class TestMcpTools(OrchestrationTestCase):
             registered,
             {"scan_subreddit", "search_pain_points", "get_opportunity_details"},
         )
+
+
+# =====================================================================
+# Fase 6b: agregación de oportunidades (deuda D6)
+# =====================================================================
+
+# Texto que el motor reconoce como dolor severo, con disposición a pagar
+# explícita y queja: los tres ejes que hacen subir la puntuación.
+PAIN_BODY = (
+    "The export is completely broken and it is frustrating. "
+    "I would pay for a tool that fixes this manual invoice process."
+)
+
+# El mismo dolor pero sin disposición a pagar: 45 puntos en lugar de 60.
+# Sirve para los casos donde hace falta una señal que NO roce el techo.
+WEAK_BODY = (
+    "The export is completely broken and it is frustrating. "
+    "This manual invoice process wastes my time."
+)
+
+
+def _make_signal(engine, sid, subreddit, title, body=PAIN_BODY,
+                 created=4102444800.0):
+    return engine.analyze_signal(
+        item_id=sid,
+        title=title,
+        body=body,
+        author=f"u/{sid}",
+        subreddit=subreddit,
+        created_utc=created,
+        url=f"https://reddit.com/{sid}",
+    )
+
+
+class AggregationTestCase(unittest.TestCase):
+    """Base con un motor de inteligencia compartido, que no es barato de crear."""
+
+    @classmethod
+    def setUpClass(cls):
+        from core.intelligence import IntelligenceEngine
+
+        cls.engine = IntelligenceEngine(use_transformers_if_available=False)
+
+    def signal(self, sid, subreddit, title, **kwargs):
+        return _make_signal(self.engine, sid, subreddit, title, **kwargs)
+
+    def widespread_signals(self):
+        """El mismo dolor, en cinco comunidades distintas."""
+        return [
+            self.signal(f"t3_{i}", sub, "Manual invoice export is broken")
+            for i, sub in enumerate(
+                ["smallbusiness", "SaaS", "accounting", "freelance", "bookkeeping"]
+            )
+        ]
+
+
+class TestThresholdSeparation(unittest.TestCase):
+    """Dos umbrales distintos para dos preguntas distintas."""
+
+    def test_signal_threshold_is_twenty(self):
+        from core.orchestration import SIGNAL_THRESHOLD
+
+        self.assertEqual(SIGNAL_THRESHOLD, 20.0)
+
+    def test_cluster_threshold_is_sixty(self):
+        from core.orchestration import OPPORTUNITY_CLUSTER_THRESHOLD
+
+        self.assertEqual(OPPORTUNITY_CLUSTER_THRESHOLD, 60.0)
+
+    def test_legacy_constant_still_points_at_the_cluster_cut(self):
+        """MIN_OPPORTUNITY_SCORE era el corte de oportunidad: lo sigue siendo."""
+        from core.orchestration import (
+            MIN_OPPORTUNITY_SCORE,
+            OPPORTUNITY_CLUSTER_THRESHOLD,
+        )
+
+        self.assertEqual(MIN_OPPORTUNITY_SCORE, OPPORTUNITY_CLUSTER_THRESHOLD)
+
+    def test_the_signal_cut_is_below_the_cluster_cut(self):
+        from core.orchestration import OPPORTUNITY_CLUSTER_THRESHOLD, SIGNAL_THRESHOLD
+
+        self.assertLess(SIGNAL_THRESHOLD, OPPORTUNITY_CLUSTER_THRESHOLD)
+
+
+class TestClusterGrouping(AggregationTestCase):
+    """Qué señales cuentan como 'el mismo problema'."""
+
+    def test_shared_keyword_and_intent_group_together(self):
+        from core.orchestration.aggregation import build_clusters
+
+        clusters = build_clusters(self.widespread_signals())
+        self.assertEqual(len(clusters), 1, "el mismo dolor deberia ser un cluster")
+        self.assertEqual(clusters[0].mention_count, 5)
+
+    def test_unrelated_pain_stays_in_its_own_cluster(self):
+        from core.orchestration.aggregation import build_clusters
+
+        signals = [
+            self.signal("t3_a", "smallbusiness", "Manual invoice export is broken"),
+            self.signal(
+                "t3_b", "devops", "Deploying takes forever to finish every day",
+                body="The release step is a tedious process and it is slow.",
+            ),
+        ]
+        clusters = build_clusters(signals)
+        self.assertGreaterEqual(len(clusters), 2)
+
+    def test_grouping_is_transitive(self):
+        """A comparte con B, B comparte con C: los tres son el mismo problema."""
+        from core.orchestration.aggregation import build_clusters
+
+        signals = [
+            self.signal("t3_a", "s1", "Manual export is broken"),
+            self.signal("t3_b", "s2", "Manual invoice work is broken"),
+            self.signal("t3_c", "s3", "Invoice reconciliation is broken"),
+        ]
+        clusters = build_clusters(signals)
+        biggest = max(clusters, key=lambda c: c.mention_count)
+        self.assertEqual(biggest.mention_count, 3)
+
+    def test_empty_input_produces_no_clusters(self):
+        from core.orchestration.aggregation import build_clusters
+
+        self.assertEqual(build_clusters([]), [])
+
+    def test_cluster_exposes_its_member_ids(self):
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertEqual(len(cluster.signal_ids), 5)
+        self.assertIn("t3_0", cluster.signal_ids)
+
+
+class TestClusterMetrics(AggregationTestCase):
+    """Las métricas agregadas son lo que hace escalar la puntuación."""
+
+    def test_community_count_counts_distinct_subreddits(self):
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertEqual(cluster.community_count, 5)
+
+    def test_repeated_subreddit_raises_frequency_not_spread(self):
+        from core.orchestration.aggregation import build_clusters
+
+        signals = [
+            self.signal(f"t3_{i}", "smallbusiness", "Manual invoice export is broken")
+            for i in range(4)
+        ]
+        cluster = build_clusters(signals)[0]
+        self.assertEqual(cluster.community_count, 1)
+        self.assertEqual(cluster.mention_count, 4)
+        self.assertAlmostEqual(cluster.metrics.average_mentions_per_community, 4.0)
+
+    def test_newest_age_wins_for_recency(self):
+        """Un problema con una mención reciente sigue estando vivo."""
+        from core.orchestration.aggregation import build_clusters
+
+        signals = [
+            self.signal("t3_old", "s1", "Manual invoice export is broken",
+                        created=1000000000.0),
+            self.signal("t3_new", "s2", "Manual invoice export is broken",
+                        created=4102444800.0),
+        ]
+        cluster = build_clusters(signals)[0]
+        self.assertEqual(cluster.metrics.newest_age_days, 0.0)
+
+    def test_representative_is_the_highest_scoring_signal(self):
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertIn(cluster.representative_id, cluster.signal_ids)
+
+    def test_risk_flags_are_inherited_from_members(self):
+        from core.orchestration.aggregation import build_clusters
+
+        tainted = self.signal(
+            "t3_spam", "s9", "Manual invoice export is broken",
+            body=PAIN_BODY + " Use my referral link with promo code SAVE20.",
+        )
+        cluster = build_clusters([tainted])[0]
+        self.assertTrue(cluster.risk_flags)
+
+
+class TestClusterScoring(AggregationTestCase):
+    """La consolidación debe hacer escalar la puntuación de forma orgánica."""
+
+    def test_a_lone_signal_reproduces_its_own_individual_score(self):
+        """
+        Coherencia con el motor: agregar una sola señal no puede cambiar su
+        puntuación. Si este test falla, el agregador y la Fase 3 discrepan.
+        """
+        from core.orchestration.aggregation import build_clusters
+
+        signal = self.signal("t3_solo", "smallbusiness", "Manual invoice export is broken")
+        cluster = build_clusters([signal])[0]
+        self.assertAlmostEqual(
+            cluster.score_breakdown.final_score,
+            signal.score_breakdown.final_score,
+            places=2,
+        )
+
+    def test_a_typical_lone_signal_stays_below_the_cluster_cut(self):
+        from core.orchestration import OPPORTUNITY_CLUSTER_THRESHOLD
+        from core.orchestration.aggregation import build_clusters
+
+        signal = self.signal("t3_solo", "smallbusiness",
+                             "Manual invoice export is broken", body=WEAK_BODY)
+        cluster = build_clusters([signal])[0]
+        self.assertLess(
+            cluster.score_breakdown.final_score, OPPORTUNITY_CLUSTER_THRESHOLD
+        )
+
+    def test_a_perfect_lone_signal_caps_exactly_at_the_cut(self):
+        """
+        El techo aritmético de una señal individual es exactamente 60: con
+        `spread` y `frequency` en su mínimo (0.2 cada uno) solo quedan 10 de
+        los 50 puntos que reparten, y hacen falta severidad, recencia y
+        disposición a pagar PERFECTAS para llegar. Documenta por qué aplicar
+        este corte a mensajes sueltos vaciaba el radar.
+        """
+        from core.orchestration.aggregation import build_clusters
+
+        signal = self.signal("t3_perfect", "smallbusiness",
+                             "Manual invoice export is broken", body=PAIN_BODY)
+        cluster = build_clusters([signal])[0]
+        self.assertAlmostEqual(cluster.score_breakdown.final_score, 60.0, places=1)
+        self.assertAlmostEqual(cluster.score_breakdown.spread_factor, 0.2)
+        self.assertAlmostEqual(cluster.score_breakdown.frequency_factor, 0.2)
+
+    def test_five_communities_push_the_cluster_past_sixty(self):
+        """El caso que justifica toda la deuda D6."""
+        from core.orchestration import OPPORTUNITY_CLUSTER_THRESHOLD
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertGreaterEqual(
+            cluster.score_breakdown.final_score, OPPORTUNITY_CLUSTER_THRESHOLD
+        )
+
+    def test_spread_saturates_with_five_communities(self):
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertAlmostEqual(cluster.score_breakdown.spread_factor, 1.0)
+
+    def test_more_evidence_never_lowers_the_score(self):
+        from core.orchestration.aggregation import build_clusters
+
+        few = build_clusters(self.widespread_signals()[:2])[0]
+        many = build_clusters(self.widespread_signals())[0]
+        self.assertGreaterEqual(
+            many.score_breakdown.final_score, few.score_breakdown.final_score
+        )
+
+    def test_qualified_cluster_earns_a_high_urgency_tier(self):
+        from core.orchestration.aggregation import build_clusters
+
+        cluster = build_clusters(self.widespread_signals())[0]
+        self.assertIn(cluster.score_breakdown.urgency_tier, ("HIGH", "CRITICAL"))
+
+
+class TestAggregationNode(OrchestrationTestCase):
+    """El nodo que consolida, dentro del grafo."""
+
+    @classmethod
+    def setUpClass(cls):
+        from core.intelligence import IntelligenceEngine
+
+        cls.engine = IntelligenceEngine(use_transformers_if_available=False)
+
+    def _widespread(self):
+        return [
+            _make_signal(self.engine, f"t3_{i}", sub,
+                         "Manual invoice export is broken")
+            for i, sub in enumerate(
+                ["smallbusiness", "SaaS", "accounting", "freelance", "bookkeeping"]
+            )
+        ]
+
+    def test_node_publishes_qualified_clusters(self):
+        from core.orchestration.graph import aggregation_node
+
+        state = {**new_state(subreddit="smallbusiness"),
+                 "all_signals": self._widespread()}
+        result = aggregation_node(state, self.deps)
+        self.assertTrue(result["qualified_clusters"])
+
+    def test_node_rejects_clusters_below_the_cut(self):
+        from core.orchestration.graph import aggregation_node
+
+        lone = [_make_signal(self.engine, "t3_solo", "smallbusiness",
+                             "Manual invoice export is broken", body=WEAK_BODY)]
+        result = aggregation_node({**new_state(subreddit="x"),
+                                   "all_signals": lone}, self.deps)
+        self.assertEqual(result["qualified_clusters"], [])
+        self.assertEqual(len(result["clusters"]), 1,
+                         "el cluster existe, simplemente no cualifica")
+
+    def test_node_vetoes_a_cluster_carrying_affiliate_risk(self):
+        from core.orchestration.graph import aggregation_node
+
+        tainted = [
+            _make_signal(self.engine, f"t3_{i}", sub,
+                         "Manual invoice export is broken",
+                         body=PAIN_BODY + " Use my referral link, promo code SAVE20.")
+            for i, sub in enumerate(["a1", "b2", "c3", "d4", "e5"])
+        ]
+        result = aggregation_node({**new_state(subreddit="x"),
+                                   "all_signals": tainted}, self.deps)
+        self.assertEqual(result["qualified_clusters"], [],
+                         "el riesgo veta tambien al cluster")
+
+    def test_node_reports_cluster_statistics(self):
+        from core.orchestration.graph import aggregation_node
+
+        state = {**new_state(subreddit="x"), "all_signals": self._widespread()}
+        result = aggregation_node(state, self.deps)
+        self.assertIn("clusters", result["stats"])
+        self.assertIn("qualified_clusters", result["stats"])
+
+    def test_node_without_signals_is_harmless(self):
+        from core.orchestration.graph import aggregation_node
+
+        result = aggregation_node(new_state(subreddit="x"), self.deps)
+        self.assertEqual(result["qualified_clusters"], [])
+
+
+class TestTwoTierGraph(OrchestrationTestCase):
+    """El grafo completo, con los dos umbrales operando a la vez."""
+
+    def test_micro_signals_reach_the_feed(self):
+        """Una señal individual limpia entra al almacén y al feed."""
+        graph = build_graph(self.deps)
+        final = graph.invoke(new_state(subreddit="smallbusiness"))
+        self.assertIn("t3_pain", {q["id"] for q in final["qualified"]})
+
+    def test_micro_signals_do_not_become_opportunities_on_their_own(self):
+        graph = build_graph(self.deps)
+        final = graph.invoke(new_state(subreddit="smallbusiness"))
+        self.assertEqual(final["qualified_clusters"], [])
+
+    def test_signals_accumulate_across_cycles_for_aggregation(self):
+        second = {**PAIN_POST, "id": "t3_pain2"}
+        deps = RadarDependencies(
+            fetcher=FakeFetcher([[PAIN_POST], [second]]),
+            store=self.store,
+            search_engine=HybridSearchEngine(store=self.store),
+        )
+        graph = build_graph(deps, target_qualified=99, max_cycles=2)
+        final = graph.invoke(new_state(subreddit="smallbusiness"))
+        self.assertEqual(len(final["all_signals"]), 2,
+                         "la agregacion necesita la cosecha completa")
 
 
 if __name__ == "__main__":

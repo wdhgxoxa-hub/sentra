@@ -21,8 +21,19 @@ from typing import Annotated, Any, Dict, List, Optional, TypedDict
 from core.intelligence import AnalyzedSignal
 from core.storage import OpportunityRecord
 
-# Corte de cualificación sobre la escala 0-100 de TemporalScoreBreakdown.
-MIN_OPPORTUNITY_SCORE = 60.0
+# Dos umbrales para dos preguntas distintas (ver aggregation.py):
+#
+#   SIGNAL_THRESHOLD              ¿esta queja entra al almacén y al feed?
+#   OPPORTUNITY_CLUSTER_THRESHOLD ¿este problema recurrente merece producto?
+#
+# Aplicar el segundo a mensajes sueltos era la deuda D6: una señal
+# individual tiene un techo aritmético de 60 y jamás lo superaba.
+SIGNAL_THRESHOLD = 20.0
+OPPORTUNITY_CLUSTER_THRESHOLD = 60.0
+
+# Nombre histórico del corte de oportunidad. Se conserva porque eso es lo
+# que siempre significó: el umbral de la oportunidad consolidada.
+MIN_OPPORTUNITY_SCORE = OPPORTUNITY_CLUSTER_THRESHOLD
 
 # Banderas que vetan una oportunidad con independencia de su puntuación.
 BLOCKING_RISK_FLAGS = frozenset({
@@ -63,6 +74,15 @@ class RadarState(TypedDict, total=False):
     errors: Annotated[List[str], operator.add]
     stats: Annotated[Dict[str, int], _merge_stats]
 
+    # La agregación necesita TODA la cosecha, no solo la página en curso:
+    # un problema que aparece una vez por ciclo solo se ve al juntarlos.
+    all_signals: Annotated[List[AnalyzedSignal], operator.add]
+
+    # Se recalculan enteros en cada vuelta sobre `all_signals`, así que se
+    # reemplazan en lugar de acumularse.
+    clusters: List[Dict[str, Any]]
+    qualified_clusters: List[Dict[str, Any]]
+
 
 def new_state(
     subreddit: str,
@@ -83,6 +103,9 @@ def new_state(
         qualified=[],
         errors=[],
         stats={},
+        all_signals=[],
+        clusters=[],
+        qualified_clusters=[],
     )
 
 

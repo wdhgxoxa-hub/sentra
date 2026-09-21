@@ -23,6 +23,12 @@ Como servidor MCP:
     python -m core.orchestration.mcp_server
 """
 
+from .aggregation import (
+    OpportunityCluster,
+    aggregate_metrics,
+    build_clusters,
+    cluster_to_dict,
+)
 from .graph import (
     DEFAULT_MAX_CYCLES,
     DEFAULT_TARGET_QUALIFIED,
@@ -32,6 +38,7 @@ from .graph import (
     fetch_node,
     filter_node,
     intelligence_node,
+    aggregation_node,
     quality_gate_node,
     storage_node,
 )
@@ -43,6 +50,8 @@ from .pipeline import (
 from .state import (
     BLOCKING_RISK_FLAGS,
     MIN_OPPORTUNITY_SCORE,
+    OPPORTUNITY_CLUSTER_THRESHOLD,
+    SIGNAL_THRESHOLD,
     RadarState,
     new_state,
     signal_to_record,
@@ -54,7 +63,15 @@ __all__ = [
     "new_state",
     "signal_to_record",
     "MIN_OPPORTUNITY_SCORE",
+    "SIGNAL_THRESHOLD",
+    "OPPORTUNITY_CLUSTER_THRESHOLD",
     "BLOCKING_RISK_FLAGS",
+    # Agregacion de oportunidades
+    "build_clusters",
+    "aggregate_metrics",
+    "cluster_to_dict",
+    "OpportunityCluster",
+    "aggregation_node",
     # Grafo
     "build_graph",
     "RadarDependencies",

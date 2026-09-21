@@ -108,14 +108,15 @@ class TestEnumNormalization(unittest.TestCase):
         """Los valores producidos deben existir en los ENUM del esquema."""
         from pathlib import Path
 
-        ddl = (Path(__file__).resolve().parents[1] / "sql" / "schema.sql").read_text(
-            encoding="utf-8"
-        )
+        ddl = (
+            Path(__file__).resolve().parents[1]
+            / "sql" / "migrations" / "001_initial_schema.sql"
+        ).read_text(encoding="utf-8")
         for value in ("ready_to_buy", "seeking_recommendation", "seeking_alternative",
                       "comparing_products", "casual_discussion", "severe_blocker",
                       "time_consuming_friction", "minor_inconvenience", "no_problem",
                       "negative_frustration", "neutral_inquiry", "positive_praise"):
-            self.assertIn(f"'{value}'", ddl, f"{value} no existe en schema.sql")
+            self.assertIn(f"'{value}'", ddl, f"{value} no existe en la migracion 001")
 
 
 class TestContentHash(unittest.TestCase):
@@ -261,12 +262,12 @@ class TestPostgresIntegration(unittest.TestCase):
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
 
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
-        ddl = (Path(__file__).resolve().parents[1] / "sql" / "schema.sql").read_text(
-            encoding="utf-8"
-        )
-        with psycopg.connect(cls.dsn) as conn:
-            conn.execute(ddl)
-            conn.commit()
+
+        # Se levanta con el gestor de migraciones, igual que en producción:
+        # así la suite verifica el camino real de despliegue, no un atajo.
+        from scripts.migrate import migrate
+
+        migrate(cls.dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
 
         from core.intelligence import IntelligenceEngine
 

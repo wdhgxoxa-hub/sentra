@@ -2,7 +2,7 @@
 
 > Fase 6 del Reddit Intelligence Radar.
 > Estado: el **modelo de datos está implementado y verificado** contra
-> PostgreSQL 18.6 (215 pruebas en verde, 39 de ellas del adaptador).
+> PostgreSQL 18.6 (270 pruebas en verde).
 > El **frontend es especificación**: define contratos y estructura, no hay
 > código de UI escrito todavía.
 
@@ -150,6 +150,52 @@ ejecuciones (`SET NULL`).
 
 ---
 
+## 2.bis Dos niveles de cualificación
+
+El radar distingue entre una queja y una oportunidad, y el frontend debe
+reflejarlo porque son dos objetos distintos:
+
+| | Señal individual | Oportunidad agregada |
+|---|---|---|
+| Umbral | `SIGNAL_THRESHOLD` = 20 | `OPPORTUNITY_CLUSTER_THRESHOLD` = 60 |
+| Pregunta | ¿Esto entra al feed? | ¿Esto merece construir producto? |
+| Tabla | `analyzed_signals` | cluster (en memoria, ver D12) |
+| Vista | Feed de actividad | Tarjeta de oportunidad |
+
+**Por qué hacían falta dos.** El scoring pondera `spread .25` y
+`frequency .25`, que miden difusión entre comunidades y recurrencia. Una
+señal individual los tiene clavados en 0.2, de modo que aporta 10 de esos
+50 puntos y su techo aritmético es **exactamente 60**, alcanzable solo si
+severidad, recencia y disposición a pagar son perfectas a la vez. Aplicar el
+corte de 60 a mensajes sueltos vaciaba el radar. El umbral no estaba mal: se
+aplicaba al objeto equivocado.
+
+**Cómo se agrega.** Dos señales son el mismo problema si comparten intención
+JTBD y al menos un término del vocabulario de dolor; la relación se cierra
+por transitividad (union-find). Es léxico y determinista, no KMeans: un
+cluster que decide el gasto de un equipo tiene que poder explicarse con
+"estas cinco personas dijeron *invoice* y *manual* en cinco foros distintos".
+
+Ejemplo real de la salida del pipeline:
+
+```
+NIVEL 1 - micro-señales             NIVEL 2 - oportunidad agregada
+  [60.0] HIGH   t3_1 r/smallbusiness   >> invoice + manual   73.5 pts [HIGH]
+  [60.0] HIGH   t3_2 r/SaaS               6 menciones / 5 comunidades
+  [45.0] MEDIUM t3_3 r/accounting
+  [45.0] MEDIUM t3_9 r/devops            difusion     1.00 x 0.25 = 25.0
+                                         frecuencia   0.24 x 0.25 =  6.0
+  ninguna supera 60 por sí sola          severidad    1.00 x 0.20 = 20.0
+                                         recencia     1.00 x 0.15 = 15.0
+                                         disp. pagar  0.50 x 0.15 =  7.5
+                                                          TOTAL    = 73.5
+```
+
+El ruido de `r/devops` forma su propio cluster y se queda en 45: una sola
+comunidad no sostiene una oportunidad.
+
+---
+
 ## 3. Adaptador Python
 
 `core/storage/postgres_store.py`. Separa deliberadamente dos cosas:
@@ -162,7 +208,7 @@ ejecuciones (`SET NULL`).
 
 El clasificador produce etiquetas legibles (`"ready to buy"`); el esquema
 usa slugs (`ready_to_buy`). Esa traducción vive en un único sitio, y un test
-comprueba que **todo slug producido existe en `schema.sql`**: si alguien
+comprueba que **todo slug producido existe en la migración 001**: si alguien
 añade una etiqueta al motor sin tocar el ENUM, la suite lo detecta.
 
 **Repositorio asíncrono** `PostgresStore`:
@@ -220,10 +266,16 @@ RIR_PG_DSN=host=localhost port=5432 user=postgres dbname=reddit_intelligence_rad
 RIR_LANCEDB_PATH=F:\reddit_intelligence_radar\data\lancedb
 ```
 
-**Migraciones**: el esquema aún no tiene versionado. Antes del primer
-despliegue conviene decidirlo. Recomendación: archivos SQL numerados
-(`sql/migrations/001_*.sql`) y una tabla `schema_migrations`, sin ORM —
-el proyecto no usa SQLAlchemy y añadirlo solo para migrar sería desmedido.
+**Migraciones** (`scripts/migrate.py`): archivos numerados en
+`sql/migrations/` y una tabla de control `public.schema_migrations`, sin ORM.
+Alembic vive sobre SQLAlchemy y este proyecto no usa ORM: el esquema se
+escribe en SQL a mano porque usa construcciones (ENUM, `tsvector` generado,
+índices parciales, RLS) que un ORM expresaría peor.
+
+Garantías: orden numérico y no alfabético (010 va tras 002); **una
+transacción por migración**, de modo que una migración rota no deja la base a
+medio migrar ni se registra como aplicada; y huella de contenido, que hace
+fallar el gestor si alguien edita una migración ya aplicada.
 
 ---
 
@@ -504,15 +556,16 @@ apagado que el otro.
 
 ## 6. Pendiente antes de construir la UI
 
-1. **Versionado del esquema.** Sin migraciones, el primer cambio en
-   producción es manual y sin vuelta atrás.
-2. **El corte de 60 puntos (deuda D6).** Una señal individual tiene un techo
-   real de ~25-45 puntos, así que el dashboard mostrará la lista vacía por
-   defecto. Antes de diseñar el Radar View hay que decidir: bajar el corte, o
-   aplicar el gate sobre oportunidades **agregadas**, que es lo que el
-   scoring presupone.
-3. **El smoke real contra Reddit (deuda D8).** El esquema está verificado con
-   datos sintéticos. Un payload real puede traer campos que no se previeron.
-4. **NLI zero-shot (deuda D1).** Mientras siga en heurístico, las columnas
+1. **El smoke real contra Reddit (deuda D8).** El esquema está verificado
+   con datos sintéticos. Un payload real puede traer campos que no se
+   previeron.
+2. **NLI zero-shot (deuda D1).** Mientras siga en heurístico, las columnas
    `buying_intent` y `pain_severity` valen menos de lo que aparentan.
    `classifier_engine` deja constancia de ello en cada fila.
+3. **Los clusters no se persisten todavía (deuda D12).** `aggregation_node`
+   los calcula en memoria y el pipeline los devuelve, pero no hay tabla
+   `opportunity_clusters`: el frontend tendría que recalcularlos en cada
+   consulta. Es la siguiente migración natural.
+
+Resueltas en esta fase: **D6** (dos umbrales y agregación real; el Radar View
+ya tiene algo que mostrar) y **D9** (gestor de migraciones).

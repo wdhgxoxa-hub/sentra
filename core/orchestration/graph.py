@@ -31,9 +31,12 @@ from core.ingestion import PainPointFilter
 from core.intelligence import AnalyzedSignal, IntelligenceEngine
 from core.storage import HybridSearchEngine, LanceDBStore
 
+from .aggregation import build_clusters, cluster_to_dict
 from .state import (
     BLOCKING_RISK_FLAGS,
     MIN_OPPORTUNITY_SCORE,
+    OPPORTUNITY_CLUSTER_THRESHOLD,
+    SIGNAL_THRESHOLD,
     RadarState,
     signal_to_record,
 )
@@ -157,8 +160,6 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, A
     signals: List[AnalyzedSignal] = []
     errors: List[str] = []
 
-    communities = {str(i.get("subreddit") or state.get("subreddit", "")) for i in items}
-
     for item in items:
         try:
             signals.append(
@@ -170,7 +171,13 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, A
                     subreddit=str(item.get("subreddit") or state.get("subreddit", "")),
                     created_utc=float(item.get("created_utc", 0.0) or 0.0),
                     url=item.get("url") or item.get("permalink"),
-                    community_count=max(1, len(communities)),
+                    # Una señal individual es UNA voz en UNA comunidad. Pasar
+                    # aquí el número de comunidades del lote inflaba su
+                    # `spread` con contexto que no le pertenece: un mensaje
+                    # suelto parecía difundido solo porque venía acompañado.
+                    # La difusión real la mide `aggregation_node` sobre el
+                    # problema consolidado, que es donde significa algo.
+                    community_count=1,
                 )
             )
         except Exception as exc:
@@ -179,6 +186,9 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, A
 
     return {
         "signals": signals,
+        # `signals` se reemplaza en cada vuelta; `all_signals` acumula, que
+        # es lo que necesita la agregación para ver el patrón completo.
+        "all_signals": signals,
         "errors": errors,
         "stats": {"analyzed": len(signals)},
     }
@@ -231,19 +241,19 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
 def quality_gate_node(
     state: RadarState,
     deps: RadarDependencies,
-    min_score: float = MIN_OPPORTUNITY_SCORE,
+    min_score: float = SIGNAL_THRESHOLD,
 ) -> Dict[str, Any]:
     """
-    Aplica las reglas de corte: puntuación mínima y veto por riesgo.
+    Filtro de higiene sobre la señal INDIVIDUAL.
 
-    El veto es independiente de la puntuación: una señal con patrón de
-    afiliado no se cualifica ni con 99 puntos, porque el riesgo no es una
+    Decide qué quejas entran al feed de actividad, no qué merece producto:
+    ese juicio lo emite `aggregation_node` sobre el problema consolidado.
+    El corte por defecto es `SIGNAL_THRESHOLD` (20), alcanzable por un
+    mensaje suelto; `OPPORTUNITY_CLUSTER_THRESHOLD` (60) no lo es.
+
+    El veto por riesgo sí es independiente de la puntuación: una señal con
+    patrón de afiliado no pasa ni con 99 puntos, porque el riesgo no es una
     penalización gradual sino una descalificación.
-
-    Nota de calibración: el corte por defecto (60) opera sobre una escala
-    pensada para oportunidades *agregadas*. Una señal individual arrastra
-    `spread` y `frequency` mínimos por construcción, así que rara vez lo
-    alcanza. `min_score` permite calibrar sin tocar código.
     """
     qualified: List[Dict[str, Any]] = []
     rejected = 0
@@ -278,6 +288,58 @@ def quality_gate_node(
     }
 
 
+def aggregation_node(
+    state: RadarState,
+    deps: RadarDependencies,
+    cluster_threshold: float = OPPORTUNITY_CLUSTER_THRESHOLD,
+) -> Dict[str, Any]:
+    """
+    Consolida la cosecha completa en problemas recurrentes y los cualifica.
+
+    Aquí es donde el corte de 60 puntos tiene sentido: sobre un cluster,
+    `spread` y `frequency` reflejan difusión y recurrencia reales, que es
+    lo que la fórmula de scoring presupone.
+    """
+    signals = state.get("all_signals") or []
+    if not signals:
+        return {
+            "clusters": [],
+            "qualified_clusters": [],
+            "stats": {"clusters": 0, "qualified_clusters": 0},
+        }
+
+    try:
+        clusters = build_clusters(
+            signals,
+            scorer=deps.get_engine().temporal_scorer,
+            pain_filter=deps.get_filter(),
+        )
+    except Exception as exc:
+        logger.error("AggregationNode: %s", exc)
+        return {
+            "clusters": [],
+            "qualified_clusters": [],
+            "errors": [f"aggregation: {exc}"],
+            "stats": {"aggregation_errors": 1},
+        }
+
+    qualified = [
+        cluster
+        for cluster in clusters
+        if not (set(cluster.risk_flags) & BLOCKING_RISK_FLAGS)
+        and cluster.score_breakdown.final_score >= cluster_threshold
+    ]
+
+    return {
+        "clusters": [cluster_to_dict(c) for c in clusters],
+        "qualified_clusters": [cluster_to_dict(c) for c in qualified],
+        "stats": {
+            "clusters": len(clusters),
+            "qualified_clusters": len(qualified),
+        },
+    }
+
+
 # --------------------------------------------------------------------------
 # Construcción del grafo
 # --------------------------------------------------------------------------
@@ -286,17 +348,19 @@ def build_graph(
     deps: RadarDependencies,
     target_qualified: int = DEFAULT_TARGET_QUALIFIED,
     max_cycles: int = DEFAULT_MAX_CYCLES,
-    min_score: float = MIN_OPPORTUNITY_SCORE,
+    min_score: float = SIGNAL_THRESHOLD,
+    cluster_threshold: float = OPPORTUNITY_CLUSTER_THRESHOLD,
 ):
     """
     Compila la máquina de estados.
 
     Args:
         deps: colaboradores inyectados.
-        target_qualified: cuántas oportunidades cualificadas bastan para parar.
+        target_qualified: cuántas señales cualificadas bastan para parar.
         max_cycles: tope duro de vueltas. Es la garantía de terminación: sin
             él, una fuente inagotable de ruido mantendría el grafo girando.
-        min_score: corte de cualificación sobre la escala 0-100.
+        min_score: corte de higiene sobre la señal individual (0-100).
+        cluster_threshold: corte de oportunidad sobre el problema agregado.
     """
     graph = StateGraph(RadarState)
 
@@ -307,12 +371,16 @@ def build_graph(
     graph.add_node(
         "quality_gate", lambda state: quality_gate_node(state, deps, min_score)
     )
+    graph.add_node(
+        "aggregate", lambda state: aggregation_node(state, deps, cluster_threshold)
+    )
 
     graph.add_edge(START, "fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "intelligence")
     graph.add_edge("intelligence", "storage")
     graph.add_edge("storage", "quality_gate")
+    graph.add_edge("quality_gate", "aggregate")
 
     def route(state: RadarState) -> str:
         """Decide si hay que dar otra vuelta o cerrar la ejecución."""
@@ -324,6 +392,6 @@ def build_graph(
             return END
         return "fetch"
 
-    graph.add_conditional_edges("quality_gate", route, {"fetch": "fetch", END: END})
+    graph.add_conditional_edges("aggregate", route, {"fetch": "fetch", END: END})
 
     return graph.compile()
