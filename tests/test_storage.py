@@ -287,6 +287,20 @@ class TestHybridSearch(StoreTestCase):
     def test_indexing_an_empty_corpus_clears_the_index(self):
         self.assertEqual(self.engine.index_corpus([]), 0)
 
+    def test_extend_corpus_keeps_the_previously_indexed_documents(self):
+        self.engine.index_corpus([self.CORPUS[0]])
+        self.assertEqual(self.engine.extend_corpus([self.CORPUS[1]]), 2)
+        self.assertEqual(self.engine.search("facturas csv", limit=3)[0].id, "a1")
+
+    def test_extend_corpus_replaces_a_document_with_the_same_id(self):
+        self.engine.index_corpus([self.CORPUS[0]])
+        updated = {**self.CORPUS[0], "text": "texto corregido"}
+        self.assertEqual(self.engine.extend_corpus([updated]), 1)
+
+    def test_extend_corpus_with_nothing_leaves_the_index_untouched(self):
+        self.engine.index_corpus(self.CORPUS)
+        self.assertEqual(self.engine.extend_corpus([]), 3)
+
     def test_blank_query_returns_no_results(self):
         self.assertEqual(self.engine.search("   "), [])
 

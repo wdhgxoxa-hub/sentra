@@ -55,3 +55,58 @@ embedder placebo por embeddings reales.
 
 ## Open Questions
 - Proveedor de embeddings reales a adoptar (pendiente de decisión del usuario).
+
+---
+
+# Implementación Fase 5: Orquestación, Integración E2E y MCP
+
+## Overview
+Cierra el ciclo funcional: las tres capas (ingestion, intelligence, storage)
+dejan de ser islas y pasan a ejecutarse como un pipeline unico, orquestado por
+una maquina de estados de LangGraph y expuesto a clientes IA por MCP stdio.
+
+## Architecture Decisions
+- **Inyeccion de dependencias en el grafo.** Los nodos se construyen sobre un
+  `RadarDependencies` (fetcher, filtro, motor, almacen). Sin esto el grafo solo
+  seria testeable con red real contra Reddit.
+- **El fetcher es un callable, no el cliente.** `RedditIngestionClient` es
+  asincrono y golpea la red; el grafo recibe una funcion
+  `(subreddit, limit, sort, cursor) -> (items, next_cursor)`. El adaptador real
+  vive en `pipeline.py` y los tests inyectan uno falso.
+- **`signal_to_record` vive en `state.py`.** Es la conversion de frontera entre
+  el modelo analitico (`AnalyzedSignal`) y el de persistencia
+  (`OpportunityRecord`), junto al resto de estructuras que fluyen por el grafo.
+- **Ciclo controlado por `QualityGateNode`.** Si no se alcanza el objetivo de
+  oportunidades cualificadas y queda cursor, el grafo vuelve a `FetchNode`.
+  `max_cycles` corta el bucle siempre.
+- **Resiliencia por nodo.** Cada nodo captura sus excepciones y las acumula en
+  `state["errors"]`; un fallo de red no tumba la ejecucion entera.
+- **El orden Fetch -> Filter -> Intelligence -> Storage -> QualityGate es el
+  especificado.** Implica persistir tambien lo que no supera el corte; el gate
+  decide lo que se *reporta*, no lo que se *guarda*.
+
+## Task List
+
+### Fase D: Puente e infraestructura del grafo
+- [ ] Tarea 8: `state.py` — `RadarState` + `signal_to_record`
+- [ ] Tarea 9: `graph.py` — los cinco nodos con dependencias inyectadas
+- [ ] Tarea 10: `graph.py` — arista condicional ciclica + tope `max_cycles`
+
+### Checkpoint D
+- [ ] Grafo compila y recorre el flujo con dependencias falsas
+
+### Fase E: Ejecucion y exposicion
+- [ ] Tarea 11: `pipeline.py` — runner sincrono/asincrono + adaptador real de ingesta
+- [ ] Tarea 12: `mcp_server.py` — `scan_subreddit`, `search_pain_points`, `get_opportunity_details`
+
+### Checkpoint E
+- [ ] Suite completa en verde
+- [ ] Review multi-eje + commit
+
+## Risks and Mitigations
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Los tests tocan la red de Reddit | Alto | El fetcher siempre se inyecta; ningun test instancia el cliente real |
+| Bucle infinito en el grafo ciclico | Alto | `max_cycles` y avance obligatorio de cursor |
+| El NLI sigue en fallback heuristico | Medio | Documentado (deuda D1); el pipeline no lo disimula |
+| `opportunity_score` en dos escalas | Medio | Se fija 0-100, la de `TemporalScoreBreakdown.final_score` |

@@ -21,6 +21,10 @@ rank-bm25==0.2.2
 fastembed==0.8.0
 onnxruntime==1.30.0
 
+# --- Fase 5: orquestación y exposición ---
+langgraph==1.2.11
+mcp==1.29.0
+
 # --- Opcional: NLI zero-shot real (Fase 3) ---
 # Sin estos paquetes, ZeroShotNLIClassifier opera SIEMPRE en su modo heurístico
 # de reserva. Habilitarlos supone ~2,5 GB de PyTorch más ~1,6 GB de modelo.

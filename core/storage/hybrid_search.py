@@ -96,6 +96,25 @@ class HybridSearchEngine:
         self._bm25_index = BM25Okapi(tokenized_corpus)
         return len(self._corpus_docs)
 
+    def extend_corpus(self, documents: Sequence[Dict[str, Any]]) -> int:
+        """
+        Añade documentos al índice léxico conservando los ya indexados.
+
+        `index_corpus` reemplaza el corpus entero, lo que en una ejecución por
+        lotes sucesivos haría desaparecer de la rama BM25 todo lo cosechado
+        antes. Los documentos con un `id` ya presente se sustituyen.
+        """
+        if not documents:
+            return len(self._corpus_docs)
+
+        merged: Dict[str, Dict[str, Any]] = {
+            str(doc["id"]): doc for doc in self._corpus_docs
+        }
+        for doc in documents:
+            merged[str(doc["id"])] = doc
+
+        return self.index_corpus(list(merged.values()))
+
     def search(
         self,
         query: str,
