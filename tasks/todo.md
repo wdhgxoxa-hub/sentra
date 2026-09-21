@@ -135,9 +135,18 @@ El canal Atom publico funciona, pero NO pagina (el parametro `after` devuelve
 pagina vacia) y NO trae `score`, `ups`, `num_comments` ni `upvote_ratio`, que
 son justamente las senales que alimentan el scoring temporal.
 
-Opciones, pendiente de decision del usuario:
-  A. OAuth oficial (app de tipo script, gratuita): recupera todos los campos y
-     el cursor. Requiere client_id/secret del usuario.
-  B. Canal Atom: ejecutable hoy sin credenciales, pero degrada el scoring
-     (score=0) y deja D5 sin uso real en produccion.
-  C. Aplazar D8 y pasar a PostgreSQL.
+Decision del usuario (2026-09-21): opcion A, OAuth oficial.
+
+Estado: el soporte OAuth esta IMPLEMENTADO y verde (23 pruebas nuevas), pero el
+escaneo real sigue PENDIENTE de que el usuario cree la app y aporte credenciales.
+
+  core/ingestion/auth.py   RedditOAuth (client_credentials y password),
+                           cache de token con margen de expiracion,
+                           load_dotenv sin dependencias externas
+  client.py                habla con oauth.reddit.com y manda el bearer
+                           cuando hay credenciales; si no, modo anonimo
+  .env.example             plantilla con los pasos para crear la app
+
+Pendiente tras el smoke: los endpoints de hilo (fetch_thread_comments y
+fetch_full_thread) siguen usando solo el endpoint publico .json y no se han
+migrado a OAuth. Necesitan el mismo tratamiento que fetch_subreddit_page.

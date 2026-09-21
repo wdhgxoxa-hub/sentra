@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from curl_cffi.requests import AsyncSession
 
+from .auth import OAUTH_DOMAIN, RedditOAuth
 from .bypass import RedditBypass, RedditBypassConfig
 from .filters import FilterResult, PainPointFilter
 from .normalizer import CleanComment, CleanPost, RedditNormalizer, UnifiedTimelineItem
@@ -43,11 +44,16 @@ class RedditIngestionClient:
         bypass_config: Optional[RedditBypassConfig] = None,
         pain_filter: Optional[PainPointFilter] = None,
         paginator: Optional[RedditPaginator] = None,
+        oauth: Optional[RedditOAuth] = None,
     ) -> None:
         self.impersonate_browser = impersonate_browser
         self.proxy = proxy
         self.timeout_seconds = timeout_seconds
         self.rate_limit_delay = rate_limit_delay
+
+        # Con credenciales se habla con oauth.reddit.com; sin ellas se
+        # intenta el endpoint publico .json, que Reddit ya restringe.
+        self.oauth = oauth
 
         # Componentes modulares
         self.bypass = RedditBypass(bypass_config)
@@ -65,17 +71,46 @@ class RedditIngestionClient:
             await asyncio.sleep(self.rate_limit_delay - elapsed)
         self._last_request_time = time.monotonic()
 
+    @property
+    def is_authenticated(self) -> bool:
+        """True si hay credenciales OAuth utilizables."""
+        return bool(self.oauth and self.oauth.is_configured)
+
+    async def _endpoint_and_headers(
+        self,
+        clean_sub: str,
+        listing: str,
+    ) -> Tuple[str, Optional[Dict[str, str]]]:
+        """
+        Resuelve a qué dominio hay que pedir y con qué cabeceras.
+
+        Autenticado: `oauth.reddit.com/r/<sub>/<listing>`, sin sufijo `.json`,
+        con el token bearer. Anónimo: el endpoint público `.json`.
+        """
+        if self.is_authenticated:
+            url = f"{OAUTH_DOMAIN}/r/{clean_sub}/{listing.strip().lower()}"
+            return url, await self.oauth.auth_headers()
+
+        return self.bypass.build_endpoint_url(clean_sub, listing), None
+
     async def _execute_request(
         self,
         url: str,
         params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
         retry_count: int = 3
     ) -> Optional[Any]:
         """
         Ejecuta una solicitud HTTP GET asíncrona utilizando curl_cffi con TLS impersonation,
         inyección de cookies de bypass (over18, pref_gated_sr_optin) y reintentos ante 429.
+
+        `headers` permite añadir cabeceras propias de la petición (por ejemplo,
+        el token OAuth), que prevalecen sobre las del bypass.
         """
-        headers = self.bypass.get_bypass_headers()
+        request_headers = self.bypass.get_bypass_headers()
+        if headers:
+            request_headers.update(headers)
+        headers = request_headers
         cookies = self.bypass.get_bypass_cookies()
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
 
@@ -191,7 +226,7 @@ class RedditIngestionClient:
         porque la respuesta vino vacía o porque se alcanzó el corte temporal.
         """
         clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
-        url = self.bypass.build_endpoint_url(clean_sub, listing)
+        url, auth_headers = await self._endpoint_and_headers(clean_sub, listing)
 
         params = self.paginator.build_page_params(
             listing=listing,
@@ -200,7 +235,7 @@ class RedditIngestionClient:
             timeframe=timeframe
         )
 
-        data = await self._execute_request(url, params=params)
+        data = await self._execute_request(url, params=params, headers=auth_headers)
         if not data or not isinstance(data, dict):
             return [], None
 

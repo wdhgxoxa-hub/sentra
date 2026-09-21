@@ -10,6 +10,7 @@ Paquete central unificado que integra:
 - Interfoliado cronológico inverso unificado (snscrape).
 """
 
+from .auth import RedditAuthError, RedditOAuth, load_dotenv
 from .bypass import RedditBypass, RedditBypassConfig
 from .client import RedditIngestionClient
 from .filters import FilterResult, PainPointFilter, PAIN_POINT_KEYWORDS
@@ -18,6 +19,9 @@ from .pagination import RedditPaginator
 
 __all__ = [
     "RedditIngestionClient",
+    "RedditOAuth",
+    "RedditAuthError",
+    "load_dotenv",
     "RedditBypass",
     "RedditBypassConfig",
     "PainPointFilter",

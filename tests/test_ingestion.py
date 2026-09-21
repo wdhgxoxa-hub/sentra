@@ -24,6 +24,7 @@ from core.ingestion.normalizer import (
 )
 from core.ingestion.pagination import RedditPaginator
 from core.ingestion.client import RedditIngestionClient
+from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
 
 
 class TestRedditBypass(unittest.TestCase):
@@ -381,6 +382,218 @@ class TestSubredditPagination(unittest.TestCase):
         )
         self.assertEqual([p.id for p in posts], ["p1", "p2"])
         self.assertEqual(self.requests[1]["params"].get("after"), "t3_p1")
+
+
+class TestRedditOAuth(unittest.TestCase):
+    """
+    Autenticación OAuth2 contra Reddit.
+
+    Reddit cerró el acceso anónimo a los endpoints `.json`, así que la vía
+    soportada es una aplicación de tipo *script*. Ningún test pide un token
+    real: se inyecta el obtentor de token.
+    """
+
+    def setUp(self):
+        self.token_requests = []
+
+    def _fetcher(self, token="tok_abc", expires_in=3600):
+        async def fetch(payload, headers):
+            self.token_requests.append({"payload": dict(payload),
+                                        "headers": dict(headers)})
+            return {"access_token": token, "token_type": "bearer",
+                    "expires_in": expires_in, "scope": "*"}
+        return fetch
+
+    def test_is_not_configured_without_credentials(self):
+        self.assertFalse(RedditOAuth(client_id=None, client_secret=None).is_configured)
+
+    def test_is_configured_with_id_and_secret(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec")
+        self.assertTrue(auth.is_configured)
+
+    def test_from_env_returns_none_without_credentials(self):
+        self.assertIsNone(RedditOAuth.from_env(env={}))
+
+    def test_from_env_reads_the_documented_variables(self):
+        auth = RedditOAuth.from_env(env={
+            "RIR_REDDIT_CLIENT_ID": "cid",
+            "RIR_REDDIT_CLIENT_SECRET": "csec",
+            "RIR_REDDIT_USER_AGENT": "ua/1.0",
+        })
+        self.assertIsNotNone(auth)
+        self.assertEqual(auth.client_id, "cid")
+        self.assertEqual(auth.user_agent, "ua/1.0")
+
+    def test_app_only_grant_when_there_is_no_user(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           token_fetcher=self._fetcher())
+        asyncio.run(auth.get_token())
+        self.assertEqual(
+            self.token_requests[0]["payload"]["grant_type"], "client_credentials"
+        )
+
+    def test_password_grant_when_a_user_is_supplied(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           username="u", password="p",
+                           token_fetcher=self._fetcher())
+        asyncio.run(auth.get_token())
+        payload = self.token_requests[0]["payload"]
+        self.assertEqual(payload["grant_type"], "password")
+        self.assertEqual(payload["username"], "u")
+
+    def test_request_carries_basic_auth_and_user_agent(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           user_agent="radar/1.0", token_fetcher=self._fetcher())
+        asyncio.run(auth.get_token())
+        headers = self.token_requests[0]["headers"]
+        self.assertTrue(headers["Authorization"].startswith("Basic "))
+        self.assertEqual(headers["User-Agent"], "radar/1.0")
+
+    def test_token_is_returned(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           token_fetcher=self._fetcher(token="tok_xyz"))
+        self.assertEqual(asyncio.run(auth.get_token()), "tok_xyz")
+
+    def test_token_is_cached_between_calls(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           token_fetcher=self._fetcher())
+
+        async def twice():
+            await auth.get_token()
+            await auth.get_token()
+
+        asyncio.run(twice())
+        self.assertEqual(len(self.token_requests), 1, "no deberia repedir el token")
+
+    def test_expired_token_is_renewed(self):
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           token_fetcher=self._fetcher(expires_in=0))
+
+        async def twice():
+            await auth.get_token()
+            await auth.get_token()
+
+        asyncio.run(twice())
+        self.assertEqual(len(self.token_requests), 2)
+
+    def test_unconfigured_client_refuses_to_ask_for_a_token(self):
+        with self.assertRaises(RedditAuthError):
+            asyncio.run(RedditOAuth().get_token())
+
+    def test_a_response_without_token_is_an_error(self):
+        async def broken(payload, headers):
+            return {"error": "invalid_grant"}
+
+        auth = RedditOAuth(client_id="cid", client_secret="csec",
+                           token_fetcher=broken)
+        with self.assertRaises(RedditAuthError):
+            asyncio.run(auth.get_token())
+
+    def test_credentials_never_appear_in_the_repr(self):
+        auth = RedditOAuth(client_id="cid", client_secret="supersecreto",
+                           password="clave")
+        self.assertNotIn("supersecreto", repr(auth))
+        self.assertNotIn("clave", repr(auth))
+
+
+class TestDotEnvLoading(unittest.TestCase):
+    """Carga de credenciales desde un archivo .env, sin dependencias externas."""
+
+    def setUp(self):
+        import tempfile
+        self.tmpdir = tempfile.mkdtemp(prefix="rir_env_")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write(self, content):
+        import os
+        path = os.path.join(self.tmpdir, ".env")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        return path
+
+    def test_parses_key_value_pairs(self):
+        env = {}
+        load_dotenv(self._write("RIR_REDDIT_CLIENT_ID=abc\n"), env=env)
+        self.assertEqual(env["RIR_REDDIT_CLIENT_ID"], "abc")
+
+    def test_ignores_comments_and_blank_lines(self):
+        env = {}
+        load_dotenv(self._write("# comentario\n\nA=1\n  \n"), env=env)
+        self.assertEqual(env, {"A": "1"})
+
+    def test_strips_surrounding_quotes(self):
+        env = {}
+        load_dotenv(self._write('A="con espacios"\nB=\'simple\'\n'), env=env)
+        self.assertEqual(env["A"], "con espacios")
+        self.assertEqual(env["B"], "simple")
+
+    def test_does_not_override_an_existing_variable(self):
+        env = {"A": "del_entorno"}
+        load_dotenv(self._write("A=del_fichero\n"), env=env)
+        self.assertEqual(env["A"], "del_entorno")
+
+    def test_a_missing_file_is_not_an_error(self):
+        env = {}
+        load_dotenv(self.tmpdir + "/no_existe", env=env)
+        self.assertEqual(env, {})
+
+    def test_value_containing_equals_is_preserved(self):
+        env = {}
+        load_dotenv(self._write("A=x=y=z\n"), env=env)
+        self.assertEqual(env["A"], "x=y=z")
+
+
+class TestAuthenticatedFetch(unittest.TestCase):
+    """El cliente debe hablar con oauth.reddit.com cuando hay credenciales."""
+
+    def setUp(self):
+        self.requests = []
+
+    def _client(self, with_auth):
+        auth = None
+        if with_auth:
+            async def fetch(payload, headers):
+                return {"access_token": "tok_abc", "expires_in": 3600}
+            auth = RedditOAuth(client_id="cid", client_secret="csec",
+                               token_fetcher=fetch)
+
+        client = RedditIngestionClient(oauth=auth)
+
+        async def fake_execute(url, params=None, headers=None, **kwargs):
+            self.requests.append({"url": url, "params": dict(params or {}),
+                                  "headers": dict(headers or {})})
+            return _reddit_listing(["aaa"], after=None)
+
+        client._execute_request = fake_execute
+        return client
+
+    def test_anonymous_client_uses_the_public_json_endpoint(self):
+        client = self._client(with_auth=False)
+        asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
+        self.assertIn("www.reddit.com", self.requests[0]["url"])
+        self.assertTrue(self.requests[0]["url"].endswith(".json"))
+
+    def test_authenticated_client_uses_the_oauth_endpoint(self):
+        client = self._client(with_auth=True)
+        asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
+        self.assertIn("oauth.reddit.com", self.requests[0]["url"])
+        self.assertFalse(self.requests[0]["url"].endswith(".json"))
+
+    def test_authenticated_request_carries_the_bearer_token(self):
+        client = self._client(with_auth=True)
+        asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
+        self.assertEqual(
+            self.requests[0]["headers"].get("Authorization"), "bearer tok_abc"
+        )
+
+    def test_authenticated_payload_is_parsed_the_same_way(self):
+        client = self._client(with_auth=True)
+        posts, cursor = asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
+        self.assertEqual(posts[0].id, "aaa")
+        self.assertIsNone(cursor)
 
 
 if __name__ == "__main__":

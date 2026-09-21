@@ -67,8 +67,19 @@ class RedditFetcher:
     def _get_client(self) -> Any:
         if self._client is None:
             from core.ingestion import RedditIngestionClient
+            from core.ingestion.auth import RedditOAuth, load_dotenv
 
-            self._client = RedditIngestionClient()
+            # El .env es una comodidad de desarrollo; el entorno real manda.
+            load_dotenv()
+            oauth = RedditOAuth.from_env()
+            if oauth is None:
+                logger.warning(
+                    "Sin credenciales de Reddit: se usara el endpoint publico "
+                    ".json, que Reddit restringe (403 / redireccion a login). "
+                    "Define RIR_REDDIT_CLIENT_ID y RIR_REDDIT_CLIENT_SECRET."
+                )
+
+            self._client = RedditIngestionClient(oauth=oauth)
         return self._client
 
     def __call__(
