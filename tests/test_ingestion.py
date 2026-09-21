@@ -248,5 +248,140 @@ class TestRedditIngestionClient(unittest.TestCase):
         self.assertEqual(client.impersonate_browser, "chrome124")
 
 
+def _reddit_listing(post_ids, after=None):
+    """Construye un payload de listado con la forma real que devuelve Reddit."""
+    return {
+        "kind": "Listing",
+        "data": {
+            "after": after,
+            "dist": len(post_ids),
+            "children": [
+                {
+                    "kind": "t3",
+                    "data": {
+                        "id": pid,
+                        "subreddit": "smallbusiness",
+                        "title": f"Manual invoice work is killing me ({pid})",
+                        "selftext": "I spend hours every week on this tedious process.",
+                        "author": f"u/user_{pid}",
+                        "score": 42,
+                        "upvote_ratio": 0.97,
+                        "num_comments": 7,
+                        "created_utc": 1758000000.0,
+                        "url": f"https://reddit.com/r/smallbusiness/{pid}",
+                        "permalink": f"/r/smallbusiness/comments/{pid}/",
+                        "link_flair_text": None,
+                    },
+                }
+                for pid in post_ids
+            ],
+        },
+    }
+
+
+class TestSubredditPagination(unittest.TestCase):
+    """
+    Paginación explícita por cursor.
+
+    Se sustituye `_execute_request`, que es la única frontera de red del
+    cliente, por una respuesta sintética con la forma real de Reddit. Así se
+    ejercita el recorrido completo (parseo, normalización, cursor) sin salir
+    a internet.
+    """
+
+    def setUp(self):
+        self.client = RedditIngestionClient()
+        self.requests = []
+
+    def _install_transport(self, pages):
+        """Encola respuestas y registra los parámetros de cada petición."""
+        queue = list(pages)
+
+        async def fake_execute(url, params=None, **kwargs):
+            self.requests.append({"url": url, "params": dict(params or {})})
+            return queue.pop(0) if queue else None
+
+        self.client._execute_request = fake_execute
+
+    def test_page_returns_posts_and_the_next_cursor(self):
+        self._install_transport([_reddit_listing(["aaa", "bbb"], after="t3_bbb")])
+        posts, cursor = asyncio.run(
+            self.client.fetch_subreddit_page("smallbusiness", limit=2)
+        )
+        self.assertEqual([p.id for p in posts], ["aaa", "bbb"])
+        self.assertEqual(cursor, "t3_bbb")
+
+    def test_last_page_reports_no_cursor(self):
+        self._install_transport([_reddit_listing(["zzz"], after=None)])
+        _, cursor = asyncio.run(
+            self.client.fetch_subreddit_page("smallbusiness", limit=1)
+        )
+        self.assertIsNone(cursor)
+
+    def test_incoming_cursor_is_sent_to_reddit(self):
+        self._install_transport([_reddit_listing(["ccc"], after=None)])
+        asyncio.run(
+            self.client.fetch_subreddit_page(
+                "smallbusiness", limit=1, after="t3_previous"
+            )
+        )
+        self.assertEqual(self.requests[0]["params"].get("after"), "t3_previous")
+
+    def test_first_page_sends_no_cursor(self):
+        self._install_transport([_reddit_listing(["ddd"], after=None)])
+        asyncio.run(self.client.fetch_subreddit_page("smallbusiness", limit=1))
+        self.assertNotIn("after", self.requests[0]["params"])
+
+    def test_empty_response_yields_nothing_and_no_cursor(self):
+        self._install_transport([None])
+        posts, cursor = asyncio.run(
+            self.client.fetch_subreddit_page("smallbusiness", limit=5)
+        )
+        self.assertEqual(posts, [])
+        self.assertIsNone(cursor)
+
+    def test_posts_are_normalized_into_clean_posts(self):
+        self._install_transport([_reddit_listing(["eee"], after=None)])
+        posts, _ = asyncio.run(
+            self.client.fetch_subreddit_page("smallbusiness", limit=1)
+        )
+        post = posts[0]
+        self.assertIsInstance(post, CleanPost)
+        self.assertEqual(post.subreddit, "smallbusiness")
+        self.assertEqual(post.score, 42)
+        self.assertTrue(post.permalink.startswith("https://reddit.com/"))
+
+    def test_fetch_subreddit_posts_still_returns_only_a_list(self):
+        """La firma histórica no cambia: sigue devolviendo posts, no tuplas."""
+        self._install_transport([_reddit_listing(["fff"], after=None)])
+        result = asyncio.run(
+            self.client.fetch_subreddit_posts("smallbusiness", limit_per_page=1)
+        )
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], CleanPost)
+
+    def test_fetch_subreddit_posts_accepts_a_starting_cursor(self):
+        self._install_transport([_reddit_listing(["ggg"], after=None)])
+        asyncio.run(
+            self.client.fetch_subreddit_posts(
+                "smallbusiness", limit_per_page=1, after="t3_start"
+            )
+        )
+        self.assertEqual(self.requests[0]["params"].get("after"), "t3_start")
+
+    def test_multi_page_walk_follows_the_cursor_chain(self):
+        self._install_transport([
+            _reddit_listing(["p1"], after="t3_p1"),
+            _reddit_listing(["p2"], after="t3_p2"),
+        ])
+        posts = asyncio.run(
+            self.client.fetch_subreddit_posts(
+                "smallbusiness", limit_per_page=1, max_pages=2
+            )
+        )
+        self.assertEqual([p.id for p in posts], ["p1", "p2"])
+        self.assertEqual(self.requests[1]["params"].get("after"), "t3_p1")
+
+
 if __name__ == "__main__":
     unittest.main()

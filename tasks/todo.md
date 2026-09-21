@@ -94,11 +94,12 @@ la que cubre ese caso, pero conviene evaluar un stemmer si el corpus crece.
 BAAI/bge-small-en-v1.5 esta entrenado en ingles. Si el radar pasa a cubrir
 subreddits en otras lenguas, migrar a un modelo multilingue y reindexar.
 
-## D5: El fetcher real no expone cursor, asi que el grafo no cicla en produccion
-`fetch_subreddit_posts` encapsula el cursor `after` y no lo devuelve, de modo que
-`RedditFetcher` informa siempre `next_cursor=None`. El ciclo del grafo funciona y
-esta probado con fetchers inyectados, pero contra Reddit real solo dara una vuelta.
-Correccion: que la Fase 2 acepte un `after` inicial y devuelva el cursor final.
+## D5: CERRADA (2026-09-21) - cursor de paginacion propagado
+`fetch_subreddit_page()` acepta el cursor `after` entrante y devuelve el
+`next_cursor` de Reddit; `fetch_subreddit_posts()` conserva su firma historica
+y lo usa internamente para recorrer la cadena. `RedditFetcher` traduce el
+cursor en ambos sentidos, de modo que el ciclo del grafo avanza de verdad.
+Verificado con 13 pruebas nuevas sobre payloads con la forma real de Reddit.
 
 ## D6: El corte de 60 puntos es inalcanzable para una senal individual
 El scoring de Fase 3 esta calibrado para oportunidades AGREGADAS: `spread` y
@@ -115,6 +116,28 @@ Las 33 expresiones de `PAIN_POINT_KEYWORDS` son terminos de negocio ('manual',
 vocabulario de dominio se descarta. Es deliberado para precision, pero conviene
 medir cuanto recall cuesta.
 
-## D8: La ingesta real no se ha ejecutado contra Reddit
-Todo el pipeline esta verificado con fetchers inyectados. La conexion real de
-`RedditIngestionClient` contra reddit.com no se ha ejercitado en esta sesion.
+## D8: BLOQUEADA POR REDDIT (verificado 2026-09-21)  (PRIORIDAD ALTA)
+El smoke test real no se pudo completar: Reddit ha cerrado el acceso anonimo a
+los endpoints `.json`. Evidencia recogida:
+
+  www.reddit.com/r/SaaS/new.json      -> HTTP 403 (todas las variantes probadas)
+  old.reddit.com/r/SaaS/new.json      -> HTTP 200 pero redirige a
+                                         /login/?reason=lor2 y sirve HTML
+  oauth.reddit.com/r/SaaS/new         -> HTTP 403 (exige token)
+  www.reddit.com/r/SaaS/new/.rss      -> HTTP 200 con contenido real
+
+No es un fallo del codigo: es un control de acceso de la plataforma. Se probo
+con varios perfiles TLS (chrome124/131), con y sin cabeceras propias, y como
+navegacion top-level. No se insistio en burlar el WAF: la via correcta es
+autenticarse.
+
+El canal Atom publico funciona, pero NO pagina (el parametro `after` devuelve
+pagina vacia) y NO trae `score`, `ups`, `num_comments` ni `upvote_ratio`, que
+son justamente las senales que alimentan el scoring temporal.
+
+Opciones, pendiente de decision del usuario:
+  A. OAuth oficial (app de tipo script, gratuita): recupera todos los campos y
+     el cursor. Requiere client_id/secret del usuario.
+  B. Canal Atom: ejecutable hoy sin credenciales, pero degrada el scoring
+     (score=0) y deja D5 sin uso real en produccion.
+  C. Aplazar D8 y pasar a PostgreSQL.

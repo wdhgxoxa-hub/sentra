@@ -48,16 +48,21 @@ class RedditFetcher:
     """
     Adaptador entre `RedditIngestionClient` y la firma de fetcher del grafo.
 
-    Limitación conocida: `fetch_subreddit_posts` encapsula el cursor `after`
-    internamente y no lo devuelve, de modo que este adaptador no puede
-    reanudar en la página siguiente y siempre informa `next_cursor=None`. El
-    grafo, por tanto, no ciclará con él. Queda anotado como deuda D5: la
-    corrección es que la Fase 2 acepte y devuelva el cursor.
+    Traduce en ambos sentidos el cursor de paginación: entrega a Reddit el
+    `after` con el que el grafo quiere reanudar y devuelve el cursor de la
+    página siguiente, de modo que cada vuelta del ciclo avanza de verdad en
+    lugar de releer la primera página.
     """
 
-    def __init__(self, client: Any = None, max_pages: int = 1) -> None:
+    def __init__(
+        self,
+        client: Any = None,
+        max_age_days: Optional[int] = None,
+        timeframe: str = "month",
+    ) -> None:
         self._client = client
-        self.max_pages = max_pages
+        self.max_age_days = max_age_days
+        self.timeframe = timeframe
 
     def _get_client(self) -> Any:
         if self._client is None:
@@ -74,16 +79,18 @@ class RedditFetcher:
         cursor: Optional[str] = None,
     ) -> Tuple[Sequence[Dict[str, Any]], Optional[str]]:
         client = self._get_client()
-        posts = _run_coroutine(
-            client.fetch_subreddit_posts(
+        posts, next_cursor = _run_coroutine(
+            client.fetch_subreddit_page(
                 subreddit=subreddit,
                 listing=sort,
-                limit_per_page=limit,
-                max_pages=self.max_pages,
+                limit=limit,
+                after=cursor,
+                timeframe=self.timeframe,
+                max_age_days=self.max_age_days,
             )
         )
         items = [post.model_dump() for post in posts]
-        return items, None
+        return items, next_cursor
 
 
 def create_default_dependencies(

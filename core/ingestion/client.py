@@ -127,6 +127,105 @@ class RedditIngestionClient:
 
     # ─── Métodos de Extracción de Alto Nivel ─────────────────────────
 
+    def _build_clean_post(
+        self,
+        raw_p: Dict[str, Any],
+        clean_sub: str,
+        filter_pain_only: bool,
+    ) -> Optional[CleanPost]:
+        """
+        Normaliza un registro crudo de Reddit en un `CleanPost`.
+
+        Devuelve None si se pidió filtrar por dolor y el ítem no lo supera.
+        """
+        post_id = self.normalizer.normalize_id(raw_p.get("id", ""))
+        title = (raw_p.get("title") or "").strip()
+        selftext = self.normalizer.clean_text_body(raw_p.get("selftext"))
+        author = raw_p.get("author", "[deleted]")
+
+        combined_text = f"{title} {selftext}"
+        filter_res: FilterResult = self.filter.evaluate(
+            combined_text, author=author, require_pain_match=filter_pain_only
+        )
+
+        if filter_pain_only and not filter_res.passed:
+            return None
+
+        return CleanPost(
+            id=post_id,
+            subreddit=raw_p.get("subreddit", clean_sub),
+            title=title,
+            selftext=selftext,
+            author=author if author else "[deleted]",
+            score=raw_p.get("score", 0),
+            upvote_ratio=raw_p.get("upvote_ratio", 0.0),
+            num_comments=raw_p.get("num_comments", 0),
+            created_utc=float(raw_p.get("created_utc", 0.0)),
+            url=raw_p.get("url", ""),
+            permalink=f"https://reddit.com{raw_p.get('permalink', '')}" if raw_p.get("permalink") else "",
+            flair=raw_p.get("link_flair_text") or "",
+            is_pain_signal=filter_res.is_pain_signal,
+            matched_keywords=filter_res.matched_keywords
+        )
+
+    async def fetch_subreddit_page(
+        self,
+        subreddit: str,
+        listing: str = "hot",
+        limit: int = 25,
+        after: Optional[str] = None,
+        timeframe: str = "month",
+        max_age_days: Optional[int] = None,
+        filter_pain_only: bool = False,
+    ) -> Tuple[List[CleanPost], Optional[str]]:
+        """
+        Extrae UNA página y devuelve explícitamente el cursor de la siguiente.
+
+        Es la primitiva de paginación: acepta el cursor `after` entrante y
+        propaga hacia fuera el que devuelve Reddit, de modo que un consumidor
+        externo (por ejemplo el grafo de orquestación) pueda reanudar donde
+        lo dejó en lugar de volver a empezar.
+
+        Devuelve `(posts, next_cursor)`. Un `next_cursor` a None significa
+        que no hay más que recorrer, ya sea porque Reddit no dio cursor,
+        porque la respuesta vino vacía o porque se alcanzó el corte temporal.
+        """
+        clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
+        url = self.bypass.build_endpoint_url(clean_sub, listing)
+
+        params = self.paginator.build_page_params(
+            listing=listing,
+            limit=limit,
+            after=after,
+            timeframe=timeframe
+        )
+
+        data = await self._execute_request(url, params=params)
+        if not data or not isinstance(data, dict):
+            return [], None
+
+        raw_children, next_cursor = self.paginator.extract_children_and_after(data)
+        if not raw_children:
+            return [], None
+
+        # Filtro de antigüedad temporal (Bellingcat)
+        valid_raw, reached_cutoff = self.paginator.filter_by_recency(
+            raw_children, max_age_days=max_age_days
+        )
+
+        posts: List[CleanPost] = []
+        for raw_p in valid_raw:
+            clean_post = self._build_clean_post(raw_p, clean_sub, filter_pain_only)
+            if clean_post is not None:
+                posts.append(clean_post)
+
+        # En un listado ordenado por fecha, pasado el corte no queda nada útil
+        # por delante: se corta la cadena de cursores.
+        if reached_cutoff:
+            next_cursor = None
+
+        return posts, next_cursor
+
     async def fetch_subreddit_posts(
         self,
         subreddit: str,
@@ -136,71 +235,31 @@ class RedditIngestionClient:
         timeframe: str = "month",
         max_age_days: Optional[int] = None,
         filter_pain_only: bool = False,
+        after: Optional[str] = None,
     ) -> List[CleanPost]:
         """
-        Extrae publicaciones de un subreddit con paginación basada en cursor 'after',
-        saneamiento de datos y evaluación opcional de dolor.
+        Recorre hasta `max_pages` páginas siguiendo la cadena de cursores y
+        devuelve los posts deduplicados.
+
+        `after` permite arrancar el recorrido desde un cursor conocido. Para
+        obtener también el cursor final, usar `fetch_subreddit_page`.
         """
-        clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
-        url = self.bypass.build_endpoint_url(clean_sub, listing)
-        after_cursor: Optional[str] = None
+        cursor: Optional[str] = after
         collected_posts: List[CleanPost] = []
 
-        for page in range(1, max_pages + 1):
-            params = self.paginator.build_page_params(
+        for _ in range(max_pages):
+            posts, cursor = await self.fetch_subreddit_page(
+                subreddit=subreddit,
                 listing=listing,
                 limit=limit_per_page,
-                after=after_cursor,
-                timeframe=timeframe
+                after=cursor,
+                timeframe=timeframe,
+                max_age_days=max_age_days,
+                filter_pain_only=filter_pain_only,
             )
+            collected_posts.extend(posts)
 
-            data = await self._execute_request(url, params=params)
-            if not data or not isinstance(data, dict):
-                break
-
-            raw_children, next_cursor = self.paginator.extract_children_and_after(data)
-            if not raw_children:
-                break
-
-            # Filtro de antigüedad temporal (Bellingcat)
-            valid_raw, reached_cutoff = self.paginator.filter_by_recency(
-                raw_children, max_age_days=max_age_days
-            )
-
-            for raw_p in valid_raw:
-                post_id = self.normalizer.normalize_id(raw_p.get("id", ""))
-                title = (raw_p.get("title") or "").strip()
-                selftext = self.normalizer.clean_text_body(raw_p.get("selftext"))
-                author = raw_p.get("author", "[deleted]")
-
-                combined_text = f"{title} {selftext}"
-                filter_res: FilterResult = self.filter.evaluate(
-                    combined_text, author=author, require_pain_match=filter_pain_only
-                )
-
-                if filter_pain_only and not filter_res.passed:
-                    continue
-
-                clean_post = CleanPost(
-                    id=post_id,
-                    subreddit=raw_p.get("subreddit", clean_sub),
-                    title=title,
-                    selftext=selftext,
-                    author=author if author else "[deleted]",
-                    score=raw_p.get("score", 0),
-                    upvote_ratio=raw_p.get("upvote_ratio", 0.0),
-                    num_comments=raw_p.get("num_comments", 0),
-                    created_utc=float(raw_p.get("created_utc", 0.0)),
-                    url=raw_p.get("url", ""),
-                    permalink=f"https://reddit.com{raw_p.get('permalink', '')}" if raw_p.get("permalink") else "",
-                    flair=raw_p.get("link_flair_text") or "",
-                    is_pain_signal=filter_res.is_pain_signal,
-                    matched_keywords=filter_res.matched_keywords
-                )
-                collected_posts.append(clean_post)
-
-            after_cursor = next_cursor
-            if not after_cursor or reached_cutoff:
+            if not cursor:
                 break
 
         return self.normalizer.deduplicate_posts(collected_posts)

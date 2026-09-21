@@ -527,6 +527,58 @@ class TestPipeline(OrchestrationTestCase):
         self.assertIn("t3_pain", {q["id"] for q in result["qualified"]})
 
 
+class TestRedditFetcherAdapter(unittest.TestCase):
+    """
+    El adaptador que conecta el cliente real con la firma del grafo.
+
+    Se inyecta un cliente falso: lo que se verifica aquí es la traducción de
+    cursores, no la red.
+    """
+
+    class FakeClient:
+        def __init__(self, pages):
+            self.pages = list(pages)
+            self.calls = []
+
+        async def fetch_subreddit_page(self, subreddit, listing="hot",
+                                       limit=25, after=None, **kwargs):
+            self.calls.append({"subreddit": subreddit, "listing": listing,
+                               "limit": limit, "after": after})
+            return self.pages.pop(0) if self.pages else ([], None)
+
+    def test_adapter_returns_the_cursor_from_the_client(self):
+        from core.orchestration import RedditFetcher
+
+        client = self.FakeClient([([], "t3_next")])
+        _, cursor = RedditFetcher(client=client)("saas", limit=5, sort="new")
+        self.assertEqual(cursor, "t3_next")
+
+    def test_adapter_forwards_the_incoming_cursor(self):
+        from core.orchestration import RedditFetcher
+
+        client = self.FakeClient([([], None)])
+        RedditFetcher(client=client)("saas", limit=5, sort="new", cursor="t3_prev")
+        self.assertEqual(client.calls[0]["after"], "t3_prev")
+
+    def test_adapter_forwards_the_listing_and_limit(self):
+        from core.orchestration import RedditFetcher
+
+        client = self.FakeClient([([], None)])
+        RedditFetcher(client=client)("saas", limit=7, sort="top")
+        self.assertEqual(client.calls[0]["listing"], "top")
+        self.assertEqual(client.calls[0]["limit"], 7)
+
+    def test_adapter_serializes_posts_into_plain_dicts(self):
+        from core.orchestration import RedditFetcher
+        from core.ingestion import CleanPost
+
+        post = CleanPost(id="t3_x", subreddit="saas", title="t", selftext="b")
+        client = self.FakeClient([([post], None)])
+        items, _ = RedditFetcher(client=client)("saas", limit=1, sort="hot")
+        self.assertIsInstance(items[0], dict)
+        self.assertEqual(items[0]["id"], "t3_x")
+
+
 class TestMcpTools(OrchestrationTestCase):
     """Las tres herramientas expuestas por MCP, probadas sin levantar stdio."""
 
