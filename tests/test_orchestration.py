@@ -503,6 +503,33 @@ class TestGraphCycle(OrchestrationTestCase):
             hits["t3_pain"].bm25_rank, "deberia conservar su rango lexico"
         )
 
+    def test_cluster_counters_are_not_summed_across_cycles(self):
+        """
+        La agregacion recalcula los clusters enteros en cada vuelta, asi que
+        su numero es un total y no un incremento. Sumarlos inflaba la cifra
+        que ve el usuario en la barra de progreso.
+        """
+        second = {**PAIN_POST, "id": "t3_pain2"}
+        deps = RadarDependencies(
+            fetcher=FakeFetcher([[PAIN_POST], [second]]),
+            store=self.store,
+            search_engine=HybridSearchEngine(store=self.store),
+        )
+        graph = build_graph(deps, target_qualified=99, max_cycles=2,
+                            min_score=REACHABLE_CUT)
+        final = graph.invoke(new_state(subreddit="smallbusiness"))
+
+        self.assertEqual(
+            final["stats"]["clusters"],
+            len(final["clusters"]),
+            "el contador debe coincidir con los clusters que existen",
+        )
+        self.assertEqual(
+            final["stats"]["qualified_clusters"], len(final["qualified_clusters"])
+        )
+        # Los incrementales si se acumulan: dos vueltas, dos posts leidos.
+        self.assertEqual(final["stats"]["fetched"], 2)
+
     def test_cycle_stops_when_the_source_is_exhausted(self):
         fetcher = FakeFetcher([[NOISE_POST]])
         deps = RadarDependencies(fetcher=fetcher, store=self.store)

@@ -43,11 +43,28 @@ BLOCKING_RISK_FLAGS = frozenset({
 })
 
 
+# Contadores que NO se suman entre ciclos.
+#
+# La agregación recalcula los clusters enteros sobre toda la cosecha en cada
+# vuelta, así que su número es un total, no un incremento. Sumarlos daba
+# cifras infladas: dos vueltas que ven 2 y luego 3 clusters reportaban 5,
+# cuando los clusters que existen son 3.
+RECOMPUTED_STATS = frozenset({"clusters", "qualified_clusters"})
+
+
 def _merge_stats(left: Dict[str, int], right: Dict[str, int]) -> Dict[str, int]:
-    """Suma contadores homónimos para que las estadísticas sobrevivan al ciclo."""
+    """
+    Fusiona los contadores de dos vueltas del ciclo.
+
+    Los incrementales se suman (cada ciclo lee posts nuevos); los que se
+    recalculan enteros se reemplazan por la última lectura.
+    """
     merged = dict(left or {})
     for key, value in (right or {}).items():
-        merged[key] = merged.get(key, 0) + value
+        if key in RECOMPUTED_STATS:
+            merged[key] = value
+        else:
+            merged[key] = merged.get(key, 0) + value
     return merged
 
 
