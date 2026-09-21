@@ -271,13 +271,20 @@ pub async fn get_opportunity_board(
     state: State<'_, AppState>,
     params: BoardParams,
 ) -> RadarResult<Vec<OpportunityCluster>> {
+    // DISTINCT ON por cluster_key: la tabla guarda una lectura por
+    // ejecucion, asi que sin esto el tablero mostraria el mismo problema
+    // repetido tantas veces como se haya escaneado, como si fueran
+    // oportunidades distintas. Interesa la lectura mas reciente de cada uno.
     let sql = format!(
         r#"
-        SELECT {BOARD_COLUMNS}
-        FROM v_opportunity_board
-        WHERE tenant_id = $1::uuid
-          AND final_score >= $2
-          AND (NOT $3 OR qualified)
+        SELECT * FROM (
+            SELECT DISTINCT ON (cluster_key) {BOARD_COLUMNS}
+            FROM v_opportunity_board
+            WHERE tenant_id = $1::uuid
+              AND final_score >= $2
+              AND (NOT $3 OR qualified)
+            ORDER BY cluster_key, created_at DESC
+        ) ultimas
         ORDER BY final_score DESC, created_at DESC
         LIMIT $4
         "#

@@ -146,40 +146,19 @@ Las 33 expresiones de `PAIN_POINT_KEYWORDS` son terminos de negocio ('manual',
 vocabulario de dominio se descarta. Es deliberado para precision, pero conviene
 medir cuanto recall cuesta.
 
-## D8: BLOQUEADA POR REDDIT (verificado 2026-09-21)  (PRIORIDAD ALTA)
-El smoke test real no se pudo completar: Reddit ha cerrado el acceso anonimo a
-los endpoints `.json`. Evidencia recogida:
+## D8: APLAZADA DEFINITIVAMENTE (2026-09-21)
+Reddit bloqueo el registro de la aplicacion OAuth a nivel de cuenta, asi que
+no hay via de acceso autenticado. El acceso anonimo a los endpoints .json ya
+estaba cerrado (403 / redireccion a login), comprobado con varios perfiles TLS.
 
-  www.reddit.com/r/SaaS/new.json      -> HTTP 403 (todas las variantes probadas)
-  old.reddit.com/r/SaaS/new.json      -> HTTP 200 pero redirige a
-                                         /login/?reason=lor2 y sirve HTML
-  oauth.reddit.com/r/SaaS/new         -> HTTP 403 (exige token)
-  www.reddit.com/r/SaaS/new/.rss      -> HTTP 200 con contenido real
+Consecuencia que conviene no perder de vista: **todo el pipeline esta
+verificado con datos sinteticos**. Nunca ha visto un post real de Reddit. El
+codigo de ingesta (Fase 2 + OAuth) esta escrito y probado contra payloads con
+la forma real, pero la forma real puede tener sorpresas.
 
-No es un fallo del codigo: es un control de acceso de la plataforma. Se probo
-con varios perfiles TLS (chrome124/131), con y sin cabeceras propias, y como
-navegacion top-level. No se insistio en burlar el WAF: la via correcta es
-autenticarse.
-
-El canal Atom publico funciona, pero NO pagina (el parametro `after` devuelve
-pagina vacia) y NO trae `score`, `ups`, `num_comments` ni `upvote_ratio`, que
-son justamente las senales que alimentan el scoring temporal.
-
-Decision del usuario (2026-09-21): opcion A, OAuth oficial.
-
-Estado: el soporte OAuth esta IMPLEMENTADO y verde (23 pruebas nuevas), pero el
-escaneo real sigue PENDIENTE de que el usuario cree la app y aporte credenciales.
-
-  core/ingestion/auth.py   RedditOAuth (client_credentials y password),
-                           cache de token con margen de expiracion,
-                           load_dotenv sin dependencias externas
-  client.py                habla con oauth.reddit.com y manda el bearer
-                           cuando hay credenciales; si no, modo anonimo
-  .env.example             plantilla con los pasos para crear la app
-
-Pendiente tras el smoke: los endpoints de hilo (fetch_thread_comments y
-fetch_full_thread) siguen usando solo el endpoint publico .json y no se han
-migrado a OAuth. Necesitan el mismo tratamiento que fetch_subreddit_page.
+Vias si algun dia se retoma: otra cuenta de Reddit, un volcado publico
+(Pushshift o similar), o adaptar el fetcher a otra fuente. La firma del
+fetcher es inyectable, asi que cambiar de fuente no toca el grafo.
 
 ## D9: CERRADA (2026-09-21) - gestor de migraciones
 `sql/schema.sql` pasa a ser `sql/migrations/001_initial_schema.sql`, unica
@@ -347,10 +326,13 @@ retrocede (los nodos ya vistos no se recuentan), pero tampoco refleja que
 queda otra vuelta: al final del ciclo 1 marca 100 % aunque vaya a haber un
 ciclo 2. El numero de ciclo si se muestra aparte.
 
-## D24: El estado de validacion no filtra el tablero
-`cluster_validations` ya alimenta `v_opportunity_board`, pero el Radar View no
-ofrece filtrar por estado. Con muchas oportunidades, lo ya descartado seguira
-ocupando sitio junto a lo que nadie ha mirado.
+## D24: CERRADA (2026-09-21) - el tablero mostraba cada problema repetido
+Encontrado al levantar la aplicacion en vivo: `opportunity_clusters` guarda una
+lectura por ejecucion, asi que el Radar View mostraba el mismo problema cuatro
+veces, como si fueran cuatro oportunidades. `get_opportunity_board` usa ahora
+DISTINCT ON (cluster_key) con la lectura mas reciente.
+Queda pendiente el filtro por estado de validacion, que era la otra mitad de
+esta deuda: ver D27.
 
 ## D25: No hay forma de deshacer una validacion
 Se puede cambiar el estado, pero no borrar la fila de `cluster_validations`:
@@ -361,3 +343,13 @@ vuelva a 'new'. Falta un `clear_validation` o equivalente.
 `rir_mutations_test` se crea una vez y los tests usan claves distintas para no
 pisarse. Funciona, pero es un acuerdo tacito: un test nuevo que reutilice una
 clave existente fallara de forma confusa.
+
+## D27: El tablero no filtra por estado de validacion
+`cluster_validations` alimenta `v_opportunity_board`, pero el Radar View no
+permite ocultar lo ya descartado o construido. Con muchas oportunidades, lo
+resuelto seguira ocupando sitio junto a lo que nadie ha mirado.
+
+## D28: La aplicacion no lee credenciales de Reddit al arrancar
+`RedditFetcher` las lee del .env al construirse, pero la ventana no avisa de
+que faltan: el usuario solo lo descubre cuando un escaneo falla. El indicador
+de salud podria mostrarlo, ya que /api/health conoce el estado del sidecar.

@@ -315,42 +315,20 @@ mod tests {
 
     const TEST_DB: &str = "rir_mutations_test";
 
-    /// Credenciales de la base local, sin incrustar secretos en el codigo.
+    /// Credenciales de la base de pruebas.
     ///
-    /// sqlx no lee `pgpass.conf` como hace libpq, asi que se lee aqui. Si no
-    /// hay credenciales, los tests se saltan en lugar de fallar: no todas las
-    /// maquinas tienen un PostgreSQL local.
+    /// Reutiliza el lector de pgpass de produccion: probar con un camino de
+    /// conexion distinto al real dejaria sin cubrir justo el que importa.
     fn local_options(database: &str) -> Option<sqlx::postgres::PgConnectOptions> {
         use sqlx::postgres::PgConnectOptions;
 
         if let Ok(url) = std::env::var("RIR_PG_TEST_URL") {
-            return url.parse::<PgConnectOptions>().ok().map(|o| o.database(database));
+            return url
+                .parse::<PgConnectOptions>()
+                .ok()
+                .map(|options| options.database(database));
         }
-
-        let appdata = std::env::var("APPDATA").ok()?;
-        let path = std::path::Path::new(&appdata)
-            .join("postgresql")
-            .join("pgpass.conf");
-        let content = std::fs::read_to_string(path).ok()?;
-
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let parts: Vec<&str> = line.splitn(5, ':').collect();
-            if parts.len() == 5 && parts[0] == "localhost" && parts[3] == "postgres" {
-                return Some(
-                    PgConnectOptions::new()
-                        .host("localhost")
-                        .port(parts[1].parse().unwrap_or(5432))
-                        .username("postgres")
-                        .password(parts[4])
-                        .database(database),
-                );
-            }
-        }
-        None
+        crate::db::options_from_pgpass(database)
     }
 
     /// La BASE se crea una sola vez; el POOL, uno por test.
