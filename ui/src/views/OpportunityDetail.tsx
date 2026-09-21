@@ -1,15 +1,16 @@
 import { ScoreBreakdownBars } from "@/components/ScoreBreakdownBars";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
-import { useClusterHistory, useOpportunityBoard } from "@/lib/queries";
+import { useClusterHistory, useOpportunityDetail } from "@/lib/queries";
 import { useUiStore } from "@/stores/uiStore";
 
 /** Ficha de una oportunidad: JTBD, matematica de la puntuacion y evidencia. */
 export function OpportunityDetail() {
   const clusterKey = useUiStore((state) => state.selectedClusterKey);
-  const board = useOpportunityBoard({ limit: 100 });
+  // Consulta dirigida en lugar de filtrar el tablero entero en el cliente.
+  const detail = useOpportunityDetail(clusterKey);
   const history = useClusterHistory(clusterKey);
 
-  const cluster = board.data?.find((item) => item.clusterKey === clusterKey);
+  const cluster = detail.data;
 
   if (!clusterKey) {
     return (
@@ -19,8 +20,16 @@ export function OpportunityDetail() {
     );
   }
 
-  if (!cluster) {
+  if (detail.isPending) {
     return <p className="text-sm text-[--color-ink-muted]">Cargando ficha...</p>;
+  }
+
+  if (!cluster) {
+    return (
+      <p className="text-sm text-[--color-ink-muted]">
+        Esa oportunidad ya no esta en el almacen.
+      </p>
+    );
   }
 
   return (
@@ -68,9 +77,26 @@ export function OpportunityDetail() {
 
       <section>
         <h3 className="mb-1 text-sm font-semibold">Evolucion</h3>
-        <p className="text-sm text-[--color-ink-muted]">
-          {history.data?.length ?? 0} lecturas registradas
-        </p>
+        {history.data && history.data.length > 1 ? (
+          <ul className="flex flex-col gap-1 text-sm">
+            {history.data.slice(0, 6).map((point) => (
+              <li key={point.id} className="flex gap-3 font-mono tabular-nums">
+                <span className="text-[--color-ink-muted]">
+                  {point.createdAt.slice(0, 16)}
+                </span>
+                <span>{point.finalScore.toFixed(1)} pts</span>
+                <span className="text-[--color-ink-muted]">
+                  {point.mentionCount}m / {point.communityCount}c
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-[--color-ink-muted]">
+            Una sola lectura por ahora. La evolucion aparece cuando el mismo
+            problema se detecta en escaneos sucesivos.
+          </p>
+        )}
       </section>
     </article>
   );

@@ -14,8 +14,13 @@ const DEFAULT_DSN: &str =
 const DSN_ENV_VAR: &str = "RIR_PG_URL";
 
 /// Estado compartido de la aplicacion, accesible desde cualquier comando.
+///
+/// El cliente HTTP se crea una vez y se reutiliza: reqwest mantiene su
+/// propio pool de conexiones, y construir uno por peticion desperdiciaria
+/// el handshake con el sidecar.
 pub struct AppState {
     pub pool: PgPool,
+    pub http: reqwest::Client,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -24,7 +29,7 @@ pub enum RadarError {
     Database(#[from] sqlx::Error),
 
     #[error("{0}")]
-    NotImplemented(String),
+    Sidecar(String),
 }
 
 /// Tauri necesita serializar el error para devolverlo al WebView.

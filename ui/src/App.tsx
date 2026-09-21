@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { HealthIndicator } from "@/components/HealthIndicator";
 import { onRadarEvent } from "@/lib/ipc";
 import { queryClient, queryKeys } from "@/lib/queries";
 import { useUiStore, type RadarView } from "@/stores/uiStore";
@@ -54,6 +55,10 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <div className="ml-auto">
+          <HealthIndicator />
+        </div>
       </header>
 
       <main className="min-h-0 flex-1 overflow-auto p-4">

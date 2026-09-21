@@ -2,9 +2,17 @@
  * Puente tipado con Rust
  * ======================
  *
- * Único punto donde se escriben los nombres de los comandos. Ningún
+ * Unico punto donde se escriben los nombres de los comandos. Ningun
  * componente llama a `invoke` con cadenas sueltas: un nombre mal escrito
- * debe ser un error de compilación, no un fallo en tiempo de ejecución.
+ * debe ser un error de compilacion, no un fallo en tiempo de ejecucion.
+ *
+ * Cada comando indica quien lo resuelve:
+ *   [pg]      Rust contra PostgreSQL.
+ *   [sidecar] Rust reenvia al proceso Python por HTTP local.
+ *
+ * Pendientes de implementar en Rust (deuda D17), por eso NO se declaran
+ * aqui: update_opportunity_status, upsert_subreddit y cancel_scan.
+ * Declararlos sin backend solo produciria fallos en tiempo de ejecucion.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -12,6 +20,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import {
   RADAR_EVENT_CHANNEL,
+  type AppHealth,
   type BoardParams,
   type ClusterHistoryPoint,
   type FeedParams,
@@ -21,62 +30,52 @@ import {
   type RadarEvent,
   type RadarFeedEntry,
   type ScanParams,
+  type ScanResult,
   type SearchParams,
   type SubredditHealth,
-  type UpsertSubredditParams,
-  type ValidationStatus,
 } from "@/types/radar";
 
 export const ipc = {
-  // --- Lecturas: Rust las resuelve contra PostgreSQL con sqlx ---
-
+  /** [pg] Senales individuales que superaron el filtro de higiene. */
   getRadarFeed: (params: FeedParams = {}) =>
     invoke<RadarFeedEntry[]>("get_radar_feed", { params }),
 
+  /** [pg] Problemas recurrentes consolidados. */
   getOpportunityBoard: (params: BoardParams = {}) =>
     invoke<OpportunityCluster[]>("get_opportunity_board", { params }),
 
+  /** [pg] Ficha de una oportunidad: la lectura mas reciente de esa clave. */
+  getOpportunityDetail: (clusterKey: string) =>
+    invoke<OpportunityCluster | null>("get_opportunity_detail", { clusterKey }),
+
+  /** [pg] Lecturas sucesivas del mismo problema, para ver como evoluciona. */
   getClusterHistory: (clusterKey: string) =>
     invoke<ClusterHistoryPoint[]>("get_cluster_history", { clusterKey }),
 
-  getOpportunityDetail: (redditId: string) =>
-    invoke<RadarFeedEntry | null>("get_opportunity_detail", { redditId }),
+  /** [pg] Subreddits vigilados con el resultado de su ultimo escaneo. */
+  getSubreddits: () => invoke<SubredditHealth[]>("get_subreddits"),
 
-  listSubreddits: () => invoke<SubredditHealth[]>("list_subreddits"),
+  /** [pg] Telemetria de las ultimas ejecuciones del grafo. */
+  getPipelineRuns: (limit = 50) =>
+    invoke<PipelineRun[]>("get_pipeline_runs", { limit }),
 
-  listRuns: (limit = 50) => invoke<PipelineRun[]>("list_runs", { limit }),
-
-  // --- Escrituras ---
-
-  updateOpportunityStatus: (
-    opportunityId: string,
-    status: ValidationStatus,
-    notes?: string,
-  ) =>
-    invoke<void>("update_opportunity_status", {
-      opportunityId,
-      status,
-      notes: notes ?? null,
-    }),
-
-  upsertSubreddit: (params: UpsertSubredditParams) =>
-    invoke<string>("upsert_subreddit", { params }),
-
-  // --- Motor: Rust las delega en el sidecar Python ---
-
+  /** [sidecar] Busqueda hibrida densa + BM25 con fusion RRF. */
   searchHybrid: (params: SearchParams) =>
     invoke<HybridSearchHit[]>("search_hybrid", { params }),
 
-  triggerScan: (params: ScanParams) => invoke<string>("trigger_scan", { params }),
+  /** [sidecar] Escaneo completo. Puede tardar minutos. */
+  triggerScan: (params: ScanParams) =>
+    invoke<ScanResult>("trigger_scan", { params }),
 
-  cancelScan: (runId: string) => invoke<void>("cancel_scan", { runId }),
+  /** [pg + sidecar] Estado de las tres piezas por separado. */
+  getAppHealth: () => invoke<AppHealth>("get_app_health"),
 } as const;
 
 /**
  * Se suscribe al progreso de las ejecuciones.
  *
  * El backend empuja los avances en lugar de que la interfaz pregunte: un
- * escaneo puede durar minutos y sondearlo sería ruido constante.
+ * escaneo puede durar minutos y sondearlo seria ruido constante.
  */
 export function onRadarEvent(
   handler: (event: RadarEvent) => void,

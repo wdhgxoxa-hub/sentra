@@ -1,17 +1,67 @@
 //! Comandos que delegan en el sidecar Python.
 //!
 //! El motor (grafo LangGraph, embeddings, busqueda hibrida sobre LanceDB)
-//! vive en Python y no tiene equivalente en Rust. Estos comandos son el
-//! puente.
+//! vive en Python y no tiene equivalente en Rust. Estos comandos hablan con
+//! el con HTTP sobre loopback.
 //!
-//! ESTADO: esqueleto. El sidecar todavia no se lanza ni expone su API HTTP
-//! local, asi que cada comando devuelve `NotImplemented` con un mensaje
-//! explicito en lugar de fingir un resultado vacio, que se confundiria con
-//! "no hay datos".
+//! El sidecar se arranca aparte:
+//!
+//! ```text
+//! python -m core.orchestration.sidecar_server --port 8765
+//! ```
+
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+use tauri::State;
 
-use crate::db::{RadarError, RadarResult};
+use crate::db::{AppState, RadarError, RadarResult};
+
+/// Base del sidecar. Loopback: no debe ser alcanzable desde la red.
+const DEFAULT_SIDECAR_URL: &str = "http://127.0.0.1:8765";
+const URL_ENV_VAR: &str = "RIR_SIDECAR_URL";
+const TOKEN_ENV_VAR: &str = "RIR_SIDECAR_TOKEN";
+const TOKEN_HEADER: &str = "X-Radar-Token";
+
+/// Un escaneo puede recorrer varios ciclos y analizar decenas de posts;
+/// el timeout corto de una API web no sirve aqui.
+const SCAN_TIMEOUT: Duration = Duration::from_secs(600);
+const SEARCH_TIMEOUT: Duration = Duration::from_secs(60);
+const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub fn sidecar_url() -> String {
+    std::env::var(URL_ENV_VAR).unwrap_or_else(|_| DEFAULT_SIDECAR_URL.to_string())
+}
+
+/// Aplica el token al request si esta configurado.
+fn with_token(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    match std::env::var(TOKEN_ENV_VAR) {
+        Ok(token) if !token.is_empty() => builder.header(TOKEN_HEADER, token),
+        _ => builder,
+    }
+}
+
+/// Traduce un fallo de transporte en un mensaje que el usuario entienda.
+///
+/// "connection refused" no le dice nada a nadie; "el sidecar no responde,
+/// arrancalo con este comando" si.
+fn transport_error(err: reqwest::Error) -> RadarError {
+    if err.is_connect() {
+        RadarError::Sidecar(format!(
+            "El sidecar Python no responde en {}. Arrancalo con: \
+             python -m core.orchestration.sidecar_server",
+            sidecar_url()
+        ))
+    } else if err.is_timeout() {
+        RadarError::Sidecar("El sidecar tardo demasiado en responder".into())
+    } else {
+        RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}"))
+    }
+}
+
+// ---------------------------------------------------------------------
+// Contratos
+// ---------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,37 +80,110 @@ pub struct ScanParams {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HybridSearchHit {
-    pub id: String,
-    pub text: String,
-    pub subreddit: String,
-    pub opportunity_score: f64,
-    pub urgency_tier: String,
-    pub job_statement: String,
-    pub rrf_score: f64,
-    pub dense_rank: Option<i64>,
-    pub bm25_rank: Option<i64>,
+struct ScanBody {
+    subreddit: String,
+    limit: i64,
+    sort: String,
 }
+
+#[derive(Debug, Serialize)]
+struct SearchBody {
+    query: String,
+    #[serde(rename = "minScore")]
+    min_score: f64,
+    limit: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchEnvelope {
+    pub query: String,
+    pub hits: Vec<serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------
+// Comandos
+// ---------------------------------------------------------------------
 
 /// Busqueda hibrida densa + BM25 con fusion RRF.
 #[tauri::command]
-pub async fn search_hybrid(params: SearchParams) -> RadarResult<Vec<HybridSearchHit>> {
-    let _ = params;
-    Err(RadarError::NotImplemented(
-        "La busqueda hibrida requiere el sidecar Python, que aun no se lanza \
-         desde Tauri. Disponible por MCP: search_pain_points."
-            .into(),
-    ))
+pub async fn search_hybrid(
+    state: State<'_, AppState>,
+    params: SearchParams,
+) -> RadarResult<Vec<serde_json::Value>> {
+    let response = with_token(
+        state
+            .http
+            .post(format!("{}/api/search", sidecar_url()))
+            .timeout(SEARCH_TIMEOUT)
+            .json(&SearchBody {
+                query: params.query,
+                min_score: params.min_score.unwrap_or(0.0),
+                limit: params.limit.unwrap_or(20),
+            }),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    if !response.status().is_success() {
+        return Err(RadarError::Sidecar(format!(
+            "El sidecar respondio {} a la busqueda",
+            response.status()
+        )));
+    }
+
+    let envelope: SearchEnvelope = response.json().await.map_err(transport_error)?;
+    Ok(envelope.hits)
 }
 
-/// Dispara un escaneo completo y devuelve el identificador de la ejecucion.
+/// Dispara un escaneo completo. Devuelve el resumen tal cual lo emite el
+/// pipeline, incluidos los errores no fatales de cada nodo.
 #[tauri::command]
-pub async fn trigger_scan(params: ScanParams) -> RadarResult<String> {
-    let _ = params;
-    Err(RadarError::NotImplemented(
-        "El disparo de escaneos requiere el sidecar Python, que aun no se \
-         lanza desde Tauri. Disponible por MCP: scan_subreddit."
-            .into(),
-    ))
+pub async fn trigger_scan(
+    state: State<'_, AppState>,
+    params: ScanParams,
+) -> RadarResult<serde_json::Value> {
+    let response = with_token(
+        state
+            .http
+            .post(format!("{}/api/scan", sidecar_url()))
+            .timeout(SCAN_TIMEOUT)
+            .json(&ScanBody {
+                subreddit: params.subreddit,
+                limit: params.limit.unwrap_or(25),
+                sort: params.sort.unwrap_or_else(|| "hot".into()),
+            }),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        return Err(RadarError::Sidecar(format!(
+            "El escaneo fallo ({status}): {detail}"
+        )));
+    }
+
+    response.json().await.map_err(transport_error)
+}
+
+/// Consulta la salud del sidecar. Devuelve None si no responde.
+pub async fn sidecar_health(client: &reqwest::Client) -> Option<serde_json::Value> {
+    let response = with_token(
+        client
+            .get(format!("{}/api/health", sidecar_url()))
+            .timeout(HEALTH_TIMEOUT),
+    )
+    .send()
+    .await
+    .ok()?;
+
+    if response.status().is_success() {
+        response.json().await.ok()
+    } else {
+        None
+    }
 }

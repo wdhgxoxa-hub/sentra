@@ -141,17 +141,42 @@ class RadarPipeline:
             min_score=min_score,
         )
 
+    def run_state(
+        self,
+        subreddit: str,
+        limit: int = 25,
+        sort: str = "hot",
+    ) -> RadarState:
+        """
+        Ejecuta el grafo y devuelve el estado final COMPLETO.
+
+        Lo necesita quien va a persistir: `summarize` se queda con lo que
+        interesa a quien consulta, pero descarta `signals` y
+        `filtered_items`, que son justo lo que hay que escribir en la base.
+        """
+        return self._graph.invoke(
+            new_state(subreddit=subreddit, limit=limit, sort=sort)
+        )
+
+    async def arun_state(
+        self,
+        subreddit: str,
+        limit: int = 25,
+        sort: str = "hot",
+    ) -> RadarState:
+        """Gemelo asíncrono de `run_state`."""
+        return await self._graph.ainvoke(
+            new_state(subreddit=subreddit, limit=limit, sort=sort)
+        )
+
     def run(
         self,
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
     ) -> Dict[str, Any]:
-        """Ejecuta el grafo y devuelve el estado final."""
-        final: RadarState = self._graph.invoke(
-            new_state(subreddit=subreddit, limit=limit, sort=sort)
-        )
-        return self._summarize(final)
+        """Ejecuta el grafo y devuelve el resumen para quien consulta."""
+        return self.summarize(self.run_state(subreddit, limit, sort))
 
     async def arun(
         self,
@@ -160,13 +185,10 @@ class RadarPipeline:
         sort: str = "hot",
     ) -> Dict[str, Any]:
         """Gemelo asíncrono de `run`."""
-        final: RadarState = await self._graph.ainvoke(
-            new_state(subreddit=subreddit, limit=limit, sort=sort)
-        )
-        return self._summarize(final)
+        return self.summarize(await self.arun_state(subreddit, limit, sort))
 
     @staticmethod
-    def _summarize(final: RadarState) -> Dict[str, Any]:
+    def summarize(final: RadarState) -> Dict[str, Any]:
         """Reduce el estado final a lo que interesa a quien invoca."""
         qualified: List[Dict[str, Any]] = list(final.get("qualified") or [])
         qualified.sort(key=lambda q: q.get("opportunity_score", 0.0), reverse=True)

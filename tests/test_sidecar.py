@@ -1,0 +1,322 @@
+"""
+Suite del servidor sidecar (deuda D14)
+======================================
+
+El sidecar expone por HTTP local lo único que Rust no puede resolver por su
+cuenta: ejecutar el grafo y buscar sobre LanceDB.
+
+Las pruebas usan el cliente de FastAPI, que habla con la aplicación en
+memoria: no se abre ningún puerto ni se toca la red.
+"""
+
+import logging
+import shutil
+import tempfile
+import unittest
+
+from fastapi.testclient import TestClient
+
+from core.orchestration import RadarDependencies
+from core.orchestration.sidecar_server import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    TOKEN_HEADER,
+    create_app,
+)
+from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+
+TEST_DIM = 64
+
+PAIN_POST = {
+    "id": "t3_pain",
+    "subreddit": "smallbusiness",
+    "title": "Manual invoice export is broken",
+    "selftext": (
+        "The export is completely broken and it is frustrating. "
+        "I would pay for a tool that fixes this manual invoice process."
+    ),
+    "author": "u/frustrated",
+    "score": 120,
+    "created_utc": 4102444800.0,
+    "url": "https://reddit.com/r/smallbusiness/pain",
+}
+
+
+def setUpModule():
+    logging.disable(logging.CRITICAL)
+
+
+def tearDownModule():
+    logging.disable(logging.NOTSET)
+
+
+class SidecarTestCase(unittest.TestCase):
+    """Base con una aplicación montada sobre dependencias falsas."""
+
+    token = None
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix="rir_sidecar_")
+        self.store = LanceDBStore(
+            db_path=self.tmpdir, embedder=HashEmbedder(dim=TEST_DIM)
+        )
+        self.calls = []
+
+        def fetcher(subreddit, limit, sort, cursor=None):
+            self.calls.append({"subreddit": subreddit, "limit": limit, "sort": sort})
+            return ([PAIN_POST], None) if cursor is None else ([], None)
+
+        self.deps = RadarDependencies(
+            fetcher=fetcher,
+            store=self.store,
+            search_engine=HybridSearchEngine(store=self.store),
+        )
+        self.app = create_app(deps=self.deps, token=self.token, persist_default=False)
+        self.client = TestClient(self.app)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+
+class TestDefaults(unittest.TestCase):
+
+    def test_binds_to_loopback_only(self):
+        """El sidecar no debe escuchar en toda la red del equipo."""
+        self.assertEqual(DEFAULT_HOST, "127.0.0.1")
+
+    def test_default_port_is_documented(self):
+        self.assertEqual(DEFAULT_PORT, 8765)
+
+
+class TestHealth(SidecarTestCase):
+
+    def test_health_responds(self):
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+
+    def test_health_reports_status_ok(self):
+        self.assertEqual(self.client.get("/api/health").json()["status"], "ok")
+
+    def test_health_describes_the_embedder(self):
+        embedder = self.client.get("/api/health").json()["embedder"]
+        self.assertEqual(embedder["name"], "hash-md5")
+        self.assertFalse(embedder["semantic"])
+        self.assertEqual(embedder["dim"], TEST_DIM)
+
+    def test_health_reports_the_classifier_engine(self):
+        """Sin transformers la clasificación es heurística, y debe constar."""
+        nli = self.client.get("/api/health").json()["nli"]
+        self.assertIn("engine", nli)
+        self.assertIn(nli["engine"], ("heuristic", "transformers"))
+
+    def test_health_reports_the_store(self):
+        store = self.client.get("/api/health").json()["store"]
+        self.assertIn("records", store)
+
+    def test_health_includes_uptime(self):
+        self.assertGreaterEqual(
+            self.client.get("/api/health").json()["uptimeSeconds"], 0
+        )
+
+
+class TestScan(SidecarTestCase):
+
+    def test_scan_runs_the_pipeline(self):
+        response = self.client.post("/api/scan", json={"subreddit": "smallbusiness"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.calls[0]["subreddit"], "smallbusiness")
+
+    def test_scan_forwards_limit_and_sort(self):
+        self.client.post(
+            "/api/scan", json={"subreddit": "devops", "limit": 7, "sort": "new"}
+        )
+        self.assertEqual(self.calls[0]["limit"], 7)
+        self.assertEqual(self.calls[0]["sort"], "new")
+
+    def test_scan_returns_both_tiers(self):
+        body = self.client.post(
+            "/api/scan", json={"subreddit": "smallbusiness"}
+        ).json()
+        self.assertIn("qualified", body)
+        self.assertIn("qualifiedClusters", body)
+        self.assertIn("clusters", body)
+
+    def test_scan_returns_statistics(self):
+        body = self.client.post(
+            "/api/scan", json={"subreddit": "smallbusiness"}
+        ).json()
+        self.assertIn("fetched", body["stats"])
+        self.assertEqual(body["stats"]["fetched"], 1)
+
+    def test_scan_reports_the_run_id_when_not_persisting(self):
+        body = self.client.post(
+            "/api/scan", json={"subreddit": "smallbusiness", "persist": False}
+        ).json()
+        self.assertIsNone(body["runId"])
+
+    def test_scan_requires_a_subreddit(self):
+        self.assertEqual(self.client.post("/api/scan", json={}).status_code, 422)
+
+    def test_scan_rejects_an_empty_subreddit(self):
+        response = self.client.post("/api/scan", json={"subreddit": "   "})
+        self.assertEqual(response.status_code, 422)
+
+    def test_persistence_receives_the_full_state_not_the_summary(self):
+        """
+        Regresion: el sidecar pasaba a persistir el RESUMEN, que descarta
+        `signals` y `filtered_items`. La escritura "funcionaba" pero dejaba
+        una ejecucion vacia en PostgreSQL.
+        """
+        import core.orchestration.sidecar_server as sidecar
+
+        recibido = {}
+
+        async def espia(state, deps, dsn):
+            recibido.update(state)
+            return "run-falso", True, None
+
+        original = sidecar._persist
+        sidecar._persist = espia
+        try:
+            app = create_app(deps=self.deps, persist_default=True)
+            body = TestClient(app).post(
+                "/api/scan", json={"subreddit": "smallbusiness"}
+            ).json()
+        finally:
+            sidecar._persist = original
+
+        self.assertTrue(recibido.get("signals"), "faltan las senales analizadas")
+        self.assertTrue(recibido.get("filtered_items"), "faltan los posts crudos")
+        self.assertEqual(body["runId"], "run-falso")
+        self.assertTrue(body["persisted"])
+        self.assertIsNone(body["persistError"])
+
+    def test_a_persistence_failure_reports_its_reason(self):
+        """
+        Un `persisted: false` sin motivo es imposible de diagnosticar: hay
+        que saber si fallo la conexion, el esquema o los datos.
+        """
+        import core.orchestration.sidecar_server as sidecar
+
+        async def rota(state, deps, dsn):
+            return None, False, "OperationalError: no hay conexion"
+
+        original = sidecar._persist
+        sidecar._persist = rota
+        try:
+            app = create_app(deps=self.deps, persist_default=True)
+            body = TestClient(app).post(
+                "/api/scan", json={"subreddit": "smallbusiness"}
+            ).json()
+        finally:
+            sidecar._persist = original
+
+        self.assertFalse(body["persisted"])
+        self.assertIn("no hay conexion", body["persistError"])
+        # La cosecha sigue viajando: el escaneo no se pierde.
+        self.assertTrue(body["clusters"])
+
+    def test_a_failing_fetcher_is_reported_not_crashed(self):
+        def broken(*args, **kwargs):
+            raise ConnectionError("reddit no responde")
+
+        app = create_app(
+            deps=RadarDependencies(fetcher=broken, store=self.store),
+            persist_default=False,
+        )
+        body = TestClient(app).post(
+            "/api/scan", json={"subreddit": "x"}
+        ).json()
+        self.assertTrue(any("reddit no responde" in e for e in body["errors"]))
+
+
+class TestSearch(SidecarTestCase):
+
+    def _index(self):
+        self.client.post("/api/scan", json={"subreddit": "smallbusiness"})
+
+    def test_search_finds_an_indexed_signal(self):
+        self._index()
+        body = self.client.post(
+            "/api/search", json={"query": "invoice export"}
+        ).json()
+        self.assertIn("t3_pain", {hit["id"] for hit in body["hits"]})
+
+    def test_search_exposes_the_rrf_breakdown(self):
+        self._index()
+        hit = self.client.post(
+            "/api/search", json={"query": "invoice export"}
+        ).json()["hits"][0]
+        for field in ("rrfScore", "denseRank", "bm25Rank"):
+            self.assertIn(field, hit)
+
+    def test_search_honours_the_minimum_score(self):
+        self._index()
+        body = self.client.post(
+            "/api/search", json={"query": "invoice export", "minScore": 99.9}
+        ).json()
+        self.assertEqual(body["hits"], [])
+
+    def test_search_honours_the_limit(self):
+        self._index()
+        body = self.client.post(
+            "/api/search", json={"query": "invoice", "limit": 1}
+        ).json()
+        self.assertLessEqual(len(body["hits"]), 1)
+
+    def test_empty_query_is_rejected(self):
+        response = self.client.post("/api/search", json={"query": "   "})
+        self.assertEqual(response.status_code, 422)
+
+    def test_search_without_index_returns_nothing(self):
+        body = self.client.post("/api/search", json={"query": "cualquiera"}).json()
+        self.assertEqual(body["hits"], [])
+
+
+class TestAuthentication(SidecarTestCase):
+    """
+    Un servidor HTTP en localhost es alcanzable por cualquier proceso del
+    equipo, y `scan` consume cuota de la API de Reddit. Con token
+    configurado, se exige.
+    """
+
+    token = "secreto-de-prueba"
+
+    def test_request_without_token_is_rejected(self):
+        self.assertEqual(self.client.get("/api/health").status_code, 401)
+
+    def test_request_with_the_wrong_token_is_rejected(self):
+        response = self.client.get("/api/health", headers={TOKEN_HEADER: "otro"})
+        self.assertEqual(response.status_code, 401)
+
+    def test_request_with_the_right_token_passes(self):
+        response = self.client.get("/api/health", headers={TOKEN_HEADER: self.token})
+        self.assertEqual(response.status_code, 200)
+
+    def test_scan_is_protected_too(self):
+        response = self.client.post("/api/scan", json={"subreddit": "x"})
+        self.assertEqual(response.status_code, 401)
+
+
+class TestWithoutToken(SidecarTestCase):
+    """Sin token configurado, el sidecar es abierto en loopback."""
+
+    token = None
+
+    def test_health_is_reachable(self):
+        self.assertEqual(self.client.get("/api/health").status_code, 200)
+
+
+class TestSurface(SidecarTestCase):
+
+    def test_only_the_documented_routes_exist(self):
+        paths = {
+            route.path
+            for route in self.app.routes
+            if getattr(route, "path", "").startswith("/api")
+        }
+        self.assertEqual(paths, {"/api/health", "/api/scan", "/api/search"})
+
+
+if __name__ == "__main__":
+    unittest.main()

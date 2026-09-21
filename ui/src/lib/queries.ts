@@ -21,8 +21,6 @@ import type {
   FeedParams,
   ScanParams,
   SearchParams,
-  UpsertSubredditParams,
-  ValidationStatus,
 } from "@/types/radar";
 
 export const queryClient = new QueryClient({
@@ -46,6 +44,7 @@ export const queryKeys = {
   opportunity: (redditId: string) => ["radar", "opportunity", redditId] as const,
   subreddits: ["radar", "subreddits"] as const,
   runs: (limit: number) => ["radar", "runs", limit] as const,
+  health: ["radar", "health"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
 } as const;
 
@@ -73,25 +72,40 @@ export function useClusterHistory(clusterKey: string | null) {
   });
 }
 
-export function useOpportunityDetail(redditId: string | null) {
+export function useOpportunityDetail(clusterKey: string | null) {
   return useQuery({
-    queryKey: queryKeys.opportunity(redditId ?? ""),
-    queryFn: () => ipc.getOpportunityDetail(redditId as string),
-    enabled: Boolean(redditId),
+    queryKey: queryKeys.opportunity(clusterKey ?? ""),
+    queryFn: () => ipc.getOpportunityDetail(clusterKey as string),
+    enabled: Boolean(clusterKey),
   });
 }
 
 export function useSubreddits() {
   return useQuery({
     queryKey: queryKeys.subreddits,
-    queryFn: () => ipc.listSubreddits(),
+    queryFn: () => ipc.getSubreddits(),
   });
 }
 
 export function useRuns(limit = 50) {
   return useQuery({
     queryKey: queryKeys.runs(limit),
-    queryFn: () => ipc.listRuns(limit),
+    queryFn: () => ipc.getPipelineRuns(limit),
+  });
+}
+
+/**
+ * Salud de las tres piezas.
+ *
+ * Se refresca sola cada 30 s: que el sidecar se haya caido es justo lo que
+ * hay que saber sin tener que recargar la ventana.
+ */
+export function useAppHealth() {
+  return useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => ipc.getAppHealth(),
+    refetchInterval: 30_000,
+    staleTime: 0,
   });
 }
 
@@ -121,26 +135,3 @@ export function useTriggerScan() {
   });
 }
 
-export function useUpdateOpportunityStatus() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      opportunityId,
-      status,
-      notes,
-    }: {
-      opportunityId: string;
-      status: ValidationStatus;
-      notes?: string;
-    }) => ipc.updateOpportunityStatus(opportunityId, status, notes),
-    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.radar }),
-  });
-}
-
-export function useUpsertSubreddit() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (params: UpsertSubredditParams) => ipc.upsertSubreddit(params),
-    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.subreddits }),
-  });
-}

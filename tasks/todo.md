@@ -229,19 +229,53 @@ ponderar los terminos por frecuencia inversa antes de unir.
       es gnu, con el que Tauri no enlaza en Windows)
 - Verificado: `npm run build` -> 90 modulos, 274 KB (84 KB gzip)
 
-## D14: El sidecar Python no se lanza desde Tauri
-`commands/engine.rs` (search_hybrid, trigger_scan) devuelve NotImplemented con
-un mensaje explicito en lugar de fingir una lista vacia, que se confundiria
-con "no hay resultados". Falta: arrancar el proceso Python desde Rust, exponer
-su API local y cablear los eventos de progreso.
+## D14: CERRADA (2026-09-21) - sidecar HTTP y ciclo de vida
+`core/orchestration/sidecar_server.py`: FastAPI en 127.0.0.1:8765 con
+POST /api/scan, POST /api/search y GET /api/health. Solo loopback, y con token
+opcional (RIR_SIDECAR_TOKEN) porque cualquier proceso local podria invocar
+/api/scan, que consume cuota de Reddit. Sin /docs ni /openapi.json: no es una
+API publica.
+Rust habla con el via reqwest desde commands/engine.rs, traduciendo los fallos
+de transporte a mensajes accionables ("arrancalo con este comando") en vez de
+"connection refused".
+Verificado por HTTP real: handshake, 401 sin token, 422 en validacion, escaneo
+completo persistido y busqueda hibrida.
 
 ## D15: Faltan iconos de la aplicacion
 Se retiro `bundle.icon` de tauri.conf.json porque apuntaba a un .ico
 inexistente y rompia el empaquetado. Generar con `npm run tauri icon <png>`
 antes del primer build de distribucion.
 
-## D16: Comandos IPC incompletos
-Implementados: get_radar_feed y get_opportunity_board. Especificados pero sin
-implementar: get_cluster_history, get_opportunity_detail, list_subreddits,
-list_runs, update_opportunity_status, upsert_subreddit, cancel_scan.
-`ui/src/lib/ipc.ts` ya los declara, asi que el contrato esta fijado.
+## D16: CERRADA (2026-09-21) - comandos IPC implementados
+Nueve comandos en Rust: get_radar_feed, get_opportunity_board,
+get_opportunity_detail, get_cluster_history, get_subreddits, get_pipeline_runs
+(PostgreSQL con sqlx), search_hybrid y trigger_scan (sidecar), y get_app_health
+(agrega las tres piezas por separado, porque fallan por separado).
+`ipc.ts` declara exactamente los que existen: un comando declarado sin backend
+solo produce fallos en tiempo de ejecucion.
+
+---
+
+# Deuda abierta tras D14 y D16
+
+## D17: Tres comandos de escritura siguen sin implementar
+update_opportunity_status, upsert_subreddit y cancel_scan. Estan en la
+especificacion de la Fase 6 pero no en ipc.ts ni en Rust. Sin ellos, el ciclo
+de validacion humana (new -> triaged -> validated) no se puede operar desde la
+interfaz, aunque el esquema lo soporte.
+
+## D18: Tauri no arranca ni supervisa el sidecar
+Hay que lanzarlo a mano (`python -m core.orchestration.sidecar_server`). Falta
+gestionar su ciclo de vida desde Rust (arrancar al abrir, parar al cerrar,
+reintentar si muere). El indicador de salud ya avisa cuando no responde.
+
+## D19: Los eventos de progreso no se emiten
+`RadarEvent` esta definido en TypeScript y App.tsx ya escucha, pero Rust no
+emite nada: un escaneo largo no muestra avance. Requiere streaming desde el
+sidecar (SSE o websocket) o sondeo de pipeline_runs.
+
+## D20: uvicorn impone ProactorEventLoop en Windows
+psycopg no funciona sobre el. Se resuelve ejecutando la persistencia en un
+hilo con su propio SelectorEventLoop (`asyncio.to_thread` + `run_async`).
+Funciona, pero conviene recordarlo antes de anadir mas codigo async con
+psycopg dentro del sidecar.

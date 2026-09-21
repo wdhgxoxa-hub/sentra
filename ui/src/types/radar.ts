@@ -320,6 +320,53 @@ export type RadarEvent =
 export const RADAR_EVENT_CHANNEL = "radar://event";
 
 // ---------------------------------------------------------------------
+// Resultado de un escaneo (respuesta del sidecar)
+// ---------------------------------------------------------------------
+
+export interface ScanResult {
+  subreddit: string;
+  /** null si el escaneo no se persistio en PostgreSQL. */
+  runId: string | null;
+  cycles: number;
+  stats: Record<string, number>;
+  /** Errores no fatales de nodos concretos: la cosecha degrada, no aborta. */
+  errors: string[];
+  qualified: Array<Record<string, unknown>>;
+  clusters: Array<Record<string, unknown>>;
+  qualifiedClusters: Array<Record<string, unknown>>;
+  persisted: boolean;
+}
+
+// ---------------------------------------------------------------------
+// Salud de las tres piezas
+// ---------------------------------------------------------------------
+
+export interface ComponentHealth {
+  ok: boolean;
+  detail: string;
+}
+
+/**
+ * El radar son tres procesos que fallan por separado. Un unico "ok/ko"
+ * ocultaria justo lo que hace falta para arreglarlo.
+ */
+export interface AppHealth {
+  /** true solo si las tres piezas responden. */
+  ok: boolean;
+  version: string;
+  app: ComponentHealth;
+  postgres: ComponentHealth;
+  sidecar: ComponentHealth;
+  /** Cuerpo de /api/health del sidecar, si respondio. */
+  sidecarInfo: {
+    embedder: { name: string; semantic: boolean; dim: number };
+    nli: { engine: string; available: boolean; loaded: boolean };
+    store: { path: string; records: number };
+    uptimeSeconds: number;
+  } | null;
+}
+
+// ---------------------------------------------------------------------
 // Ayudas de presentación
 // ---------------------------------------------------------------------
 

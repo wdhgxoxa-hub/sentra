@@ -525,6 +525,12 @@ class TestPipeline(OrchestrationTestCase):
         self.assertIn("qualified_clusters", result)
         self.assertIn("clusters", result)
 
+    def test_run_state_exposes_what_persistence_needs(self):
+        """El resumen descarta lo que hay que escribir en la base."""
+        state = RadarPipeline(deps=self.deps).run_state("smallbusiness", limit=10)
+        self.assertTrue(state.get("signals"))
+        self.assertTrue(state.get("filtered_items"))
+
     def test_run_reports_statistics(self):
         result = RadarPipeline(deps=self.deps).run("smallbusiness", limit=10)
         self.assertIn("fetched", result["stats"])

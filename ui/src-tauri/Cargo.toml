@@ -20,6 +20,14 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 thiserror = "2"
 
+# Cliente HTTP hacia el sidecar Python. rustls en lugar de la pila TLS del
+# sistema para que el binario no dependa de OpenSSL; aunque el trafico sea
+# loopback, reqwest lo exige para compilar con https.
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls",
+] }
+
 # Las consultas castean a tipos primitivos en SQL (::text, ::float8), de modo
 # que no hacen falta las features de uuid, chrono ni decimal: menos superficie
 # de dependencias y menos maneras de que el build se rompa.
