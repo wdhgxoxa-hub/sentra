@@ -46,6 +46,7 @@ sqlx = { version = "0.8", default-features = false, features = [
   "json",
   "macros",
 ] }
+tauri-plugin-dialog = "=2.7.3"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -308,6 +308,8 @@ def build_clusters(
                 "quote": (s.text or "")[:400],
                 "url": s.jtbd.source_url,
                 "score": s.score_breakdown.final_score,
+                # Fecha de la queja: el documento la cita junto al enlace (AUD-008).
+                "created_utc": s.created_utc,
             }
             for s in sorted(
                 members, key=lambda s: s.score_breakdown.final_score, reverse=True

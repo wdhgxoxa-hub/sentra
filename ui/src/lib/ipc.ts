@@ -129,6 +129,15 @@ export const ipc = {
   generateBlueprint: (clusterKey: string, language: string) =>
     invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language }),
 
+  /**
+   * [pg + sidecar] Genera el documento en PDF y lo guarda donde se elija.
+   *
+   * Devuelve la ruta guardada, o null si se canceló el diálogo. `architecture`
+   * es el plan de Gemini de esta sesión, si existe (AUD-008).
+   */
+  exportPdf: (clusterKey: string, language: string, architecture: string | null) =>
+    invoke<string | null>("export_pdf", { clusterKey, language, architecture }),
+
   /** [sidecar] Traduce citas al idioma de la interfaz. */
   translateQuotes: (texts: string[], target: string) =>
     invoke<QuoteTranslation[]>("translate_quotes", { texts, target }),

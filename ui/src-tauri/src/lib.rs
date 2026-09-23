@@ -47,6 +47,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(AppState {
             pool,
@@ -92,6 +93,8 @@ pub fn run() {
             commands::settings::test_reddit_connection,
             // Especificacion de proyecto
             commands::blueprint::generate_blueprint,
+            // Documento entregable (AUD-008)
+            commands::document::export_pdf,
             // Motor de arquitectura (Gemini)
             commands::architect::save_gemini_key,
             commands::architect::test_gemini_key,

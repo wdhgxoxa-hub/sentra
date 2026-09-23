@@ -13,6 +13,7 @@
 
 pub mod architect;
 pub mod blueprint;
+pub mod document;
 pub mod engine;
 pub mod health;
 pub mod mutations;

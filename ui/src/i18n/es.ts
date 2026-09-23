@@ -109,6 +109,15 @@ export const es = {
     },
   },
 
+  pdf: {
+    export: "Exportar PDF",
+    exporting: "Generando PDF…",
+    withPlan: "Incluirá el plan de arquitectura generado en esta sesión.",
+    withoutPlan: "Sin plan de arquitectura en esta sesión: el PDF lo indicará como no generado.",
+    saved: "PDF guardado en {path}",
+    cancelled: "Exportación cancelada: no se guardó ningún archivo.",
+    error: "No se pudo exportar el PDF. Comprueba que el motor está activo e inténtalo de nuevo.",
+  },
   topSix: {
     title: "Top {target} oportunidades",
     titleGeneric: "Mejores oportunidades",

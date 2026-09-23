@@ -13,6 +13,7 @@ import remarkGfm from "remark-gfm";
 
 import { ipc, onArchitectChunk } from "@/lib/ipc";
 import { useSettings } from "@/lib/queries";
+import { useArchitectStore } from "@/stores/architectStore";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
 
 /** Texto original de un nodo del árbol de Markdown, sin las etiquetas del resaltado. */
@@ -59,6 +60,8 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
   const finDelTexto = useRef<HTMLDivElement | null>(null);
 
   const configurado = settings.data?.gemini?.configured ?? false;
+  // El plan terminado se comparte con la exportación a PDF (AUD-008).
+  const guardarPlan = useArchitectStore((state) => state.setPlan);
 
   // La suscripción vive mientras el panel está montado, no solo mientras
   // genera: los primeros trozos llegan antes de que un efecto disparado por
@@ -85,6 +88,7 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
     try {
       const completo = await ipc.generateArchitecture(clusterKey, language);
       setTexto(completo);
+      guardarPlan(clusterKey, completo);
     } catch (fallo) {
       setError(String(fallo));
     } finally {

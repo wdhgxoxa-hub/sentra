@@ -1,7 +1,9 @@
-import { Check, Copy, FileText, Quote as QuoteIcon } from "lucide-react";
+import { Check, Copy, FileDown, FileText, Loader2, Quote as QuoteIcon } from "lucide-react";
 import { useState } from "react";
 
+import { ipc } from "@/lib/ipc";
 import { useBlueprint } from "@/lib/queries";
+import { useArchitectStore } from "@/stores/architectStore";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
 
 /**
@@ -83,6 +85,8 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
                     {doc.data.oneLiner}
                   </p>
                 </div>
+
+                <ExportarPdf clusterKey={clusterKey} />
 
                 <button
                   type="button"
@@ -171,6 +175,62 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
         </div>
       )}
     </section>
+  );
+}
+
+type EstadoPdf =
+  | { fase: "reposo" }
+  | { fase: "generando" }
+  | { fase: "guardado"; ruta: string }
+  | { fase: "cancelado" }
+  | { fase: "error" };
+
+/**
+ * Exporta el documento a PDF (AUD-008).
+ *
+ * Rust genera, pregunta dónde guardar y escribe; aquí solo se dispara y se
+ * cuenta el resultado. El plan de Gemini entra si se generó en esta sesión.
+ * Un fallo se muestra traducido, nunca con el texto crudo del error.
+ */
+function ExportarPdf({ clusterKey }: { clusterKey: string }) {
+  const t = useT();
+  const language = useSettingsStore((state) => state.language);
+  const plan = useArchitectStore((state) => state.plans[clusterKey] ?? null);
+  const [estado, setEstado] = useState<EstadoPdf>({ fase: "reposo" });
+
+  const exportar = async () => {
+    setEstado({ fase: "generando" });
+    try {
+      const ruta = await ipc.exportPdf(clusterKey, language, plan);
+      setEstado(ruta ? { fase: "guardado", ruta } : { fase: "cancelado" });
+    } catch (fallo) {
+      console.error("[pdf] exportación fallida:", fallo);
+      setEstado({ fase: "error" });
+    }
+  };
+
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={exportar}
+        disabled={estado.fase === "generando"}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
+      >
+        {estado.fase === "generando" ? (
+          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <FileDown className="size-3.5" aria-hidden="true" />
+        )}
+        {estado.fase === "generando" ? t.pdf.exporting : t.pdf.export}
+      </button>
+      <p className="max-w-xs text-right text-[11px] text-ink-faint" aria-live="polite">
+        {estado.fase === "reposo" && (plan ? t.pdf.withPlan : t.pdf.withoutPlan)}
+        {estado.fase === "guardado" && t.pdf.saved.replace("{path}", estado.ruta)}
+        {estado.fase === "cancelado" && t.pdf.cancelled}
+        {estado.fase === "error" && <span className="text-danger">{t.pdf.error}</span>}
+      </p>
+    </div>
   );
 }
 

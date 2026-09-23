@@ -38,7 +38,7 @@ from collections.abc import Mapping, MutableMapping
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from .graph import RadarDependencies
@@ -143,6 +143,19 @@ class ArchitectRequest(BaseModel):
 
     cluster: dict[str, Any] = Field(default_factory=dict)
     language: str = "es"
+
+
+class DocumentRequest(BaseModel):
+    """Peticion del documento en PDF (AUD-008).
+
+    El cluster llega entero, igual que para el blueprint. `architecture` es
+    el Markdown del plan de Gemini si se genero en la sesion; si no, el
+    documento lo declara «No generado».
+    """
+
+    cluster: dict[str, Any] = Field(default_factory=dict)
+    language: str = "es"
+    architecture: str | None = None
 
 
 class TranslateRequest(BaseModel):
@@ -784,6 +797,26 @@ def create_app(
         from core.intelligence.blueprint import build_blueprint
 
         return build_blueprint(request.cluster, request.language).to_dict()
+
+    # -- Documento en PDF ----------------------------------------------
+
+    @app.post("/api/document/pdf", dependencies=[Depends(require_token)])
+    def document_pdf(request: DocumentRequest) -> Response:
+        """
+        Genera el documento de la oportunidad en PDF y devuelve sus bytes.
+
+        Rust los guarda donde elija quien exporta: el sidecar no escribe en
+        disco.
+        """
+        from core.documents.pdf_report import build_pdf
+
+        pdf = build_pdf(
+            request.cluster,
+            request.language,
+            architecture=request.architecture,
+            version=SERVICE_VERSION,
+        )
+        return Response(content=pdf, media_type="application/pdf")
 
     # -- Búsqueda ------------------------------------------------------
 

@@ -495,6 +495,7 @@ class TestSurface(SidecarTestCase):
                 "/api/gemini/test",
                 "/api/architect/generate",
                 "/api/translate",
+                "/api/document/pdf",
             },
         )
 

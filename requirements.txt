@@ -29,6 +29,10 @@ mcp==1.29.0
 fastapi==0.141.1
 uvicorn==0.52.4
 
+# --- Documento entregable en PDF (AUD-008) ---
+# Fuente incrustada: core/documents/fonts (Bitstream Vera, con su licencia).
+reportlab==5.0.1
+
 # --- Fase 6: rastro relacional ---
 # El motor funciona sin PostgreSQL (LanceDB basta para buscar); psycopg solo
 # hace falta para el rastro auditable y para alimentar al frontend. Por eso

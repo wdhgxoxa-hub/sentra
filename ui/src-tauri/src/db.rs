@@ -36,6 +36,11 @@ pub enum RadarError {
     /// la interfaz debe tratarlos de otra manera.
     #[error("{0}")]
     Invalid(String),
+
+    /// Guardar en disco lo que se exporta (AUD-008): la ruta o la escritura
+    /// fallaron del lado del sistema de archivos, no del motor.
+    #[error("{0}")]
+    Archivo(String),
 }
 
 /// Tauri necesita serializar el error para devolverlo al WebView.

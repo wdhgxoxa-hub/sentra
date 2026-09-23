@@ -110,6 +110,15 @@ export const en: Dictionary = {
     },
   },
 
+  pdf: {
+    export: "Export PDF",
+    exporting: "Generating PDF…",
+    withPlan: "It will include the architecture plan generated in this session.",
+    withoutPlan: "No architecture plan in this session: the PDF will state it was not generated.",
+    saved: "PDF saved to {path}",
+    cancelled: "Export cancelled: no file was saved.",
+    error: "The PDF could not be exported. Check that the engine is running and try again.",
+  },
   topSix: {
     title: "Top {target} opportunities",
     titleGeneric: "Top opportunities",
