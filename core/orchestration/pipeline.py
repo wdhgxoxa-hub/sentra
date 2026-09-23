@@ -87,14 +87,9 @@ class RedditFetcher:
             from core.ingestion import RedditIngestionClient
             from core.ingestion.auth import load_reddit_oauth
 
+            # Sin credenciales `oauth` es None y el cliente falla con
+            # RedditCredentialsMissing antes de salir a la red (AUD-003).
             oauth = load_reddit_oauth(self.env_path)
-            if oauth is None:
-                logger.warning(
-                    "Sin credenciales de Reddit: se usara el endpoint publico "
-                    ".json, que Reddit restringe (403 / redireccion a login). "
-                    "Define RIR_REDDIT_CLIENT_ID y RIR_REDDIT_CLIENT_SECRET."
-                )
-
             factory = self._client_factory or (
                 lambda credenciales: RedditIngestionClient(oauth=credenciales)
             )

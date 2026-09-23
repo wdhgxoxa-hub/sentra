@@ -200,6 +200,22 @@ class TestClienteDeIngesta(ConRedDoble):
             self.assertTrue(issubclass(tipo, RedditAccessError), tipo)
 
 
+class TestFetcherSinCredenciales(ConRedDoble):
+
+    def test_falla_sin_anunciar_una_caida_al_endpoint_publico(self):
+        # El log tampoco puede prometer una via que ya no existe.
+        tmp = Path(tempfile.mkdtemp(prefix="rir_fetcher_"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        fetcher = RedditFetcher(env_path=str(tmp / ".env"))
+        logging.disable(logging.NOTSET)
+        with (
+            self.assertNoLogs("core.orchestration.pipeline", level="WARNING"),
+            self.assertRaises(RedditCredentialsMissing),
+        ):
+            fetcher("SaaS")
+        self.assertEqual(SesionDoble.peticiones, [])
+
+
 class TestTokenOAuth(unittest.TestCase):
 
     def test_un_401_del_endpoint_de_token_es_fallo_de_autenticacion(self):
