@@ -15,7 +15,12 @@ from .sources import _en_camel
 def _leer_top(ctx: SidecarContext, run_id: str | None) -> dict[str, Any]:
     """Top de `run_id` o de la última ejecución multifuente juzgada. En un hilo:
     psycopg no funciona sobre el ProactorEventLoop de uvicorn en Windows."""
-    from core.judge.store import TOP_TARGET, current_versions, latest_judged_run, top_verdicts
+    from core.judge.store import (
+        TOP_TARGET,
+        current_versions,
+        latest_judged_run,
+        top_verdicts,
+    )
     from core.storage.postgres_store import (
         DEFAULT_DSN,
         DSN_ENV_VAR,
