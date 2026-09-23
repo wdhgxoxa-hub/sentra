@@ -48,7 +48,7 @@ class TestEscaneoMultifuente(ConfigTestCase):
             recibidos = self.escanear(persist=False)
         tipos = [e["type"] for e in recibidos]
         self.assertEqual(tipos[0], "scan:started")
-        self.assertEqual(recibidos[0]["sources"], ["hackernews"])
+        self.assertIn("hackernews", recibidos[0]["sources"])
         self.assertIn("source:started", tipos)
         self.assertIn("source:done", tipos)
         final = recibidos[-1]
@@ -76,7 +76,10 @@ class TestEscaneoMultifuente(ConfigTestCase):
         self.assertEqual(hn["status"], "error")
 
     def test_sin_fuentes_activas_no_escanea(self):
-        self.client.post("/api/sources/hackernews/enabled", json={"enabled": False})
+        from core.sources.catalog import SOURCES
+
+        for clase in SOURCES:
+            self.client.post(f"/api/sources/{clase.id}/enabled", json={"enabled": False})
         recibidos = self.escanear(persist=False)  # la guardia de red fallaría si saliera
         self.assertEqual([(e["type"], e.get("code")) for e in recibidos],
                          [("error", "no_active_sources")])
