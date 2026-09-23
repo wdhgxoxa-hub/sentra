@@ -18,7 +18,8 @@ igual que las credenciales de Reddit.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterator, Mapping, Optional, Tuple
+from collections.abc import Callable, Iterator, Mapping
+from typing import Any
 
 # Los lectores tolerantes del cluster ya existen en el sintetizador: leen las
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
@@ -156,7 +157,7 @@ def _nivel_de_pago(factor: float, idioma: str) -> str:
 
 def build_prompt(
     cluster: Mapping[str, Any], language: str = IDIOMA_POR_DEFECTO
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Arma la instrucción de sistema y el dossier del problema.
 
     Devuelve `(sistema, peticion)`. El dossier lleva solo lo que hay en la base:
@@ -233,7 +234,7 @@ def stream_architecture(
     api_key: str,
     model: str = MODELO_POR_DEFECTO,
     language: str = IDIOMA_POR_DEFECTO,
-    client_factory: Optional[ClientFactory] = None,
+    client_factory: ClientFactory | None = None,
 ) -> Iterator[str]:
     """Pide el plan a Gemini y va soltando el texto según llega.
 
@@ -260,8 +261,8 @@ def probe_api_key(
     api_key: str,
     *,
     model: str = MODELO_POR_DEFECTO,
-    client_factory: Optional[ClientFactory] = None,
-) -> Tuple[bool, str]:
+    client_factory: ClientFactory | None = None,
+) -> tuple[bool, str]:
     """Comprueba que la clave sirve, con la llamada más barata posible.
 
     Devuelve `(ok, detalle)` en lugar de lanzar: quien pulsa «probar» espera

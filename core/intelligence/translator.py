@@ -26,8 +26,9 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from core.intelligence.gemini_client import GeminiError, generate_text
 
@@ -48,7 +49,7 @@ class Translation:
     #: True cuando el texto solo está traducido en parte.
     approximate: bool
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "text": self.text,
             "engine": self.engine,
@@ -58,7 +59,7 @@ class Translation:
 
 # --- Caché -------------------------------------------------------------------
 
-_CACHE: Dict[Tuple[str, str], Translation] = {}
+_CACHE: dict[tuple[str, str], Translation] = {}
 MAX_CACHE = 2000
 
 
@@ -79,7 +80,7 @@ def _recordar(texto: str, idioma: str, traduccion: Translation) -> None:
 #: Corpus de demostración, traducido a mano. Son las frases que se ven al
 #: probar la aplicación sin credenciales, así que merecen una traducción de
 #: verdad y no un apaño.
-PRETRADUCIDAS: Dict[str, str] = {
+PRETRADUCIDAS: dict[str, str] = {
     # Títulos
     "manual invoice export is broken again":
         "La exportación manual de facturas vuelve a estar rota",
@@ -138,7 +139,7 @@ PRETRADUCIDAS: Dict[str, str] = {
 
 #: Expresiones frecuentes en quejas sobre software. De más larga a más corta:
 #: si "is broken" se sustituyera después de "broken", quedaría "is roto".
-EXPRESIONES: Sequence[Tuple[str, str]] = (
+EXPRESIONES: Sequence[tuple[str, str]] = (
     ("i would pay for", "pagaría por"),
     ("takes forever to finish", "tarda una eternidad en terminar"),
     ("takes forever", "tarda una eternidad"),
@@ -180,7 +181,7 @@ def _mayuscula_inicial(texto: str) -> str:
     return texto[:1].upper() + texto[1:] if texto else texto
 
 
-def _offline_una_linea(linea: str) -> Tuple[str, bool]:
+def _offline_una_linea(linea: str) -> tuple[str, bool]:
     """Traduce una línea. Devuelve `(texto, aproximada)`."""
     limpia = linea.strip()
     if not limpia:
@@ -234,7 +235,7 @@ def _prompt(textos: Sequence[str], idioma: str) -> str:
     )
 
 
-def _parsear(bruto: str, esperados: int) -> Optional[List[str]]:
+def _parsear(bruto: str, esperados: int) -> list[str] | None:
     """Saca el array del texto del modelo, tolerando el cercado en ```json."""
     texto = (bruto or "").strip()
     if texto.startswith("```"):
@@ -258,8 +259,8 @@ def _con_modelo(
     idioma: str,
     api_key: str,
     model: str,
-    client_factory: Optional[ClientFactory],
-) -> Optional[List[str]]:
+    client_factory: ClientFactory | None,
+) -> list[str] | None:
     from google.genai import types
 
     try:
@@ -288,8 +289,8 @@ def translate(
     *,
     api_key: str = "",
     model: str = MODELO_POR_DEFECTO,
-    client_factory: Optional[ClientFactory] = None,
-) -> List[Translation]:
+    client_factory: ClientFactory | None = None,
+) -> list[Translation]:
     """Traduce una tanda de citas al idioma pedido.
 
     Devuelve una traducción por texto y en el mismo orden, pase lo que pase.
@@ -298,8 +299,8 @@ def translate(
         return []
 
     idioma = target if target in IDIOMAS else "es"
-    salida: List[Optional[Translation]] = [None] * len(texts)
-    pendientes: List[int] = []
+    salida: list[Translation | None] = [None] * len(texts)
+    pendientes: list[int] = []
 
     for indice, texto in enumerate(texts):
         if not texto.strip():
