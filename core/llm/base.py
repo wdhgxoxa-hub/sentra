@@ -47,6 +47,16 @@ class LLMInvalidJson(LLMError):
     code = "llm_invalid_json"
 
 
+class LLMTruncated(LLMError):
+    """La respuesta se cortó al agotar el límite de salida (o llegó JSON a medias).
+
+    En Gemini 3.x el razonamiento cuenta dentro de ese límite. Reintentar con el
+    mismo límite se volvería a cortar: quien llama decide (p. ej. partir el lote).
+    """
+
+    code = "llm_truncated"
+
+
 class LLMBudgetExhausted(LLMError):
     """Se agotó el presupuesto de tokens del escaneo: la llamada no sale."""
 
@@ -110,6 +120,7 @@ class LLMProvider(Protocol):
         max_output_tokens: int,
         timeout_ms: int,
         system: str | None = None,
+        thinking_budget: int | None = None,
     ) -> T: ...
 
     def ping(self, *, model: str) -> None: ...

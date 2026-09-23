@@ -38,7 +38,14 @@ from typing import Any, Literal
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from .base import LLMError, LLMInvalidJson, LLMModelUnavailable, ModelInfo, UsageRecord
+from .base import (
+    LLMError,
+    LLMInvalidJson,
+    LLMModelUnavailable,
+    LLMTruncated,
+    ModelInfo,
+    UsageRecord,
+)
 from .budget import LLMBudget
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
@@ -108,7 +115,7 @@ class GeminiEmpty(GeminiError):
     code = "gemini_empty"
 
 
-class GeminiTruncated(GeminiError):
+class GeminiTruncated(GeminiError, LLMTruncated):
     """La respuesta se cortó al agotar `max_output_tokens`."""
 
     code = "gemini_truncated"
@@ -161,6 +168,7 @@ def _build_config(
     system_instruction: str | None = None,
     temperature: float | None = None,
     response_json_schema: dict[str, Any] | None = None,
+    thinking_budget: int | None = None,
 ) -> Any:
     """Configuración de una petición, siempre con timeout y límite de salida.
 
@@ -176,7 +184,16 @@ def _build_config(
         http_options=types.HttpOptions(timeout=timeout_ms),
         response_mime_type="application/json" if response_json_schema is not None else None,
         response_json_schema=response_json_schema,
+        # En Gemini 3.x el razonamiento cuenta dentro de max_output_tokens.
+        thinking_config=(types.ThinkingConfig(thinking_budget=thinking_budget)
+                         if thinking_budget is not None else None),
     )
+
+
+def _json_cortado(exc: ValidationError) -> bool:
+    """¿El fallo es JSON que termina antes de tiempo (EOF), no un JSON inválido?"""
+    return any(e.get("type") == "json_invalid" and "EOF" in str(e.get("msg", ""))
+               for e in exc.errors())
 
 
 #: Intentos de `generate_json`: el primero y UN reintento con el error.
@@ -445,6 +462,7 @@ class GeminiProvider:
         max_output_tokens: int,
         timeout_ms: int,
         system: str | None = None,
+        thinking_budget: int | None = None,
     ) -> T:
         """Una instancia de `schema`, validada.
 
@@ -457,6 +475,7 @@ class GeminiProvider:
             max_output_tokens=max_output_tokens,
             system_instruction=system,
             response_json_schema=schema.model_json_schema(),
+            thinking_budget=thinking_budget,
         )
         peticion = prompt
         error = ""
@@ -465,6 +484,9 @@ class GeminiProvider:
             try:
                 return schema.model_validate_json(texto)
             except ValidationError as exc:
+                if _json_cortado(exc):
+                    # JSON a medias: con el mismo límite se cortaría otra vez.
+                    raise GeminiTruncated("La respuesta JSON llegó incompleta.") from None
                 error = str(exc)[:MAX_MESSAGE]
             peticion = (
                 f"{prompt}\n\nTu respuesta anterior no cumplía el esquema JSON pedido. "

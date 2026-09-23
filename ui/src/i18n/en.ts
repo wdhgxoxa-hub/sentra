@@ -458,6 +458,8 @@ export const en: Dictionary = {
     llm_error: "The AI engine failed.",
     llm_model_unavailable:
       "The saved model is no longer available for your key. Pick another one in Settings.",
+    llm_truncated:
+      "The model's answer was cut off at its output limit.",
     llm_invalid_json: "The model returned a reply that does not match the requested format, even after a retry.",
     llm_budget_exhausted:
       "The scan's token budget ran out. Raise it in Settings or scan less evidence.",

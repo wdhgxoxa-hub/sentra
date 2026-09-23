@@ -80,5 +80,45 @@ class TestGenerateJson(unittest.TestCase):
         self.assertEqual(len(cliente.llamadas), 2, "un solo reintento")
 
 
+class TestTruncado(unittest.TestCase):
+    """B1: el truncado se detecta explícitamente y no se reintenta en vano."""
+
+    def test_un_json_cortado_es_truncado_y_no_se_reintenta(self):
+        from core.llm.base import LLMTruncated
+
+        cliente = Cliente('{"is_pain": true, "confid')
+        with self.assertRaises(LLMTruncated):
+            generar(cliente)
+        self.assertEqual(len(cliente.llamadas), 1, "reintentar con el mismo límite se truncaría igual")
+
+    def test_max_tokens_del_modelo_es_truncado(self):
+        from core.llm.base import LLMTruncated
+
+        class Cortado(Cliente):
+            def generate_content(self, **kwargs):
+                self.llamadas.append(kwargs)
+                return types.GenerateContentResponse(candidates=[types.Candidate(
+                    content=types.Content(parts=[types.Part(text='{"is_pain": tr')]),
+                    finish_reason=types.FinishReason.MAX_TOKENS)])
+
+        with self.assertRaises(LLMTruncated):
+            generar(Cortado())
+
+
+class TestPresupuestoDeRazonamiento(unittest.TestCase):
+    """B1: el razonamiento de Gemini 3.x cuenta en max_output_tokens."""
+
+    def test_el_presupuesto_viaja_como_thinking_config(self):
+        cliente = Cliente(VALIDO)
+        GeminiProvider("clave", client_factory=cliente).generate_json(
+            "x", Etiqueta, model="m", max_output_tokens=256, timeout_ms=1, thinking_budget=1024)
+        self.assertEqual(cliente.llamadas[0]["config"].thinking_config.thinking_budget, 1024)
+
+    def test_sin_presupuesto_no_se_toca_el_razonamiento(self):
+        cliente = Cliente(VALIDO)
+        generar(cliente)
+        self.assertIsNone(cliente.llamadas[0]["config"].thinking_config)
+
+
 if __name__ == "__main__":
     unittest.main()

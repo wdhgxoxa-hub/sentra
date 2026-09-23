@@ -463,6 +463,8 @@ export const es = {
     llm_error: "El motor de IA falló.",
     llm_model_unavailable:
       "El modelo guardado ya no está disponible para tu clave. Elige otro en Ajustes.",
+    llm_truncated:
+      "La respuesta del modelo se cortó al llegar a su límite de salida.",
     llm_invalid_json: "El modelo devolvió una respuesta que no cumple el formato pedido, ni al reintentar.",
     llm_budget_exhausted:
       "Se agotó el presupuesto de tokens del escaneo. Súbelo en Ajustes o escanea menos evidencia.",
