@@ -438,6 +438,8 @@ export const es = {
     source_unavailable: "La fuente no responde ahora mismo. Se reintentó; prueba más tarde.",
     source_rate_limited: "La fuente pide esperar: se agotó su cuota. El resto de fuentes sigue.",
     source_budget_exhausted: "Se agotó el presupuesto de esta fuente para el escaneo.",
+    source_pending_approval:
+      "Esta fuente aún no tiene aprobación para llamadas reales: no se consulta ni se prueba.",
     no_active_sources: "No hay ninguna fuente activa: enciende o configura alguna en la sección Fuentes.",
     migrations_pending:
       "La base de datos va por detrás de la aplicación: faltan migraciones. Aplícalas con scripts/migrate.py (el detalle dice cuáles).",

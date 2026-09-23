@@ -13,7 +13,7 @@ from core.sources import http as fuentes_http
 from core.sources.base import SourceAdapter
 from core.sources.budget import SourceBudget
 from core.sources.catalog import SOURCES, by_id
-from core.sources.errors import SourceCredentialsMissing
+from core.sources.errors import SourceCredentialsMissing, SourcePendingApproval
 from core.sources.registry import COMMERCIAL_MODE_ENV, credentials_for, source_status
 
 from .context import SidecarContext, load_dotenv
@@ -88,6 +88,11 @@ def router(ctx: SidecarContext) -> APIRouter:
     async def probe_source(source_id: str) -> dict[str, Any]:
         """Llamada mínima real a la API; el resultado queda registrado."""
         clase = fuente(source_id)
+        if clase.pending_approval:
+            # R7: sin aprobación no hay llamada real, ni siquiera para probar.
+            pendiente = SourcePendingApproval(clase.id, clase.pending_approval)
+            return {"ok": False, "code": pendiente.code, "detail": pendiente.detail,
+                    "checkedAt": None}
         env = entorno()
         credenciales = credentials_for(clase, env)
         faltan = [c.name for c in clase.credential_fields if c.required and c.name not in credenciales]

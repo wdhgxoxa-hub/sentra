@@ -13,9 +13,12 @@ from __future__ import annotations
 from .base import SourceAdapter
 from .github import GitHubSource
 from .hackernews import HackerNewsSource
+from .reddit import RedditSource
 from .stackexchange import StackExchangeSource
 
-SOURCES: tuple[type[SourceAdapter], ...] = (HackerNewsSource, StackExchangeSource, GitHubSource)
+SOURCES: tuple[type[SourceAdapter], ...] = (
+    HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource,
+)
 
 
 def by_id(source_id: str) -> type[SourceAdapter] | None:

@@ -433,6 +433,8 @@ export const en: Dictionary = {
     source_unavailable: "The source is not responding right now. It was retried; try again later.",
     source_rate_limited: "The source asks to wait: its quota ran out. The other sources carry on.",
     source_budget_exhausted: "This source's budget for the scan ran out.",
+    source_pending_approval:
+      "This source is not yet approved for real calls: it is neither queried nor tested.",
     no_active_sources: "No source is active: turn one on or set one up in the Sources section.",
     migrations_pending:
       "The database is behind the app: migrations are missing. Apply them with scripts/migrate.py (the details say which).",

@@ -119,6 +119,9 @@ class SourceAdapter(ABC):
     requires_credentials: ClassVar[bool]
     credential_fields: ClassVar[tuple[CredentialField, ...]] = ()
     cost_model: ClassVar[CostModel]
+    #: Motivo por el que la fuente aún no puede hacer llamadas reales (R7); None = puede.
+    #: Con motivo: nunca entra en un escaneo y «Probar» no sale a la red.
+    pending_approval: ClassVar[str | None] = None
 
     #: Espera máxima que se acepta dentro del escaneo; más larga, error con su valor.
     MAX_WAIT_S: ClassVar[float] = 30.0
@@ -181,6 +184,7 @@ class SourceAdapter(ABC):
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         json: Any = None,
+        data: Mapping[str, str] | None = None,
         units: float = 0.0,
         usd: float = 0.0,
     ) -> httpx.Response:
@@ -190,7 +194,7 @@ class SourceAdapter(ABC):
             error: SourceError
             try:
                 respuesta = await self.http.request(
-                    method, url, params=params, headers=cabeceras, json=json,
+                    method, url, params=params, headers=cabeceras, json=json, data=data,
                     timeout=REQUEST_TIMEOUT_S,
                 )
             except httpx.TimeoutException:

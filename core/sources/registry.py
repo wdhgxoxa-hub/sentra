@@ -197,8 +197,11 @@ def source_status(
     guardado = guardado or SavedSourceState(fuente.id)
 
     estado: SourceStatusName
+    detalle = guardado.detail
     if guardado.disabled:
         estado = "deshabilitada_por_usuario"
+    elif fuente.pending_approval:
+        estado, detalle = "no_configurada", fuente.pending_approval
     elif fuente.requires_credentials and faltan:
         estado = "no_configurada"
     else:
@@ -215,7 +218,7 @@ def source_status(
         status=estado,
         last_verified_at=guardado.last_verified_at,
         error_code=guardado.error_code if estado == "error" else None,
-        detail=guardado.detail,
+        detail=detalle,
         disabled=guardado.disabled,
         excluded_by_commercial_mode=excluida,
         active=estado not in ("no_configurada", "deshabilitada_por_usuario") and not excluida,

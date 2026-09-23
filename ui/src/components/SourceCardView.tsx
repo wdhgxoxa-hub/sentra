@@ -93,6 +93,11 @@ export function SourceCardView({ card }: { card: SourceCard }) {
         {!card.requiresCredentials && <div>{t.sources.public}</div>}
       </dl>
 
+      {/* Sin configurar con motivo (p. ej. pendiente de aprobación, R7): se dice por qué. */}
+      {card.status === "no_configurada" && card.detail && (
+        <p className="mt-2 text-xs text-warn">{card.detail}</p>
+      )}
+
       {card.status === "error" && card.errorCode && (
         <div className="mt-3">
           <ErrorNotice code={card.errorCode} detail={card.detail ?? ""} />

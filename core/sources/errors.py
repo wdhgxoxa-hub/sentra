@@ -62,7 +62,14 @@ class SourceBudgetExhausted(SourceError):
 
 
 #: Todos, para exigir su traducción en la interfaz.
+class SourcePendingApproval(SourceError):
+    """La fuente no tiene aprobación para llamadas reales (R7): no sale a la red."""
+
+    code = "source_pending_approval"
+
+
 TODOS: tuple[type[SourceError], ...] = (
     SourceError, SourceCredentialsMissing, SourceAuthFailed, SourceForbidden,
     SourceNotFound, SourceUnavailable, SourceRateLimited, SourceBudgetExhausted,
+    SourcePendingApproval,
 )
