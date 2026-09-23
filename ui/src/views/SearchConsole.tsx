@@ -1,6 +1,7 @@
 import { Search as SearchIcon, Sparkles, Type } from "lucide-react";
 
 import { Explain } from "@/components/Explain";
+import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { useHybridSearch } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
@@ -137,6 +138,7 @@ export function SearchConsole() {
                       <p className="truncate">{hit.text}</p>
                       <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
                         <span className="font-mono">r/{hit.subreddit}</span>
+                        <SourceBadge source={hit.dataSource} />
                         <span aria-hidden="true">·</span>
                         <span
                           className={

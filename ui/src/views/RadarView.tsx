@@ -3,6 +3,7 @@ import { Radar as RadarIcon } from "lucide-react";
 import { Explain } from "@/components/Explain";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { TopSix } from "@/components/TopSix";
+import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { useOpportunityBoard, useRadarFeed } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
@@ -112,6 +113,7 @@ export function RadarViewPage() {
                   <span className="font-mono tabular-nums">
                     {entry.finalScore.toFixed(1)} {t.radar.points}
                   </span>
+                  <SourceBadge source={entry.dataSource} />
                 </p>
               </div>
             </li>

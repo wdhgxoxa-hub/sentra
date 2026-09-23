@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRight, MessageSquare, Trophy, Users } from "lucide-react";
 
+import { SourceBadge } from "@/components/SourceBadge";
 import { useTopOpportunities } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -93,12 +94,6 @@ export function TopSix() {
 /** Cuántas se entregaron frente a las buscadas, y de dónde salen los datos. */
 function Resumen({ top }: { top: TopOpportunities }) {
   const t = useT();
-  const fuente =
-    top.dataSource === "demo"
-      ? { texto: t.topSix.sourceDemo, clase: "bg-warn/15 text-warn" }
-      : top.dataSource === "reddit"
-        ? { texto: t.topSix.sourceReddit, clase: "bg-surface-2 text-ink-soft" }
-        : { texto: t.topSix.sourceUnknown, clase: "bg-surface-2 text-ink-faint" };
 
   return (
     <>
@@ -111,8 +106,8 @@ function Resumen({ top }: { top: TopOpportunities }) {
           .replace("{found}", String(top.found))
           .replace("{target}", String(top.target))}
       </span>
-      <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${fuente.clase}`}>
-        {fuente.texto}
+      <span className="ml-auto">
+        <SourceBadge source={top.dataSource} />
       </span>
     </>
   );

@@ -128,9 +128,6 @@ export const es = {
     partial: "Incompleto ({found}/{target})",
     incomplete: "Solo {found} de {target} oportunidades superan el corte.",
     open: "Abrir ficha",
-    sourceDemo: "Datos de demostración",
-    sourceReddit: "Datos de Reddit",
-    sourceUnknown: "Fuente no registrada",
     reasons: {
       fuentes_agotadas: "Se revisó todo lo disponible y el resto de problemas no alcanza la puntuación mínima.",
       limite_ciclos: "Se alcanzó el límite de ciclos del escaneo con contenido todavía por revisar.",
@@ -393,6 +390,12 @@ export const es = {
       body:
         "Una queja suelta casi nunca justifica construir algo. Una oportunidad es un problema que se repite en varias comunidades. Por eso hay dos listas y dos umbrales distintos.",
     },
+  },
+
+  source: {
+    demo: "Datos de demostración",
+    reddit: "Datos de Reddit",
+    unknown: "Fuente desconocida",
   },
 
   common: {

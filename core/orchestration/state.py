@@ -176,6 +176,7 @@ def new_state(
 def signal_to_record(
     signal: AnalyzedSignal,
     raw_score: int = 0,
+    data_source: str | None = None,
 ) -> OpportunityRecord:
     """
     Convierte una señal analizada en un registro persistible.
@@ -187,6 +188,9 @@ def signal_to_record(
     - `AnalyzedSignal` no arrastra los votos de Reddit, que se pierden en el
       análisis, así que el llamante los aporta desde el ítem crudo con
       `raw_score`.
+
+    `data_source` ("demo" o "reddit") viaja con cada fila (D-J): la búsqueda
+    lee LanceDB sin pasar por la ejecución y tiene que poder decirlo.
 
     El vector se deja vacío a propósito: lo genera el almacén con el embedder
     que tenga configurado, que es quien conoce la dimensión correcta.
@@ -206,5 +210,6 @@ def signal_to_record(
         current_solution=signal.jtbd.current_solution,
         workaround_detected=bool(signal.jtbd.workaround_detected),
         url=signal.jtbd.source_url,
+        data_source=data_source,
         vector=[],
     )

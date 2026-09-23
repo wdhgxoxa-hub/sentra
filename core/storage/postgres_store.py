@@ -173,6 +173,7 @@ def post_to_row(
     subreddit_name: str,
     run_id: str | None = None,
     subreddit_id: str | None = None,
+    data_source: str | None = None,
 ) -> dict[str, Any]:
     """Traduce un post normalizado de la Fase 2 a una fila de `raw_posts`."""
     title = str(item.get("title") or "")
@@ -197,6 +198,7 @@ def post_to_row(
         "matched_keywords": list(item.get("matched_keywords") or []),
         "raw_payload": dict(item),
         "content_hash": compute_content_hash(title, selftext),
+        "data_source": data_source,
     }
 
 
@@ -209,6 +211,7 @@ def signal_to_row(
     classifier_engine: str | None = None,
     embedding_ref: str | None = None,
     embedding_model: str | None = None,
+    data_source: str | None = None,
 ) -> dict[str, Any]:
     """
     Traduce un `AnalyzedSignal` a una fila de `analyzed_signals`.
@@ -253,6 +256,7 @@ def signal_to_row(
         "embedding_model": embedding_model,
         "qualified": bool(qualified),
         "metadata": {},
+        "data_source": data_source,
     }
 
 
@@ -572,6 +576,7 @@ class PostgresStore:
         subreddit_name: str,
         subreddit_id: str | None = None,
         run_id: str | None = None,
+        data_source: str | None = None,
     ) -> dict[str, str]:
         """
         Inserta posts crudos y devuelve el mapa `reddit_id -> uuid`.
@@ -583,7 +588,7 @@ class PostgresStore:
 
         for item in items:
             row = post_to_row(item, subreddit_name, run_id=run_id,
-                              subreddit_id=subreddit_id)
+                              subreddit_id=subreddit_id, data_source=data_source)
             if not row["reddit_id"] or row["created_utc"] is None:
                 logger.warning("Post sin id o sin fecha, se omite: %s", row["reddit_id"])
                 continue
@@ -593,10 +598,15 @@ class PostgresStore:
                 INSERT INTO raw_posts (tenant_id, subreddit_id, run_id, reddit_id,
                     subreddit_name, title, selftext, author, score, upvote_ratio,
                     num_comments, created_utc, url, permalink, flair,
-                    is_pain_signal, matched_keywords, raw_payload, content_hash)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    is_pain_signal, matched_keywords, raw_payload, content_hash,
+                    data_source)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (tenant_id, reddit_id, content_hash) DO UPDATE
-                    SET run_id = COALESCE(EXCLUDED.run_id, raw_posts.run_id)
+                    SET run_id = COALESCE(EXCLUDED.run_id, raw_posts.run_id),
+                        -- La fuente de un post ya guardado no cambia; solo
+                        -- se completa si era desconocida.
+                        data_source = COALESCE(raw_posts.data_source,
+                                               EXCLUDED.data_source)
                 RETURNING id
                 """,
                 (
@@ -607,6 +617,7 @@ class PostgresStore:
                     row["url"], row["permalink"], row["flair"],
                     row["is_pain_signal"], row["matched_keywords"],
                     json.dumps(row["raw_payload"], default=str), row["content_hash"],
+                    row["data_source"],
                 ),
             )
             saved[row["reddit_id"]] = str(result["id"])
@@ -622,6 +633,7 @@ class PostgresStore:
         classifier_engine: str | None = None,
         embedding_ref: str | None = None,
         embedding_model: str | None = None,
+        data_source: str | None = None,
     ) -> str | None:
         """Inserta el veredicto del motor y devuelve el id de la señal."""
         row = signal_to_row(
@@ -629,6 +641,7 @@ class PostgresStore:
             classifier_engine=classifier_engine,
             embedding_ref=embedding_ref or signal.id,
             embedding_model=embedding_model,
+            data_source=data_source,
         )
         if row["created_utc"] is None or post_uuid is None:
             logger.warning("Señal sin post asociado o sin fecha: %s", row["reddit_id"])
@@ -644,9 +657,9 @@ class PostgresStore:
                 paid_signal_factor, raw_score, final_score, urgency_tier,
                 mention_count, community_count, average_severity,
                 average_paid_signal, newest_age_days, embedding_ref,
-                embedding_model, qualified, metadata)
+                embedding_model, qualified, metadata, data_source)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (tenant_id, run_id, reddit_id) DO UPDATE
                 SET final_score = EXCLUDED.final_score,
                     qualified   = EXCLUDED.qualified
@@ -666,6 +679,7 @@ class PostgresStore:
                 row["newest_age_days"], row["embedding_ref"],
                 row["embedding_model"], row["qualified"],
                 json.dumps(row["metadata"]),
+                row["data_source"],
             ),
         )
         return str(result["id"])
@@ -791,8 +805,9 @@ class PostgresStore:
         """
         Vuelca el estado final del grafo en una única transacción.
 
-        `data_source` ("demo" o "reddit") y el resultado Top N (`state["top"]`)
-        quedan en la ejecución (AUD-007).
+        `data_source` ("demo" o "reddit") queda en la ejecución (AUD-007) y en
+        cada post y señal que escribe (D-J); el resultado Top N
+        (`state["top"]`), en la ejecución.
 
         Escribe, en orden: subreddit, ejecución, posts crudos, señales
         analizadas y síntesis JTBD. Si algo falla, no queda media cosecha
@@ -816,6 +831,7 @@ class PostgresStore:
                 subreddit_name,
                 subreddit_id=subreddit_id,
                 run_id=run_id,
+                data_source=data_source,
             )
 
             signals_saved = 0
@@ -830,6 +846,7 @@ class PostgresStore:
                     qualified=signal.id in qualified_ids,
                     classifier_engine=classifier_engine,
                     embedding_model=embedding_model,
+                    data_source=data_source,
                 )
                 if signal_uuid is None:
                     continue

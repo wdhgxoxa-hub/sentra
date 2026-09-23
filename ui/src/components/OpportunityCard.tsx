@@ -2,6 +2,7 @@ import { ArrowRight, MessageSquare, Users } from "lucide-react";
 
 import { CommunityTags } from "@/components/CommunityTags";
 import { IntensityBar } from "@/components/IntensityBar";
+import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { useT } from "@/stores/settingsStore";
 import type { OpportunityCluster } from "@/types/radar";
@@ -39,7 +40,10 @@ export function OpportunityCard({
         <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug">
           {cluster.label}
         </h3>
-        <UrgencyBadge tier={cluster.urgencyTier} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <UrgencyBadge tier={cluster.urgencyTier} />
+          <SourceBadge source={cluster.dataSource} />
+        </div>
       </header>
 
       {cluster.jobStatement && (

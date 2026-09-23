@@ -61,6 +61,8 @@ pub struct RadarFeedEntry {
     pub job_statement: Option<String>,
     pub post_title: Option<String>,
     pub post_permalink: Option<String>,
+    /// "demo" o "reddit"; None = desconocida (D-J).
+    pub data_source: Option<String>,
 }
 
 /// Senales individuales que superaron el filtro de higiene.
@@ -87,7 +89,8 @@ pub async fn get_radar_feed(
             qualified,
             job_statement,
             post_title,
-            post_permalink
+            post_permalink,
+            data_source
         FROM v_radar_feed
         WHERE tenant_id = $1::uuid
           AND final_score >= $2
@@ -390,6 +393,8 @@ pub struct ClusterHistoryPoint {
     pub community_count: i32,
     pub qualified: bool,
     pub created_at: String,
+    /// "demo" o "reddit"; None = desconocida (D-J).
+    pub data_source: Option<String>,
 }
 
 /// Lecturas sucesivas del mismo problema, de la mas reciente hacia atras.
@@ -404,17 +409,19 @@ pub async fn get_cluster_history(
     let rows = sqlx::query_as::<_, ClusterHistoryPoint>(
         r#"
         SELECT
-            id::text            AS id,
-            run_id::text        AS run_id,
-            final_score::float8 AS final_score,
-            urgency_tier::text  AS urgency_tier,
-            mention_count,
-            community_count,
-            qualified,
-            created_at::text    AS created_at
-        FROM opportunity_clusters
-        WHERE tenant_id = $1::uuid AND cluster_key = $2
-        ORDER BY created_at DESC
+            c.id::text            AS id,
+            c.run_id::text        AS run_id,
+            c.final_score::float8 AS final_score,
+            c.urgency_tier::text  AS urgency_tier,
+            c.mention_count,
+            c.community_count,
+            c.qualified,
+            c.created_at::text    AS created_at,
+            r.data_source
+        FROM opportunity_clusters c
+        LEFT JOIN pipeline_runs r ON r.id = c.run_id
+        WHERE c.tenant_id = $1::uuid AND c.cluster_key = $2
+        ORDER BY c.created_at DESC
         LIMIT 100
         "#,
     )
@@ -447,6 +454,8 @@ pub struct SubredditHealth {
     pub fetched: Option<i32>,
     pub qualified: Option<i32>,
     pub error_count: Option<i32>,
+    /// Fuente de la ultima ejecucion; None = desconocida (D-J).
+    pub last_run_data_source: Option<String>,
 }
 
 /// Subreddits vigilados con el resultado de su ultimo escaneo.
@@ -473,7 +482,8 @@ pub async fn get_subreddits(
             r.duration_ms           AS last_run_duration_ms,
             r.fetched,
             r.qualified,
-            r.error_count
+            r.error_count,
+            r.data_source           AS last_run_data_source
         FROM subreddits s
         LEFT JOIN pipeline_runs r ON r.subreddit_id = s.id
         WHERE s.tenant_id = $1::uuid
@@ -507,6 +517,8 @@ pub struct PipelineRun {
     pub rejected: i32,
     pub errors: serde_json::Value,
     pub error_count: i32,
+    /// "demo" o "reddit"; None = desconocida (D-J).
+    pub data_source: Option<String>,
 }
 
 /// Telemetria de las ultimas ejecuciones del grafo.
@@ -534,7 +546,8 @@ pub async fn get_pipeline_runs(
             qualified,
             rejected,
             errors,
-            error_count
+            error_count,
+            data_source
         FROM pipeline_runs
         WHERE tenant_id = $1::uuid
         ORDER BY started_at DESC

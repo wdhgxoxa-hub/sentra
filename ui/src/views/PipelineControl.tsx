@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 
 import { PipelineGraph } from "@/components/PipelineGraph";
 import { ScanProgressBar } from "@/components/ScanProgressBar";
+import { SourceBadge } from "@/components/SourceBadge";
 import {
   useCancelScan,
   useRuns,
@@ -189,8 +190,9 @@ export function PipelineControl() {
                     aria-hidden="true"
                   />
                 </p>
-                <p className="mt-0.5 text-[11px] text-ink-faint">
+                <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
                   {t.pipeline.lastRun}: {item.lastRunStatus ?? t.pipeline.never}
+                  {item.lastRunId && <SourceBadge source={item.lastRunDataSource} />}
                 </p>
               </div>
 

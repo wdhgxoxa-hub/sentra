@@ -125,7 +125,7 @@ class TestRespuestasDelSidecar(unittest.TestCase):
             id = text = subreddit = author = urgency_tier = job_statement = "x"
             current_solution = None
             opportunity_score = rrf_score = 1.0
-            dense_rank = bm25_rank = bm25_score = None
+            dense_rank = bm25_rank = bm25_score = data_source = None
 
         self.assertEqual(set(_hit_to_camel(Hit())), interfaz("HybridSearchHit"))
 

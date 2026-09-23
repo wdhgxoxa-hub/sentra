@@ -865,7 +865,9 @@ def _default_env_path() -> str:
 
 
 def _is_reddit_fetcher(fetcher: Any) -> bool:
-    return type(fetcher).__name__ == "RedditFetcher"
+    from core.orchestration.graph import data_source_of
+
+    return data_source_of(fetcher) == "reddit"
 
 
 def synthetic_total() -> int:
@@ -964,6 +966,7 @@ def _hit_to_camel(hit: Any) -> dict[str, Any]:
         "denseRank": hit.dense_rank,
         "bm25Rank": hit.bm25_rank,
         "bm25Score": hit.bm25_score,
+        "dataSource": hit.data_source,
     }
 
 

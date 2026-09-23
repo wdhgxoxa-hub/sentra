@@ -123,6 +123,8 @@ export interface RadarFeedEntry {
   jobStatement: string | null;
   postTitle: string | null;
   postPermalink: string | null;
+  /** Fuente del registro (D-J); null = desconocida. */
+  dataSource: DataSource | null;
 }
 
 // ---------------------------------------------------------------------
@@ -214,6 +216,8 @@ export interface ClusterHistoryPoint {
   communityCount: number;
   qualified: boolean;
   createdAt: string;
+  /** Fuente del registro (D-J); null = desconocida. */
+  dataSource: DataSource | null;
 }
 
 // ---------------------------------------------------------------------
@@ -235,6 +239,8 @@ export interface HybridSearchHit {
   /** null = no lo encontró la rama léxica. */
   bm25Rank: number | null;
   bm25Score: number | null;
+  /** Fuente del registro (D-J); null = desconocida. */
+  dataSource: DataSource | null;
 }
 
 // ---------------------------------------------------------------------
@@ -256,6 +262,8 @@ export interface SubredditHealth {
   fetched: number | null;
   qualified: number | null;
   errorCount: number | null;
+  /** Fuente de la última ejecución (D-J); null = desconocida. */
+  lastRunDataSource: DataSource | null;
 }
 
 export interface PipelineRun {
@@ -276,6 +284,8 @@ export interface PipelineRun {
   rejected: number;
   errors: string[];
   errorCount: number;
+  /** Fuente del registro (D-J); null = desconocida. */
+  dataSource: DataSource | null;
 }
 
 // ---------------------------------------------------------------------

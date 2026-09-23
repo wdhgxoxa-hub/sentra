@@ -129,9 +129,6 @@ export const en: Dictionary = {
     partial: "Incomplete ({found}/{target})",
     incomplete: "Only {found} of {target} opportunities pass the cut.",
     open: "Open details",
-    sourceDemo: "Demo data",
-    sourceReddit: "Reddit data",
-    sourceUnknown: "Source not recorded",
     reasons: {
       fuentes_agotadas: "Everything available was reviewed and the remaining problems do not reach the minimum score.",
       limite_ciclos: "The scan hit its cycle limit with content still left to review.",
@@ -393,6 +390,12 @@ export const en: Dictionary = {
       body:
         "A single complaint rarely justifies building anything. An opportunity is a problem that repeats across communities. That's why there are two lists and two different bars.",
     },
+  },
+
+  source: {
+    demo: "Demo data",
+    reddit: "Reddit data",
+    unknown: "Unknown source",
   },
 
   common: {

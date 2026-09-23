@@ -40,6 +40,8 @@ class HybridSearchResult(BaseModel):
     dense_rank: Optional[int] = None
     bm25_rank: Optional[int] = None
     bm25_score: Optional[float] = None
+    #: "demo" o "reddit"; None = desconocida (D-J).
+    data_source: Optional[str] = None
 
 
 class HybridSearchEngine:
@@ -224,7 +226,8 @@ class HybridSearchEngine:
                     rrf_score=round(rrf_score, 6),
                     dense_rank=dense_ranks.get(doc_id),
                     bm25_rank=bm25_ranks.get(doc_id),
-                    bm25_score=bm25_scores.get(doc_id)
+                    bm25_score=bm25_scores.get(doc_id),
+                    data_source=doc_data.get("data_source"),
                 )
             )
 

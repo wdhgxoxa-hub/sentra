@@ -84,6 +84,15 @@ class RadarDependencies:
         return self.search_engine
 
 
+def data_source_of(fetcher: Any) -> str:
+    """Fuente de los datos que entrega `fetcher`: "reddit" o "demo" (D-J).
+
+    Es el único sitio que lo decide: la ejecución en PostgreSQL y cada fila
+    de LanceDB lo leen de aquí, así no pueden discrepar.
+    """
+    return "reddit" if type(fetcher).__name__ == "RedditFetcher" else "demo"
+
+
 def _item_text(item: dict[str, Any]) -> str:
     """Texto evaluable de un ítem, sea post (title+selftext) o comentario (body)."""
     title = str(item.get("title") or "")
@@ -237,7 +246,11 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
 
     try:
         records = [
-            signal_to_record(signal, raw_score=upvotes.get(signal.id, 0))
+            signal_to_record(
+                signal,
+                raw_score=upvotes.get(signal.id, 0),
+                data_source=data_source_of(deps.fetcher),
+            )
             for signal in signals
         ]
         deps.store.insert_opportunities(records)

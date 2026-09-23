@@ -96,6 +96,8 @@ class OpportunityRecord(BaseModel):
     current_solution: Optional[str] = None
     workaround_detected: bool = False
     url: Optional[str] = None
+    #: "demo" o "reddit"; None = desconocida (filas anteriores a D-J).
+    data_source: Optional[str] = None
     vector: List[float] = Field(default_factory=list)
 
 
@@ -166,6 +168,7 @@ class LanceDBStore:
             pa.field("current_solution", pa.string()),
             pa.field("workaround_detected", pa.bool_()),
             pa.field("url", pa.string()),
+            pa.field("data_source", pa.string(), nullable=True),
             pa.field("vector", pa.list_(pa.float32(), self.vector_dim))
         ])
 
@@ -192,8 +195,18 @@ class LanceDBStore:
         schema = self._get_schema()
         if self.TABLE_NAME in tables:
             self._table = self._db.open_table(self.TABLE_NAME)
+            self._ensure_data_source_column()
         else:
             self._table = self._db.create_table(self.TABLE_NAME, schema=schema)
+
+    def _ensure_data_source_column(self) -> None:
+        """Añade `data_source` vacía a una tabla escrita antes de D-J.
+
+        Queda NULL, que se lee «desconocida»: la rellena después
+        `scripts/backfill_lancedb_source.py` cruzando con PostgreSQL.
+        """
+        if "data_source" not in self._table.schema.names:
+            self._table.add_columns(pa.field("data_source", pa.string(), nullable=True))
 
     def insert_opportunities(self, records: Sequence[OpportunityRecord]) -> int:
         """
@@ -224,6 +237,7 @@ class LanceDBStore:
                 "current_solution": r.current_solution or "",
                 "workaround_detected": bool(r.workaround_detected),
                 "url": r.url or "",
+                "data_source": r.data_source,
                 "vector": [float(v) for v in vec]
             })
 

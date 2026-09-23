@@ -7,6 +7,7 @@ import { EvidenceQuotes } from "@/components/EvidenceQuotes";
 import { Explain } from "@/components/Explain";
 import { IntensityBar } from "@/components/IntensityBar";
 import { ScoreBreakdownBars } from "@/components/ScoreBreakdownBars";
+import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { ValidationControls } from "@/components/ValidationControls";
 import { useClusterHistory, useOpportunityDetail } from "@/lib/queries";
@@ -118,6 +119,7 @@ export function OpportunityDetail() {
                 <span className="text-ink-soft">
                   {point.mentionCount}m / {point.communityCount}c
                 </span>
+                <SourceBadge source={point.dataSource} />
               </li>
             ))}
           </ol>

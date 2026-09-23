@@ -105,6 +105,7 @@ fn get_radar_feed_devuelve_radar_feed_entry() {
             job_statement: None,
             post_title: None,
             post_permalink: None,
+            data_source: None,
         },
         "RadarFeedEntry",
     );
@@ -175,6 +176,7 @@ fn get_cluster_history_devuelve_cluster_history_point() {
             community_count: 1,
             qualified: false,
             created_at: texto(),
+            data_source: None,
         },
         "ClusterHistoryPoint",
     );
@@ -198,6 +200,7 @@ fn get_subreddits_devuelve_subreddit_health() {
             fetched: None,
             qualified: None,
             error_count: None,
+            last_run_data_source: None,
         },
         "SubredditHealth",
     );
@@ -224,6 +227,7 @@ fn get_pipeline_runs_devuelve_pipeline_run() {
             rejected: 0,
             errors: json!([]),
             error_count: 0,
+            data_source: None,
         },
         "PipelineRun",
     );
