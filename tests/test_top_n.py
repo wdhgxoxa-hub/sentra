@@ -247,10 +247,12 @@ TEST_DB = "rir_top_n_test"
 def _postgres_available() -> bool:
     try:
         import psycopg
-
+    except ImportError:
+        return False
+    try:
         with psycopg.connect(ADMIN_DSN, connect_timeout=3):
             return True
-    except Exception:  # noqa: BLE001 - sondeo de disponibilidad del servidor de pruebas
+    except psycopg.Error:
         return False
 
 

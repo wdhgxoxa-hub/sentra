@@ -135,7 +135,7 @@ class ZeroShotNLIClassifier:
                 logger.info(f"Modelo HuggingFace {model_name} cargado con éxito para Zero-Shot NLI.")
             # Frontera con una dependencia opcional: sin transformers, sin
             # modelo descargado o sin memoria, se queda el motor heurístico.
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001 - dependencia opcional (transformers)
                 logger.info("Motor Transformers no disponible o sin soporte GPU. Usando motor local Semantic TF-IDF.")
 
     def _softmax(self, scores: np.ndarray) -> np.ndarray:
@@ -227,7 +227,7 @@ class ZeroShotNLIClassifier:
                 )
             # Frontera con el modelo: si la inferencia falla, clasifica el
             # motor heurístico y el resultado lo declara en `engine`.
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001 - frontera con el modelo
                 logger.warning(f"Fallo en inferencia HuggingFace: {e}. Alternando a motor local.")
             else:
                 scores_dict = {

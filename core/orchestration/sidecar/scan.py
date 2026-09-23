@@ -69,7 +69,7 @@ async def _persist(
             return summary.get("run_id"), True, None
         # Frontera con PostgreSQL: conexión, SQL y mapeo pueden fallar de
         # muchas formas y todas deben llegar al usuario como `persistError`.
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - frontera con PostgreSQL
             detail = f"{type(exc).__name__}: {exc}"
             logger.error("No se pudo persistir en PostgreSQL: %s", detail)
             return None, False, detail

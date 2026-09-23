@@ -145,7 +145,7 @@ def fetch_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
         )
     # Frontera con un fetcher inyectable: cualquier otro fallo también debe
     # terminar en un fallo explícito de la ejecución, nunca en una página vacía.
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - frontera con el fetcher inyectable
         return _fetch_failure(cycle, "fetch_failed", f"{type(exc).__name__}: {exc}")
 
     items = list(items)
@@ -174,7 +174,7 @@ def filter_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
                 kept.append({**item, "matched_keywords": verdict.matched_keywords})
         # Resiliencia por item (ver cabecera): un post que rompe el filtro se
         # anota en `errors` y no tumba el resto de la pagina.
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - resiliencia por item
             logger.error("FilterNode (%s): %s", item.get("id"), exc)
             errors.append(f"filter[{item.get('id')}]: {exc}")
 
@@ -261,7 +261,7 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> dict[str, A
                 )
             )
         # Resiliencia por item: un analisis fallido se anota y el lote sigue.
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - resiliencia por item
             logger.error("IntelligenceNode (%s): %s", item.get("id"), exc)
             errors.append(f"intelligence[{item.get('id')}]: {exc}")
 
@@ -298,7 +298,7 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
         ]
         deps.store.insert_opportunities(records)
     # Frontera con LanceDB: cualquier fallo del almacen se anota en `errors`.
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - frontera con LanceDB
         logger.error("StorageNode: %s", exc)
         return {
             "stored_ids": [],
@@ -314,7 +314,7 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
             [record.model_dump(exclude={"vector"}) for record in records]
         )
     # El indice lexico es secundario: si falla, la busqueda densa sigue.
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - índice secundario
         logger.error("StorageNode (indexado BM25): %s", exc)
         errors.append(f"index: {exc}")
 
@@ -428,7 +428,7 @@ def aggregation_node(
             pain_filter=deps.get_filter(),
         )
     # Resiliencia por nodo: un fallo al agrupar se anota y no pierde la cosecha.
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - resiliencia por nodo
         logger.error("AggregationNode: %s", exc)
         return {
             **_con_ranking(state, [], [], max_cycles),

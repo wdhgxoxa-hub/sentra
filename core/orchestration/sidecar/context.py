@@ -95,7 +95,7 @@ def safe[T](fn: Callable[[], T], default: T) -> T:
         return fn()
     # Frontera de /api/health: el informe de salud no puede caerse por el
     # fallo de la pieza que está describiendo, sea cual sea ese fallo.
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - el informe de salud no puede caerse
         return default
 
 

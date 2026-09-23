@@ -184,7 +184,7 @@ def frontera(api_key: str) -> Iterator[None]:
         raise
     # Frontera con el SDK: lanza de muchas formas (red, cuota, argumentos) y
     # todas deben salir tipadas, saneadas y sin la excepción original.
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - frontera con el SDK de Gemini
         clase = _clase_de(exc)
         raise clase(sanitize(f"{type(exc).__name__}: {exc}", api_key)) from None
 

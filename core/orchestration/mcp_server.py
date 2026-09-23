@@ -88,7 +88,7 @@ def build_tools(
             )
         # Frontera con el cliente MCP: LanceDB y el embedder pueden fallar de
         # muchas formas; la herramienta responde vacio y lo deja en el log.
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - frontera con el cliente MCP
             logger.error("search_pain_points: %s", exc)
             return []
 
@@ -104,7 +104,7 @@ def build_tools(
         try:
             record = deps.store.get_by_id(opportunity_id)
         # Frontera con el cliente MCP (misma razon que search_pain_points).
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - frontera con el cliente MCP
             logger.error("get_opportunity_details(%s): %s", opportunity_id, exc)
             return None
 

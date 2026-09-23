@@ -28,7 +28,7 @@ from core.storage import (
 from core.storage.lancedb_store import _sql_literal
 
 try:
-    import fastembed  # noqa: F401
+    import fastembed  # noqa: F401 - solo se comprueba si está instalado
     FASTEMBED_AVAILABLE = True
 except ImportError:
     FASTEMBED_AVAILABLE = False
