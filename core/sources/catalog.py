@@ -16,13 +16,14 @@ from .discourse import DiscourseSource
 from .github import GitHubSource
 from .hackernews import HackerNewsSource
 from .mastodon import MastodonSource
+from .producthunt import ProductHuntSource
 from .reddit import RedditSource
 from .stackexchange import StackExchangeSource
 from .youtube import YouTubeSource
 
 SOURCES: tuple[type[SourceAdapter], ...] = (
     HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource, BlueskySource,
-    YouTubeSource, MastodonSource, DiscourseSource,
+    YouTubeSource, MastodonSource, DiscourseSource, ProductHuntSource,
 )
 
 
