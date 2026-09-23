@@ -424,6 +424,14 @@ export const en: Dictionary = {
   },
 
   errors: {
+    source_error: "The source rejected the request.",
+    source_credentials_missing: "This source needs credentials: set them up in Settings → Sources.",
+    source_auth_failed: "The source rejected the credentials. Check them in Settings → Sources.",
+    source_forbidden: "The source denied access to what was asked.",
+    source_not_found: "The source could not find what was asked (missing community, site or resource).",
+    source_unavailable: "The source is not responding right now. It was retried; try again later.",
+    source_rate_limited: "The source asks to wait: its quota ran out. The other sources carry on.",
+    source_budget_exhausted: "This source's budget for the scan ran out.",
     unknown: "An unexpected error occurred.",
     database: "The database could not be read or written. Check that PostgreSQL is running.",
     database_unavailable: "No connection to PostgreSQL: the server did not answer or rejected the credentials.",

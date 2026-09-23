@@ -429,6 +429,14 @@ export const es = {
    * tests/test_gemini_robustness.py.
    */
   errors: {
+    source_error: "La fuente rechazó la petición.",
+    source_credentials_missing: "Esta fuente necesita credenciales: configúralas en Ajustes → Fuentes.",
+    source_auth_failed: "La fuente rechazó las credenciales. Revísalas en Ajustes → Fuentes.",
+    source_forbidden: "La fuente denegó el acceso a lo pedido.",
+    source_not_found: "La fuente no encontró lo pedido (comunidad, sitio o recurso inexistente).",
+    source_unavailable: "La fuente no responde ahora mismo. Se reintentó; prueba más tarde.",
+    source_rate_limited: "La fuente pide esperar: se agotó su cuota. El resto de fuentes sigue.",
+    source_budget_exhausted: "Se agotó el presupuesto de esta fuente para el escaneo.",
     unknown: "Ocurrió un error inesperado.",
     database: "No se pudo leer o escribir en la base de datos. Comprueba que PostgreSQL está en marcha.",
     database_unavailable: "No hay conexión con PostgreSQL: el servidor no respondió o rechazó las credenciales.",
