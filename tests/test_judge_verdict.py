@@ -115,6 +115,12 @@ class TestVeredictos(unittest.TestCase):
         resultado = self.veredicto(items, etiquetas)
         self.assertEqual((resultado.verdict, resultado.missing), ("INVESTIGAR MÁS", ["G5"]))
 
+    def test_g5_sin_hilo_conocido_no_cuenta_como_un_mismo_hilo(self):
+        items, etiquetas = grupo_construir()
+        items = [i.model_copy(update={"thread_id": None}) for i in items]
+        g5 = next(g for g in self.veredicto(items, etiquetas).gates if g.gate == "G5")
+        self.assertTrue(g5.passed, "hilo desconocido no es concentración")
+
     def test_g6_evidencia_vieja_investigar(self):
         resultado = self.veredicto(*grupo_construir(dias=400))
         self.assertEqual(resultado.verdict, "INVESTIGAR MÁS")

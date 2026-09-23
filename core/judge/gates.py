@@ -85,9 +85,13 @@ def _ids(items: Sequence[EvidenceItem]) -> list[str]:
 def _concentracion(dolores: Sequence[EvidenceItem]) -> GateResult:
     if not dolores:
         return GateResult("G5", False, 1.0, CONCENTRATION_MAX_SHARE, [])
-    hilos = Counter(i.thread_id for i in dolores)
+    # Un hilo o autor desconocido (None) no es «el mismo» para todos: no concentra.
+    hilos = Counter(i.thread_id for i in dolores if i.thread_id)
     autores = Counter(i.author_hash for i in dolores if i.author_hash)
-    clave, maximo = max(list(hilos.items()) + list(autores.items()), key=lambda kv: kv[1])
+    conteos = list(hilos.items()) + list(autores.items())
+    if not conteos:
+        return GateResult("G5", True, 0.0, CONCENTRATION_MAX_SHARE, [])
+    clave, maximo = max(conteos, key=lambda kv: kv[1])
     cuota = maximo / len(dolores)
     culpables = [i for i in dolores if clave in (i.thread_id, i.author_hash)]
     return GateResult("G5", cuota <= CONCENTRATION_MAX_SHARE, cuota, CONCENTRATION_MAX_SHARE,
