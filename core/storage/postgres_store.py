@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Self
 
 from core.evidence.author import AuthorSaltMissing, author_hash, es_autor_identificable
+from core.evidence.model import EvidenceItem, content_fingerprint
 
 from .identity import Candidato, Previo, asignar_identidades
 
@@ -397,6 +398,50 @@ class PostgresStore:
     def _autor(self, fuente: str, nombre: Any) -> str:
         """El autor tal como se guarda en las tablas antiguas: hash o '[deleted]'."""
         return self._hash_autor(fuente, nombre) or "[deleted]"
+
+    async def upsert_evidence(
+        self, items: Sequence[EvidenceItem], run_id: str | None = None
+    ) -> int:
+        """Guarda evidencia de cualquier fuente en evidence_items (F2.3).
+
+        Upsert idempotente por id global: lo que cambia (texto, interacción,
+        métricas) se actualiza; la procedencia de una fila ya guardada no
+        cambia. Devuelve cuántas piezas recibió.
+        """
+        for item in items:
+            await self.connection.execute(
+                """
+                INSERT INTO evidence_items (id, tenant_id, source, community, kind, title,
+                    content, url, author_hash, created_at, fetched_at, language, thread_id,
+                    score, replies, reactions, views, native_metrics, data_source, run_id,
+                    content_hash)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (tenant_id, id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    content = EXCLUDED.content,
+                    content_hash = EXCLUDED.content_hash,
+                    score = EXCLUDED.score,
+                    replies = EXCLUDED.replies,
+                    reactions = EXCLUDED.reactions,
+                    views = EXCLUDED.views,
+                    native_metrics = EXCLUDED.native_metrics,
+                    fetched_at = EXCLUDED.fetched_at,
+                    language = COALESCE(EXCLUDED.language, evidence_items.language),
+                    run_id = COALESCE(EXCLUDED.run_id, evidence_items.run_id),
+                    data_source = COALESCE(evidence_items.data_source, EXCLUDED.data_source)
+                """,
+                (
+                    item.id, self.tenant_id, item.source, item.community, item.kind,
+                    item.title, item.text, item.url, item.author_hash, item.created_at,
+                    item.fetched_at, item.language, item.thread_id,
+                    item.engagement.score, item.engagement.replies,
+                    item.engagement.reactions, item.engagement.views,
+                    json.dumps(item.native_metrics, default=str), item.data_source,
+                    run_id or item.run_id, content_fingerprint(item.text),
+                ),
+            )
+        await self.connection.commit()
+        return len(items)
 
     async def _guardar_evidencia(
         self,

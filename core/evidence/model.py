@@ -10,6 +10,7 @@ fechas en UTC, URL al original, autor solo como hash y procedencia.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -25,6 +26,15 @@ EvidenceKind = Literal[
 DataSource = Literal["real", "demo"]
 
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+
+
+def content_fingerprint(text: str) -> str:
+    """Huella del contenido: igual para el mismo texto con otras mayúsculas o espacios.
+
+    Es la clave de la caché de etiquetas (el mismo texto nunca se etiqueta
+    dos veces, F3) y la primera señal de crossposting (F2.6).
+    """
+    return hashlib.sha256(" ".join(text.casefold().split()).encode("utf-8")).hexdigest()
 
 
 class Engagement(BaseModel):
