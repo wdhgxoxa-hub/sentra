@@ -23,7 +23,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 from core.evidence.model import EvidenceItem, content_fingerprint
-from core.llm.base import LLMBudgetExhausted, LLMError, LLMProvider
+from core.llm.base import LLMBudgetExhausted, LLMError, LLMProvider, LLMTruncated
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,12 @@ MAX_ITEMS_PER_SCAN = 300
 BATCH_SIZE = 20
 MAX_OUTPUT_TOKENS = 16_000
 TIMEOUT_MS = 180_000
+#: B1: en Gemini 3.x el razonamiento cuenta dentro de MAX_OUTPUT_TOKENS; el
+#: escaneo real se truncó con 12.471 tokens de razonamiento en un lote de 40.
+#: Etiquetar no necesita más: el resto queda para el JSON.
+LABEL_THINKING_BUDGET = 2_048
+#: Veces que un lote truncado se parte por la mitad (20 -> 10 -> 5).
+TRUNCATION_MAX_SPLITS = 2
 
 #: Intenciones posibles (F3.2).
 Intent = Literal["busca_herramienta", "queja", "parche_casero", "dispuesto_a_pagar",
@@ -221,27 +227,31 @@ def label_items(
         elif huella not in pendientes:
             pendientes[huella] = item
 
-    representantes = list(pendientes.values())
-    fuera = representantes[max_items:]
-    agotado: str | None = None
-    for inicio in range(0, min(len(representantes), max_items), batch_size):
-        lote = representantes[inicio:inicio + batch_size]
-        if agotado:
-            fuera += lote
-            continue
+    def etiquetar(lote: Sequence[EvidenceItem], divisiones: int) -> None:
+        """Un lote; si se trunca, cada mitad por separado (tope TRUNCATION_MAX_SPLITS)."""
+        assert provider is not None and model
         try:
             respuesta = provider.generate_json(
                 _prompt(lote), LLMLabelBatch, model=model, max_output_tokens=MAX_OUTPUT_TOKENS,
-                timeout_ms=TIMEOUT_MS, system=SYSTEM_PROMPT)
+                timeout_ms=TIMEOUT_MS, system=SYSTEM_PROMPT,
+                thinking_budget=LABEL_THINKING_BUDGET)
+        except LLMTruncated:
+            if len(lote) > 1 and divisiones < TRUNCATION_MAX_SPLITS:
+                mitad = len(lote) // 2
+                etiquetar(lote[:mitad], divisiones + 1)
+                etiquetar(lote[mitad:], divisiones + 1)
+                return
+            logger.warning("Etiquetado truncado sin poder partir más (%d ítems)", len(lote))
+            for item in lote:
+                resultado[item.id] = undetermined(item, "llm_truncated", labeler)
+            return
         except LLMBudgetExhausted:
-            agotado = "llm_budget_exhausted"
-            fuera += lote
-            continue
+            raise
         except LLMError as exc:
             logger.warning("Lote de etiquetado fallido: %s", exc.code)
             for item in lote:
                 resultado[item.id] = undetermined(item, f"llm_error:{exc.code}", labeler)
-            continue
+            return
         por_id = {e.item_id: e for e in respuesta.labels}
         for item in lote:
             etiqueta = por_id.get(item.id)
@@ -253,9 +263,21 @@ def label_items(
             cache.put(verificada)
             resultado[item.id] = verificada
 
-    for item in fuera:
-        motivo = agotado if agotado and item in representantes[:max_items] else "item_budget"
-        resultado[item.id] = undetermined(item, motivo, labeler)
+    representantes = list(pendientes.values())
+    agotado = False
+    dentro = representantes[:max_items]  # D-M4: el resto queda como item_budget
+    for inicio in range(0, len(dentro), batch_size):
+        lote = dentro[inicio:inicio + batch_size]
+        if agotado:
+            break
+        try:
+            etiquetar(lote, 0)
+        except LLMBudgetExhausted:
+            agotado = True
+    for indice, item in enumerate(representantes):
+        if item.id not in resultado:
+            motivo = "llm_budget_exhausted" if agotado and indice < max_items else "item_budget"
+            resultado[item.id] = undetermined(item, motivo, labeler)
 
     # Los crossposts toman la etiqueta de su representante.
     for item in items:

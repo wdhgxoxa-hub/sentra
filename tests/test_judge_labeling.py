@@ -61,9 +61,12 @@ class LLMDoble:
         self.lotes = []
         self.falla_en_lote = falla_en_lote
         self.omite = set(omite)
+        self.presupuestos = []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None):
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+                      thinking_budget=None):
         assert schema is LLMLabelBatch
+        self.presupuestos.append(thinking_budget)
         entrada = json.loads(prompt[prompt.index("["):])
         self.lotes.append([e["id"] for e in entrada])
         if self.falla_en_lote is not None and len(self.lotes) == self.falla_en_lote:
@@ -185,6 +188,52 @@ class TestEtiquetado(unittest.TestCase):
         [etiqueta] = label_items([item_de(GOLDEN[0])], provider=LLMDoble(), model="modelo-x",
                                  cache=InMemoryLabelCache()).values()
         self.assertEqual(etiqueta.labeler, f"{LABELER_VERSION}/modelo-x")
+
+
+class LLMQueSeCorta(LLMDoble):
+    """Reproduce el truncado real: un lote de más de `tope` ítems se corta."""
+
+    def __init__(self, tope):
+        super().__init__()
+        self.tope = tope
+
+    def generate_json(self, prompt, schema, **kwargs):
+        from core.llm.base import LLMTruncated
+
+        entrada = json.loads(prompt[prompt.index("["):])
+        if len(entrada) > self.tope:
+            self.lotes.append([e["id"] for e in entrada])
+            raise LLMTruncated("se cortó al agotar el límite de salida")
+        return super().generate_json(prompt, schema, **kwargs)
+
+
+class TestTruncado(unittest.TestCase):
+    """B1: un lote truncado se parte por la mitad y se reintenta solo esa mitad."""
+
+    def test_el_etiquetado_pide_un_presupuesto_de_razonamiento(self):
+        from core.judge.labels import LABEL_THINKING_BUDGET
+
+        doble = LLMDoble()
+        label_items([item_de(GOLDEN[0])], provider=doble, model="m", cache=InMemoryLabelCache())
+        self.assertEqual(doble.presupuestos, [LABEL_THINKING_BUDGET])
+
+    def test_un_lote_truncado_se_parte_hasta_que_cabe(self):
+        doble = LLMQueSeCorta(tope=5)
+        items = [item_de(d) for d in GOLDEN[:20]]
+        etiquetas = label_items(items, provider=doble, model="m", cache=InMemoryLabelCache(),
+                                batch_size=20)
+        self.assertEqual([len(lote) for lote in doble.lotes], [20, 10, 5, 5, 10, 5, 5])
+        self.assertTrue(all(e.undetermined_reason is None for e in etiquetas.values()))
+
+    def test_si_no_cabe_ni_partiendo_queda_truncado_con_su_motivo(self):
+        from core.judge.labels import TRUNCATION_MAX_SPLITS
+
+        doble = LLMQueSeCorta(tope=0)
+        items = [item_de(d) for d in GOLDEN[:8]]
+        etiquetas = label_items(items, provider=doble, model="m", cache=InMemoryLabelCache(),
+                                batch_size=8)
+        self.assertEqual({e.undetermined_reason for e in etiquetas.values()}, {"llm_truncated"})
+        self.assertEqual(len(doble.lotes), 2 ** (TRUNCATION_MAX_SPLITS + 1) - 1, "con tope de llamadas")
 
 
 class TestConcordancia(unittest.TestCase):
