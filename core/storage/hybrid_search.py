@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple
-from pydantic import BaseModel, Field
+from collections.abc import Sequence
+from typing import Any
+
+from pydantic import BaseModel
 from rank_bm25 import BM25Okapi
 
 from .lancedb_store import LanceDBStore
@@ -35,13 +37,13 @@ class HybridSearchResult(BaseModel):
     opportunity_score: float = 0.0
     urgency_tier: str = "LOW"
     job_statement: str = ""
-    current_solution: Optional[str] = None
+    current_solution: str | None = None
     rrf_score: float
-    dense_rank: Optional[int] = None
-    bm25_rank: Optional[int] = None
-    bm25_score: Optional[float] = None
+    dense_rank: int | None = None
+    bm25_rank: int | None = None
+    bm25_score: float | None = None
     #: "demo" o "reddit"; None = desconocida (D-J).
-    data_source: Optional[str] = None
+    data_source: str | None = None
 
 
 class HybridSearchEngine:
@@ -61,12 +63,12 @@ class HybridSearchEngine:
         self.dense_weight = dense_weight
         self.bm25_weight = bm25_weight
 
-        self._bm25_index: Optional[BM25Okapi] = None
-        self._corpus_docs: List[Dict[str, Any]] = []
-        self._corpus_id_map: Dict[str, Dict[str, Any]] = {}
+        self._bm25_index: BM25Okapi | None = None
+        self._corpus_docs: list[dict[str, Any]] = []
+        self._corpus_id_map: dict[str, dict[str, Any]] = {}
 
     @staticmethod
-    def _tokenize(text: str) -> List[str]:
+    def _tokenize(text: str) -> list[str]:
         """Tokenizador léxico limpio para BM25."""
         if not text:
             return []
@@ -74,7 +76,7 @@ class HybridSearchEngine:
         tokens = [t.strip() for t in cleaned.split() if len(t.strip()) > 1]
         return tokens
 
-    def index_corpus(self, documents: Sequence[Dict[str, Any]]) -> int:
+    def index_corpus(self, documents: Sequence[dict[str, Any]]) -> int:
         """
         Construye o actualiza el índice BM25Okapi a partir del corpus de documentos.
         Cada documento debe contener al menos 'id' y 'text'.
@@ -98,7 +100,7 @@ class HybridSearchEngine:
         self._bm25_index = BM25Okapi(tokenized_corpus)
         return len(self._corpus_docs)
 
-    def extend_corpus(self, documents: Sequence[Dict[str, Any]]) -> int:
+    def extend_corpus(self, documents: Sequence[dict[str, Any]]) -> int:
         """
         Añade documentos al índice léxico conservando los ya indexados.
 
@@ -109,7 +111,7 @@ class HybridSearchEngine:
         if not documents:
             return len(self._corpus_docs)
 
-        merged: Dict[str, Dict[str, Any]] = {
+        merged: dict[str, dict[str, Any]] = {
             str(doc["id"]): doc for doc in self._corpus_docs
         }
         for doc in documents:
@@ -121,8 +123,8 @@ class HybridSearchEngine:
         self,
         query: str,
         limit: int = 10,
-        filter_sql: Optional[str] = None
-    ) -> List[HybridSearchResult]:
+        filter_sql: str | None = None
+    ) -> list[HybridSearchResult]:
         """
         Ejecuta la búsqueda híbrida combinada:
         1. Consulta densa en LanceDB.
@@ -142,13 +144,13 @@ class HybridSearchEngine:
             filter_sql=filter_sql
         )
 
-        dense_ranks: Dict[str, int] = {}
+        dense_ranks: dict[str, int] = {}
         for rank, item in enumerate(dense_results, 1):
             dense_ranks[str(item["id"])] = rank
 
         # 2. Búsqueda Léxica en BM25
-        bm25_ranks: Dict[str, int] = {}
-        bm25_scores: Dict[str, float] = {}
+        bm25_ranks: dict[str, int] = {}
+        bm25_scores: dict[str, float] = {}
 
         if self._bm25_index and self._corpus_docs:
             query_tokens = self._tokenize(query)
@@ -188,7 +190,7 @@ class HybridSearchEngine:
         if not all_candidate_ids:
             return []
 
-        rrf_fused: List[Tuple[str, float]] = []
+        rrf_fused: list[tuple[str, float]] = []
         for doc_id in all_candidate_ids:
             score = 0.0
             if doc_id in dense_ranks:
@@ -200,7 +202,7 @@ class HybridSearchEngine:
         # Ordenar por puntaje RRF descendente
         rrf_fused.sort(key=lambda x: x[1], reverse=True)
 
-        results: List[HybridSearchResult] = []
+        results: list[HybridSearchResult] = []
         for doc_id, rrf_score in rrf_fused[:limit]:
             # Recuperar metadatos del documento (de LanceDB o del corpus map)
             doc_data = None

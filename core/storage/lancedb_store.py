@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
 import lancedb
 import pyarrow as pa
@@ -42,7 +43,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH_ENV_VAR = "RIR_LANCEDB_PATH"
 
 
-def resolve_db_path(db_path: Optional[Union[str, Path]] = None) -> Path:
+def resolve_db_path(db_path: str | Path | None = None) -> Path:
     """
     Resuelve la ruta del almacen LanceDB en cascada:
 
@@ -93,12 +94,12 @@ class OpportunityRecord(BaseModel):
     urgency_tier: str = "LOW"
     opportunity_score: float = 0.0
     job_statement: str = ""
-    current_solution: Optional[str] = None
+    current_solution: str | None = None
     workaround_detected: bool = False
-    url: Optional[str] = None
+    url: str | None = None
     #: "demo" o "reddit"; None = desconocida (filas anteriores a D-J).
-    data_source: Optional[str] = None
-    vector: List[float] = Field(default_factory=list)
+    data_source: str | None = None
+    vector: list[float] = Field(default_factory=list)
 
 
 # Alias historico. El generador por hash vive ahora en embeddings.py y ha
@@ -115,9 +116,9 @@ class LanceDBStore:
 
     def __init__(
         self,
-        db_path: Optional[Union[str, Path]] = None,
-        vector_dim: Optional[int] = None,
-        embedder: Optional[TextEmbedder] = None,
+        db_path: str | Path | None = None,
+        vector_dim: int | None = None,
+        embedder: TextEmbedder | None = None,
         allow_hash_fallback: bool = False
     ) -> None:
         """
@@ -172,7 +173,7 @@ class LanceDBStore:
             pa.field("vector", pa.list_(pa.float32(), self.vector_dim))
         ])
 
-    def _existing_tables(self) -> List[str]:
+    def _existing_tables(self) -> list[str]:
         """
         Nombres de las tablas ya presentes en el dataset.
 
@@ -246,10 +247,10 @@ class LanceDBStore:
 
     def search_vector(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         limit: int = 10,
-        filter_sql: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        filter_sql: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Ejecuta búsqueda por similitud vectorial densa (K-NN) con filtrado opcional SQL.
         """
@@ -262,8 +263,8 @@ class LanceDBStore:
         self,
         query_text: str,
         limit: int = 10,
-        filter_sql: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        filter_sql: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Genera el embedding de la consulta en lenguaje natural y busca en el espacio vectorial.
         """
@@ -274,7 +275,7 @@ class LanceDBStore:
         """Retorna el número total de filas en la tabla."""
         return self._table.count_rows()
 
-    def ids_where(self, filter_sql: str, limit: Optional[int] = None) -> List[str]:
+    def ids_where(self, filter_sql: str, limit: int | None = None) -> list[str]:
         """
         Devuelve los identificadores que satisfacen un predicado SQL.
 
@@ -319,7 +320,7 @@ class LanceDBStore:
         )
         return {str(row["id"]) for row in rows}
 
-    def get_by_id(self, record_id: str) -> Optional[Dict[str, Any]]:
+    def get_by_id(self, record_id: str) -> dict[str, Any] | None:
         """Recupera un registro puntual por su clave primaria."""
         results = (
             self._table.search()
