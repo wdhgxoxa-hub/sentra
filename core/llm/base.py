@@ -6,6 +6,8 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from pydantic import BaseModel
+
 
 class LLMError(RuntimeError):
     """Fallo del motor de IA. Su mensaje ya está saneado.
@@ -37,6 +39,12 @@ class ModelInfo:
     display_name: str
     input_token_limit: int | None
     output_token_limit: int | None
+
+
+class LLMInvalidJson(LLMError):
+    """La respuesta no cumplió el esquema ni tras el reintento con el error."""
+
+    code = "llm_invalid_json"
 
 
 class LLMBudgetExhausted(LLMError):
@@ -92,5 +100,16 @@ class LLMProvider(Protocol):
         timeout_ms: int,
         system: str | None = None,
     ) -> Iterator[str]: ...
+
+    def generate_json[T: BaseModel](
+        self,
+        prompt: str,
+        schema: type[T],
+        *,
+        model: str,
+        max_output_tokens: int,
+        timeout_ms: int,
+        system: str | None = None,
+    ) -> T: ...
 
     def ping(self, *, model: str) -> None: ...

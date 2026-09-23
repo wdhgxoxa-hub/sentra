@@ -36,8 +36,9 @@ from contextlib import contextmanager
 from typing import Any, Literal
 
 import httpx
+from pydantic import BaseModel, ValidationError
 
-from .base import LLMError, LLMModelUnavailable, ModelInfo, UsageRecord
+from .base import LLMError, LLMInvalidJson, LLMModelUnavailable, ModelInfo, UsageRecord
 from .budget import LLMBudget
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
@@ -159,8 +160,13 @@ def _build_config(
     max_output_tokens: int,
     system_instruction: str | None = None,
     temperature: float | None = None,
+    response_json_schema: dict[str, Any] | None = None,
 ) -> Any:
-    """Configuración de una petición, siempre con timeout y límite de salida."""
+    """Configuración de una petición, siempre con timeout y límite de salida.
+
+    Con `response_json_schema`, la salida estructurada nativa de la API: el
+    modelo responde JSON conforme a ese esquema.
+    """
     from google.genai import types
 
     return types.GenerateContentConfig(
@@ -168,7 +174,13 @@ def _build_config(
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         http_options=types.HttpOptions(timeout=timeout_ms),
+        response_mime_type="application/json" if response_json_schema is not None else None,
+        response_json_schema=response_json_schema,
     )
+
+
+#: Intentos de `generate_json`: el primero y UN reintento con el error.
+JSON_ATTEMPTS = 2
 
 
 @contextmanager
@@ -422,6 +434,46 @@ class GeminiProvider:
             system_instruction=system,
             temperature=temperature,
         )
+        return self._generar(prompt, model=model, config=config)
+
+    def generate_json[T: BaseModel](
+        self,
+        prompt: str,
+        schema: type[T],
+        *,
+        model: str,
+        max_output_tokens: int,
+        timeout_ms: int,
+        system: str | None = None,
+    ) -> T:
+        """Una instancia de `schema`, validada.
+
+        Pide la salida estructurada nativa con el JSON Schema del modelo
+        Pydantic y valida la respuesta. Si no valida, un único reintento con
+        el error en el prompt; si vuelve a fallar, `LLMInvalidJson`.
+        """
+        config = _build_config(
+            timeout_ms=timeout_ms,
+            max_output_tokens=max_output_tokens,
+            system_instruction=system,
+            response_json_schema=schema.model_json_schema(),
+        )
+        peticion = prompt
+        error = ""
+        for _ in range(JSON_ATTEMPTS):
+            texto = self._generar(peticion, model=model, config=config)
+            try:
+                return schema.model_validate_json(texto)
+            except ValidationError as exc:
+                error = str(exc)[:MAX_MESSAGE]
+            peticion = (
+                f"{prompt}\n\nTu respuesta anterior no cumplía el esquema JSON pedido. "
+                f"Error de validación:\n{error}\nDevuelve solo JSON válido según el esquema."
+            )
+        raise LLMInvalidJson(f"La respuesta no cumple el esquema {schema.__name__}: {error}")
+
+    def _generar(self, prompt: str, *, model: str, config: Any) -> str:
+        """Una llamada a `generate_content` con reintentos transitorios y registro."""
         for intento in range(self._max_retries + 1):
             self._antes_de_llamar()
             inicio = time.monotonic()
