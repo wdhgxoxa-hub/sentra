@@ -88,8 +88,17 @@ class Migration:
 
 
 def compute_checksum(sql: str) -> str:
-    """Huella del contenido de una migración."""
-    return hashlib.sha256(sql.encode("utf-8")).hexdigest()
+    """
+    Huella del contenido de una migración.
+
+    Se calcula sobre el texto con finales de línea LF (R-A). Git entrega el
+    archivo con CRLF o LF según la configuración de cada clon; si eso
+    cambiara la huella, una migración ya aplicada parecería editada en otro
+    equipo. No se confía en que quien lee el archivo lo normalice: se hace
+    aquí, que es donde importa.
+    """
+    normalizado = sql.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalizado.encode("utf-8")).hexdigest()
 
 
 def discover_migrations(

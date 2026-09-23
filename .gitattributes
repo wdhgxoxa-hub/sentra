@@ -1,0 +1,3 @@
+# Las migraciones se guardan y se entregan con LF en todos los clones (R-A):
+# su huella (scripts/migrate.py) debe ser la misma en cualquier equipo.
+sql/migrations/*.sql text eol=lf

@@ -132,6 +132,27 @@ class TestChecksum(MigrationDirTestCase):
         migration = discover_migrations(self.tmpdir)[0]
         self.assertEqual(migration.checksum, compute_checksum("SELECT 42;"))
 
+    def test_line_endings_do_not_change_the_checksum(self):
+        """
+        R-A: git entrega CRLF o LF según la configuración de cada clon. Si
+        la huella dependiera del final de línea, una migración ya aplicada
+        parecería editada en otro equipo (ChecksumMismatch).
+        """
+        lf = "CREATE TABLE t (id int);\nSELECT 1;\n"
+        self.assertEqual(compute_checksum(lf.replace("\n", "\r\n")), compute_checksum(lf))
+        self.assertEqual(compute_checksum(lf.replace("\n", "\r")), compute_checksum(lf))
+
+    def test_a_crlf_file_has_the_checksum_of_its_lf_version(self):
+        lf = "CREATE TABLE t (id int);\nSELECT 1;\n"
+        (self.tmpdir / "001_x.sql").write_bytes(lf.replace("\n", "\r\n").encode("utf-8"))
+        migration = discover_migrations(self.tmpdir)[0]
+        self.assertEqual(migration.checksum, compute_checksum(lf))
+
+    def test_the_repository_delivers_migrations_with_lf(self):
+        """.gitattributes fija eol=lf: todos los clones reciben los mismos bytes."""
+        atributos = (PROJECT_ROOT / ".gitattributes").read_text(encoding="utf-8").split("\n")
+        self.assertIn("sql/migrations/*.sql text eol=lf", [a.strip() for a in atributos])
+
 
 class TestPending(MigrationDirTestCase):
 
