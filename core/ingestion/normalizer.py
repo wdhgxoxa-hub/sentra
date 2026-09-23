@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Generator, Iterable, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import (
     Any,
 )
@@ -150,7 +150,7 @@ class RedditNormalizer:
             if curr_post is not None and curr_comm is not None:
                 # Comentario primero en caso de empate
                 if curr_post.created_utc > curr_comm.created_utc:
-                    dt = datetime.fromtimestamp(curr_post.created_utc, tz=timezone.utc)
+                    dt = datetime.fromtimestamp(curr_post.created_utc, tz=UTC)
                     yield UnifiedTimelineItem(
                         kind="post",
                         id=curr_post.id,
@@ -165,7 +165,7 @@ class RedditNormalizer:
                     )
                     curr_post = next(post_iter, None)
                 else:
-                    dt = datetime.fromtimestamp(curr_comm.created_utc, tz=timezone.utc)
+                    dt = datetime.fromtimestamp(curr_comm.created_utc, tz=UTC)
                     yield UnifiedTimelineItem(
                         kind="comment",
                         id=curr_comm.id,
@@ -180,7 +180,7 @@ class RedditNormalizer:
                     )
                     curr_comm = next(comment_iter, None)
             elif curr_post is not None:
-                dt = datetime.fromtimestamp(curr_post.created_utc, tz=timezone.utc)
+                dt = datetime.fromtimestamp(curr_post.created_utc, tz=UTC)
                 yield UnifiedTimelineItem(
                     kind="post",
                     id=curr_post.id,
@@ -195,7 +195,7 @@ class RedditNormalizer:
                 )
                 curr_post = next(post_iter, None)
             elif curr_comm is not None:
-                dt = datetime.fromtimestamp(curr_comm.created_utc, tz=timezone.utc)
+                dt = datetime.fromtimestamp(curr_comm.created_utc, tz=UTC)
                 yield UnifiedTimelineItem(
                     kind="comment",
                     id=curr_comm.id,
@@ -223,7 +223,7 @@ class RedditNormalizer:
         Permite a analistas o LLMs evaluar decenas de posts con un coste mínimo de tokens.
         """
         subs_str = ", ".join(f"r/{s.removeprefix('r/')}" for s in subreddits)
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
         lines = [
             f"# Escaneo Rápido de Títulos: {topic}",
@@ -238,7 +238,7 @@ class RedditNormalizer:
         sorted_posts = sorted(posts, key=lambda p: p.score, reverse=True)
         for p in sorted_posts:
             dt_str = (
-                datetime.fromtimestamp(p.created_utc, tz=timezone.utc).strftime("%Y-%m-%d")
+                datetime.fromtimestamp(p.created_utc, tz=UTC).strftime("%Y-%m-%d")
                 if p.created_utc else "N/D"
             )
             safe_title = p.title.replace("|", "-").strip()
@@ -269,7 +269,7 @@ class RedditNormalizer:
         Cada bloque de publicación incluye su metadato, contenido y comentarios más valiosos.
         """
         subs_str = ", ".join(f"r/{s.removeprefix('r/')}" for s in subreddits)
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
         sections = [
             f"# Investigación Profunda de Reddit: {topic}",
@@ -283,7 +283,7 @@ class RedditNormalizer:
 
         for p in sorted_posts:
             dt_str = (
-                datetime.fromtimestamp(p.created_utc, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+                datetime.fromtimestamp(p.created_utc, tz=UTC).strftime("%Y-%m-%d %H:%M")
                 if p.created_utc else "N/D"
             )
             pain_status = f" [Señales: {', '.join(p.matched_keywords)}]" if p.matched_keywords else ""

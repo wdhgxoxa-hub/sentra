@@ -39,9 +39,9 @@ import logging
 import re
 import sys
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Union
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +92,8 @@ def compute_checksum(sql: str) -> str:
 
 
 def discover_migrations(
-    directory: Optional[Union[str, Path]] = None,
-) -> List[Migration]:
+    directory: str | Path | None = None,
+) -> list[Migration]:
     """
     Lee el directorio de migraciones y las devuelve ordenadas por versión.
 
@@ -104,8 +104,8 @@ def discover_migrations(
     if not directory.is_dir():
         raise MigrationError(f"No existe el directorio de migraciones: {directory}")
 
-    migrations: List[Migration] = []
-    seen: Dict[int, str] = {}
+    migrations: list[Migration] = []
+    seen: dict[int, str] = {}
 
     for path in sorted(directory.iterdir()):
         if not path.is_file():
@@ -131,15 +131,15 @@ def discover_migrations(
 
 def pending_migrations(
     migrations: Sequence[Migration],
-    applied: Dict[int, str],
-) -> List[Migration]:
+    applied: dict[int, str],
+) -> list[Migration]:
     """
     Calcula qué queda por aplicar.
 
     Raises:
         ChecksumMismatch: si una migración ya aplicada cambió de contenido.
     """
-    pending: List[Migration] = []
+    pending: list[Migration] = []
 
     for migration in migrations:
         if migration.version not in applied:
@@ -173,7 +173,7 @@ def ensure_migrations_table(conn) -> None:
     conn.commit()
 
 
-def applied_migrations(conn) -> Dict[int, str]:
+def applied_migrations(conn) -> dict[int, str]:
     """Devuelve `{version: checksum}` de lo ya aplicado."""
     rows = conn.execute(
         f"SELECT version, checksum FROM {MIGRATIONS_TABLE} ORDER BY version"
@@ -211,10 +211,10 @@ def apply_migration(conn, migration: Migration) -> int:
 
 
 def migrate(
-    dsn: Optional[str] = None,
-    directory: Optional[Union[str, Path]] = None,
+    dsn: str | None = None,
+    directory: str | Path | None = None,
     dry_run: bool = False,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     Aplica todas las migraciones pendientes.
 
@@ -231,7 +231,7 @@ def migrate(
         already = applied_migrations(conn)
         pending = pending_migrations(migrations, already)
 
-        report: Dict[str, object] = {
+        report: dict[str, object] = {
             "dsn": _redact(dsn),
             "total": len(migrations),
             "already_applied": sorted(already),
@@ -257,9 +257,9 @@ def migrate(
 
 
 def status(
-    dsn: Optional[str] = None,
-    directory: Optional[Union[str, Path]] = None,
-) -> Dict[str, object]:
+    dsn: str | None = None,
+    directory: str | Path | None = None,
+) -> dict[str, object]:
     """Informe de situación, sin aplicar nada."""
     return migrate(dsn=dsn, directory=directory, dry_run=True)
 
@@ -275,7 +275,7 @@ def _redact(dsn: str) -> str:
     return re.sub(r"password=\S+", "password=***", dsn)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Gestor de migraciones del Reddit Intelligence Radar"
     )

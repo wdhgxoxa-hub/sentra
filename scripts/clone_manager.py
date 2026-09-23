@@ -5,11 +5,9 @@ Clona superficialmente (--depth 1) los repositorios base y de expansion intelige
 Maneja errores de red, repos privados o archivados con registro de incidencias.
 """
 
-import os
-import sys
 import json
-import time
 import subprocess
+import time
 from pathlib import Path
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
@@ -398,7 +396,7 @@ def run_clone():
 
     already_processed = {r["id"]: r for r in results if r.get("status") in ["success", "already_present"]}
 
-    print(f"=== INICIANDO ORQUESTADOR DE CLONACION ===")
+    print("=== INICIANDO ORQUESTADOR DE CLONACION ===")
     print(f"Total de repositorios catalogados: {len(REPOSITORIES)}")
     print(f"Directorio de destino: {REPOS_DIR}")
     print("=" * 50)
@@ -485,7 +483,7 @@ def run_clone():
 
         except subprocess.TimeoutExpired:
             duration = round(time.time() - start_time, 2)
-            print(f"  [TIMEOUT] Excedio el tiempo limite de 120s.")
+            print("  [TIMEOUT] Excedio el tiempo limite de 120s.")
             with open(ERRORS_FILE, "a", encoding="utf-8") as ef:
                 ef.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] TIMEOUT al clonar {url} tras {duration}s\n{'-'*40}\n")
             status_entry = {
@@ -505,9 +503,9 @@ def run_clone():
 
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            print(f"  [EXCEPCION] {str(e)}")
+            print(f"  [EXCEPCION] {e!s}")
             with open(ERRORS_FILE, "a", encoding="utf-8") as ef:
-                ef.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] EXCEPCION con {url}: {str(e)}\n{'-'*40}\n")
+                ef.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] EXCEPCION con {url}: {e!s}\n{'-'*40}\n")
             status_entry = {
                 "id": repo_id,
                 "owner": owner,

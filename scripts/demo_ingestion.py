@@ -18,10 +18,11 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 from core.ingestion import (
+    CleanPost,
     RedditIngestionClient,
     RedditNormalizer,
-    CleanPost,
 )
+
 
 async def run_demo():
     print("=" * 70)
@@ -83,7 +84,7 @@ async def run_demo():
         ]
 
     pain_posts = [p for p in posts if p.is_pain_signal]
-    print(f"\n[2] Detección de Señales de Dolor (reddit-painpointer):")
+    print("\n[2] Detección de Señales de Dolor (reddit-painpointer):")
     print(f"    -> Total publicaciones con dolor detectado: {len(pain_posts)} / {len(posts)}")
     for p in pain_posts[:3]:
         print(f"       • [{p.score} pts] {p.title[:65]}...")

@@ -5,8 +5,8 @@ Valida la integridad de los repositorios descargados, consistencia del catalogo
 y conformidad del archivo maestro INDEX.md con las reglas establecidas.
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
@@ -53,7 +53,7 @@ def test_radar():
         errors.append(f"[FALLO] No existe el archivo maestro INDEX.md: {INDEX_FILE}")
     else:
         passes += 1
-        print(f"[PASS] Archivo maestro INDEX.md presente.")
+        print("[PASS] Archivo maestro INDEX.md presente.")
         content = INDEX_FILE.read_text(encoding="utf-8")
         
         # Verificar columnas obligatorias

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from core.intelligence.blueprint import build_blueprint
@@ -253,7 +253,7 @@ def valor(cluster: Mapping[str, Any], *claves: str, defecto: Any = None) -> Any:
 
 def fecha(epoch: Any, textos: Mapping[str, Any]) -> str:
     try:
-        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(float(epoch), tz=UTC).strftime("%Y-%m-%d")
     except (TypeError, ValueError, OverflowError, OSError):
         return str(textos["no_date"])
 
@@ -295,7 +295,7 @@ def build_document(
     """Las diez secciones de una oportunidad, en `language` ("es" o "en")."""
     idioma = language if language in TEXTOS else "es"
     textos = TEXTOS[idioma]
-    ahora = generated_at or datetime.now(timezone.utc)
+    ahora = generated_at or datetime.now(UTC)
 
     fuente = valor(cluster, "dataSource", "data_source")
     fuente = fuente if fuente in ("demo", "reddit") else None

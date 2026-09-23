@@ -13,11 +13,11 @@ evitando procesar texto irrelevante en etapas más costosas (LLM o bases vectori
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 # 33 palabras clave y frases curadas de dolor y frustración B2B de reddit-painpointer
-PAIN_POINT_KEYWORDS: List[str] = [
+PAIN_POINT_KEYWORDS: list[str] = [
     "spending hours every",
     "hate manually doing",
     "tedious process",
@@ -87,9 +87,9 @@ class FilterResult:
     """Resultado de la evaluación de filtrado rápido."""
     passed: bool
     is_pain_signal: bool
-    matched_keywords: List[str] = field(default_factory=list)
-    rejection_reasons: List[str] = field(default_factory=list)
-    risk_flags: List[str] = field(default_factory=list)
+    matched_keywords: list[str] = field(default_factory=list)
+    rejection_reasons: list[str] = field(default_factory=list)
+    risk_flags: list[str] = field(default_factory=list)
 
 
 class PainPointFilter:
@@ -99,7 +99,7 @@ class PainPointFilter:
 
     def __init__(
         self,
-        keywords: Optional[Sequence[str]] = None,
+        keywords: Sequence[str] | None = None,
         discard_bots: bool = True,
         discard_affiliates: bool = True,
         discard_news: bool = False,
@@ -116,7 +116,7 @@ class PainPointFilter:
             re.IGNORECASE
         )
 
-    def match_keywords(self, text: str) -> List[str]:
+    def match_keywords(self, text: str) -> list[str]:
         """Encuentra todas las palabras clave de dolor presentes en el texto."""
         if not text:
             return []

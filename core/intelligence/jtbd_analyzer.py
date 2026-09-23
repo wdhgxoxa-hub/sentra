@@ -20,12 +20,11 @@ Proporciona:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+
 from pydantic import BaseModel, Field
 
-
 # Mapeo canónico de intención a tarea objetivo (Jobs To Be Done) de pain-miner
-TASK_BY_INTENT: Dict[str, str] = {
+TASK_BY_INTENT: dict[str, str] = {
     "alternative_search": "Reemplazar una solución insatisfactoria existente",
     "recommendation_request": "Seleccionar una herramienta adecuada para el flujo de trabajo",
     "purchase_intent": "Evaluar la contratación de una solución comercial de pago",
@@ -37,7 +36,7 @@ TASK_BY_INTENT: Dict[str, str] = {
 }
 
 # Heurísticas de detección de intenciones
-INTENT_PATTERNS: Dict[str, re.Pattern] = {
+INTENT_PATTERNS: dict[str, re.Pattern] = {
     "alternative_search": re.compile(
         r"\b(?:alternative to|looking for an alternative|replace|instead of|better than|substitute for)\b",
         re.IGNORECASE
@@ -92,13 +91,13 @@ class JTBDRequirement(BaseModel):
     job_statement: str
     target_task: str
     friction_barrier: str
-    current_solution: Optional[str] = None
+    current_solution: str | None = None
     workaround_detected: bool = False
-    workaround_description: Optional[str] = None
+    workaround_description: str | None = None
     willingness_to_pay: str = "none"  # "explicit" | "implicit" | "none"
     urgency_level: str = "medium"     # "critical" | "high" | "medium" | "low"
-    risk_flags: List[str] = Field(default_factory=list)
-    source_url: Optional[str] = None
+    risk_flags: list[str] = Field(default_factory=list)
+    source_url: str | None = None
 
 
 class JTBDAnalyzer:
@@ -106,12 +105,12 @@ class JTBDAnalyzer:
     Motor determinista de extracción de Jobs-To-Be-Done y evaluación de riesgos comerciales.
     """
 
-    def classify_intent(self, text: str) -> Tuple[str, float]:
+    def classify_intent(self, text: str) -> tuple[str, float]:
         """
         Identifica la intención predominante del texto basándose en coincidencia léxica ponderada.
         Retorna (intención, confianza 0.0-1.0).
         """
-        scores: Dict[str, int] = {}
+        scores: dict[str, int] = {}
         for intent, pattern in INTENT_PATTERNS.items():
             matches = pattern.findall(text)
             if matches:
@@ -124,7 +123,7 @@ class JTBDAnalyzer:
         confidence = min(0.4 + (scores[best_intent] * 0.2), 1.0)
         return best_intent, round(confidence, 2)
 
-    def extract_current_solution(self, text: str) -> Optional[str]:
+    def extract_current_solution(self, text: str) -> str | None:
         """Extrae herramientas o software mencionado como solución actual."""
         matches = KNOWN_TOOLS_REGEX.findall(text)
         if matches:
@@ -132,7 +131,7 @@ class JTBDAnalyzer:
             return matches[0].capitalize()
         return None
 
-    def detect_workaround(self, text: str) -> Tuple[bool, Optional[str]]:
+    def detect_workaround(self, text: str) -> tuple[bool, str | None]:
         """Detecta si el usuario está empleando scripts, hacks o parches manuales."""
         match = INTENT_PATTERNS["workaround_share"].search(text)
         if match:
@@ -152,7 +151,7 @@ class JTBDAnalyzer:
             return "implicit"
         return "none"
 
-    def scan_risks(self, text: str) -> List[str]:
+    def scan_risks(self, text: str) -> list[str]:
         """Escanea riesgos de astroturfing, enlaces de afiliados y picos de noticias."""
         risks = []
         if AFFILIATE_REGEX.search(text):
@@ -166,7 +165,7 @@ class JTBDAnalyzer:
         post_id: str,
         title: str,
         body: str,
-        url: Optional[str] = None
+        url: str | None = None
     ) -> JTBDRequirement:
         """
         Analiza un post o comentario y genera su declaración formal de JTBD.
@@ -181,9 +180,7 @@ class JTBDAnalyzer:
         risks = self.scan_risks(full_text)
 
         # Determinar urgencia
-        if wtp == "explicit" or "frustrating" in full_text.lower() or "broken" in full_text.lower():
-            urgency = "high"
-        elif has_workaround:
+        if wtp == "explicit" or "frustrating" in full_text.lower() or "broken" in full_text.lower() or has_workaround:
             urgency = "high"
         else:
             urgency = "medium"

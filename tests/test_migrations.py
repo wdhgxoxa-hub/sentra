@@ -20,7 +20,6 @@ from pathlib import Path
 from scripts.migrate import (
     MIGRATIONS_TABLE,
     ChecksumMismatch,
-    Migration,
     MigrationError,
     applied_migrations,
     compute_checksum,

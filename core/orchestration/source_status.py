@@ -21,7 +21,7 @@ otra cosa.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 SourceState = Literal[
@@ -47,7 +47,7 @@ class SourceTracker:
 
     def record_success(self, at: datetime | None = None) -> None:
         """Reddit respondió 200 a una petición autenticada."""
-        self.last_success_at = at or datetime.now(timezone.utc)
+        self.last_success_at = at or datetime.now(UTC)
         self.last_error_code = None
 
     def record_failure(self, code: str) -> None:

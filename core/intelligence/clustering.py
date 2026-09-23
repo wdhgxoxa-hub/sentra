@@ -13,7 +13,8 @@ Proporciona:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -24,19 +25,19 @@ class TopicCluster(BaseModel):
     """Clúster temático descubierto con sus palabras clave y texto más representativo."""
     cluster_id: int
     label: str
-    top_keywords: List[str] = Field(default_factory=list)
+    top_keywords: list[str] = Field(default_factory=list)
     size: int
     percentage: float
     representative_text: str
-    member_indices: List[int] = Field(default_factory=list)
+    member_indices: list[int] = Field(default_factory=list)
 
 
 class ClusteringResult(BaseModel):
     """Resultado consolidado del análisis de clustering temático."""
     total_documents: int
     n_clusters: int
-    clusters: List[TopicCluster] = Field(default_factory=list)
-    global_top_keywords: List[str] = Field(default_factory=list)
+    clusters: list[TopicCluster] = Field(default_factory=list)
+    global_top_keywords: list[str] = Field(default_factory=list)
 
 
 class TopicClusterer:
@@ -47,7 +48,7 @@ class TopicClusterer:
     def __init__(
         self,
         max_features: int = 1500,
-        ngram_range: Tuple[int, int] = (1, 2),
+        ngram_range: tuple[int, int] = (1, 2),
         min_df: int = 1,
         random_state: int = 42
     ) -> None:
@@ -60,7 +61,7 @@ class TopicClusterer:
         self,
         texts: Sequence[str],
         top_n: int = 15
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """
         Extrae los términos y colocaciones (bigramas) con mayor peso TF-IDF en el corpus.
         Permite detectar quejas o nombres de herramientas emergentes.
@@ -99,15 +100,15 @@ class TopicClusterer:
     def cluster(
         self,
         texts: Sequence[str],
-        n_clusters: Optional[int] = None,
+        n_clusters: int | None = None,
         top_keywords_per_cluster: int = 5
     ) -> ClusteringResult:
         """
         Agrupa los textos en clústeres semánticos utilizando TF-IDF y K-Means.
         Identifica automáticamente la etiqueta representativa y las palabras clave de cada clúster.
         """
-        from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.cluster import KMeans
+        from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.metrics.pairwise import pairwise_distances_argmin_min
 
         clean_texts = [t.strip() for t in texts]
@@ -163,7 +164,7 @@ class TopicClusterer:
         # Palabras globales emergentes
         global_keywords = [kw for kw, _ in self.extract_emerging_keywords(filtered_corpus, top_n=10)]
 
-        clusters_output: List[TopicCluster] = []
+        clusters_output: list[TopicCluster] = []
 
         for cid in range(n_clusters):
             # Índices de miembros en filtered_corpus y mapeados a los índices originales

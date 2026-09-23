@@ -12,11 +12,9 @@ Proporciona:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import time
-from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +39,14 @@ class RedditPaginator:
         self,
         listing: str = "hot",
         limit: int = 25,
-        after: Optional[str] = None,
+        after: str | None = None,
         timeframe: str = "month",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Construye el diccionario de parámetros de consulta para la URL de Reddit.
         """
         clean_limit = max(1, min(limit, 100))  # Reddit permite máximo 100 por petición
-        params: Dict[str, Any] = {"limit": clean_limit}
+        params: dict[str, Any] = {"limit": clean_limit}
 
         if after:
             params["after"] = after
@@ -61,9 +59,9 @@ class RedditPaginator:
 
     def filter_by_recency(
         self,
-        items: List[Dict[str, Any]],
-        max_age_days: Optional[int] = None
-    ) -> Tuple[List[Dict[str, Any]], bool]:
+        items: list[dict[str, Any]],
+        max_age_days: int | None = None
+    ) -> tuple[list[dict[str, Any]], bool]:
         """
         Filtra elementos que superen el límite de antigüedad en días.
         Retorna (elementos_filtrados, reached_cutoff).
@@ -73,7 +71,7 @@ class RedditPaginator:
         if max_age_days is None:
             return items, False
 
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         cutoff_ts = now_ts - (max_age_days * 86400)
 
         filtered = []
@@ -89,7 +87,7 @@ class RedditPaginator:
         return filtered, reached_cutoff
 
     @staticmethod
-    def extract_children_and_after(json_response: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    def extract_children_and_after(json_response: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
         """
         Extrae la lista de 'children' y el siguiente cursor 'after' desde el JSON devuelto por Reddit.
         """

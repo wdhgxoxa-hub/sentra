@@ -11,7 +11,7 @@ Verifica el 100% de los módulos de la Fase 3:
 
 import math
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from core.intelligence.clustering import TopicClusterer
 from core.intelligence.engine import IntelligenceEngine
@@ -193,7 +193,7 @@ class TestIntelligenceEngine(unittest.TestCase):
         self.engine = IntelligenceEngine(use_transformers_if_available=False)
 
     def test_analyze_signal_single(self):
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         signal = self.engine.analyze_signal(
             item_id="item_01",
             title="Need alternative to Salesforce for small team",
@@ -211,7 +211,7 @@ class TestIntelligenceEngine(unittest.TestCase):
         self.assertGreater(signal.score_breakdown.final_score, 40.0)
 
     def test_analyze_batch(self):
-        now_ts = datetime.now(timezone.utc).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         items = [
             {
                 "id": "1",

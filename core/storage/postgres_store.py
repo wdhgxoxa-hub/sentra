@@ -33,7 +33,7 @@ import os
 import sys
 import uuid
 from collections.abc import Coroutine, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 from .identity import Candidato, Previo, asignar_identidades
@@ -168,7 +168,7 @@ def to_timestamptz(epoch: float | None) -> datetime | None:
     """
     if not epoch:
         return None
-    return datetime.fromtimestamp(float(epoch), tz=timezone.utc)
+    return datetime.fromtimestamp(float(epoch), tz=UTC)
 
 
 def post_to_row(

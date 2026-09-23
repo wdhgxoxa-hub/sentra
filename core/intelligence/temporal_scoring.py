@@ -17,10 +17,10 @@ Proporciona:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import exp
-from typing import Any, Dict, List, Optional, Sequence
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ class TemporalScorer:
     def __init__(
         self,
         half_life_days: float = 180.0,
-        weights: Optional[Dict[str, float]] = None,
+        weights: dict[str, float] | None = None,
     ) -> None:
         self.half_life_days = half_life_days
         self.weights = weights or self.DEFAULT_WEIGHTS
@@ -140,9 +140,9 @@ class TemporalScorer:
         )
 
     @staticmethod
-    def calculate_age_days(created_utc: float, reference_time: Optional[datetime] = None) -> float:
+    def calculate_age_days(created_utc: float, reference_time: datetime | None = None) -> float:
         """Calcula los días transcurridos desde una marca de tiempo UTC."""
-        ref = reference_time or datetime.now(timezone.utc)
-        created_dt = datetime.fromtimestamp(created_utc, tz=timezone.utc)
+        ref = reference_time or datetime.now(UTC)
+        created_dt = datetime.fromtimestamp(created_utc, tz=UTC)
         elapsed_seconds = (ref - created_dt).total_seconds()
         return max(0.0, elapsed_seconds / 86400.0)

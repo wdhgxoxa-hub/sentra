@@ -10,10 +10,9 @@ Clona la nueva tanda de repositorios diferenciales enfocados en:
 - Playwright browser automation
 """
 
-import sys
 import json
-import time
 import subprocess
+import time
 from pathlib import Path
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
@@ -200,9 +199,9 @@ def run_clone_batch2():
                 }
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            print(f"  [EXCEPCION] {str(e)}")
+            print(f"  [EXCEPCION] {e!s}")
             with open(ERRORS_FILE, "a", encoding="utf-8") as ef:
-                ef.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] EXCEPCION Batch 2 {url}: {str(e)}\n{'-'*40}\n")
+                ef.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] EXCEPCION Batch 2 {url}: {e!s}\n{'-'*40}\n")
             entry = {
                 "id": repo_id,
                 "owner": owner,

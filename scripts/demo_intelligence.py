@@ -10,10 +10,9 @@ Conecta la Ingesta (Fase 2) con el Núcleo de Inteligencia (Fase 3):
 6. Exporta el reporte estructurado en JSON y Markdown.
 """
 
-import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -29,7 +28,7 @@ def run_demo():
 
     engine = IntelligenceEngine(use_transformers_if_available=False)
 
-    now_ts = datetime.now(timezone.utc).timestamp()
+    now_ts = datetime.now(UTC).timestamp()
 
     # Muestra de publicaciones representativas de problemas B2B e intención comercial
     sample_items = [

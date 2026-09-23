@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import List, Protocol, Sequence, runtime_checkable
+from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -45,12 +46,12 @@ class TextEmbedder(Protocol):
     dim: int
     is_semantic: bool
 
-    def embed_text(self, text: str) -> List[float]: ...
+    def embed_text(self, text: str) -> list[float]: ...
 
-    def embed_batch(self, texts: Sequence[str]) -> List[List[float]]: ...
+    def embed_batch(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
-def _l2_normalize(vec: np.ndarray) -> List[float]:
+def _l2_normalize(vec: np.ndarray) -> list[float]:
     """Devuelve el vector con norma unitaria (o de ceros si el original lo era)."""
     norm = float(np.linalg.norm(vec))
     if norm > 0.0:
@@ -75,7 +76,7 @@ class HashEmbedder:
             raise ValueError("La dimension debe ser un entero positivo")
         self.dim = dim
 
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         vec = np.zeros(self.dim, dtype=np.float32)
         words = text.lower().split()
         if not words:
@@ -89,7 +90,7 @@ class HashEmbedder:
 
         return _l2_normalize(vec)
 
-    def embed_batch(self, texts: Sequence[str]) -> List[List[float]]:
+    def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         return [self.embed_text(t) for t in texts]
 
 
@@ -124,10 +125,10 @@ class FastEmbedEmbedder:
         self.name = f"fastembed:{model_name}"
         self.dim = len(self.embed_text("dimension probe"))
 
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         return self.embed_batch([text])[0]
 
-    def embed_batch(self, texts: Sequence[str]) -> List[List[float]]:
+    def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
         return [

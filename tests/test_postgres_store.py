@@ -13,15 +13,13 @@ Dos bloques:
    ejecución. El DSN se toma de RIR_PG_TEST_DSN o del servidor local.
 """
 
-import asyncio
 import os
 import unittest
 
 from core.storage.postgres_store import (
     DEFAULT_TENANT_ID,
-    cluster_to_row,
-    run_async,
     PostgresStore,
+    cluster_to_row,
     compute_content_hash,
     normalize_buying_intent,
     normalize_pain_severity,
@@ -29,6 +27,7 @@ from core.storage.postgres_store import (
     normalize_urgency_level,
     normalize_willingness_to_pay,
     post_to_row,
+    run_async,
     signal_to_row,
     to_timestamptz,
 )
@@ -255,8 +254,9 @@ class TestPostgresIntegration(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import psycopg
         from pathlib import Path
+
+        import psycopg
 
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
@@ -492,8 +492,9 @@ class TestClusterPersistence(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import psycopg
         from pathlib import Path
+
+        import psycopg
 
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{CLUSTER_TEST_DB}" WITH (FORCE)')

@@ -15,7 +15,7 @@ from .engine import (
     ComprehensiveIntelligenceReport,
     IntelligenceEngine,
 )
-from .jtbd_analyzer import JTBDAnalyzer, JTBDRequirement, TASK_BY_INTENT
+from .jtbd_analyzer import TASK_BY_INTENT, JTBDAnalyzer, JTBDRequirement
 from .temporal_scoring import (
     OpportunityMetrics,
     TemporalScoreBreakdown,
@@ -30,21 +30,21 @@ from .zeroshot_nli import (
 )
 
 __all__ = [
-    "IntelligenceEngine",
-    "AnalyzedSignal",
-    "ComprehensiveIntelligenceReport",
-    "JTBDAnalyzer",
-    "JTBDRequirement",
-    "TASK_BY_INTENT",
-    "TemporalScorer",
-    "OpportunityMetrics",
-    "TemporalScoreBreakdown",
-    "ZeroShotNLIClassifier",
-    "ZeroShotResult",
     "INTENT_CANDIDATE_LABELS",
     "PAIN_CANDIDATE_LABELS",
     "SENTIMENT_CANDIDATE_LABELS",
-    "TopicClusterer",
-    "TopicCluster",
+    "TASK_BY_INTENT",
+    "AnalyzedSignal",
     "ClusteringResult",
+    "ComprehensiveIntelligenceReport",
+    "IntelligenceEngine",
+    "JTBDAnalyzer",
+    "JTBDRequirement",
+    "OpportunityMetrics",
+    "TemporalScoreBreakdown",
+    "TemporalScorer",
+    "TopicCluster",
+    "TopicClusterer",
+    "ZeroShotNLIClassifier",
+    "ZeroShotResult",
 ]

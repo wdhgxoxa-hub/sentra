@@ -29,7 +29,8 @@ que el grafo dé dos vueltas y el ciclo se vea en la interfaz.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ SUPPORT = (
 # --- D: despliegues (una sola comunidad: no debe cualificar) ---
 DEPLOY = "The release step takes forever to finish and kills my productivity."
 
-PAGE_ONE: List[Tuple[str, str, str, str]] = [
+PAGE_ONE: list[tuple[str, str, str, str]] = [
     ("t3_inv01", "smallbusiness", "Manual invoice export is broken again", INVOICES),
     ("t3_inv02", "SaaS", "Invoice export broken after the update", INVOICES),
     ("t3_inv03", "accounting", "Manual invoice workflow is broken", INVOICES_MILD),
@@ -73,7 +74,7 @@ PAGE_ONE: List[Tuple[str, str, str, str]] = [
      "Use my referral link and promo code SAVE20 for a discount, ref=99."),
 ]
 
-PAGE_TWO: List[Tuple[str, str, str, str]] = [
+PAGE_TWO: list[tuple[str, str, str, str]] = [
     ("t3_inv04", "freelance", "Manual invoice export broken once more", INVOICES),
     ("t3_inv05", "bookkeeping", "Invoice export is broken and manual", INVOICES_MILD),
     ("t3_bank03", "freelance", "Manual reconciliation wastes my week", BANK),
@@ -86,7 +87,7 @@ PAGE_TWO: List[Tuple[str, str, str, str]] = [
 PAGES = [PAGE_ONE, PAGE_TWO]
 
 
-def _as_item(index: int, post_id: str, subreddit: str, title: str, body: str) -> Dict[str, Any]:
+def _as_item(index: int, post_id: str, subreddit: str, title: str, body: str) -> dict[str, Any]:
     return {
         "id": post_id,
         "subreddit": subreddit,
@@ -113,17 +114,17 @@ class SyntheticFetcher:
 
     name = "synthetic"
 
-    def __init__(self, pages: Optional[Sequence[Sequence[tuple]]] = None) -> None:
+    def __init__(self, pages: Sequence[Sequence[tuple]] | None = None) -> None:
         self.pages = list(pages if pages is not None else PAGES)
-        self.calls: List[Dict[str, Any]] = []
+        self.calls: list[dict[str, Any]] = []
 
     def __call__(
         self,
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-        cursor: Optional[str] = None,
-    ) -> Tuple[Sequence[Dict[str, Any]], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[Sequence[dict[str, Any]], str | None]:
         self.calls.append({"subreddit": subreddit, "limit": limit, "sort": sort,
                            "cursor": cursor})
 

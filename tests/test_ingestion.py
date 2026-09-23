@@ -10,7 +10,7 @@ Verifica el 100% de los componentes de la Fase 2:
 
 import asyncio
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
 from core.ingestion.client import RedditIngestionClient
@@ -182,7 +182,7 @@ class TestRedditPaginator(unittest.TestCase):
         self.assertEqual(params["t"], "week")
 
     def test_recency_filter(self):
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         items = [
             {"id": "recent", "created_utc": now - 3600},       # 1 hora de antigüedad
             {"id": "old", "created_utc": now - (10 * 86400)},  # 10 días de antigüedad
