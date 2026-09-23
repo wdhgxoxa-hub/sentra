@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::commands::engine::{sidecar_url, with_token_pub};
+use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
 use crate::commands::radar::cluster_por_clave;
 use crate::db::{AppState, RadarError, RadarResult};
 
@@ -94,7 +94,7 @@ pub async fn export_pdf(
     )
     .send()
     .await
-    .map_err(|err| RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}")))?;
+    .map_err(transport_error)?;
 
     let status = response.status();
     if !status.is_success() {

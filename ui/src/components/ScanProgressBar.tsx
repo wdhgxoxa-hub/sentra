@@ -1,5 +1,6 @@
 import { AlertCircle, Ban, CheckCircle2, Loader2, X } from "lucide-react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { PipelineGraph } from "@/components/PipelineGraph";
 import type { Dictionary } from "@/i18n/es";
 import { useT } from "@/stores/settingsStore";
@@ -160,8 +161,10 @@ export function ScanProgressBar({
         </p>
       )}
 
-      {!failed && progress.message && (
-        <p className="mt-1.5 text-xs text-warn">{progress.message}</p>
+      {!failed && progress.persistError && (
+        <div className="mt-1.5">
+          <ErrorNotice code="persist_failed" detail={progress.persistError} tone="warn" />
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { ErrorNoticeView } from "@/components/ErrorNoticeView";
+
 interface Textos {
   title: string;
   hint: string;
@@ -61,16 +63,13 @@ export class ErrorBoundary extends Component<Props, State> {
         className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-card border border-danger/30 bg-surface p-6"
       >
         <h2 className="text-base font-semibold text-danger">{textos.title}</h2>
-        <p className="text-sm leading-relaxed text-ink-soft">{textos.hint}</p>
-
-        <details className="w-full">
-          <summary className="cursor-pointer text-xs text-ink-faint">
-            {textos.details}
-          </summary>
-          <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-ink-soft">
-            {error.message || String(error)}
-          </pre>
-        </details>
+        <div className="w-full text-sm">
+          <ErrorNoticeView
+            message={textos.hint}
+            detail={error.message || String(error)}
+            detailsLabel={textos.details}
+          />
+        </div>
 
         <button
           type="button"

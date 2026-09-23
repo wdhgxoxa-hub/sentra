@@ -244,14 +244,21 @@ class TestEstructura(ConEsperaFalsa):
 
 
 class TestCodigosTraducidos(unittest.TestCase):
-    """Cada código con el que puede fallar el plan tiene texto en es y en."""
+    """Cada código con el que puede fallar el plan tiene texto en es y en.
+
+    Llegan a la interfaz como `RadarError::Motor { code }` y los traduce el
+    bloque `errors` de i18n (D-A); los códigos propios de Rust los exige
+    src-tauri/src/db.rs.
+    """
 
     def codigos(self):
         import re
         from pathlib import Path
 
         python = {
-            clase.code for clase in vars(gemini_client).values()
+            clase.code
+            for modulo in (gemini_client, gemini_architect)
+            for clase in vars(modulo).values()
             if isinstance(clase, type) and issubclass(clase, gemini_client.GeminiError)
         } | {"internal_error"}
         rust = (Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "src"
@@ -264,10 +271,11 @@ class TestCodigosTraducidos(unittest.TestCase):
 
         codigos = self.codigos()
         self.assertIn("architect_interrupted", codigos)
+        self.assertIn("gemini_not_configured", codigos)
         for idioma in ("es", "en"):
             fuente = (Path(__file__).resolve().parents[1] / "ui" / "src" / "i18n"
                       / f"{idioma}.ts").read_text(encoding="utf-8")
-            bloque = re.search(r"architect: \{.*?failures: \{(.*?)\n    \}", fuente, re.DOTALL)
+            bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
             self.assertIsNotNone(bloque, idioma)
             traducidos = set(re.findall(r"^\s+(\w+):", bloque.group(1), re.MULTILINE))
             self.assertEqual(codigos - traducidos, set(), idioma)

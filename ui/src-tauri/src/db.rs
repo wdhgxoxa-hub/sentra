@@ -23,13 +23,25 @@ pub struct AppState {
     pub http: reqwest::Client,
 }
 
+/// Fallo de un comando. Llega a la interfaz como `{code, detail}` (D-A):
+/// `code` es estable y se traduce; `detail` es tecnico y solo se muestra
+/// plegado, bajo «Detalles tecnicos».
 #[derive(Debug, thiserror::Error)]
 pub enum RadarError {
     #[error("error de base de datos: {0}")]
     Database(#[from] sqlx::Error),
 
+    /// El motor Python respondio con un fallo sin codigo propio.
     #[error("{0}")]
     Sidecar(String),
+
+    /// El motor Python no acepta conexiones: no esta arrancado.
+    #[error("{0}")]
+    SidecarUnreachable(String),
+
+    /// El motor Python no respondio a tiempo.
+    #[error("{0}")]
+    SidecarTimeout(String),
 
     /// Datos que el usuario puede corregir: un estado desconocido, un
     /// nombre vacio. Se distingue de los fallos de infraestructura porque
@@ -41,6 +53,26 @@ pub enum RadarError {
     /// fallaron del lado del sistema de archivos, no del motor.
     #[error("{0}")]
     Archivo(String),
+
+    /// Fallo con codigo propio del motor (Gemini, el plan de arquitectura):
+    /// el codigo llega tal cual y lo traduce la interfaz.
+    #[error("{detail}")]
+    Motor { code: String, detail: String },
+}
+
+impl RadarError {
+    /// Codigo estable que la interfaz traduce (`errors.<code>` en i18n).
+    pub fn code(&self) -> &str {
+        match self {
+            RadarError::Database(_) => "database",
+            RadarError::Sidecar(_) => "sidecar",
+            RadarError::SidecarUnreachable(_) => "sidecar_unreachable",
+            RadarError::SidecarTimeout(_) => "sidecar_timeout",
+            RadarError::Invalid(_) => "invalid_input",
+            RadarError::Archivo(_) => "file",
+            RadarError::Motor { code, .. } => code,
+        }
+    }
 }
 
 /// Tauri necesita serializar el error para devolverlo al WebView.
@@ -49,7 +81,12 @@ impl serde::Serialize for RadarError {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        use serde::ser::SerializeStruct;
+
+        let mut error = serializer.serialize_struct("RadarError", 2)?;
+        error.serialize_field("code", self.code())?;
+        error.serialize_field("detail", &self.to_string())?;
+        error.end()
     }
 }
 
@@ -138,4 +175,78 @@ pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
         })
         .connect_with(connect_options())
         .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ES: &str = include_str!("../../src/i18n/es.ts");
+    const EN: &str = include_str!("../../src/i18n/en.ts");
+
+    /// Un ejemplo de cada variante. El `match` de `ejemplo_de_cada_variante`
+    /// no compila si aparece una variante nueva sin su ejemplo aqui.
+    fn ejemplos() -> Vec<RadarError> {
+        // `Motor` no entra: sus codigos los pone Python y los comprueba
+        // tests/test_gemini_robustness.py contra el mismo bloque.
+        let todos = vec![
+            RadarError::Database(sqlx::Error::PoolClosed),
+            RadarError::Sidecar("x".into()),
+            RadarError::SidecarUnreachable("x".into()),
+            RadarError::SidecarTimeout("x".into()),
+            RadarError::Invalid("x".into()),
+            RadarError::Archivo("x".into()),
+        ];
+        for error in &todos {
+            match error {
+                RadarError::Database(_)
+                | RadarError::Sidecar(_)
+                | RadarError::SidecarUnreachable(_)
+                | RadarError::SidecarTimeout(_)
+                | RadarError::Invalid(_)
+                | RadarError::Archivo(_)
+                | RadarError::Motor { .. } => {}
+            }
+        }
+        todos
+    }
+
+    /// Claves del bloque `errors: { ... }` de un diccionario de la interfaz.
+    fn traducidos(diccionario: &str) -> Vec<String> {
+        let inicio = diccionario
+            .find("\n  errors: {")
+            .expect("el diccionario no tiene bloque errors");
+        let bloque = &diccionario[inicio + 1..];
+        let fin = bloque.find("\n  },").expect("bloque errors sin cerrar");
+        bloque[..fin]
+            .lines()
+            .skip(1)
+            .filter_map(|linea| {
+                let linea = linea.trim_start();
+                let (clave, _) = linea.split_once(':')?;
+                clave
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    .then(|| clave.to_string())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn el_error_llega_a_la_interfaz_como_codigo_y_detalle() {
+        let json = serde_json::to_value(RadarError::Invalid("vacio".into())).unwrap();
+        assert_eq!(json, serde_json::json!({"code": "invalid_input", "detail": "vacio"}));
+    }
+
+    #[test]
+    fn cada_codigo_que_emite_rust_tiene_texto_en_es_y_en() {
+        for (idioma, diccionario) in [("es", ES), ("en", EN)] {
+            let claves = traducidos(diccionario);
+            for error in ejemplos() {
+                let json = serde_json::to_value(&error).unwrap();
+                let codigo = json["code"].as_str().expect("sin code").to_string();
+                assert!(claves.contains(&codigo), "{idioma}.ts no traduce '{codigo}'");
+            }
+        }
+    }
 }

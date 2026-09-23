@@ -1,6 +1,8 @@
 import { Check, Copy, FileDown, FileText, Loader2, Quote as QuoteIcon } from "lucide-react";
 import { useState } from "react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
+import { comoError, type AppError } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
 import { useBlueprint } from "@/lib/queries";
 import { useArchitectStore } from "@/stores/architectStore";
@@ -56,9 +58,7 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
           )}
 
           {doc.isError && (
-            <p className="text-sm text-danger">
-              {t.blueprint.error}: {String(doc.error)}
-            </p>
+            <ErrorNotice {...comoError(doc.error)} title={t.blueprint.error} />
           )}
 
           {doc.data && (
@@ -183,7 +183,7 @@ type EstadoPdf =
   | { fase: "generando" }
   | { fase: "guardado"; ruta: string }
   | { fase: "cancelado" }
-  | { fase: "error" };
+  | { fase: "error"; error: AppError };
 
 /**
  * Exporta el documento a PDF (AUD-008).
@@ -204,8 +204,7 @@ function ExportarPdf({ clusterKey }: { clusterKey: string }) {
       const ruta = await ipc.exportPdf(clusterKey, language, plan);
       setEstado(ruta ? { fase: "guardado", ruta } : { fase: "cancelado" });
     } catch (fallo) {
-      console.error("[pdf] exportación fallida:", fallo);
-      setEstado({ fase: "error" });
+      setEstado({ fase: "error", error: comoError(fallo) });
     }
   };
 
@@ -228,7 +227,7 @@ function ExportarPdf({ clusterKey }: { clusterKey: string }) {
         {estado.fase === "reposo" && (plan ? t.pdf.withPlan : t.pdf.withoutPlan)}
         {estado.fase === "guardado" && t.pdf.saved.replace("{path}", estado.ruta)}
         {estado.fase === "cancelado" && t.pdf.cancelled}
-        {estado.fase === "error" && <span className="text-danger">{t.pdf.error}</span>}
+        {estado.fase === "error" && <ErrorNotice {...estado.error} title={t.pdf.error} />}
       </p>
     </div>
   );

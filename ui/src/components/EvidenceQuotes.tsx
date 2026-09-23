@@ -1,6 +1,8 @@
 import { Languages, Loader2, Quote as QuoteIcon } from "lucide-react";
 import { useState } from "react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
+import { comoError, type AppError } from "@/lib/errors";
 import { ipc } from "@/lib/ipc";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
 import type { EvidenceQuote, QuoteTranslation } from "@/types/radar";
@@ -23,7 +25,7 @@ export function EvidenceQuotes({ quotes }: { quotes: EvidenceQuote[] }) {
   const [traducido, setTraducido] = useState(false);
   const [cache, setCache] = useState<Record<string, QuoteTranslation>>({});
   const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   const clave = (texto: string) => `${language}|${texto}`;
 
@@ -56,7 +58,7 @@ export function EvidenceQuotes({ quotes }: { quotes: EvidenceQuote[] }) {
       });
       setTraducido(true);
     } catch (fallo) {
-      setError(String(fallo));
+      setError(comoError(fallo));
     } finally {
       setCargando(false);
     }
@@ -103,7 +105,11 @@ export function EvidenceQuotes({ quotes }: { quotes: EvidenceQuote[] }) {
         </button>
       </div>
 
-      {error && <p className="mb-2 text-xs text-danger">{t.quotes.error}: {error}</p>}
+      {error && (
+        <div className="mb-2">
+          <ErrorNotice {...error} title={t.quotes.error} />
+        </div>
+      )}
 
       {hayAproximadas && (
         <p className="mb-2 text-[11px] leading-relaxed text-warn">

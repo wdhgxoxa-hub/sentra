@@ -263,20 +263,6 @@ export const es = {
       "Esto lo escribe un modelo generativo, no el radar. Revisa el código y el esquema antes de ejecutarlos.",
     incomplete: "Documento incompleto: no se guarda para el PDF.",
     missing: "Secciones que faltan",
-    technicalDetails: "Detalles técnicos",
-    failures: {
-      gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
-      gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
-      gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
-      gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",
-      gemini_blocked: "Gemini bloqueó la respuesta por sus filtros de seguridad.",
-      gemini_empty: "Gemini terminó sin escribir nada.",
-      gemini_truncated: "El documento se cortó al llegar al límite de longitud del modelo.",
-      gemini_incomplete: "El documento llegó sin todas las secciones exigidas.",
-      internal_error: "Fallo interno del motor de arquitectura.",
-      architect_protocol: "El motor devolvió una respuesta que la aplicación no entiende.",
-      architect_interrupted: "La conexión con el motor se cortó antes de terminar el documento.",
-    },
   },
   blueprint: {
     open: "Ver especificación del proyecto (PRD)",
@@ -415,7 +401,37 @@ export const es = {
     unknown: "Fuente desconocida",
   },
 
+  /**
+   * Un texto por cada código de error que puede llegar a la interfaz (D-A).
+   * Los de Rust los exige src-tauri/src/db.rs; los del motor Gemini,
+   * tests/test_gemini_robustness.py.
+   */
+  errors: {
+    unknown: "Ocurrió un error inesperado.",
+    database: "No se pudo leer o escribir en la base de datos. Comprueba que PostgreSQL está en marcha.",
+    sidecar: "El motor de análisis respondió con un fallo.",
+    sidecar_unreachable: "El motor de análisis no está en marcha. Reinicia la aplicación.",
+    sidecar_timeout: "El motor de análisis tardó demasiado en responder.",
+    invalid_input: "Los datos enviados no son válidos.",
+    file: "No se pudo guardar el archivo.",
+    ui_crash: "Esta vista falló al pintarse.",
+    persist_failed: "Cosecha completa, pero no se pudo guardar en la base de datos.",
+    gemini_not_configured: "No hay clave de Gemini guardada. Se configura en Ajustes.",
+    gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
+    gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
+    gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
+    gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",
+    gemini_blocked: "Gemini bloqueó la respuesta por sus filtros de seguridad.",
+    gemini_empty: "Gemini terminó sin escribir nada.",
+    gemini_truncated: "El documento se cortó al llegar al límite de longitud del modelo.",
+    gemini_incomplete: "El documento llegó sin todas las secciones exigidas.",
+    internal_error: "Fallo interno del motor.",
+    architect_protocol: "El motor devolvió una respuesta que la aplicación no entiende.",
+    architect_interrupted: "La conexión con el motor se cortó antes de terminar el documento.",
+  },
+
   common: {
+    technicalDetails: "Detalles técnicos",
     close: "Cerrar",
     retry: "Reintentar",
     loading: "Cargando…",

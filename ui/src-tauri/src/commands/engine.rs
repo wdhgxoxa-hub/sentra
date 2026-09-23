@@ -52,19 +52,17 @@ fn with_token(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
     }
 }
 
-/// Traduce un fallo de transporte en un mensaje que el usuario entienda.
+/// Clasifica un fallo de transporte con el motor (D-A).
 ///
-/// "connection refused" no le dice nada a nadie; "el sidecar no responde,
-/// arrancalo con este comando" si.
-fn transport_error(err: reqwest::Error) -> RadarError {
+/// "connection refused" no le dice nada a nadie: la interfaz traduce el
+/// codigo (no arrancado, no responde a tiempo) y deja el error de red en
+/// el detalle tecnico. Es la unica traduccion: todos los comandos que
+/// hablan con el sidecar la usan.
+pub fn transport_error(err: reqwest::Error) -> RadarError {
     if err.is_connect() {
-        RadarError::Sidecar(format!(
-            "El sidecar Python no responde en {}. Arrancalo con: \
-             python -m core.orchestration.sidecar_server",
-            sidecar_url()
-        ))
+        RadarError::SidecarUnreachable(format!("{}: {err}", sidecar_url()))
     } else if err.is_timeout() {
-        RadarError::Sidecar("El sidecar tardo demasiado en responder".into())
+        RadarError::SidecarTimeout(format!("{}: {err}", sidecar_url()))
     } else {
         RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}"))
     }

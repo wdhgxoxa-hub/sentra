@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { Explain } from "@/components/Explain";
+import { comoError } from "@/lib/errors";
 import {
   useSaveCredentials,
   useSaveGeminiKey,
@@ -348,9 +350,7 @@ export function SettingsView() {
           </div>
 
           {(saveCredentials.isError || testConnection.isError) && (
-            <p className="text-xs text-danger">
-              {String(saveCredentials.error ?? testConnection.error)}
-            </p>
+            <ErrorNotice {...comoError(saveCredentials.error ?? testConnection.error)} />
           )}
 
           {testConnection.data && (
@@ -478,9 +478,7 @@ export function SettingsView() {
             </button>
           </div>
 
-          {guardarGemini.isError && (
-            <p className="text-xs text-danger">{String(guardarGemini.error)}</p>
-          )}
+          {guardarGemini.isError && <ErrorNotice {...comoError(guardarGemini.error)} />}
 
           {probarGemini.data && (
             <p

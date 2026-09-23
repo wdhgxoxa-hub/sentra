@@ -27,7 +27,8 @@ export interface ScanProgress {
   stats: RunStats;
   /** `cancelled` no es un fallo: lo pidió quien miraba (AUD-010). */
   status: "running" | "finished" | "cancelled" | "error";
-  message: string | null;
+  /** Detalle técnico de un fallo al guardar la cosecha; se traduce aparte. */
+  persistError: string | null;
   /** Motivo del fallo, si lo hubo. Se muestra traducido, nunca en crudo. */
   errorCode: ScanErrorCode | null;
   retryAfterSeconds: number | null;
@@ -69,7 +70,7 @@ export const useProgressStore = create<ProgressState>((set) => ({
               cycle: 1,
               stats: {},
               status: "running",
-              message: null,
+              persistError: null,
               errorCode: null,
               retryAfterSeconds: null,
               qualified: null,
@@ -118,9 +119,7 @@ export const useProgressStore = create<ProgressState>((set) => ({
               stats: { ...previous.stats, ...event.stats },
               qualified: event.qualified,
               clusters: event.clusters,
-              message: event.persistError
-                ? `Cosecha completa, pero no se pudo guardar: ${event.persistError}`
-                : null,
+              persistError: event.persistError,
             },
           },
         };
@@ -134,7 +133,7 @@ export const useProgressStore = create<ProgressState>((set) => ({
               ...previous,
               status: "error",
               currentNode: null,
-              message: null,
+              persistError: null,
               errorCode: event.code,
               retryAfterSeconds: event.retryAfterSeconds,
             },

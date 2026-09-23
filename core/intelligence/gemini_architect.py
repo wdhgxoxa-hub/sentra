@@ -79,6 +79,8 @@ ClientFactory = Callable[[str], Any]
 class GeminiSinConfigurar(GeminiError):
     """No hay clave de API guardada."""
 
+    code = "gemini_not_configured"
+
 
 # --- Instrucción de sistema --------------------------------------------------
 

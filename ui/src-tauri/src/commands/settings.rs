@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::commands::engine::{sidecar_url, with_token_pub};
+use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
 use crate::db::{AppState, RadarError, RadarResult};
 
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -80,18 +80,6 @@ pub struct ProbeResult {
     pub detail: String,
 }
 
-fn unreachable(err: reqwest::Error) -> RadarError {
-    if err.is_connect() {
-        RadarError::Sidecar(format!(
-            "El sidecar Python no responde en {}. Sin el no se puede leer ni \
-             guardar la configuracion.",
-            sidecar_url()
-        ))
-    } else {
-        RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}"))
-    }
-}
-
 /// Estado actual: fuente de datos y credenciales (sin secretos).
 #[tauri::command]
 pub async fn get_settings(state: State<'_, AppState>) -> RadarResult<AppSettings> {
@@ -103,9 +91,9 @@ pub async fn get_settings(state: State<'_, AppState>) -> RadarResult<AppSettings
     )
     .send()
     .await
-    .map_err(unreachable)?;
+    .map_err(transport_error)?;
 
-    response.json().await.map_err(unreachable)
+    response.json().await.map_err(transport_error)
 }
 
 /// Cambia la fuente entre el corpus de demostracion y Reddit.
@@ -129,7 +117,7 @@ pub async fn set_fetcher_mode(
     )
     .send()
     .await
-    .map_err(unreachable)?;
+    .map_err(transport_error)?;
 
     if !response.status().is_success() {
         return Err(RadarError::Sidecar(format!(
@@ -168,7 +156,7 @@ pub async fn save_reddit_credentials(
     )
     .send()
     .await
-    .map_err(unreachable)?;
+    .map_err(transport_error)?;
 
     if !response.status().is_success() {
         let detail = response.text().await.unwrap_or_default();
@@ -182,7 +170,7 @@ pub async fn save_reddit_credentials(
         credentials: CredentialsSummary,
     }
 
-    let envelope: Envelope = response.json().await.map_err(unreachable)?;
+    let envelope: Envelope = response.json().await.map_err(transport_error)?;
     Ok(envelope.credentials)
 }
 
@@ -199,7 +187,7 @@ pub async fn test_reddit_connection(
     )
     .send()
     .await
-    .map_err(unreachable)?;
+    .map_err(transport_error)?;
 
-    response.json().await.map_err(unreachable)
+    response.json().await.map_err(transport_error)
 }

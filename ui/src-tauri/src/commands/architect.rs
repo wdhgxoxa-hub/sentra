@@ -17,7 +17,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
-use crate::commands::engine::{sidecar_url, with_token_pub};
+use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
 use crate::commands::radar::cluster_por_clave;
 use crate::commands::settings::GeminiSummary;
 use crate::db::{AppState, RadarError, RadarResult};
@@ -105,6 +105,9 @@ const CODIGO_PROTOCOLO: &str = "architect_protocol";
 /// La conexion termino sin `done` ni `error`.
 const CODIGO_INTERRUMPIDO: &str = "architect_interrupted";
 
+/// No hay clave de Gemini guardada (el sidecar responde 412).
+const CODIGO_SIN_CLAVE: &str = "gemini_not_configured";
+
 /// Añade `nuevo` al buffer y devuelve los eventos de las lineas completas.
 ///
 /// Se corta por `\n`, que en UTF-8 nunca forma parte de un caracter
@@ -130,24 +133,6 @@ fn eventos_completos(
         eventos.push(evento);
     }
     Ok(eventos)
-}
-
-fn transport_error(err: reqwest::Error) -> RadarError {
-    if err.is_connect() {
-        RadarError::Sidecar(format!(
-            "El sidecar Python no responde en {}. El motor de arquitectura \
-             habla con Google desde ahi.",
-            sidecar_url()
-        ))
-    } else if err.is_timeout() {
-        RadarError::Sidecar(
-            "El modelo tardo demasiado en responder. Prueba con gemini-2.5-flash \
-             si no necesitas el razonamiento profundo."
-                .into(),
-        )
-    } else {
-        RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}"))
-    }
 }
 
 /// Guarda la clave de Gemini en el `.env` del proyecto.
@@ -248,11 +233,14 @@ pub async fn generate_architecture(
     if !status.is_success() {
         let detail = response.text().await.unwrap_or_default();
         // 412 es el caso esperable: no hay clave guardada todavia.
-        return Err(RadarError::Sidecar(if status.as_u16() == 412 {
-            "No hay clave de Gemini guardada. Se configura en Ajustes.".into()
+        return Err(if status.as_u16() == 412 {
+            RadarError::Motor {
+                code: CODIGO_SIN_CLAVE.into(),
+                detail,
+            }
         } else {
-            format!("El motor de arquitectura fallo ({status}): {detail}")
-        }));
+            RadarError::Sidecar(format!("El motor de arquitectura fallo ({status}): {detail}"))
+        });
     }
 
     let mut stream = response.bytes_stream();
@@ -329,7 +317,10 @@ pub async fn generate_architecture(
             Ok(completo)
         }
         Err(fallo) => {
-            let detalle = fallo.detail.clone();
+            let error = RadarError::Motor {
+                code: fallo.code.clone(),
+                detail: fallo.detail.clone(),
+            };
             let _ = app.emit(
                 ARCHITECT_EVENT_CHANNEL,
                 ArchitectChunk {
@@ -339,7 +330,7 @@ pub async fn generate_architecture(
                     error: Some(fallo),
                 },
             );
-            Err(RadarError::Sidecar(detalle))
+            Err(error)
         }
     }
 }

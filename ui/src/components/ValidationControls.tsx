@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
+import { comoError } from "@/lib/errors";
 import { useUpdateOpportunityStatus } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import {
@@ -93,9 +95,7 @@ export function ValidationControls({ cluster }: { cluster: OpportunityCluster })
 
       <p className="text-[11px] text-ink-faint">
         {mutation.isError ? (
-          <span className="text-danger">
-            {t.detail.saveError}: {String(mutation.error)}
-          </span>
+          <ErrorNotice {...comoError(mutation.error)} title={t.detail.saveError} />
         ) : cluster.validatedAt ? (
           <>
             {t.detail.decidedOn} {cluster.validatedAt.slice(0, 16)}

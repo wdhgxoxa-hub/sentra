@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::commands::engine::{sidecar_url, with_token_pub};
+use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
 use crate::commands::radar::cluster_por_clave;
 use crate::db::{AppState, RadarError, RadarResult};
 
@@ -90,17 +90,7 @@ pub async fn generate_blueprint(
     )
     .send()
     .await
-    .map_err(|err| {
-        if err.is_connect() {
-            RadarError::Sidecar(format!(
-                "El sidecar Python no responde en {}. La especificacion la \
-                 redacta el motor, asi que sin el no se puede generar.",
-                sidecar_url()
-            ))
-        } else {
-            RadarError::Sidecar(format!("Fallo hablando con el sidecar: {err}"))
-        }
-    })?;
+    .map_err(transport_error)?;
 
     if !response.status().is_success() {
         return Err(RadarError::Sidecar(format!(
