@@ -36,7 +36,20 @@ KEYWORDS_PER_CLUSTER = 5
 _NAMESPACE = uuid.UUID("5e27a000-0000-4000-8000-000000000f03")
 
 _PALABRA = re.compile(r"[a-záéíóúüñ]{3,}")
-STOPWORDS = frozenset(["the", "and", "for", "that", "this", "with", "you", "your", "are", "was", "were", "have", "has", "had", "not", "but", "can", "all", "any", "our", "out", "its", "it's", "they", "them", "their", "there", "what", "when", "which", "who", "why", "how", "just", "like", "from", "into", "about", "than", "then", "too", "very", "also", "only", "some", "such", "more", "most", "other", "been", "being", "does", "did", "doing", "would", "could", "should", "will", "shall", "may", "might", "must", "one", "two", "get", "got", "make", "made", "every", "each", "much", "many", "per", "los", "las", "del", "por", "para", "con", "una", "unos", "unas", "que", "qué", "como", "cómo", "pero", "sus", "mis", "tus", "nos", "este", "esta", "estos", "estas", "ese", "esa", "eso", "aquí", "allí", "más", "menos", "muy", "sin", "sobre", "entre", "cada", "todo", "toda", "todos", "todas", "hay", "han", "has", "hace", "hago", "mes", "año", "también", "porque", "cuando", "donde", "quien", "cual", "algo", "alguna", "alguno"])
+STOPWORDS = frozenset([
+    "the", "and", "for", "that", "this", "with", "you", "your", "are", "was", "were", "have",
+    "has", "had", "not", "but", "can", "all", "any", "our", "out", "its", "it's", "they",
+    "them", "their", "there", "what", "when", "which", "who", "why", "how", "just", "like",
+    "from", "into", "about", "than", "then", "too", "very", "also", "only", "some", "such",
+    "more", "most", "other", "been", "being", "does", "did", "doing", "would", "could",
+    "should", "will", "shall", "may", "might", "must", "one", "two", "get", "got", "make",
+    "made", "every", "each", "much", "many", "per", "los", "las", "del", "por", "para", "con",
+    "una", "unos", "unas", "que", "qué", "como", "cómo", "pero", "sus", "mis", "tus", "nos",
+    "este", "esta", "estos", "estas", "ese", "esa", "eso", "aquí", "allí", "más", "menos",
+    "muy", "sin", "sobre", "entre", "cada", "todo", "toda", "todos", "todas", "hay", "han",
+    "has", "hace", "hago", "mes", "año", "también", "porque", "cuando", "donde", "quien",
+    "cual", "algo", "alguna", "alguno",
+])
 
 
 @dataclass
@@ -48,7 +61,7 @@ class EvidenceCluster:
     centroid: list[float] = field(repr=False)
 
 
-def _unitario(vector: Sequence[float]) -> np.ndarray:
+def _unitario(vector: Sequence[float] | np.ndarray) -> np.ndarray:
     v = np.asarray(vector, dtype=np.float64)
     norma = float(np.linalg.norm(v))
     return v / norma if norma else v
