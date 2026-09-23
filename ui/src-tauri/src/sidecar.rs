@@ -9,11 +9,13 @@
 //! consola de desarrollo, otra instancia) y cerrar esta aplicacion no debe
 //! llevarselo por delante.
 
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use crate::commands::engine::{sondear, sidecar_url, Sonda};
+use crate::sidecar_log::{volcar, RotatingLog, LOG_FILE_NAME, MAX_BYTES, MAX_FILES};
 
 const PYTHON_ENV_VAR: &str = "RIR_PYTHON";
 const PROJECT_DIR_ENV_VAR: &str = "RIR_PROJECT_DIR";
@@ -137,18 +139,34 @@ impl SidecarManager {
         vec!["-m".into(), MODULE.into(), "--port".into(), sidecar_port()]
     }
 
+    /// Log de la salida del hijo, o `None` si no se puede abrir (D-E).
+    fn abrir_log(log_dir: Option<&Path>) -> Option<Arc<Mutex<RotatingLog>>> {
+        let ruta = log_dir?.join(LOG_FILE_NAME);
+        match RotatingLog::open(&ruta, MAX_BYTES, MAX_FILES) {
+            Ok(log) => Some(Arc::new(Mutex::new(log))),
+            Err(err) => {
+                log::warn!("No se pudo abrir {}: {err}; la salida del sidecar se pierde", ruta.display());
+                None
+            }
+        }
+    }
+
     /// Lanza el proceso hijo.
-    fn spawn(&self) -> std::io::Result<Child> {
+    ///
+    /// Su stdout y stderr van, filtrados, al log rotativo de `log_dir`
+    /// (D-E): antes se descartaban y un sidecar que moria al arrancar no
+    /// dejaba rastro de por que.
+    fn spawn(&self, log_dir: Option<&Path>) -> std::io::Result<Child> {
         let python = std::env::var(PYTHON_ENV_VAR).unwrap_or_else(|_| DEFAULT_PYTHON.to_string());
+        let log = Self::abrir_log(log_dir);
+        let salida = || if log.is_some() { Stdio::piped() } else { Stdio::null() };
 
         let mut command = Command::new(python);
         command
             .args(Self::argumentos())
             .envs(Self::entorno())
-            // La salida del sidecar no interesa aqui: el tiene su propio log
-            // y heredarla mantendria vivos los descriptores al cerrar.
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stdout(salida())
+            .stderr(salida())
             .stdin(Stdio::null());
 
         if let Some(dir) = Self::project_dir() {
@@ -161,14 +179,28 @@ impl SidecarManager {
             command.creation_flags(CREATE_NO_WINDOW);
         }
 
-        command.spawn()
+        let mut child = command.spawn()?;
+        if let Some(log) = log {
+            let secretos = vec![sidecar_token().to_string()];
+            if let Some(stdout) = child.stdout.take() {
+                volcar(stdout, log.clone(), secretos.clone());
+            }
+            if let Some(stderr) = child.stderr.take() {
+                volcar(stderr, log, secretos);
+            }
+        }
+        Ok(child)
     }
 
     /// Deja el sidecar listo para recibir comandos.
     ///
     /// Si ya responde, no hace nada. Si no, lo lanza y espera sondeando
     /// `/api/health` hasta que conteste o se agote la paciencia.
-    pub async fn ensure_running(&self, client: &reqwest::Client) -> SidecarStatus {
+    pub async fn ensure_running(
+        &self,
+        client: &reqwest::Client,
+        log_dir: Option<&Path>,
+    ) -> SidecarStatus {
         match sondear(client).await {
             Sonda::Responde => {
                 log::info!("Sidecar ya activo en {}", sidecar_url());
@@ -185,7 +217,7 @@ impl SidecarManager {
         }
 
         log::info!("Arrancando el sidecar Python...");
-        match self.spawn() {
+        match self.spawn(log_dir) {
             Ok(child) => {
                 *self.child.lock().unwrap() = Some(child);
             }
@@ -380,8 +412,10 @@ mod tests {
 
         let client = reqwest::Client::new();
         let manager = SidecarManager::new();
+        let logs = std::env::temp_dir().join(format!("rir_sidecar_logs_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&logs);
 
-        let status = manager.ensure_running(&client).await;
+        let status = manager.ensure_running(&client, Some(&logs)).await;
         assert_eq!(
             status,
             SidecarStatus::Started,
@@ -399,6 +433,12 @@ mod tests {
             sidecar_health(&client).await.is_none(),
             "el sidecar sigue vivo despues de shutdown"
         );
+
+        // Lo que escribio el hijo llego al archivo (D-E), sin el token.
+        let registro = std::fs::read_to_string(logs.join(LOG_FILE_NAME)).unwrap_or_default();
+        assert!(!registro.trim().is_empty(), "la salida del sidecar no llego al log");
+        assert!(!registro.contains(sidecar_token()), "el token llego al log");
+        let _ = std::fs::remove_dir_all(&logs);
 
         std::env::remove_var(PORT_ENV_VAR);
     }

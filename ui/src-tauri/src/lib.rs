@@ -15,6 +15,7 @@
 pub mod commands;
 pub mod db;
 pub mod sidecar;
+pub mod sidecar_log;
 
 #[cfg(test)]
 mod test_support;
@@ -56,12 +57,14 @@ pub fn run() {
         .setup({
             let manager = manager.clone();
             move |app| {
+                // La salida del sidecar va al directorio de logs de la app (D-E).
+                let log_dir = app.path().app_log_dir().ok();
                 // El arranque del sidecar no bloquea la ventana: cargar el
                 // modelo de embeddings tarda, y mas vale ensenar la interfaz
                 // con el indicador en rojo que una pantalla congelada.
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    let status = manager.ensure_running(&http).await;
+                    let status = manager.ensure_running(&http, log_dir.as_deref()).await;
                     log::info!("Estado del sidecar: {status:?}");
                     let _ = tauri::Emitter::emit(&handle, "radar:sidecar", status);
                 });
