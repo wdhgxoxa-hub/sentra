@@ -37,8 +37,15 @@ export const en: Dictionary = {
     heuristicNli: "heuristic NLI",
     heuristicNliHint:
       "The classifier runs on rules, not a language model. Intent and severity labels are indicative only.",
-    sourceSynthetic: "Demo data",
-    sourceReddit: "Live Reddit",
+    sourceStates: {
+      demo: "Demo: fabricated data",
+      reddit_sin_credenciales: "Reddit: credentials missing",
+      reddit_sin_verificar: "Reddit: credentials saved, not verified",
+      reddit_verificado: "Reddit: verified",
+      reddit_error: "Reddit: error",
+    },
+    sourceUnknown: "Source: no information from the engine",
+    sourceVerifiedAt: "last real access at {time}",
   },
 
   radar: {

@@ -35,8 +35,15 @@ export const es = {
     heuristicNli: "NLI heurístico",
     heuristicNliHint:
       "El clasificador funciona con reglas, no con un modelo de lenguaje. Las etiquetas de intención y severidad son orientativas.",
-    sourceSynthetic: "Datos de demostración",
-    sourceReddit: "Reddit en vivo",
+    sourceStates: {
+      demo: "Demostración: datos fabricados",
+      reddit_sin_credenciales: "Reddit: faltan credenciales",
+      reddit_sin_verificar: "Reddit: credenciales guardadas, sin verificar",
+      reddit_verificado: "Reddit: verificado",
+      reddit_error: "Reddit: error",
+    },
+    sourceUnknown: "Fuente: sin información del motor",
+    sourceVerifiedAt: "último acceso real a las {time}",
   },
 
   radar: {

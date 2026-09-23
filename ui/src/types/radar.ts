@@ -416,6 +416,25 @@ export interface ComponentHealth {
  * El radar son tres procesos que fallan por separado. Un unico "ok/ko"
  * ocultaria justo lo que hace falta para arreglarlo.
  */
+/**
+ * Capacidad real de leer datos (AUD-004). Solo `reddit_verificado` significa
+ * que Reddit respondió 200 de verdad.
+ */
+export type SourceState =
+  | "demo"
+  | "reddit_sin_credenciales"
+  | "reddit_sin_verificar"
+  | "reddit_verificado"
+  | "reddit_error";
+
+export interface SourceStatus {
+  state: SourceState;
+  /** Último acceso real con éxito (ISO 8601). */
+  lastSuccessAt: string | null;
+  /** Código del último fallo, en `reddit_error`. */
+  errorCode: ScanErrorCode | null;
+}
+
 export interface AppHealth {
   /** true solo si las tres piezas responden. */
   ok: boolean;
@@ -430,6 +449,8 @@ export interface AppHealth {
     store: { path: string; records: number };
     uptimeSeconds: number;
   } | null;
+  /** Estado real de la fuente; null si el motor no respondió. */
+  source: SourceStatus | null;
 }
 
 // ---------------------------------------------------------------------

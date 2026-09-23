@@ -109,7 +109,7 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
 
         async def sonda(auth):
             probadas.append(auth.client_id)
-            return True, "ok"
+            return True, "ok", None
 
         with mock.patch.object(sidecar_server, "_probe_reddit", sonda):
             self.client.post("/api/credentials/test")

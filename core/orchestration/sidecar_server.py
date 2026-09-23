@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
+from .source_status import SourceTracker
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,29 @@ def create_app(
     active_runs: set = set()
     cancelled_runs: set = set()
 
+    # Lo que ha pasado de verdad contra Reddit (AUD-004). Alimenta el
+    # indicador de la fuente: solo un 200 real lo pone en verde.
+    fuente = SourceTracker()
+
+    def _estado_fuente() -> dict[str, Any]:
+        from core.ingestion.auth import load_reddit_oauth
+
+        return fuente.snapshot(mode_holder[0], load_reddit_oauth(env_path) is not None)
+
+    def _registrar_escaneo(es_reddit: bool, final_state: Mapping[str, Any]) -> None:
+        """Anota el desenlace de un escaneo si lo sirvio Reddit.
+
+        Solo un escaneo en modo Reddit que llego a descargar sin fallo es un
+        200 real de la API OAuth: el corpus fabricado nunca verifica nada.
+        """
+        if not es_reddit:
+            return
+        failure = final_state.get("failure")
+        if failure:
+            fuente.record_failure(str(failure["code"]))
+        elif int(final_state.get("cycle", 0) or 0) >= 1:
+            fuente.record_success()
+
     def require_token(
         x_radar_token: str | None = Header(default=None, alias=TOKEN_HEADER),
     ) -> None:
@@ -286,6 +310,7 @@ def create_app(
                 "enabled": persist_default,
                 "target": "postgresql" if persist_default else None,
             },
+            "source": _estado_fuente(),
         }
 
     # -- Escaneo -------------------------------------------------------
@@ -300,6 +325,7 @@ def create_app(
         análisis que falla) viajan en `errors` y no tumban la petición: el
         grafo está diseñado para degradar la cosecha, no para abortarla.
         """
+        es_reddit = _is_reddit_fetcher(dependencies.fetcher)
         try:
             # Se pide el estado COMPLETO, no el resumen: persistir necesita
             # `signals` y `filtered_items`, que el resumen descarta.
@@ -318,6 +344,7 @@ def create_app(
         persist_error: str | None = None
         failure = final_state.get("failure") or None
         status = "failed" if failure else "completed"
+        _registrar_escaneo(es_reddit, final_state)
 
         if should_persist:
             run_id, persisted, persist_error = await _persist(
@@ -461,6 +488,8 @@ def create_app(
         invalidar = getattr(dependencies.fetcher, "invalidate", None)
         if callable(invalidar):
             invalidar()
+        # Lo verificado era con las credenciales anteriores.
+        fuente.reset()
         # Se registra que se guardo, nunca lo guardado.
         logger.info("Credenciales de Reddit actualizadas en %s", target)
         return {"saved": True, "envPath": str(target),
@@ -481,7 +510,11 @@ def create_app(
                 detail="Faltan credenciales: guarda el Client ID y el Secret primero.",
             )
 
-        ok, detail = await _probe_reddit(auth)
+        ok, detail, code = await _probe_reddit(auth)
+        if ok:
+            fuente.record_success()
+        else:
+            fuente.record_failure(code or "reddit_auth_failed")
         return ProbeResponse(ok=ok, detail=detail)
 
     # -- Cancelacion ---------------------------------------------------
@@ -524,6 +557,8 @@ def create_app(
         """
         run_id = request.runId or str(uuid.uuid4())
         should_persist = persist_default if request.persist is None else request.persist
+
+        es_reddit = _is_reddit_fetcher(dependencies.fetcher)
 
         async def emitir():
             active_runs.add(run_id)
@@ -574,6 +609,8 @@ def create_app(
                 return
 
             failure = final_state.get("failure") or None
+            if not cancelled:
+                _registrar_escaneo(es_reddit, final_state)
             if cancelled:
                 status = "cancelled"
             elif failure:
@@ -828,22 +865,22 @@ def update_dotenv(values: dict[str, str], path: str | None = None):
     return target
 
 
-async def _probe_reddit(auth) -> tuple:
+async def _probe_reddit(auth: Any) -> tuple[bool, str, str | None]:
     """
     Comprueba las credenciales pidiendo un token real.
 
     Se aisla en su propia funcion para poder sustituirla en las pruebas: un
     test que salga a Reddit no es un test, es una tirada de dados.
     """
-    from core.ingestion.auth import RedditAuthError
+    from core.ingestion.errors import RedditAccessError
 
-    # `get_token` ya envuelve en RedditAuthError cualquier fallo del
-    # transporte (auth.py): no hay otra excepcion esperable que traducir.
+    # `get_token` traduce todo fallo (credenciales, 401, 429, 5xx, red) a
+    # un RedditAccessError con codigo estable: no hay otra excepcion esperable.
     try:
         token = await auth.get_token()
-        return True, f"Token obtenido correctamente ({len(token)} caracteres)."
-    except RedditAuthError as exc:
-        return False, str(exc)
+        return True, f"Token obtenido correctamente ({len(token)} caracteres).", None
+    except RedditAccessError as exc:
+        return False, str(exc), exc.code
 
 
 def _sse(payload: dict[str, Any]) -> str:

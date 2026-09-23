@@ -5,7 +5,7 @@
 //! sin arrancar. Un unico indicador "ok/ko" ocultaria justo lo que hace
 //! falta saber para arreglarlo, asi que se informa de cada pieza.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::engine::{sidecar_health, sidecar_url};
@@ -16,6 +16,38 @@ use crate::db::{AppState, RadarResult};
 pub struct ComponentHealth {
     pub ok: bool,
     pub detail: String,
+}
+
+/// Capacidad real de leer datos (AUD-004), tal como la calcula el sidecar.
+///
+/// Solo `RedditVerificado` significa que Reddit respondió 200 de verdad; es
+/// el único estado que la interfaz pinta en verde.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceState {
+    Demo,
+    RedditSinCredenciales,
+    RedditSinVerificar,
+    RedditVerificado,
+    RedditError,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceStatus {
+    pub state: SourceState,
+    /// Último acceso real con éxito (ISO 8601), si lo hubo.
+    pub last_success_at: Option<String>,
+    /// Código estable del último fallo, en `RedditError`.
+    pub error_code: Option<String>,
+}
+
+/// Extrae el estado de la fuente del cuerpo de `/api/health`.
+///
+/// Un estado desconocido no se convierte en uno conocido: devuelve `None`,
+/// que la interfaz muestra como «sin información», nunca como verde.
+pub fn source_from_sidecar(body: &serde_json::Value) -> Option<SourceStatus> {
+    serde_json::from_value(body.get("source")?.clone()).ok()
 }
 
 #[derive(Debug, Serialize)]
@@ -29,6 +61,8 @@ pub struct AppHealth {
     pub sidecar: ComponentHealth,
     /// Cuerpo de /api/health del sidecar, si respondio.
     pub sidecar_info: Option<serde_json::Value>,
+    /// Estado real de la fuente de datos. `None` si el sidecar no respondió.
+    pub source: Option<SourceStatus>,
 }
 
 /// Estado de Rust, PostgreSQL y el sidecar Python.
@@ -83,6 +117,8 @@ pub async fn get_app_health(state: State<'_, AppState>) -> RadarResult<AppHealth
         },
     };
 
+    let source = info.as_ref().and_then(source_from_sidecar);
+
     Ok(AppHealth {
         ok: app.ok && postgres.ok && sidecar.ok,
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -90,5 +126,58 @@ pub async fn get_app_health(state: State<'_, AppState>) -> RadarResult<AppHealth
         postgres,
         sidecar,
         sidecar_info: info,
+        source,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn cuerpo(source: serde_json::Value) -> serde_json::Value {
+        json!({ "status": "ok", "source": source })
+    }
+
+    #[test]
+    fn cada_estado_del_sidecar_llega_tipado() {
+        let casos = [
+            ("demo", SourceState::Demo),
+            ("reddit_sin_credenciales", SourceState::RedditSinCredenciales),
+            ("reddit_sin_verificar", SourceState::RedditSinVerificar),
+            ("reddit_verificado", SourceState::RedditVerificado),
+            ("reddit_error", SourceState::RedditError),
+        ];
+        for (texto, esperado) in casos {
+            let fuente = source_from_sidecar(&cuerpo(json!({
+                "state": texto, "lastSuccessAt": null, "errorCode": null
+            })))
+            .unwrap_or_else(|| panic!("'{texto}' no se reconocio"));
+            assert_eq!(fuente.state, esperado);
+        }
+    }
+
+    #[test]
+    fn la_evidencia_viaja_con_el_estado() {
+        let fuente = source_from_sidecar(&cuerpo(json!({
+            "state": "reddit_error", "lastSuccessAt": "2026-09-23T10:00:00+00:00",
+            "errorCode": "reddit_forbidden"
+        })))
+        .unwrap();
+        assert_eq!(fuente.error_code.as_deref(), Some("reddit_forbidden"));
+        assert_eq!(fuente.last_success_at.as_deref(), Some("2026-09-23T10:00:00+00:00"));
+    }
+
+    #[test]
+    fn un_estado_desconocido_no_se_hace_pasar_por_valido() {
+        assert!(source_from_sidecar(&cuerpo(json!({
+            "state": "reddit_en_vivo", "lastSuccessAt": null, "errorCode": null
+        })))
+        .is_none());
+    }
+
+    #[test]
+    fn sin_bloque_de_fuente_no_hay_estado() {
+        assert!(source_from_sidecar(&json!({ "status": "ok" })).is_none());
+    }
 }

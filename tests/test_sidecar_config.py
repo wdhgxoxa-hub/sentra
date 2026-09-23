@@ -10,11 +10,11 @@ Ningún test escribe en el `.env` real ni sale a la red.
 """
 
 import logging
-import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any, ClassVar
 
 from fastapi.testclient import TestClient
 
@@ -210,7 +210,7 @@ class TestCredentialsProbe(ConfigTestCase):
         import core.orchestration.sidecar_server as sidecar
 
         async def fake_probe(auth):
-            return True, "Token obtenido (scope: *)"
+            return True, "Token obtenido (scope: *)", None
 
         original = sidecar._probe_reddit
         sidecar._probe_reddit = fake_probe
@@ -229,7 +229,7 @@ class TestCredentialsProbe(ConfigTestCase):
         import core.orchestration.sidecar_server as sidecar
 
         async def fake_probe(auth):
-            return False, "HTTP 401: invalid_grant"
+            return False, "HTTP 401: invalid_grant", "reddit_auth_failed"
 
         original = sidecar._probe_reddit
         sidecar._probe_reddit = fake_probe
@@ -252,7 +252,7 @@ if __name__ == "__main__":
 class TestBlueprintEndpoint(ConfigTestCase):
     """El endpoint que sintetiza la especificacion de proyecto."""
 
-    CLUSTER = {
+    CLUSTER: ClassVar[dict[str, Any]] = {
         "clusterKey": "complaint:invoice|manual",
         "label": "invoice + manual",
         "intentType": "complaint",
@@ -310,7 +310,7 @@ class TestGeminiEndpoints(ConfigTestCase):
 
     CLAVE = "AIzaSy-CLAVE-FALSA-PARA-TESTS"
 
-    CLUSTER = {
+    CLUSTER: ClassVar[dict[str, Any]] = {
         "label": "invoice + manual",
         "keywords": ["invoice"],
         "subreddits": ["SaaS"],
