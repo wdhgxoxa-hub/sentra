@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .base import SourceAdapter
 from .bluesky import BlueskySource
+from .discourse import DiscourseSource
 from .github import GitHubSource
 from .hackernews import HackerNewsSource
 from .mastodon import MastodonSource
@@ -21,7 +22,7 @@ from .youtube import YouTubeSource
 
 SOURCES: tuple[type[SourceAdapter], ...] = (
     HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource, BlueskySource,
-    YouTubeSource, MastodonSource,
+    YouTubeSource, MastodonSource, DiscourseSource,
 )
 
 

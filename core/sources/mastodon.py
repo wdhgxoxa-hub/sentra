@@ -20,7 +20,6 @@ cuyos autores aceptaron aparecer en búsquedas, y los que ya conoce.
 
 from __future__ import annotations
 
-import re
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
@@ -31,12 +30,11 @@ from core.evidence.model import Engagement, EvidenceItem, SearchQuery
 
 from .base import CostModel, CredentialField, ProbeResult, SourceAdapter
 from .errors import SourceCredentialsMissing, SourceError
+from .hosts import domain
 from .profile import term_pairs
 from .text import html_to_text
 
 LIMIT = 40
-#: Un dominio y nada más: ni ruta, ni usuario, ni puerto.
-_DOMINIO = re.compile(r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
 class MastodonSource(SourceAdapter):
@@ -52,9 +50,8 @@ class MastodonSource(SourceAdapter):
     cost_model = CostModel(unit="request", note="300 peticiones cada 5 min por cuenta")
 
     def _instancia(self) -> str:
-        valor = str(self.credentials.get("instance") or "").strip().lower()
-        valor = valor.removeprefix("https://").removeprefix("http://").rstrip("/")
-        if not _DOMINIO.match(valor):
+        valor = domain(str(self.credentials.get("instance") or ""))
+        if valor is None:
             raise SourceCredentialsMissing(self.id, "instance debe ser un dominio (p. ej. mastodon.social)")
         return valor
 
