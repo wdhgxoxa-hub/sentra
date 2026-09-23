@@ -21,11 +21,12 @@ Ejecución:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
-from .state import MIN_OPPORTUNITY_SCORE
+from .state import MIN_SIGNAL_SCORE
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +35,17 @@ SERVER_NAME = "reddit-intel-agent-mcp"
 
 def build_tools(
     deps: RadarDependencies,
-    gate_min_score: float = MIN_OPPORTUNITY_SCORE,
-) -> Dict[str, Callable[..., Any]]:
+    gate_min_score: float = MIN_SIGNAL_SCORE,
+) -> dict[str, Callable[..., Any]]:
     """
     Construye las tres herramientas del radar sobre unas dependencias dadas.
 
     Devuelve funciones planas, no objetos del SDK, para que sean invocables y
     verificables sin transporte de por medio.
 
-    `gate_min_score` es el corte de CUALIFICACION que aplica el grafo al
-    escanear. No confundirlo con el `min_score` de `search_pain_points`,
+    `gate_min_score` es el corte de CUALIFICACION de cada señal suelta que
+    aplica el grafo al escanear (MIN_SIGNAL_SCORE); el de las oportunidades
+    consolidadas lo pone el propio pipeline (MIN_OPPORTUNITY_SCORE). No confundirlo con el `min_score` de `search_pain_points`,
     que filtra lo YA almacenado en una consulta.
     """
     pipeline = RadarPipeline(deps=deps, min_score=gate_min_score)
@@ -52,7 +54,7 @@ def build_tools(
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Escanea un subreddit de extremo a extremo: ingesta, filtrado de dolor,
         análisis JTBD con scoring temporal, persistencia vectorial y corte de
@@ -67,7 +69,7 @@ def build_tools(
         query: str,
         min_score: float = 0.0,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Busca puntos de dolor ya indexados combinando similitud semántica
         densa y coincidencia léxica BM25 mediante fusión recíproca de rangos.
@@ -81,13 +83,15 @@ def build_tools(
             results = deps.get_search_engine().search(
                 query, limit=limit, filter_sql=filter_sql
             )
-        except Exception as exc:
+        # Frontera con el cliente MCP: LanceDB y el embedder pueden fallar de
+        # muchas formas; la herramienta responde vacio y lo deja en el log.
+        except Exception as exc:  # noqa: BLE001
             logger.error("search_pain_points: %s", exc)
             return []
 
         return [result.model_dump() for result in results]
 
-    def get_opportunity_details(opportunity_id: str) -> Optional[Dict[str, Any]]:
+    def get_opportunity_details(opportunity_id: str) -> dict[str, Any] | None:
         """
         Recupera la ficha completa de una oportunidad por su identificador,
         con su síntesis Jobs-To-Be-Done.
@@ -96,7 +100,8 @@ def build_tools(
         """
         try:
             record = deps.store.get_by_id(opportunity_id)
-        except Exception as exc:
+        # Frontera con el cliente MCP (misma razon que search_pain_points).
+        except Exception as exc:  # noqa: BLE001
             logger.error("get_opportunity_details(%s): %s", opportunity_id, exc)
             return None
 
@@ -114,8 +119,8 @@ def build_tools(
 
 
 def create_server(
-    deps: Optional[RadarDependencies] = None,
-    gate_min_score: float = MIN_OPPORTUNITY_SCORE,
+    deps: RadarDependencies | None = None,
+    gate_min_score: float = MIN_SIGNAL_SCORE,
 ):
     """Crea el servidor MCP con las tres herramientas registradas."""
     from mcp.server.fastmcp import FastMCP

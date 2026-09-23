@@ -36,8 +36,8 @@ from core.storage import HybridSearchEngine, LanceDBStore
 from .aggregation import build_clusters, cluster_to_dict
 from .state import (
     BLOCKING_RISK_FLAGS,
-    OPPORTUNITY_CLUSTER_THRESHOLD,
-    SIGNAL_THRESHOLD,
+    MIN_OPPORTUNITY_SCORE,
+    MIN_SIGNAL_SCORE,
     RadarState,
     signal_to_record,
 )
@@ -270,15 +270,15 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
 def quality_gate_node(
     state: RadarState,
     deps: RadarDependencies,
-    min_score: float = SIGNAL_THRESHOLD,
+    min_score: float = MIN_SIGNAL_SCORE,
 ) -> dict[str, Any]:
     """
     Filtro de higiene sobre la señal INDIVIDUAL.
 
     Decide qué quejas entran al feed de actividad, no qué merece producto:
     ese juicio lo emite `aggregation_node` sobre el problema consolidado.
-    El corte por defecto es `SIGNAL_THRESHOLD` (20), alcanzable por un
-    mensaje suelto; `OPPORTUNITY_CLUSTER_THRESHOLD` (60) no lo es.
+    El corte por defecto es `MIN_SIGNAL_SCORE` (20), alcanzable por un
+    mensaje suelto; `MIN_OPPORTUNITY_SCORE` (60) no lo es.
 
     El veto por riesgo sí es independiente de la puntuación: una señal con
     patrón de afiliado no pasa ni con 99 puntos, porque el riesgo no es una
@@ -320,7 +320,7 @@ def quality_gate_node(
 def aggregation_node(
     state: RadarState,
     deps: RadarDependencies,
-    cluster_threshold: float = OPPORTUNITY_CLUSTER_THRESHOLD,
+    cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
 ) -> dict[str, Any]:
     """
     Consolida la cosecha completa en problemas recurrentes y los cualifica.
@@ -378,8 +378,8 @@ def build_graph(
     deps: RadarDependencies,
     target_qualified: int = DEFAULT_TARGET_QUALIFIED,
     max_cycles: int = DEFAULT_MAX_CYCLES,
-    min_score: float = SIGNAL_THRESHOLD,
-    cluster_threshold: float = OPPORTUNITY_CLUSTER_THRESHOLD,
+    min_score: float = MIN_SIGNAL_SCORE,
+    cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
 ):
     """
     Compila la máquina de estados.

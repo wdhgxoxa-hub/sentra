@@ -21,19 +21,30 @@ from typing import Annotated, Any, TypedDict
 from core.intelligence import AnalyzedSignal
 from core.storage import OpportunityRecord
 
-# Dos umbrales para dos preguntas distintas (ver aggregation.py):
+# Dos umbrales para dos preguntas distintas. Este es su ÚNICO origen.
 #
-#   SIGNAL_THRESHOLD              ¿esta queja entra al almacén y al feed?
-#   OPPORTUNITY_CLUSTER_THRESHOLD ¿este problema recurrente merece producto?
+#   MIN_SIGNAL_SCORE       ¿esta queja suelta entra al feed como cualificada?
+#   MIN_OPPORTUNITY_SCORE  ¿este problema consolidado merece producto?
 #
-# Aplicar el segundo a mensajes sueltos era la deuda D6: una señal
-# individual tiene un techo aritmético de 60 y jamás lo superaba.
-SIGNAL_THRESHOLD = 20.0
-OPPORTUNITY_CLUSTER_THRESHOLD = 60.0
+# La aritmética (pesos de TemporalScorer, ver aggregation.py): una señal
+# suelta tiene `spread` y `frequency` clavados en 1/5, que aportan 10 puntos
+# fijos; la recencia da hasta 15, la severidad hasta 20 y la disposición a
+# pagar hasta 15. Su techo es exactamente 60.
+#
+# - MIN_SIGNAL_SCORE = 20 es alcanzable por una señal: una queja de los
+#   últimos ~72 días (10 + 15·e^(-d/180) >= 20) pasa aunque su severidad sea
+#   indeterminada y no mencione dinero; una más vieja necesita severidad o
+#   disposición a pagar.
+# - MIN_OPPORTUNITY_SCORE = 60 es el techo de una señal: solo lo superan
+#   problemas con difusión o recurrencia reales, es decir, clusters.
+#
+# Aplicar el segundo a mensajes sueltos vaciaba el radar (D6, AUD-018).
+MIN_SIGNAL_SCORE = 20.0
+MIN_OPPORTUNITY_SCORE = 60.0
 
-# Nombre histórico del corte de oportunidad. Se conserva porque eso es lo
-# que siempre significó: el umbral de la oportunidad consolidada.
-MIN_OPPORTUNITY_SCORE = OPPORTUNITY_CLUSTER_THRESHOLD
+# Nombres históricos, alias de los anteriores (no son otro origen).
+SIGNAL_THRESHOLD = MIN_SIGNAL_SCORE
+OPPORTUNITY_CLUSTER_THRESHOLD = MIN_OPPORTUNITY_SCORE
 
 # Banderas que vetan una oportunidad con independencia de su puntuación.
 BLOCKING_RISK_FLAGS = frozenset({
