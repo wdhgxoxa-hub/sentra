@@ -123,7 +123,8 @@ async def run_multisource_scan(
     for progreso, items in resultados:
         resultado.per_source[progreso.source] = progreso
         todos.extend(items)
-    vectores = embed(todos) if embed is not None and todos else {}
+    # En un hilo: e5-large tarda segundos y bloquearía el bucle del sidecar.
+    vectores = await asyncio.to_thread(embed, todos) if embed is not None and todos else {}
     limpio = deduplicate(todos, vectores)
     resultado.items, resultado.duplicates = limpio.canonical, limpio.duplicates
     resultado.fetched, resultado.vectors = todos, vectores

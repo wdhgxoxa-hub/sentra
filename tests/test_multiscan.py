@@ -127,6 +127,19 @@ class TestParalelo(unittest.IsolatedAsyncioTestCase):
         resultado = await run_multisource_scan([fuente(Buena)], QUERY, embed=embed)
         self.assertEqual(set(resultado.vectors), {"buena:0", "buena:1"})
 
+    async def test_los_vectores_se_calculan_fuera_del_bucle_del_servidor(self):
+        # e5-large tarda segundos: en el bucle bloquearía al sidecar entero.
+        import threading
+
+        hilos = []
+
+        def embed(items):
+            hilos.append(threading.current_thread())
+            return {}
+
+        await run_multisource_scan([fuente(Buena)], QUERY, embed=embed)
+        self.assertIsNot(hilos[0], threading.current_thread())
+
     async def test_un_error_inesperado_de_una_fuente_tampoco_detiene_las_demas(self):
         class Explota(Buena):
             id = "explota"

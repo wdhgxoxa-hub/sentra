@@ -36,11 +36,11 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 - [x] T2.1 `EvidenceItem`, `SearchQuery` y `author_hash` con sal local, generada una vez y guardada con el mecanismo seguro de `.env`.
 - [x] T2.2 Migración 009 (D-M1), probada en una base desechable: tablas nuevas, copia de raw_* con hash, autores antiguos hasheados, vistas reescritas. *(Mientras el escaneo multifuente no la sustituya, la pipeline de Reddit sigue escribiendo sus tablas antiguas, ya con autores hasheados, y además copia a `evidence_items`. Esas escrituras antiguas se retiran en T2.7.)*
 - [x] T2.3 Almacén: upsert idempotente de `evidence_items` y LanceDB 1024-d con `source` e id global (D-M2). *(No hizo falta la migración 010: LanceDB no es SQL. `evidence_e5` es una tabla nueva, y la tabla antigua pierde la columna `author` al abrirse, por R9.)*
-- [ ] T2.4 Contrato de adaptador, errores comunes, presupuesto y cabeceras de cuota (Retry-After, X-RateLimit-*).
-- [ ] T2.5 Registro de fuentes, `sources_state` y estados verificados; modo comercial.
-- [ ] T2.6 Perfil de escaneo, biblioteca de frases v1 (es/en) y modo descubrimiento.
-- [ ] T2.7 Escaneo paralelo por fuente: el fallo de una no detiene a las demás. Persistencia y SSE por fuente.
-- [ ] T2.8 Deduplicación: huella normalizada más similitud de embeddings con un umbral con nombre.
+- [x] T2.4 Contrato de adaptador, errores comunes, presupuesto y cabeceras de cuota (Retry-After, X-RateLimit-*).
+- [x] T2.5 Registro de fuentes, `sources_state` y estados verificados; modo comercial.
+- [x] T2.6 Perfil de escaneo, biblioteca de frases v1 (es/en) y modo descubrimiento.
+- [x] T2.7 Escaneo paralelo por fuente: el fallo de una no detiene a las demás. Persistencia y SSE por fuente. *(POST /api/sources/scan/stream. Una respuesta real del escaneo verifica la fuente. Pendiente con la UI de T2.9: cancelar el escaneo multifuente y cerrar su ejecución como `cancelled`; hoy, si el cliente corta, la tarea se cancela pero la ejecución queda en `running`. La pipeline de Reddit se retira en T2.13, al refactorizarla como adaptador.)*
+- [x] T2.8 Deduplicación: huella normalizada más similitud de embeddings con un umbral con nombre.
 - [ ] T2.9 UI: sección «Fuentes», resumen en la barra lateral, progreso por fuente y perfil de escaneo.
 - [ ] T2.10–T2.19 Un adaptador por commit, en el orden de la especificación. Cada uno lleva sus dobles oficiales, su tarjeta con «Probar» y su prueba real acotada según R7.
 - **Checkpoint F2**: informe.

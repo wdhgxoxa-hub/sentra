@@ -31,11 +31,14 @@ Ejecución (la aplicación lo lanza sola; a mano, solo para desarrollo):
 
 from __future__ import annotations
 
+import functools
 import hmac
 import logging
 import os
 import sys
 import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.routing import APIRoute
@@ -48,13 +51,16 @@ from core.sources.registry import (
 
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
-from .sidecar import config, documents, gemini, health, scan, search, sources
+from .sidecar import config, documents, gemini, health, multiscan, scan, search, sources
 from .sidecar.context import (
     SERVICE_NAME,
     SERVICE_VERSION,
     SidecarContext,
     is_reddit_fetcher,
 )
+
+if TYPE_CHECKING:
+    from core.evidence.vectors import EvidenceVectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +76,7 @@ TOKEN_ENV_VAR = "RIR_SIDECAR_TOKEN"
 MIN_TOKEN_LENGTH = 32
 
 #: Routers montados, en este orden.
-ROUTERS = (health, scan, config, gemini, documents, search, sources)
+ROUTERS = (health, scan, config, gemini, documents, search, sources, multiscan)
 
 
 class SidecarSinToken(RuntimeError):
@@ -84,6 +90,18 @@ def _estado_de_fuentes(persist: bool, postgres_dsn: str | None) -> SourcesStateR
     from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
 
     return PostgresSourcesState(postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN)
+
+
+def _vectores_de_evidencia() -> Callable[[], EvidenceVectorStore]:
+    """El almacén e5 se abre la primera vez que un escaneo lo pide, y una sola vez."""
+
+    @functools.cache
+    def abrir() -> EvidenceVectorStore:
+        from core.evidence.vectors import EvidenceVectorStore
+
+        return EvidenceVectorStore()
+
+    return abrir
 
 
 def create_app(
@@ -124,6 +142,7 @@ def create_app(
         env_path=env_path,
         started_at=time.monotonic(),
         sources_state=_estado_de_fuentes(persist_default, postgres_dsn),
+        evidence_vectors=_vectores_de_evidencia() if persist_default else None,
         mode="reddit" if is_reddit_fetcher(dependencies.fetcher) else "synthetic",
     )
 
