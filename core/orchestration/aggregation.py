@@ -219,6 +219,8 @@ def cluster_stats(
         mentions               quejas del problema
         distinct_texts         textos distintos entre ellas
         severity_undetermined  quejas con gravedad "undetermined"
+        classifier_engines     {motor: quejas} con que se clasificó cada
+                               una ("heuristic" o "transformers")
         keywords               [{keyword, count}], de más a menos frecuente
                                (empate: alfabético)
         pairs                  [{a, b, count}] entre las TOP_KEYWORDS_FOR_PAIRS
@@ -235,6 +237,10 @@ def cluster_stats(
         "severity_undetermined": sum(
             1 for s in members if s.pain_severity == UNDETERMINED_LABEL
         ),
+        "classifier_engines": dict(sorted(Counter(
+            s.classifier_engine for s in members
+            if getattr(s, "classifier_engine", None)
+        ).items())),
         "keywords": [{"keyword": k, "count": c} for k, c in ordenadas],
         "pairs": [
             {"a": a, "b": b, "count": sum(1 for c in conjuntos if a in c and b in c)}

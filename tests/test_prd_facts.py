@@ -158,6 +158,15 @@ class TestEstadisticasDeLaAgregacion(unittest.TestCase):
         self.assertEqual(pares[("manual", "invoice")], 2)
         self.assertEqual(stats["severity_undetermined"], 3)
 
+    def test_cuenta_con_que_motor_se_clasifico_cada_queja(self):
+        # El dossier de Gemini lo declara (AUD-017): no es lo mismo una
+        # etiqueta del NLI que una de la heurística de palabras.
+        senales = [self._senal("a", "SaaS", "manual invoice work"),
+                   self._senal("b", "SaaS", "manual invoice work again")]
+        senales[1].classifier_engine = "transformers"
+        stats = cluster_to_dict(build_clusters(senales)[0])["stats"]
+        self.assertEqual(stats["classifier_engines"], {"heuristic": 1, "transformers": 1})
+
 
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"

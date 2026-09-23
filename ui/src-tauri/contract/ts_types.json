@@ -67,6 +67,7 @@
       "validationStatus"
     ],
     "ClusterStats": [
+      "classifier_engines",
       "distinct_texts",
       "keywords",
       "mentions",

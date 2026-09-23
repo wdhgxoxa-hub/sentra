@@ -24,7 +24,7 @@ from typing import Any
 # Los lectores tolerantes del cluster ya existen en el sintetizador: leen las
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
-from core.intelligence.blueprint import _campo, _citas, _lista, _numero
+from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
 from core.intelligence.gemini_client import GeminiError, stream_text
 
 MODELO_POR_DEFECTO = "gemini-2.5-pro"
@@ -45,8 +45,9 @@ class GeminiSinConfigurar(GeminiError):
 # --- Instrucción de sistema --------------------------------------------------
 
 SISTEMA_ES = """\
-Eres un arquitecto de software senior. Recibes la evidencia real de un problema
-detectado en foros públicos y devuelves un plan de construcción ejecutable.
+Eres un arquitecto de software senior. Recibes un dossier con la evidencia de
+un problema —cifras, citas numeradas y su procedencia— y devuelves un plan de
+construcción ejecutable.
 
 Escribe en Markdown, en español, con esta estructura exacta y nada más:
 
@@ -90,11 +91,17 @@ Reglas:
 - Si algo no se puede deducir de la evidencia, dilo en una línea en lugar de
   rellenar.
 - Prefiere lo concreto a lo genérico: nombres de tablas, rutas, ficheros.
+- Cada afirmación sobre el problema o sobre quien lo sufre lleva entre
+  corchetes el número de cita que la sostiene, por ejemplo [2]. Si ninguna cita
+  la sostiene, no la hagas.
+- Las etiquetas de gravedad e intención las pone un clasificador automático
+  (el dossier dice cuál): son indicios, no mediciones.
 """
 
 SISTEMA_EN = """\
-You are a senior software architect. You receive real evidence of a problem
-spotted in public forums and return an executable build plan.
+You are a senior software architect. You receive a dossier with the evidence
+of a problem —figures, numbered quotes and their provenance— and return an
+executable build plan.
 
 Write in Markdown, in English, with this exact structure and nothing else:
 
@@ -138,7 +145,58 @@ Rules:
 - If something cannot be derived from the evidence, say so in one line instead
   of padding.
 - Prefer the concrete over the generic: table names, routes, file names.
+- Every claim about the problem or about who suffers it carries, in square
+  brackets, the quote number that supports it, e.g. [2]. If no quote supports
+  it, do not make it.
+- Severity and intent labels come from an automatic classifier (the dossier
+  says which one): they are hints, not measurements.
 """
+
+#: Línea que el documento debe llevar al principio cuando los datos no son de
+#: Reddit (AUD-017). Se pide literal para poder comprobarla después.
+AVISO_DEMO = {
+    "es": "> **AVISO: datos de demostración.** Este plan no se apoya en quejas "
+          "de usuarios.",
+    "en": "> **WARNING: demonstration data.** This plan does not rest on "
+          "complaints from users.",
+}
+AVISO_DESCONOCIDA = {
+    "es": "> **AVISO: procedencia de los datos desconocida.** No consta si "
+          "proceden de Reddit o de la demostración.",
+    "en": "> **WARNING: unknown data provenance.** It is not recorded whether "
+          "the data comes from Reddit or from the demo.",
+}
+
+_PROCEDENCIA_REDDIT = {
+    "es": "\nEl dossier trae evidencia real: publicaciones públicas de Reddit.\n",
+    "en": "\nThe dossier holds real evidence: public Reddit posts.\n",
+}
+
+_EXIGE_AVISO = {
+    "es": "\n{motivo} Advierte al inicio del documento, antes de «# FASE 1», "
+          "con esta línea exacta:\n\n{aviso}\n",
+    "en": "\n{motivo} Warn at the very top of the document, before \"# FASE 1\", "
+          "with this exact line:\n\n{aviso}\n",
+}
+
+_MOTIVO_DEMO = {
+    "es": "Los datos del dossier son de DEMOSTRACIÓN: los generó la propia "
+          "aplicación y no proceden de ningún foro. No presentes nada como "
+          "demanda comprobada.",
+    "en": "The dossier data is DEMONSTRATION data: the app generated it and it "
+          "does not come from any forum. Present nothing as proven demand.",
+}
+_MOTIVO_DESCONOCIDA = {
+    "es": "No consta de dónde salen los datos del dossier. No los presentes "
+          "como demanda comprobada.",
+    "en": "The origin of the dossier data is not recorded. Do not present it "
+          "as proven demand.",
+}
+
+_NOMBRE_MOTOR = {
+    "es": {"heuristic": "heurístico", "transformers": "NLI con transformers"},
+    "en": {"heuristic": "heuristic", "transformers": "NLI with transformers"},
+}
 
 
 def _nivel_de_pago(factor: float, idioma: str) -> str:
@@ -165,7 +223,10 @@ def build_prompt(
     inventados, que es lo que un modelo rellenaría solo si se le deja.
     """
     idioma = "en" if language == "en" else "es"
-    sistema = SISTEMA_EN if idioma == "en" else SISTEMA_ES
+    fuente = _campo(cluster, "data_source")
+    sistema = (SISTEMA_EN if idioma == "en" else SISTEMA_ES) + _clausula_de_procedencia(
+        fuente, idioma
+    )
 
     etiqueta = str(_campo(cluster, "label", "")).strip()
     trabajo = str(_campo(cluster, "job_statement", "")).strip()
@@ -177,10 +238,12 @@ def build_prompt(
     urgencia = str(_campo(cluster, "urgency_tier", ""))
     pago = _nivel_de_pago(_numero(cluster, "paid_signal_factor"), idioma)
     citas = _citas(cluster)
+    procedencia = _cabecera_de_procedencia(fuente, menciones, _stats(cluster), idioma)
 
     if idioma == "es":
         sin_apanos = "ninguna citada por los usuarios"
         lineas = [
+            *procedencia,
             f"Problema: {etiqueta}",
             f"Palabras que lo identifican: {claves}",
             f"Volumen: {menciones} menciones en {comunidades}",
@@ -193,6 +256,7 @@ def build_prompt(
     else:
         sin_apanos = "none quoted by users"
         lineas = [
+            *procedencia,
             f"Problem: {etiqueta}",
             f"Identifying keywords: {claves}",
             f"Volume: {menciones} mentions across {comunidades}",
@@ -208,15 +272,80 @@ def build_prompt(
             "Trabajo por hacer, según el motor" if idioma == "es"
             else "Job to be done, per the engine"
         )
-        lineas.insert(2, f"{etiqueta_trabajo}: {trabajo}")
+        lineas.insert(len(procedencia) + 2, f"{etiqueta_trabajo}: {trabajo}")
 
-    for cita in citas:
-        lineas.append(f'- "{cita.quote}" — r/{cita.subreddit}')
+    # Numeradas para que el plan pueda citarlas: «[2]» (AUD-017).
+    for numero, cita in enumerate(citas, start=1):
+        lineas.append(f'[{numero}] "{cita.quote}" — r/{cita.subreddit}')
 
     if not citas:
         lineas.append("- " + ("(no hay citas guardadas)" if idioma == "es" else "(no quotes stored)"))
 
     return sistema, "\n".join(lineas)
+
+
+def _clausula_de_procedencia(fuente: Any, idioma: str) -> str:
+    """Qué se le dice al modelo sobre el origen de los datos.
+
+    Solo con datos de Reddit se afirma que la evidencia es real. Con demo, o
+    sin procedencia registrada, se declara y se exige un aviso literal al
+    principio del documento: un plan bien escrito sobre datos inventados es
+    justo lo que alguien confundiría con una oportunidad de verdad.
+    """
+    if fuente == "reddit":
+        return _PROCEDENCIA_REDDIT[idioma]
+    if fuente == "demo":
+        motivo, aviso = _MOTIVO_DEMO[idioma], AVISO_DEMO[idioma]
+    else:
+        motivo, aviso = _MOTIVO_DESCONOCIDA[idioma], AVISO_DESCONOCIDA[idioma]
+    return _EXIGE_AVISO[idioma].format(motivo=motivo, aviso=aviso)
+
+
+def _cabecera_de_procedencia(
+    fuente: Any, menciones: int, stats: Mapping[str, Any], idioma: str
+) -> list[str]:
+    """Primeras líneas del dossier: fuente, clasificador e indeterminadas."""
+    es = idioma == "es"
+    if fuente == "reddit":
+        origen = "Reddit (publicaciones públicas)" if es else "Reddit (public posts)"
+    elif fuente == "demo":
+        origen = (
+            "DEMOSTRACIÓN (generados por la aplicación, no proceden de ningún foro)"
+            if es else "DEMONSTRATION (generated by the app, not from any forum)"
+        )
+    else:
+        origen = "desconocida" if es else "unknown"
+
+    de, quejas = ("de", "quejas") if es else ("of", "complaints")
+    motores = stats.get("classifier_engines")
+    if isinstance(motores, Mapping) and motores:
+        nombres = _NOMBRE_MOTOR[idioma]
+        clasificador = ", ".join(
+            f"{nombres.get(str(motor), str(motor))} ({int(n)} {de} {menciones} {quejas})"
+            for motor, n in motores.items()
+        )
+    else:
+        clasificador = "no registrado" if es else "not recorded"
+
+    indeterminadas = stats.get("severity_undetermined")
+    if isinstance(indeterminadas, (int, float)):
+        gravedad = f"{int(indeterminadas)} {de} {menciones} {quejas}"
+    else:
+        gravedad = "no registrada" if es else "not recorded"
+
+    if es:
+        return [
+            f"Procedencia: {origen}",
+            f"Clasificador: {clasificador}",
+            f"Gravedad indeterminada: {gravedad}",
+            "",
+        ]
+    return [
+        f"Provenance: {origen}",
+        f"Classifier: {clasificador}",
+        f"Undetermined severity: {gravedad}",
+        "",
+    ]
 
 
 # --- Llamada al modelo -------------------------------------------------------

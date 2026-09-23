@@ -109,6 +109,81 @@ class TestPrompt(unittest.TestCase):
         self.assertNotEqual(alto, bajo)
 
 
+def con_fuente(fuente, **stats):
+    """El cluster de prueba con su procedencia y, si se dan, sus cifras."""
+    return dict(CLUSTER, dataSource=fuente, clusterStats=stats)
+
+
+#: Frases que afirman que los datos son reales. Solo pueden aparecer cuando
+#: la procedencia es Reddit (AUD-017).
+AFIRMA_REAL = ("evidencia real", "datos reales", "real evidence", "real data")
+
+
+class TestProcedencia(unittest.TestCase):
+    """El modelo sabe de dónde sale cada dato y cuánto fiarse (AUD-017)."""
+
+    def texto(self, cluster, idioma="es"):
+        sistema, peticion = build_prompt(cluster, language=idioma)
+        return (sistema + "\n" + peticion).lower()
+
+    def test_con_datos_de_demo_no_se_afirma_que_sean_reales(self):
+        for idioma in ("es", "en"):
+            texto = self.texto(con_fuente("demo"), idioma)
+            for frase in AFIRMA_REAL:
+                self.assertNotIn(frase, texto, idioma)
+
+    def test_con_datos_de_demo_se_declara_y_se_exige_advertirlo_al_inicio(self):
+        sistema, peticion = build_prompt(con_fuente("demo"))
+        self.assertIn("Procedencia: DEMOSTRACIÓN", peticion)
+        self.assertIn("al inicio del documento", sistema)
+        sistema, peticion = build_prompt(con_fuente("demo"), language="en")
+        self.assertIn("Provenance: DEMONSTRATION", peticion)
+        self.assertIn("at the very top of the document", sistema)
+
+    def test_sin_procedencia_tampoco_se_afirma_y_se_advierte(self):
+        for cluster in (con_fuente(None), CLUSTER):
+            sistema, peticion = build_prompt(cluster)
+            self.assertIn("Procedencia: desconocida", peticion)
+            self.assertIn("al inicio del documento", sistema)
+            for frase in AFIRMA_REAL:
+                self.assertNotIn(frase, (sistema + peticion).lower())
+
+    def test_con_datos_de_reddit_se_declaran_reales_sin_advertencia(self):
+        sistema, peticion = build_prompt(con_fuente("reddit"))
+        self.assertIn("Procedencia: Reddit", peticion)
+        self.assertIn("evidencia real", sistema.lower())
+        self.assertNotIn("al inicio del documento", sistema)
+
+    def test_el_dossier_lleva_el_motor_del_clasificador(self):
+        _, peticion = build_prompt(con_fuente("reddit", classifier_engines={"heuristic": 5}))
+        self.assertIn("Clasificador: heurístico (5 de 5 quejas)", peticion)
+        _, peticion = build_prompt(con_fuente(
+            "reddit", classifier_engines={"heuristic": 2, "transformers": 3}))
+        self.assertIn("heurístico (2 de 5 quejas)", peticion)
+        self.assertIn("NLI con transformers (3 de 5 quejas)", peticion)
+        _, peticion = build_prompt(con_fuente(
+            "reddit", classifier_engines={"heuristic": 5}), language="en")
+        self.assertIn("Classifier: heuristic (5 of 5 complaints)", peticion)
+
+    def test_sin_cifras_el_motor_y_las_indeterminadas_constan_como_no_registrados(self):
+        _, peticion = build_prompt(con_fuente("reddit"))
+        self.assertIn("Clasificador: no registrado", peticion)
+        self.assertIn("Gravedad indeterminada: no registrada", peticion)
+
+    def test_el_dossier_lleva_cuantas_etiquetas_son_indeterminadas(self):
+        _, peticion = build_prompt(con_fuente("reddit", severity_undetermined=2))
+        self.assertIn("Gravedad indeterminada: 2 de 5 quejas", peticion)
+        _, peticion = build_prompt(con_fuente("reddit", severity_undetermined=0), language="en")
+        self.assertIn("Undetermined severity: 0 of 5 complaints", peticion)
+
+    def test_las_citas_van_numeradas_y_se_exige_citarlas(self):
+        for idioma, regla in (("es", "número de cita"), ("en", "quote number")):
+            sistema, peticion = build_prompt(con_fuente("reddit"), language=idioma)
+            self.assertIn('[1] "I would pay for a tool that fixes this"', peticion)
+            self.assertIn('[2] "Reconciling by hand eats a whole day"', peticion)
+            self.assertIn(regla, sistema)
+
+
 class TestStreaming(unittest.TestCase):
     def test_sin_clave_avisa_en_lugar_de_llamar(self):
         with self.assertRaises(GeminiSinConfigurar):

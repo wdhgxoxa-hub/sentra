@@ -198,6 +198,8 @@ export interface ClusterStats {
   mentions?: number;
   distinct_texts?: number;
   severity_undetermined?: number;
+  /** Quejas clasificadas por cada motor: `heuristic` o `transformers`. */
+  classifier_engines?: Record<string, number>;
   keywords?: Array<{ keyword: string; count: number }>;
   pairs?: Array<{ a: string; b: string; count: number }>;
 }
