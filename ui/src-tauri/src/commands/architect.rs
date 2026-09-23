@@ -31,7 +31,10 @@ pub const ARCHITECT_EVENT_CHANNEL: &str = "sentra:architect";
 const GENERATE_TIMEOUT: Duration = Duration::from_secs(600);
 const SHORT_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// Llega anidado (`{ params: { apiKey, model } }`): Tauri solo traduce los
+/// nombres de primer nivel, asi que el camelCase de los campos lo pone serde.
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiKeyParams {
     pub api_key: String,
     pub model: String,

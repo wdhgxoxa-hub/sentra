@@ -18,3 +18,6 @@ pub mod health;
 pub mod mutations;
 pub mod radar;
 pub mod settings;
+
+#[cfg(test)]
+mod contract_tests;
