@@ -453,6 +453,7 @@ export interface TopOpportunities {
  */
 export type ScanErrorCode =
   | "reddit_credentials_missing"
+  | "reddit_user_agent_invalid"
   | "reddit_auth_failed"
   | "reddit_forbidden"
   | "reddit_not_found"

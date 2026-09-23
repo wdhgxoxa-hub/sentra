@@ -160,9 +160,11 @@ pub async fn save_reddit_credentials(
 
     if !response.status().is_success() {
         let detail = response.text().await.unwrap_or_default();
-        return Err(RadarError::Sidecar(format!(
-            "No se pudieron guardar las credenciales: {detail}"
-        )));
+        // Un rechazo con codigo (p. ej. reddit_user_agent_invalid) viaja
+        // tal cual para que la interfaz lo traduzca (AUD-014, D-A).
+        return Err(rechazo_con_codigo(&detail).unwrap_or_else(|| {
+            RadarError::Sidecar(format!("No se pudieron guardar las credenciales: {detail}"))
+        }));
     }
 
     #[derive(Deserialize)]
@@ -172,6 +174,16 @@ pub async fn save_reddit_credentials(
 
     let envelope: Envelope = response.json().await.map_err(transport_error)?;
     Ok(envelope.credentials)
+}
+
+/// `{"detail": {"code", "detail"}}` de FastAPI como error del motor.
+fn rechazo_con_codigo(cuerpo: &str) -> Option<RadarError> {
+    let valor: serde_json::Value = serde_json::from_str(cuerpo).ok()?;
+    let detalle = valor.get("detail")?;
+    Some(RadarError::Motor {
+        code: detalle.get("code")?.as_str()?.to_string(),
+        detail: detalle.get("detail")?.as_str()?.to_string(),
+    })
 }
 
 /// Pide un token real a Reddit con lo que hay guardado.
@@ -190,4 +202,23 @@ pub async fn test_reddit_connection(
     .map_err(transport_error)?;
 
     response.json().await.map_err(transport_error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn un_rechazo_con_codigo_llega_como_error_del_motor() {
+        let cuerpo = r#"{"detail": {"code": "reddit_user_agent_invalid", "detail": "formato"}}"#;
+        let error = rechazo_con_codigo(cuerpo).expect("deberia reconocer el codigo");
+        assert_eq!(error.code(), "reddit_user_agent_invalid");
+        assert_eq!(error.to_string(), "formato");
+    }
+
+    #[test]
+    fn un_rechazo_sin_codigo_no_se_inventa_uno() {
+        assert!(rechazo_con_codigo(r#"{"detail": "No puede estar vacio"}"#).is_none());
+        assert!(rechazo_con_codigo("Internal Server Error").is_none());
+    }
 }

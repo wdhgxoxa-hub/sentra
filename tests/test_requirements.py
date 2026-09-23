@@ -4,8 +4,8 @@ Dependencias declaradas (AUD-021)
 
 Todo lo que importa el código de producción (core/, scripts/) tiene que
 estar en requirements.txt con versión exacta, y lo que importan los tests,
-en requirements.txt o requirements-dev.txt. Antes faltaban curl_cffi,
-google-genai y toml: una instalación limpia arrancaba y fallaba al primer
+en requirements.txt o requirements-dev.txt. Antes faltaban google-genai y
+toml (y curl_cffi, que AUD-014 sustituyó por httpx): una instalación limpia arrancaba y fallaba al primer
 uso.
 
 Las importaciones se leen del código (AST), no de una lista a mano. Los
@@ -33,7 +33,6 @@ MODULO_A_DISTRIBUCION = {
     "google": "google-genai",
     "sklearn": "scikit-learn",
     "rank_bm25": "rank-bm25",
-    "curl_cffi": "curl_cffi",
 }
 
 LINEA = re.compile(r"^([A-Za-z0-9_.\-]+)(\[[^\]]+\])?==([^\s#]+)")

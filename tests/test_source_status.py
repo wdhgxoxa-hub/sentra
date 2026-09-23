@@ -75,7 +75,7 @@ class TestEstadoDeLaFuente(unittest.TestCase):
 
     def _guardar_credenciales(self, client_id="cid"):
         r = self.client.post("/api/credentials", json={
-            "clientId": client_id, "clientSecret": "csec", "userAgent": "python:t:v1"})
+            "clientId": client_id, "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)"})
         self.assertEqual(r.status_code, 200, r.text)
 
     def _escanear(self):

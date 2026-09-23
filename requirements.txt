@@ -7,10 +7,8 @@
 # Instalación: scripts/setup_env.ps1 (crea .venv e instala esto).
 
 # --- Fase 2: ingesta ---
+# Cliente HTTP de la API de Reddit (OAuth) y del SDK de Gemini.
 httpx==0.28.1
-# Cliente HTTP de la ingesta de Reddit y del flujo OAuth (AUD-014 revisa si
-# sigue haciendo falta).
-curl_cffi==0.16.3
 
 # --- Fase 3: inteligencia ---
 scikit-learn==1.9.1

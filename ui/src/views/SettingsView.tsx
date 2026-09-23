@@ -60,9 +60,9 @@ export function SettingsView() {
 
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
-  const [userAgent, setUserAgent] = useState(
-    "python:reddit-intelligence-radar:v0.5 (by /u/tu_usuario)",
-  );
+  // Sin valor por defecto: cualquiera sería de relleno, y el motor lo
+  // rechaza (AUD-014). El formato se enseña como marcador.
+  const [userAgent, setUserAgent] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
@@ -291,6 +291,7 @@ export function SettingsView() {
             <input
               value={userAgent}
               onChange={(event) => setUserAgent(event.target.value)}
+              placeholder={t.settings.userAgentPlaceholder}
               className={`${campo} font-mono text-xs`}
             />
           </label>
@@ -329,7 +330,7 @@ export function SettingsView() {
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button
               type="submit"
-              disabled={saveCredentials.isPending || !clientId || !clientSecret}
+              disabled={saveCredentials.isPending || !clientId || !clientSecret || !userAgent.trim()}
               className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {saveCredentials.isPending ? t.pipeline.saving : t.settings.save}

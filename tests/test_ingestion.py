@@ -2,20 +2,17 @@
 Suite de Pruebas Unitarias y de Integración para core/ingestion
 ==============================================================
 Verifica el 100% de los componentes de la Fase 2:
-- Bypass de cookies y headers (yt-dlp)
 - Filtro léxico y anti-spam (reddit-painpointer & pain-miner)
 - Paginación directa por cursor (Bellingcat RPST)
 - Normalización, deduplicación e interfoliado cronológico (reddit-find & snscrape)
-- Cliente asíncrono unificado (crawlee/curl_cffi)
+- Cliente asíncrono de la API OAuth (httpx)
 """
 
 import asyncio
-import json
 import unittest
 from datetime import datetime, timezone
 
 from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
-from core.ingestion.bypass import RedditBypass
 from core.ingestion.client import RedditIngestionClient
 from core.ingestion.errors import RedditCredentialsMissing
 from core.ingestion.filters import PAIN_POINT_KEYWORDS, PainPointFilter
@@ -26,32 +23,8 @@ from core.ingestion.normalizer import (
 )
 from core.ingestion.pagination import RedditPaginator
 
-
-class TestRedditBypass(unittest.TestCase):
-    def setUp(self):
-        self.bypass = RedditBypass()
-
-    def test_bypass_cookies_contain_required_flags(self):
-        cookies = self.bypass.get_bypass_cookies()
-        self.assertEqual(cookies.get("over18"), "1")
-        self.assertIn("_options", cookies)
-        # Decodificar y verificar pref_gated_sr_optin
-        import urllib.parse
-        decoded = json.loads(urllib.parse.unquote(cookies["_options"]))
-        self.assertTrue(decoded.get("pref_gated_sr_optin"))
-
-    def test_bypass_headers_format(self):
-        headers = self.bypass.get_bypass_headers(referer="https://reddit.com/r/SaaS")
-        self.assertIn("User-Agent", headers)
-        self.assertEqual(headers["Referer"], "https://reddit.com/r/SaaS")
-        self.assertIn("Sec-Ch-Ua", headers)
-
-    def test_url_builders(self):
-        sub_url = self.bypass.build_endpoint_url("r/microSaaS", "top")
-        self.assertEqual(sub_url, "https://www.reddit.com/r/microSaaS/top.json")
-
-        thread_url = self.bypass.build_thread_endpoint_url("technology", "t3_1abc23")
-        self.assertEqual(thread_url, "https://www.reddit.com/r/technology/comments/1abc23.json")
+#: User-Agent con el formato que exige Reddit (AUD-014).
+UA = "python:sentra-tests:1.0 (by /u/sentra_ci)"
 
 
 class TestPainPointFilter(unittest.TestCase):
@@ -238,15 +211,13 @@ class TestRedditPaginator(unittest.TestCase):
 class TestRedditIngestionClient(unittest.TestCase):
     def test_client_initialization(self):
         client = RedditIngestionClient(
-            impersonate_browser="chrome124",
             timeout_seconds=10.0,
             rate_limit_delay=0.5
         )
-        self.assertIsNotNone(client.bypass)
         self.assertIsNotNone(client.filter)
         self.assertIsNotNone(client.paginator)
         self.assertIsNotNone(client.normalizer)
-        self.assertEqual(client.impersonate_browser, "chrome124")
+        self.assertEqual(client.timeout_seconds, 10.0)
 
 
 def _reddit_listing(post_ids, after=None):
@@ -296,7 +267,8 @@ class TestSubredditPagination(unittest.TestCase):
             return {"access_token": "tok", "expires_in": 3600}
 
         self.client = RedditIngestionClient(
-            oauth=RedditOAuth(client_id="cid", client_secret="csec", token_fetcher=token)
+            oauth=RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
+                              token_fetcher=token)
         )
         self.requests = []
 
@@ -425,14 +397,14 @@ class TestRedditOAuth(unittest.TestCase):
         auth = RedditOAuth.from_env(env={
             "RIR_REDDIT_CLIENT_ID": "cid",
             "RIR_REDDIT_CLIENT_SECRET": "csec",
-            "RIR_REDDIT_USER_AGENT": "ua/1.0",
+            "RIR_REDDIT_USER_AGENT": UA,
         })
         self.assertIsNotNone(auth)
         self.assertEqual(auth.client_id, "cid")
-        self.assertEqual(auth.user_agent, "ua/1.0")
+        self.assertEqual(auth.user_agent, UA)
 
     def test_app_only_grant_when_there_is_no_user(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            token_fetcher=self._fetcher())
         asyncio.run(auth.get_token())
         self.assertEqual(
@@ -440,7 +412,7 @@ class TestRedditOAuth(unittest.TestCase):
         )
 
     def test_password_grant_when_a_user_is_supplied(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            username="u", password="p",
                            token_fetcher=self._fetcher())
         asyncio.run(auth.get_token())
@@ -449,20 +421,20 @@ class TestRedditOAuth(unittest.TestCase):
         self.assertEqual(payload["username"], "u")
 
     def test_request_carries_basic_auth_and_user_agent(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
-                           user_agent="radar/1.0", token_fetcher=self._fetcher())
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
+                           token_fetcher=self._fetcher())
         asyncio.run(auth.get_token())
         headers = self.token_requests[0]["headers"]
         self.assertTrue(headers["Authorization"].startswith("Basic "))
-        self.assertEqual(headers["User-Agent"], "radar/1.0")
+        self.assertEqual(headers["User-Agent"], UA)
 
     def test_token_is_returned(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            token_fetcher=self._fetcher(token="tok_xyz"))
         self.assertEqual(asyncio.run(auth.get_token()), "tok_xyz")
 
     def test_token_is_cached_between_calls(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            token_fetcher=self._fetcher())
 
         async def twice():
@@ -473,7 +445,7 @@ class TestRedditOAuth(unittest.TestCase):
         self.assertEqual(len(self.token_requests), 1, "no deberia repedir el token")
 
     def test_expired_token_is_renewed(self):
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            token_fetcher=self._fetcher(expires_in=0))
 
         async def twice():
@@ -491,7 +463,7 @@ class TestRedditOAuth(unittest.TestCase):
         async def broken(payload, headers):
             return {"error": "invalid_grant"}
 
-        auth = RedditOAuth(client_id="cid", client_secret="csec",
+        auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                            token_fetcher=broken)
         with self.assertRaises(RedditAuthError):
             asyncio.run(auth.get_token())
@@ -564,7 +536,7 @@ class TestAuthenticatedFetch(unittest.TestCase):
         if with_auth:
             async def fetch(payload, headers):
                 return {"access_token": "tok_abc", "expires_in": 3600}
-            auth = RedditOAuth(client_id="cid", client_secret="csec",
+            auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
                                token_fetcher=fetch)
 
         client = RedditIngestionClient(oauth=auth)

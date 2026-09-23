@@ -19,7 +19,7 @@ Configuración por entorno (ver `.env.example`):
     RIR_REDDIT_CLIENT_SECRET=...
     RIR_REDDIT_USERNAME=...        # opcional
     RIR_REDDIT_PASSWORD=...        # opcional
-    RIR_REDDIT_USER_AGENT=...      # recomendado por Reddit: que te identifique
+    RIR_REDDIT_USER_AGENT=...      # obligatorio: plataforma:app:versión (by /u/usuario)
 
 Las credenciales nunca se escriben en logs ni en la representación del objeto.
 """
@@ -32,6 +32,8 @@ import time
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping
 from typing import Any
 
+from httpx import AsyncClient, TransportError
+
 from .errors import (
     RedditAuthError,
     RedditAuthFailed,
@@ -39,6 +41,7 @@ from .errors import (
     RedditUnavailable,
     error_for_status,
 )
+from .user_agent import validar_user_agent
 
 __all__ = [
     "RedditAuthError",
@@ -52,7 +55,8 @@ logger = logging.getLogger(__name__)
 TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 OAUTH_DOMAIN = "https://oauth.reddit.com"
 
-DEFAULT_USER_AGENT = "python:reddit-intelligence-radar:v0.5 (by /u/unknown)"
+#: Timeout de la petición de token (s).
+TOKEN_TIMEOUT_SECONDS = 20.0
 
 # Margen de seguridad para renovar antes de que el token expire de verdad.
 EXPIRY_MARGIN_SECONDS = 60.0
@@ -135,14 +139,16 @@ class RedditOAuth:
         client_secret: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        user_agent: str = DEFAULT_USER_AGENT,
+        user_agent: str = "",
         token_fetcher: TokenFetcher | None = None,
     ) -> None:
         self.client_id = client_id
         self._client_secret = client_secret
         self.username = username
         self._password = password
-        self.user_agent = user_agent or DEFAULT_USER_AGENT
+        # Obligatorio y sin valor por defecto (AUD-014): se valida al pedir
+        # el token, antes de salir a la red.
+        self.user_agent = user_agent
         self._token_fetcher = token_fetcher
 
         self._access_token: str | None = None
@@ -177,7 +183,7 @@ class RedditOAuth:
             client_secret=client_secret,
             username=env.get("RIR_REDDIT_USERNAME"),
             password=env.get("RIR_REDDIT_PASSWORD"),
-            user_agent=env.get("RIR_REDDIT_USER_AGENT") or DEFAULT_USER_AGENT,
+            user_agent=env.get("RIR_REDDIT_USER_AGENT") or "",
             token_fetcher=token_fetcher,
         )
 
@@ -217,6 +223,8 @@ class RedditOAuth:
 
         Raises:
             RedditCredentialsMissing: si no hay client_id / client_secret.
+            RedditUserAgentInvalid: si el User-Agent no identifica a la app
+                y a su autor.
             RedditAuthFailed: si Reddit rechaza las credenciales o no da token.
             RedditRateLimited, RedditUnavailable: si el endpoint de token no
                 atiende (429, 5xx o red caída).
@@ -226,6 +234,7 @@ class RedditOAuth:
                 "Faltan credenciales de Reddit: guarda el Client ID y el Client "
                 "Secret en Configuración."
             )
+        validar_user_agent(self.user_agent)
 
         if self._access_token and time.monotonic() < self._expires_at:
             return self._access_token
@@ -259,15 +268,15 @@ async def _fetch_token_over_https(
     payload: dict[str, str],
     headers: dict[str, str],
 ) -> dict[str, Any]:
-    """Obtentor real de token. Se aísla aquí para poder inyectarlo en pruebas."""
-    from curl_cffi.requests import AsyncSession
+    """Obtentor real de token. Se aísla aquí para poder inyectarlo en pruebas.
 
+    Solo lleva Basic auth y el User-Agent: nada de cabeceras ni cookies de
+    navegador (AUD-014).
+    """
     try:
-        async with AsyncSession() as session:
-            response = await session.post(
-                TOKEN_URL, data=payload, headers=headers, timeout=20
-            )
-    except OSError as exc:  # curl_cffi.RequestException hereda de OSError
+        async with AsyncClient(timeout=TOKEN_TIMEOUT_SECONDS) as http:
+            response = await http.post(TOKEN_URL, data=payload, headers=headers)
+    except TransportError as exc:
         raise RedditUnavailable(f"Sin respuesta del endpoint de token: {exc}") from exc
 
     if response.status_code != 200:

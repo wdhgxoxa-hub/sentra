@@ -80,7 +80,7 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
         respuesta = self.client.post(
             "/api/credentials",
             json={"clientId": client_id, "clientSecret": f"secreto-{client_id}",
-                  "userAgent": "python:sentra-test:v1"},
+                  "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)"},
         )
         self.assertEqual(respuesta.status_code, 200, respuesta.text)
 

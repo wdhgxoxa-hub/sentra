@@ -17,10 +17,12 @@ import os
 import shutil
 import tempfile
 import unittest
+from functools import partial
 from pathlib import Path
 from typing import ClassVar
 from unittest import mock
 
+import httpx
 from fastapi.testclient import TestClient
 
 from core.ingestion import RedditIngestionClient
@@ -62,41 +64,48 @@ POSTGRES_AVAILABLE = _postgres_available()
 # Red doble
 # ---------------------------------------------------------------------
 
+#: User-Agent con el formato que exige Reddit (AUD-014).
+UA = "python:sentra-tests:1.0 (by /u/sentra_ci)"
+
+
 class RespuestaDoble:
+    """Lo que Reddit contestaría: se convierte en una respuesta real de httpx."""
+
     def __init__(self, status_code, cuerpo=None, headers=None, texto=None):
         self.status_code = status_code
         self._cuerpo = cuerpo
         self.headers = headers or {}
         self._texto = texto
 
-    def json(self):
+    def a_httpx(self) -> httpx.Response:
         if self._texto is not None:
             # Reddit sirve HTML (redireccion a login) con 200 en el acceso anonimo.
-            raise ValueError("Expecting value: line 1 column 1 (char 0)")
-        return self._cuerpo
+            return httpx.Response(self.status_code, text=self._texto, headers=self.headers)
+        return httpx.Response(self.status_code, json=self._cuerpo, headers=self.headers)
 
 
 class SesionDoble:
-    """Sustituye a `curl_cffi.requests.AsyncSession`. Anota cada URL pedida."""
+    """Red falsa bajo httpx (`MockTransport`): anota cada URL y responde lo fijado.
+
+    El cliente usa su AsyncClient real; solo el transporte es de mentira.
+    """
 
     peticiones: ClassVar[list[str]] = []
     respuesta: ClassVar[RespuestaDoble | None] = None
     error: ClassVar[BaseException | None] = None
 
-    def __init__(self, *args, **kwargs):
-        pass
+    @classmethod
+    def manejar(cls, peticion: httpx.Request) -> httpx.Response:
+        cls.peticiones.append(f"{peticion.url.scheme}://{peticion.url.host}{peticion.url.path}")
+        if cls.error is not None:
+            raise cls.error
+        assert cls.respuesta is not None, "el test no fijó respuesta"
+        return cls.respuesta.a_httpx()
 
-    async def __aenter__(self):
-        return self
 
-    async def __aexit__(self, *exc):
-        return False
-
-    async def get(self, url, **kwargs):
-        SesionDoble.peticiones.append(url)
-        if SesionDoble.error is not None:
-            raise SesionDoble.error
-        return SesionDoble.respuesta
+def cliente_http_falso(manejador):
+    """AsyncClient de httpx con el transporte sustituido."""
+    return partial(httpx.AsyncClient, transport=httpx.MockTransport(manejador))
 
 
 def _listado(ids, after=None):
@@ -112,7 +121,8 @@ def _oauth():
     async def token(payload, headers):
         return {"access_token": "tok", "expires_in": 3600}
 
-    return RedditOAuth(client_id="cid", client_secret="csec", token_fetcher=token)
+    return RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
+                       token_fetcher=token)
 
 
 class ConRedDoble(unittest.TestCase):
@@ -122,7 +132,8 @@ class ConRedDoble(unittest.TestCase):
         SesionDoble.peticiones = []
         SesionDoble.respuesta = None
         SesionDoble.error = None
-        parche = mock.patch("core.ingestion.client.AsyncSession", SesionDoble)
+        parche = mock.patch("core.ingestion.client.AsyncClient",
+                            cliente_http_falso(SesionDoble.manejar))
         parche.start()
         self.addCleanup(parche.stop)
         dormir = mock.patch("core.ingestion.client.asyncio.sleep", mock.AsyncMock())
@@ -180,7 +191,7 @@ class TestClienteDeIngesta(ConRedDoble):
         self._falla_con(503, RedditUnavailable, "reddit_unavailable")
 
     def test_red_caida_es_servicio_no_disponible(self):
-        SesionDoble.error = ConnectionResetError("conexion cortada")
+        SesionDoble.error = httpx.ConnectError("conexion cortada")
         with self.assertRaises(RedditUnavailable):
             self._pagina(_oauth())
         self.assertNuncaTocaElEndpointPublico()
@@ -219,13 +230,12 @@ class TestFetcherSinCredenciales(ConRedDoble):
 class TestTokenOAuth(unittest.TestCase):
 
     def test_un_401_del_endpoint_de_token_es_fallo_de_autenticacion(self):
-        class SesionToken(SesionDoble):
-            async def post(self, url, **kwargs):
-                return RespuestaDoble(401, {"message": "Unauthorized"})
+        def token(_peticion):
+            return RespuestaDoble(401, {"message": "Unauthorized"}).a_httpx()
 
-        auth = RedditOAuth(client_id="cid", client_secret="mal")
+        auth = RedditOAuth(client_id="cid", client_secret="mal", user_agent=UA)
         with (
-            mock.patch("curl_cffi.requests.AsyncSession", SesionToken),
+            mock.patch("core.ingestion.auth.AsyncClient", cliente_http_falso(token)),
             self.assertRaises(RedditAuthFailed),
         ):
             asyncio.run(auth.get_token())

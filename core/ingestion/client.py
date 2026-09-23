@@ -1,13 +1,13 @@
 """
 Cliente Central de Ingesta Asíncrona (Reddit Ingestion Client)
 =============================================================
-Construido sobre:
-1. Arquitectura base de crawlee-python (SessionPool y CurlImpersonateHttpClient).
-2. Bypass de cookies y headers de yt-dlp (bypass.py).
-3. Paginación directa cursor-based de Bellingcat (pagination.py).
-4. Middleware de filtrado léxico rápido de reddit-painpointer (filters.py).
-5. Normalización, saneamiento y Markdown estructurado de reddit-find (normalizer.py).
-6. Interfoliado cronológico inverso unificado de snscrape (normalizer.py).
+Habla solo con la API OAuth de Reddit (oauth.reddit.com) y se identifica
+con el User-Agent de la aplicación: nada de suplantar un navegador, ni
+cookies, ni cabeceras propias de un navegador (AUD-014). Encima de esa única vía:
+
+1. Paginación directa por cursor (pagination.py).
+2. Filtrado léxico rápido de señales de dolor (filters.py).
+3. Normalización y saneamiento del texto (normalizer.py).
 """
 
 from __future__ import annotations
@@ -15,15 +15,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from curl_cffi.requests import AsyncSession
-
-if TYPE_CHECKING:
-    from curl_cffi.requests.session import ProxySpec
+from httpx import AsyncClient, TransportError
 
 from .auth import OAUTH_DOMAIN, RedditOAuth
-from .bypass import RedditBypass, RedditBypassConfig
 from .errors import RedditCredentialsMissing, RedditUnavailable, error_for_status
 from .filters import FilterResult, PainPointFilter
 from .normalizer import CleanComment, CleanPost, RedditNormalizer, UnifiedTimelineItem
@@ -34,22 +30,21 @@ logger = logging.getLogger(__name__)
 
 class RedditIngestionClient:
     """
-    Cliente industrial unificado para la extracción masiva, normalización y filtrado
-    de señales de Reddit sin requerir credenciales de API de pago.
+    Cliente de la API OAuth de Reddit: extrae, normaliza y filtra señales.
+
+    Necesita credenciales de aplicación (gratuitas) y un User-Agent que
+    identifique a la app y a su autor.
     """
 
     def __init__(
         self,
-        impersonate_browser: str = "chrome124",
         proxy: str | None = None,
         timeout_seconds: float = 15.0,
         rate_limit_delay: float = 1.0,
-        bypass_config: RedditBypassConfig | None = None,
         pain_filter: PainPointFilter | None = None,
         paginator: RedditPaginator | None = None,
         oauth: RedditOAuth | None = None,
     ) -> None:
-        self.impersonate_browser = impersonate_browser
         self.proxy = proxy
         self.timeout_seconds = timeout_seconds
         self.rate_limit_delay = rate_limit_delay
@@ -59,7 +54,6 @@ class RedditIngestionClient:
         self.oauth = oauth
 
         # Componentes modulares
-        self.bypass = RedditBypass(bypass_config)
         self.filter = pain_filter or PainPointFilter()
         self.paginator = paginator or RedditPaginator()
         self.normalizer = RedditNormalizer()
@@ -79,6 +73,24 @@ class RedditIngestionClient:
         """True si hay credenciales OAuth utilizables."""
         return bool(self.oauth and self.oauth.is_configured)
 
+    async def _oauth_headers(self) -> dict[str, str]:
+        """Cabeceras de la API OAuth, o error tipado si faltan credenciales."""
+        if self.oauth is None or not self.oauth.is_configured:
+            raise RedditCredentialsMissing(
+                "Faltan credenciales de Reddit: guarda el Client ID y el Client "
+                "Secret en Configuración."
+            )
+        return await self.oauth.auth_headers()
+
+    async def _thread_endpoint_and_headers(
+        self, clean_sub: str, clean_id: str
+    ) -> tuple[str, dict[str, str]]:
+        """Hilo (post + comentarios) por la API OAuth, nunca por la web pública."""
+        return (
+            f"{OAUTH_DOMAIN}/r/{clean_sub}/comments/{clean_id}",
+            await self._oauth_headers(),
+        )
+
     async def _endpoint_and_headers(
         self,
         clean_sub: str,
@@ -93,13 +105,8 @@ class RedditIngestionClient:
         cabeceras de navegador: Reddit lo tiene cerrado, y fingir un
         navegador convertía esa negativa en un «0 resultados» silencioso.
         """
-        if self.oauth is None or not self.oauth.is_configured:
-            raise RedditCredentialsMissing(
-                "Faltan credenciales de Reddit: guarda el Client ID y el Client "
-                "Secret en Configuración."
-            )
         url = f"{OAUTH_DOMAIN}/r/{clean_sub}/{listing.strip().lower()}"
-        return url, await self.oauth.auth_headers()
+        return url, await self._oauth_headers()
 
     async def _execute_request(
         self,
@@ -117,27 +124,19 @@ class RedditIngestionClient:
         segundos de espera, 5xx). Un 200 que no es JSON tampoco es una página
         vacía: es Reddit sirviendo otra cosa, y se informa como no disponible.
 
-        `headers` son las de la petición (el token OAuth). No se añaden
-        cabeceras ni cookies de navegador.
+        `headers` son las de la petición (el token OAuth y el User-Agent de
+        la app). No se añaden cabeceras ni cookies de navegador (AUD-014).
         """
-        proxies: ProxySpec | None = (
-            {"http": self.proxy, "https": self.proxy} if self.proxy else None
-        )
-
         for attempt in range(1, retry_count + 1):
             await self._throttle()
             try:
-                async with AsyncSession(
-                    impersonate=self.impersonate_browser,
-                    proxies=proxies
-                ) as session:
-                    response = await session.get(
-                        url,
-                        params=params,
-                        headers=dict(headers or {}),
-                        timeout=self.timeout_seconds
+                async with AsyncClient(
+                    timeout=self.timeout_seconds, proxy=self.proxy
+                ) as http:
+                    response = await http.get(
+                        url, params=params, headers=dict(headers or {})
                     )
-            except OSError as exc:  # curl_cffi.RequestException hereda de OSError
+            except TransportError as exc:
                 logger.warning("Sin respuesta de %s (intento %d): %s", url, attempt, exc)
                 if attempt < retry_count:
                     await asyncio.sleep(1.5 * attempt)
@@ -312,10 +311,10 @@ class RedditIngestionClient:
         """
         clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
         clean_id = self.normalizer.normalize_id(post_id)
-        url = self.bypass.build_thread_endpoint_url(clean_sub, clean_id)
+        url, headers = await self._thread_endpoint_and_headers(clean_sub, clean_id)
         params = {"limit": limit, "sort": "top"}
 
-        data = await self._execute_request(url, params=params)
+        data = await self._execute_request(url, params=params, headers=headers)
         if not data or not isinstance(data, list) or len(data) < 2:
             return []
 
@@ -368,10 +367,10 @@ class RedditIngestionClient:
         """
         clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
         clean_id = self.normalizer.normalize_id(post_id)
-        url = self.bypass.build_thread_endpoint_url(clean_sub, clean_id)
+        url, headers = await self._thread_endpoint_and_headers(clean_sub, clean_id)
         params = {"limit": comment_limit, "sort": "top"}
 
-        data = await self._execute_request(url, params=params)
+        data = await self._execute_request(url, params=params, headers=headers)
         if not data or not isinstance(data, list) or len(data) < 1:
             return None
 

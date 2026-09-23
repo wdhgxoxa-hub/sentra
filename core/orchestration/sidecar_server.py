@@ -115,7 +115,8 @@ class ModeRequest(BaseModel):
 class CredentialsRequest(BaseModel):
     clientId: str
     clientSecret: str
-    userAgent: str = "python:reddit-intelligence-radar:v0.5"
+    # Obligatorio y sin valor por defecto: se valida al guardar (AUD-014).
+    userAgent: str = ""
     username: str | None = None
     password: str | None = None
 
@@ -522,11 +523,24 @@ def create_app(
         Se actualizan solo las claves de Reddit: el archivo suele tener mas
         cosas (la conexion a PostgreSQL, rutas) y perderlas seria peor que
         no poder guardar.
+
+        Un User-Agent que no identifica a la app y a su autor se rechaza con
+        400 y código traducible, sin tocar el archivo (AUD-014).
         """
+        from core.ingestion.errors import RedditUserAgentInvalid
+        from core.ingestion.user_agent import validar_user_agent
+
+        try:
+            user_agent = validar_user_agent(request.userAgent)
+        except RedditUserAgentInvalid as exc:
+            raise HTTPException(
+                status_code=400, detail={"code": exc.code, "detail": str(exc)}
+            ) from None
+
         values = {
             "RIR_REDDIT_CLIENT_ID": request.clientId,
             "RIR_REDDIT_CLIENT_SECRET": request.clientSecret,
-            "RIR_REDDIT_USER_AGENT": request.userAgent,
+            "RIR_REDDIT_USER_AGENT": user_agent,
         }
         if request.username:
             values["RIR_REDDIT_USERNAME"] = request.username

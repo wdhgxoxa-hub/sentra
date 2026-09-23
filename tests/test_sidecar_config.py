@@ -109,14 +109,14 @@ class TestConfigEndpoint(ConfigTestCase):
         """Un secreto que viaja al frontend acaba en el log de alguien."""
         self.client.post("/api/credentials", json={
             "clientId": "mi-id", "clientSecret": "mi-secreto-largo",
-            "userAgent": "radar/1.0",
+            "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         raw = self.client.get("/api/config").text
         self.assertNotIn("mi-secreto-largo", raw)
 
     def test_config_shows_a_masked_client_id(self):
         self.client.post("/api/credentials", json={
-            "clientId": "abcdef123456", "clientSecret": "s", "userAgent": "ua",
+            "clientId": "abcdef123456", "clientSecret": "s", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         body = self.client.get("/api/config").json()
         self.assertTrue(body["credentials"]["configured"])
@@ -148,14 +148,14 @@ class TestCredentials(ConfigTestCase):
 
     def test_saving_creates_the_env_file(self):
         response = self.client.post("/api/credentials", json={
-            "clientId": "cid", "clientSecret": "csec", "userAgent": "radar/1.0",
+            "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         self.assertEqual(response.status_code, 200)
         self.assertTrue(self.env_path.exists())
 
     def test_the_env_file_contains_the_keys(self):
         self.client.post("/api/credentials", json={
-            "clientId": "cid", "clientSecret": "csec", "userAgent": "radar/1.0",
+            "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         content = self.env_path.read_text(encoding="utf-8")
         self.assertIn("RIR_REDDIT_CLIENT_ID=cid", content)
@@ -164,7 +164,7 @@ class TestCredentials(ConfigTestCase):
     def test_saving_twice_updates_instead_of_duplicating(self):
         for secret in ("primero", "segundo"):
             self.client.post("/api/credentials", json={
-                "clientId": "cid", "clientSecret": secret, "userAgent": "ua",
+                "clientId": "cid", "clientSecret": secret, "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
             })
         content = self.env_path.read_text(encoding="utf-8")
         self.assertEqual(content.count("RIR_REDDIT_CLIENT_SECRET="), 1)
@@ -176,7 +176,7 @@ class TestCredentials(ConfigTestCase):
             "# comentario\nRIR_PG_DSN=host=localhost\nOTRA=cosa\n", encoding="utf-8"
         )
         self.client.post("/api/credentials", json={
-            "clientId": "cid", "clientSecret": "csec", "userAgent": "ua",
+            "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         content = self.env_path.read_text(encoding="utf-8")
         self.assertIn("RIR_PG_DSN=host=localhost", content)
@@ -185,13 +185,13 @@ class TestCredentials(ConfigTestCase):
 
     def test_an_empty_client_id_is_rejected(self):
         response = self.client.post("/api/credentials", json={
-            "clientId": "   ", "clientSecret": "csec", "userAgent": "ua",
+            "clientId": "   ", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
         })
         self.assertEqual(response.status_code, 422)
 
     def test_optional_user_credentials_are_stored_when_given(self):
         self.client.post("/api/credentials", json={
-            "clientId": "cid", "clientSecret": "csec", "userAgent": "ua",
+            "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
             "username": "usuario", "password": "clave",
         })
         content = self.env_path.read_text(encoding="utf-8")
@@ -216,7 +216,7 @@ class TestCredentialsProbe(ConfigTestCase):
         sidecar._probe_reddit = fake_probe
         try:
             self.client.post("/api/credentials", json={
-                "clientId": "cid", "clientSecret": "csec", "userAgent": "ua",
+                "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
             })
             body = self.client.post("/api/credentials/test").json()
         finally:
@@ -235,7 +235,7 @@ class TestCredentialsProbe(ConfigTestCase):
         sidecar._probe_reddit = fake_probe
         try:
             self.client.post("/api/credentials", json={
-                "clientId": "cid", "clientSecret": "csec", "userAgent": "ua",
+                "clientId": "cid", "clientSecret": "csec", "userAgent": "python:sentra-tests:1.0 (by /u/sentra_ci)",
             })
             body = self.client.post("/api/credentials/test").json()
         finally:

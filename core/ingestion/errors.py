@@ -13,6 +13,7 @@ resultados» solo es verdad cuando Reddit respondió 200 con una lista vacía.
     RedditAccessError
     ├── RedditAuthError            credenciales o token
     │   ├── RedditCredentialsMissing   no hay client_id / client_secret
+    │   │   └── RedditUserAgentInvalid User-Agent ausente, mal formado o de relleno
     │   └── RedditAuthFailed           401: Reddit rechaza las credenciales
     ├── RedditForbidden            403
     ├── RedditNotFound             404: subreddit inexistente o privado
@@ -43,6 +44,12 @@ class RedditCredentialsMissing(RedditAuthError):
 
 class RedditAuthFailed(RedditAuthError):
     code = "reddit_auth_failed"
+
+
+class RedditUserAgentInvalid(RedditCredentialsMissing):
+    """El User-Agent no identifica a la app y a su autor (AUD-014)."""
+
+    code = "reddit_user_agent_invalid"
 
 
 class RedditForbidden(RedditAccessError):
