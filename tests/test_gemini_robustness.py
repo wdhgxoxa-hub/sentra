@@ -204,7 +204,8 @@ class TestRespuestasInservibles(ConEsperaFalsa):
     def test_la_traduccion_tambien_detecta_el_bloqueo(self):
         guion = Guion(trozo(bloqueo="PROHIBITED_CONTENT"))
         with self.assertRaises(gemini_client.GeminiBlocked):
-            gemini_client.generate_text(CLAVE, model="m", contents="x", client_factory=guion)
+            gemini_client.GeminiProvider(CLAVE, client_factory=guion).generate_text(
+                "x", model="m", max_output_tokens=64, timeout_ms=1)
 
 
 class TestEstructura(ConEsperaFalsa):
@@ -358,19 +359,19 @@ class TestCicloDeVidaDelCliente(ConEsperaFalsa):
         return ClienteComoElSdk(trozo("hola", "STOP"))
 
     def test_stream_text_llega_a_enviar(self):
-        textos = list(gemini_client.stream_text(
-            "clave", model="m", contents="x", config=None, client_factory=self.fabrica,
+        textos = list(gemini_client.GeminiProvider("clave", client_factory=self.fabrica).stream_text(
+            "x", model="m", max_output_tokens=64, timeout_ms=1,
         ))
         self.assertEqual(textos, ["hola"])
 
     def test_generate_text_llega_a_enviar(self):
-        texto = gemini_client.generate_text(
-            "clave", model="m", contents="x", client_factory=self.fabrica,
+        texto = gemini_client.GeminiProvider("clave", client_factory=self.fabrica).generate_text(
+            "x", model="m", max_output_tokens=64, timeout_ms=1,
         )
         self.assertEqual(texto, "hola")
 
     def test_ping_llega_a_enviar(self):
-        gemini_client.ping("clave", model="m", config=None, client_factory=self.fabrica)
+        gemini_client.GeminiProvider("clave", client_factory=self.fabrica).ping(model="m")
 
 
 if __name__ == "__main__":

@@ -37,7 +37,8 @@ from typing import Any, Literal
 
 import httpx
 
-from .base import LLMError, LLMModelUnavailable, ModelInfo
+from .base import LLMError, LLMModelUnavailable, ModelInfo, UsageRecord
+from .budget import LLMBudget
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
 KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{35}")
@@ -152,7 +153,7 @@ def _cliente_real(api_key: str) -> Any:
     return genai.Client(api_key=api_key)
 
 
-def build_config(
+def _build_config(
     *,
     timeout_ms: int,
     max_output_tokens: int,
@@ -219,102 +220,6 @@ def _reintentar(intento: int, exc: GeminiError, max_retries: int) -> None:
     if not exc.transient or intento >= max_retries:
         raise exc
     _esperar(BACKOFF_BASE_S * 2 ** intento)
-
-
-def stream_text(
-    api_key: str,
-    *,
-    model: str,
-    contents: str,
-    config: Any,
-    client_factory: ClientFactory | None = None,
-    max_retries: int = MAX_RETRIES,
-) -> Iterator[str]:
-    """Texto de `generate_content_stream`, trozo a trozo.
-
-    Termina con error tipado si el modelo bloquea, corta o no dice nada.
-    """
-    fabrica = client_factory or _cliente_real
-    for intento in range(max_retries + 1):
-        entregado = False
-        try:
-            with frontera(api_key):
-                # El cliente se guarda en una variable a propósito: al destruirse
-                # cierra su transporte HTTP, y como temporal CPython lo destruía
-                # antes de enviar nada. Tiene que vivir hasta agotar el stream.
-                cliente = fabrica(api_key)
-                respuesta = cliente.models.generate_content_stream(
-                    model=model, contents=contents, config=config
-                )
-                for trozo in respuesta:
-                    texto = _texto(trozo)
-                    if texto:
-                        entregado = True
-                        yield texto
-                    _revisar(trozo)
-        except GeminiError as exc:
-            if entregado:
-                raise
-            _reintentar(intento, exc, max_retries)
-            continue
-        if not entregado:
-            raise GeminiEmpty("El modelo terminó sin devolver texto.")
-        return
-
-
-def generate_text(
-    api_key: str,
-    *,
-    model: str,
-    contents: str,
-    config: Any = None,
-    client_factory: ClientFactory | None = None,
-    max_retries: int = MAX_RETRIES,
-) -> str:
-    """Texto completo de `generate_content`, con las mismas garantías."""
-    fabrica = client_factory or _cliente_real
-    for intento in range(max_retries + 1):
-        try:
-            with frontera(api_key):
-                cliente = fabrica(api_key)  # vivo durante la petición (ver stream_text)
-                respuesta = cliente.models.generate_content(
-                    model=model, contents=contents, config=config
-                )
-                _revisar(respuesta)
-                texto = _texto(respuesta)
-        except GeminiError as exc:
-            _reintentar(intento, exc, max_retries)
-            continue
-        if not texto:
-            raise GeminiEmpty("El modelo terminó sin devolver texto.")
-        return texto
-    raise AssertionError("inalcanzable: el último intento devuelve o relanza")
-
-
-def ping(
-    api_key: str,
-    *,
-    model: str,
-    config: Any,
-    client_factory: ClientFactory | None = None,
-) -> None:
-    """Comprueba que clave y modelo responden: basta con el primer trozo.
-
-    Sin reintentos ni exigencia de texto: un modelo de razonamiento puede
-    gastar el primer trozo pensando, y eso ya demuestra que la clave sirve.
-    """
-    fabrica = client_factory or _cliente_real
-    with frontera(api_key):
-        cliente = fabrica(api_key)  # vivo durante la petición (ver stream_text)
-        respuesta = cliente.models.generate_content_stream(
-            model=model, contents="ping", config=config
-        )
-        for trozo in respuesta:
-            try:
-                _revisar(trozo)
-            except GeminiTruncated:
-                pass  # agotar el límite de la prueba no dice nada de la clave
-            break
 
 
 # --- Modelos en vivo (F1.2, F1.3) ---------------------------------------------
@@ -389,12 +294,50 @@ def elegir_modelo(
     return max(puntuados, key=lambda par: par[0])[1]
 
 
-class GeminiProvider:
-    """Implementación de `LLMProvider` sobre el SDK de Gemini."""
+def _uso(respuesta: Any) -> tuple[int | None, int | None, int | None]:
+    """Tokens de entrada, salida y razonamiento que informa una respuesta."""
+    meta = getattr(respuesta, "usage_metadata", None)
+    if meta is None:
+        return None, None, None
+    return (
+        getattr(meta, "prompt_token_count", None),
+        getattr(meta, "candidates_token_count", None),
+        getattr(meta, "thoughts_token_count", None),
+    )
 
-    def __init__(self, api_key: str, client_factory: ClientFactory | None = None) -> None:
+
+class GeminiProvider:
+    """Implementación de `LLMProvider` sobre el SDK de Gemini.
+
+    Conserva las garantías de AUD-020 (timeout y límite explícitos,
+    reintentos solo transitorios y nunca tras entregar texto, bloqueo,
+    vacío y corte como errores tipados) y de AUD-031 (errores saneados; el
+    cliente vive mientras dura la petición).
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        client_factory: ClientFactory | None = None,
+        budget: LLMBudget | None = None,
+        max_retries: int = MAX_RETRIES,
+    ) -> None:
         self._api_key = api_key
         self._fabrica = client_factory or _cliente_real
+        self._budget = budget
+        self._max_retries = max_retries
+        self.usage: list[UsageRecord] = []
+
+    def _registrar(self, model: str, inicio: float, respuesta: Any) -> None:
+        entrada, salida, razonamiento = _uso(respuesta)
+        registro = UsageRecord(model, entrada, salida, razonamiento, time.monotonic() - inicio)
+        self.usage.append(registro)
+        if self._budget is not None:
+            self._budget.charge(registro)
+
+    def _antes_de_llamar(self) -> None:
+        if self._budget is not None:
+            self._budget.check()
 
     def list_models(self) -> list[ModelInfo]:
         """Modelos que la clave puede usar para generar texto (`models.list`)."""
@@ -411,3 +354,114 @@ class GeminiProvider:
                 if "generateContent" in (getattr(m, "supported_actions", None) or [])
             ]
         return modelos
+
+    def stream_text(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        max_output_tokens: int,
+        timeout_ms: int,
+        system: str | None = None,
+    ) -> Iterator[str]:
+        """Texto de `generate_content_stream`, trozo a trozo.
+
+        Termina con error tipado si el modelo bloquea, corta o no dice nada.
+        """
+        config = _build_config(
+            timeout_ms=timeout_ms, max_output_tokens=max_output_tokens, system_instruction=system
+        )
+        for intento in range(self._max_retries + 1):
+            self._antes_de_llamar()
+            entregado = False
+            inicio = time.monotonic()
+            ultimo: Any = None
+            try:
+                with frontera(self._api_key):
+                    # El cliente se guarda en una variable a propósito: al destruirse
+                    # cierra su transporte HTTP, y como temporal CPython lo destruía
+                    # antes de enviar nada. Tiene que vivir hasta agotar el stream.
+                    cliente = self._fabrica(self._api_key)
+                    respuesta = cliente.models.generate_content_stream(
+                        model=model, contents=prompt, config=config
+                    )
+                    for trozo in respuesta:
+                        if getattr(trozo, "usage_metadata", None) is not None:
+                            ultimo = trozo
+                        texto = _texto(trozo)
+                        if texto:
+                            entregado = True
+                            yield texto
+                        _revisar(trozo)
+            except GeminiError as exc:
+                if ultimo is not None:
+                    self._registrar(model, inicio, ultimo)
+                if entregado:
+                    raise
+                _reintentar(intento, exc, self._max_retries)
+                continue
+            self._registrar(model, inicio, ultimo)
+            if not entregado:
+                raise GeminiEmpty("El modelo terminó sin devolver texto.")
+            return
+
+    def generate_text(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        max_output_tokens: int,
+        timeout_ms: int,
+        system: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Texto completo de `generate_content`, con las mismas garantías."""
+        config = _build_config(
+            timeout_ms=timeout_ms,
+            max_output_tokens=max_output_tokens,
+            system_instruction=system,
+            temperature=temperature,
+        )
+        for intento in range(self._max_retries + 1):
+            self._antes_de_llamar()
+            inicio = time.monotonic()
+            try:
+                with frontera(self._api_key):
+                    cliente = self._fabrica(self._api_key)  # vivo durante la petición
+                    respuesta = cliente.models.generate_content(
+                        model=model, contents=prompt, config=config
+                    )
+                    self._registrar(model, inicio, respuesta)
+                    _revisar(respuesta)
+                    texto = _texto(respuesta)
+            except GeminiError as exc:
+                _reintentar(intento, exc, self._max_retries)
+                continue
+            if not texto:
+                raise GeminiEmpty("El modelo terminó sin devolver texto.")
+            return texto
+        raise AssertionError("inalcanzable: el último intento devuelve o relanza")
+
+    def ping(
+        self, *, model: str, max_output_tokens: int = 1_024, timeout_ms: int = 30_000
+    ) -> None:
+        """Comprueba que clave y modelo responden: basta con el primer trozo.
+
+        Sin reintentos ni exigencia de texto: un modelo de razonamiento puede
+        gastar el primer trozo pensando, y eso ya demuestra que la clave sirve.
+        """
+        self._antes_de_llamar()
+        config = _build_config(timeout_ms=timeout_ms, max_output_tokens=max_output_tokens)
+        inicio = time.monotonic()
+        with frontera(self._api_key):
+            cliente = self._fabrica(self._api_key)  # vivo durante la petición
+            respuesta = cliente.models.generate_content_stream(
+                model=model, contents="ping", config=config
+            )
+            for trozo in respuesta:
+                self._registrar(model, inicio, trozo)
+                try:
+                    _revisar(trozo)
+                except GeminiTruncated:
+                    pass  # agotar el límite de la prueba no dice nada de la clave
+                break

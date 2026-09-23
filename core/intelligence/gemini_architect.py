@@ -25,13 +25,7 @@ from typing import Any
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
-from core.llm.gemini import (
-    GeminiError,
-    GeminiIncomplete,
-    build_config,
-    ping,
-    stream_text,
-)
+from core.llm.gemini import GeminiError, GeminiIncomplete, GeminiProvider
 
 MODELO_POR_DEFECTO = "gemini-2.5-pro"
 
@@ -398,13 +392,6 @@ def _cabecera_de_procedencia(
 # --- Llamada al modelo -------------------------------------------------------
 
 
-def _config(sistema: str) -> Any:
-    return build_config(
-        timeout_ms=TIMEOUT_MS,
-        max_output_tokens=MAX_OUTPUT_TOKENS,
-        system_instruction=sistema,
-    )
-
 
 def _normalizar(texto: str) -> str:
     return " ".join(texto.split()).casefold()
@@ -461,12 +448,13 @@ def stream_architecture(
     # del modelo: si el modelo falla sin escribir nada, no queda un aviso suelto.
     aviso = aviso_de_procedencia(fuente, language)
     partes: list[str] = []
-    for texto in stream_text(
-        api_key,
+    proveedor = GeminiProvider(api_key, client_factory=client_factory)
+    for texto in proveedor.stream_text(
+        peticion,
         model=model,
-        contents=peticion,
-        config=_config(sistema),
-        client_factory=client_factory,
+        system=sistema,
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        timeout_ms=TIMEOUT_MS,
     ):
         if aviso is not None and not partes:
             partes.append(aviso + "\n\n")
@@ -498,15 +486,10 @@ def probe_api_key(
         return False, "No hay clave que probar."
 
     try:
-        ping(
-            api_key,
+        GeminiProvider(api_key, client_factory=client_factory).ping(
             model=model,
-            config=build_config(
-                timeout_ms=PROBE_TIMEOUT_MS,
-                max_output_tokens=PROBE_MAX_OUTPUT_TOKENS,
-                system_instruction="Responde solo: ok",
-            ),
-            client_factory=client_factory,
+            max_output_tokens=PROBE_MAX_OUTPUT_TOKENS,
+            timeout_ms=PROBE_TIMEOUT_MS,
         )
     except GeminiError as exc:
         return False, f"La clave no funciona: {exc}"

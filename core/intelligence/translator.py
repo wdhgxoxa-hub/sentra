@@ -30,7 +30,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from core.llm.gemini import GeminiError, build_config, generate_text
+from core.llm.gemini import GeminiError, GeminiProvider
 
 logger = logging.getLogger(__name__)
 
@@ -272,15 +272,15 @@ def _con_modelo(
     client_factory: ClientFactory | None,
 ) -> list[str] | None:
     try:
-        bruto = generate_text(
-            api_key,
+        proveedor = GeminiProvider(
+            api_key, client_factory=client_factory, max_retries=MAX_RETRIES
+        )
+        bruto = proveedor.generate_text(
+            _prompt(textos, idioma),
             model=model,
-            contents=_prompt(textos, idioma),
-            config=build_config(
-                timeout_ms=TIMEOUT_MS, max_output_tokens=MAX_OUTPUT_TOKENS, temperature=0.2
-            ),
-            max_retries=MAX_RETRIES,
-            client_factory=client_factory,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            timeout_ms=TIMEOUT_MS,
+            temperature=0.2,
         )
     except GeminiError as exc:
         # Cualquier fallo cae al modo sin conexión: la vista tiene que
