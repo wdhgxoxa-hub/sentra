@@ -19,6 +19,9 @@ const PYTHON_ENV_VAR: &str = "RIR_PYTHON";
 const PROJECT_DIR_ENV_VAR: &str = "RIR_PROJECT_DIR";
 const PORT_ENV_VAR: &str = "RIR_SIDECAR_PORT";
 
+/// Loopback a proposito: el sidecar no debe ser alcanzable desde la red.
+const SIDECAR_HOST: &str = "127.0.0.1";
+
 const DEFAULT_PYTHON: &str = "python";
 const DEFAULT_PORT: &str = "8765";
 const MODULE: &str = "core.orchestration.sidecar_server";
@@ -32,6 +35,21 @@ const READY_INTERVAL: Duration = Duration::from_millis(500);
 /// consola negra si no se le dice lo contrario.
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Puerto del sidecar: `RIR_SIDECAR_PORT` o 8765 (D-C).
+///
+/// Es la UNICA fuente: con el se lanza el proceso (`--port`) y con el se
+/// construye la URL a la que se le pregunta. Antes eran dos variables
+/// (`RIR_SIDECAR_PORT` para lanzar y otra para consultar) y podian
+/// discrepar: el sidecar arrancaba en un puerto y se le buscaba en otro.
+pub fn sidecar_port() -> String {
+    std::env::var(PORT_ENV_VAR).unwrap_or_else(|_| DEFAULT_PORT.to_string())
+}
+
+/// URL base del sidecar, derivada de `sidecar_port`.
+pub fn sidecar_base_url() -> String {
+    format!("http://{SIDECAR_HOST}:{}", sidecar_port())
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,8 +100,9 @@ impl SidecarManager {
         }
     }
 
-    fn port() -> String {
-        std::env::var(PORT_ENV_VAR).unwrap_or_else(|_| DEFAULT_PORT.to_string())
+    /// Argumentos del proceso hijo.
+    fn argumentos() -> Vec<String> {
+        vec!["-m".into(), MODULE.into(), "--port".into(), sidecar_port()]
     }
 
     /// Lanza el proceso hijo.
@@ -92,10 +111,7 @@ impl SidecarManager {
 
         let mut command = Command::new(python);
         command
-            .arg("-m")
-            .arg(MODULE)
-            .arg("--port")
-            .arg(Self::port())
+            .args(Self::argumentos())
             // La salida del sidecar no interesa aqui: el tiene su propio log
             // y heredarla mantendria vivos los descriptores al cerrar.
             .stdout(Stdio::null())
@@ -227,6 +243,51 @@ mod tests {
     }
 
     #[test]
+    fn el_puerto_de_lanzamiento_y_el_de_consulta_salen_del_mismo_valor() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::set_var(PORT_ENV_VAR, TEST_PORT);
+        let argumentos = SidecarManager::argumentos();
+        let url = sidecar_url();
+        std::env::remove_var(PORT_ENV_VAR);
+
+        let puerto = argumentos
+            .iter()
+            .position(|a| a == "--port")
+            .and_then(|i| argumentos.get(i + 1))
+            .expect("el sidecar se lanza sin --port");
+        assert_eq!(puerto, TEST_PORT);
+        assert_eq!(url, format!("http://127.0.0.1:{TEST_PORT}"));
+    }
+
+    /// D-C: la URL del sidecar ya no se configura aparte; solo el puerto.
+    #[test]
+    fn nadie_lee_ya_la_variable_de_url_del_sidecar() {
+        // Se construye en ejecucion para que este test no se encuentre a si mismo.
+        let variable = ["RIR_SIDECAR", "URL"].join("_");
+        let raiz = project_root_for_tests().expect("sin raiz del proyecto");
+        let mut pendientes = vec![
+            raiz.join("ui").join("src-tauri").join("src"),
+            raiz.join("ui").join("src"),
+            raiz.join("core"),
+            raiz.join("scripts"),
+        ];
+        while let Some(dir) = pendientes.pop() {
+            for entrada in std::fs::read_dir(&dir).unwrap().flatten() {
+                let ruta = entrada.path();
+                if ruta.is_dir() {
+                    pendientes.push(ruta);
+                } else if ["rs", "ts", "tsx", "py", "ps1"]
+                    .iter()
+                    .any(|ext| ruta.extension().is_some_and(|e| e == *ext))
+                {
+                    let texto = std::fs::read_to_string(&ruta).unwrap_or_default();
+                    assert!(!texto.contains(&variable), "{} la usa", ruta.display());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn shutdown_without_a_child_is_harmless() {
         SidecarManager::new().shutdown();
     }
@@ -238,7 +299,6 @@ mod tests {
     async fn spawns_waits_and_stops_a_real_sidecar() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         std::env::set_var(PORT_ENV_VAR, TEST_PORT);
-        std::env::set_var("RIR_SIDECAR_URL", format!("http://127.0.0.1:{TEST_PORT}"));
 
         let client = reqwest::Client::new();
         let manager = SidecarManager::new();
@@ -263,6 +323,5 @@ mod tests {
         );
 
         std::env::remove_var(PORT_ENV_VAR);
-        std::env::remove_var("RIR_SIDECAR_URL");
     }
 }

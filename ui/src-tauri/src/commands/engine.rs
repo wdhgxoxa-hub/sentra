@@ -18,9 +18,6 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::db::{AppState, RadarError, RadarResult};
 
-/// Base del sidecar. Loopback: no debe ser alcanzable desde la red.
-const DEFAULT_SIDECAR_URL: &str = "http://127.0.0.1:8765";
-const URL_ENV_VAR: &str = "RIR_SIDECAR_URL";
 const TOKEN_ENV_VAR: &str = "RIR_SIDECAR_TOKEN";
 const TOKEN_HEADER: &str = "X-Radar-Token";
 
@@ -33,8 +30,9 @@ const SCAN_TIMEOUT: Duration = Duration::from_secs(600);
 const SEARCH_TIMEOUT: Duration = Duration::from_secs(60);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// URL del sidecar: sale del mismo puerto con el que se lanza (D-C).
 pub fn sidecar_url() -> String {
-    std::env::var(URL_ENV_VAR).unwrap_or_else(|_| DEFAULT_SIDECAR_URL.to_string())
+    crate::sidecar::sidecar_base_url()
 }
 
 /// Aplica el token al request si esta configurado.
