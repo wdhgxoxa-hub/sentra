@@ -1,4 +1,5 @@
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { JudgePanel } from "@/components/JudgePanel";
 import { MultiscanPanel } from "@/components/MultiscanPanel";
 import { SourceCardView } from "@/components/SourceCardView";
 import { comoError } from "@/lib/errors";
@@ -63,6 +64,8 @@ export function SourcesView() {
           )}
 
           <MultiscanPanel cards={lista} />
+
+          <JudgePanel cards={lista} />
         </>
       )}
     </div>

@@ -17,6 +17,7 @@ pub mod blueprint;
 pub mod document;
 pub mod engine;
 pub mod health;
+pub mod judge;
 pub mod mutations;
 pub mod radar;
 pub mod settings;

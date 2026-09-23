@@ -515,6 +515,7 @@ class TestSurface(SidecarTestCase):
                 "/api/sources/{source_id}/enabled",
                 "/api/sources/commercial-mode",
                 "/api/sources/scan/stream",
+                "/api/judge/top",
             },
         )
 

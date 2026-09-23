@@ -13,11 +13,13 @@ Persistencia del juez (F3.8)
 from __future__ import annotations
 
 import json
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 
 import psycopg
 from psycopg.rows import dict_row
 
+from core.sources.catalog import by_id
 from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
 
@@ -28,6 +30,8 @@ if TYPE_CHECKING:
 
 #: Tamaño del Top (AUD-007).
 TOP_TARGET = 6
+#: Fragmento de cada evidencia que se enseña (el texto entero vive en la base).
+EXCERPT_CHARS = 280
 
 
 class PostgresLabelCache:
@@ -55,6 +59,18 @@ class PostgresLabelCache:
                 ON CONFLICT (tenant_id, content_hash, labeler) DO UPDATE SET label = EXCLUDED.label
                 """,
                 (self.tenant_id, label.content_hash, label.labeler, json.dumps(label.model_dump())))
+
+
+async def latest_judged_run(store: PostgresStore) -> str | None:
+    """La última ejecución con veredictos del juez, o None."""
+    fila = await store._fetchone(
+        """
+        SELECT v.run_id::text AS run_id FROM niche_verdicts v
+         WHERE v.tenant_id = %s ORDER BY v.created_at DESC LIMIT 1
+        """,
+        (store.tenant_id,),
+    )
+    return fila["run_id"] if fila else None
 
 
 async def previous_identities(store: PostgresStore) -> list[Previo]:
@@ -93,10 +109,45 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
         """,
         (store.tenant_id, run_id, TOP_TARGET),
     )
+    veredictos = [dict(f) for f in filas]
+    await _con_evidencia(store, veredictos)
     construir = sum(1 for f in filas if f["verdict"] == "CONSTRUIR")
     motivo = None
     if construir < TOP_TARGET:
         motivo = (f"Solo {construir} de {TOP_TARGET} nichos pasan todas las compuertas "
                   "y el abogado del diablo; el resto no se rellena.")
     return {"run_id": run_id, "target": TOP_TARGET, "build_count": construir,
-            "reason": motivo, "verdicts": [dict(f) for f in filas]}
+            "reason": motivo, "verdicts": veredictos}
+
+
+async def _con_evidencia(store: PostgresStore, veredictos: list[dict[str, Any]]) -> None:
+    """Añade a cada veredicto su corroboración por fuente y su evidencia con
+    fragmento y atribución obligatoria (insignia, sitio, URL; D-SE3)."""
+    ids = sorted({m for v in veredictos for m in v["member_ids"]})
+    if not ids:
+        for v in veredictos:
+            v["corroboration"], v["evidence"] = {}, []
+        return
+    filas = await store._fetchall(
+        """
+        SELECT id, source, community, url, content, created_at
+          FROM evidence_items WHERE tenant_id = %s AND id = ANY(%s)
+        """,
+        (store.tenant_id, ids),
+    )
+    por_id = {f["id"]: f for f in filas}
+    for v in veredictos:
+        miembros = [por_id[m] for m in v["member_ids"] if m in por_id]
+        v["corroboration"] = dict(Counter(m["source"] for m in miembros))
+        v["evidence"] = [
+            {"id": m["id"], "source": m["source"], "excerpt": m["content"][:EXCERPT_CHARS],
+             "created_at": m["created_at"].isoformat(),
+             "attribution": {"badge": _insignia(m["source"]), "site": m["community"],
+                             "url": m["url"]}}
+            for m in sorted(miembros, key=lambda m: m["created_at"], reverse=True)
+        ]
+
+
+def _insignia(source: str) -> str:
+    fuente = by_id(source)
+    return fuente.display_name if fuente else source

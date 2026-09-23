@@ -783,6 +783,88 @@ export interface JudgeSummary {
 export const SOURCES_EVENT_CHANNEL = "sources:events";
 
 // ---------------------------------------------------------------------
+// Juez de nichos (F3): Top 6 por veredicto
+// ---------------------------------------------------------------------
+
+export type NicheVerdict = "CONSTRUIR" | "INVESTIGAR MÁS" | "DESCARTAR";
+
+/** Una compuerta G1–G8: pasa o no, valor medido frente a umbral y su evidencia. */
+export interface JudgeGate {
+  gate: string;
+  passed: boolean;
+  value: number;
+  threshold: number;
+  evidenceIds: string[];
+}
+
+/** Una de las siete dimensiones; `normalized` null = undetermined (viabilidad en F3). */
+export interface JudgeDimension {
+  name: string;
+  value: number | null;
+  normalized: number | null;
+  itemIds: string[];
+  /** «sin_datos» o «undetermined» cuando la cifra no sale de evidencia. */
+  note: string | null;
+}
+
+export interface AdvocateArgumentView {
+  claim: string;
+  evidenceIds: string[];
+  severity: "bloqueante" | "importante" | "menor";
+}
+
+/** Abogado del diablo: solo puede bajar el veredicto. */
+export interface JudgeAdvocate {
+  verdictBefore: NicheVerdict;
+  verdictAfter: NicheVerdict;
+  downgraded: boolean;
+  reason: string | null;
+  arguments: AdvocateArgumentView[];
+  /** Argumentos que citaban evidencia ajena al grupo: no cuentan. */
+  discarded: AdvocateArgumentView[];
+}
+
+/** Evidencia que se enseña, siempre con su atribución (R5, D-SE3). */
+export interface JudgeEvidence {
+  id: string;
+  source: string;
+  excerpt: string;
+  createdAt: string;
+  attribution: EvidenceAttribution;
+}
+
+export interface JudgeVerdict {
+  id: string;
+  opportunityId: string | null;
+  clusterKey: string;
+  keywords: string[];
+  verdict: NicheVerdict;
+  /** Regla de la tabla D-M3 que decidió. */
+  rule: string;
+  score: number;
+  weightsVersion: string;
+  /** Compuertas que fallan. */
+  missing: string[];
+  memberCount: number;
+  memberIds: string[];
+  gates: JudgeGate[];
+  dimensions: JudgeDimension[];
+  advocate: JudgeAdvocate;
+  /** Mapa de corroboración: menciones por fuente. */
+  corroboration: Record<string, number>;
+  evidence: JudgeEvidence[];
+}
+
+/** Top 6 (AUD-007): CONSTRUIR primero; sin rellenar si no hay 6. */
+export interface JudgeTop {
+  runId: string | null;
+  target: number;
+  buildCount: number;
+  reason: string | null;
+  verdicts: JudgeVerdict[];
+}
+
+// ---------------------------------------------------------------------
 // Ayudas de presentación
 // ---------------------------------------------------------------------
 

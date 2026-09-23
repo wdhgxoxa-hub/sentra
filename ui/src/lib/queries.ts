@@ -28,6 +28,7 @@ import type {
   SearchParams,
   UpsertSubredditParams,
   ValidationStatus,
+  JudgeTop,
   ScanProfileInput,
   SourcesOverview,
 } from "@/types/radar";
@@ -63,6 +64,7 @@ export const queryKeys = {
   geminiModels: ["radar", "settings", "gemini-models"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
   sources: ["radar", "sources"] as const,
+  judgeTop: (runId: string | null) => ["radar", "judge", runId] as const,
   blueprint: (key: string, language: string, architecture: string | null) =>
     ["radar", "blueprint", key, language, architecture] as const,
 } as const;
@@ -317,6 +319,14 @@ export function useSetCommercialMode() {
   return useMutation({
     mutationFn: (enabled: boolean) => ipc.setCommercialMode(enabled),
     onSuccess: (overview) => client.setQueryData(queryKeys.sources, overview),
+  });
+}
+
+export function useJudgeTop(runId: string | null = null) {
+  return useQuery<JudgeTop>({
+    queryKey: queryKeys.judgeTop(runId),
+    queryFn: () => ipc.getJudgeTop(runId),
+    retry: false,
   });
 }
 

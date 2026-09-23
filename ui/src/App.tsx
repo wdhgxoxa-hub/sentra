@@ -46,7 +46,13 @@ export default function App() {
 
   // El escaneo multifuente sigue aunque se cambie de vista: se escucha aquí.
   useEffect(() => {
-    const unlisten = onSourcesEvent(applyMultiscan);
+    const unlisten = onSourcesEvent((evento) => {
+      applyMultiscan(evento);
+      // Veredictos nuevos: el Top del juez hay que volver a leerlo.
+      if (evento.type === "judge:done") {
+        void queryClient.invalidateQueries({ queryKey: ["radar", "judge"] });
+      }
+    });
     return () => {
       void unlisten.then((stop) => stop());
     };

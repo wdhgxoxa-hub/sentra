@@ -206,6 +206,24 @@ class TestRespuestasDelSidecar(unittest.TestCase):
                              data_source="real")
         self.assertEqual(set(attribution(pieza)), interfaz("EvidenceAttribution"))
 
+    def test_el_top_del_juez_entrega_judge_top(self):
+        from unittest import mock
+
+        from core.orchestration.sidecar import judge
+        from tests.test_sidecar_judge import LEIDO
+
+        with mock.patch.object(judge, "_leer_top", return_value=LEIDO):
+            cuerpo = self.client.get("/api/judge/top", headers=self.cabecera).json()
+        self.assertEqual(set(cuerpo), interfaz("JudgeTop"))
+        veredicto = cuerpo["verdicts"][0]
+        self.assertEqual(set(veredicto), interfaz("JudgeVerdict"))
+        self.assertEqual(set(veredicto["gates"][0]), interfaz("JudgeGate"))
+        self.assertEqual(set(veredicto["dimensions"][0]), interfaz("JudgeDimension"))
+        self.assertEqual(set(veredicto["advocate"]), interfaz("JudgeAdvocate"))
+        self.assertEqual(set(veredicto["advocate"]["arguments"][0]), interfaz("AdvocateArgumentView"))
+        self.assertEqual(set(veredicto["evidence"][0]), interfaz("JudgeEvidence"))
+        self.assertEqual(set(veredicto["evidence"][0]["attribution"]), interfaz("EvidenceAttribution"))
+
     def test_el_resultado_top_n_entrega_run_top_outcome(self):
         self.assertEqual(set(run_outcome([], 0, "exhausted")), interfaz("RunTopOutcome"))
 

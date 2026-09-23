@@ -55,6 +55,7 @@ import {
   type SourceCard,
   type SourceProbeResult,
   type SourcesOverview,
+  type JudgeTop,
 } from "@/types/radar";
 
 export const ipc = {
@@ -200,6 +201,9 @@ export const ipc = {
    */
   triggerMultiscan: (profile: ScanProfileInput) =>
     invoke<MultiScanEvent>("trigger_multiscan", { profile }),
+
+  /** [sidecar] Top 6 del juez: de una ejecución o de la última juzgada. */
+  getJudgeTop: (runId: string | null = null) => invoke<JudgeTop>("get_judge_top", { runId }),
 } as const;
 
 /**

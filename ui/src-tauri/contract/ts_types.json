@@ -365,6 +365,65 @@
       "undetermined",
       "verdicts"
     ],
+    "JudgeGate": [
+      "evidenceIds",
+      "gate",
+      "passed",
+      "threshold",
+      "value"
+    ],
+    "JudgeDimension": [
+      "itemIds",
+      "name",
+      "normalized",
+      "note",
+      "value"
+    ],
+    "AdvocateArgumentView": [
+      "claim",
+      "evidenceIds",
+      "severity"
+    ],
+    "JudgeAdvocate": [
+      "arguments",
+      "discarded",
+      "downgraded",
+      "reason",
+      "verdictAfter",
+      "verdictBefore"
+    ],
+    "JudgeEvidence": [
+      "attribution",
+      "createdAt",
+      "excerpt",
+      "id",
+      "source"
+    ],
+    "JudgeVerdict": [
+      "advocate",
+      "clusterKey",
+      "corroboration",
+      "dimensions",
+      "evidence",
+      "gates",
+      "id",
+      "keywords",
+      "memberCount",
+      "memberIds",
+      "missing",
+      "opportunityId",
+      "rule",
+      "score",
+      "verdict",
+      "weightsVersion"
+    ],
+    "JudgeTop": [
+      "buildCount",
+      "reason",
+      "runId",
+      "target",
+      "verdicts"
+    ],
     "BlueprintPhase": [
       "items",
       "name"

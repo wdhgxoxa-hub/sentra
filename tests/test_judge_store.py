@@ -116,6 +116,32 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(top["verdicts"][0]["member_ids"], ["hackernews:4", "hackernews:5", "hackernews:6"])
         self.assertEqual(top["verdicts"][0]["gates"][0]["gate"], "G1")
         self.assertIn("1 de 6", top["reason"])
+        # Mapa de corroboración y evidencia con atribución obligatoria (D-SE3).
+        primero = top["verdicts"][0]
+        self.assertEqual(primero["corroboration"], {"hackernews": 3})
+        evidencia = {e["id"]: e for e in primero["evidence"]}
+        self.assertEqual(set(evidencia), {"hackernews:4", "hackernews:5", "hackernews:6"})
+        self.assertEqual(evidencia["hackernews:4"]["attribution"],
+                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4"})
+        self.assertEqual(evidencia["hackernews:4"]["excerpt"], "queja inventada número 4")
+
+    def test_las_identidades_anteriores_salen_de_la_ultima_lectura(self):
+        from core.judge.store import previous_identities
+
+        items = [pieza(n) for n in range(30, 33)]
+        uuid_fijo = "22222222-2222-2222-2222-222222222222"
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            run_id = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            v = veredicto("id", "INVESTIGAR MÁS", 10.0, [i.id for i in items])
+            v["opportunity_id"] = uuid_fijo
+            await store.save_verdicts(run_id, [v])
+            return await previous_identities(store)
+
+        previos = {p.opportunity_id: p for p in self.run_store(guardar)}
+        self.assertEqual(previos[uuid_fijo].miembros, {i.id for i in items})
+        self.assertEqual(previos[uuid_fijo].palabras, {"facturas"})
 
     def test_un_veredicto_invalido_no_entra(self):
         import psycopg

@@ -49,3 +49,6 @@ def prohibir_red_real(caso: unittest.TestCase) -> None:
     juez = mock.patch("core.orchestration.sidecar.multiscan._juzgar", _juez_prohibido)
     juez.start()
     caso.addCleanup(juez.stop)
+    top = mock.patch("core.orchestration.sidecar.judge._leer_top", _juez_prohibido)
+    top.start()
+    caso.addCleanup(top.stop)
