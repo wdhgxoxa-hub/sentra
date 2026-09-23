@@ -1,0 +1,21 @@
+"""Lo común a cualquier proveedor de modelos de lenguaje."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+
+class LLMError(RuntimeError):
+    """Fallo del motor de IA. Su mensaje ya está saneado.
+
+    `code` es estable y lo traduce la interfaz; `transient` dice si merece
+    la pena reintentar; `missing` lo usan los errores de estructura
+    incompleta.
+    """
+
+    code = "llm_error"
+    transient = False
+
+    def __init__(self, detail: str, *, missing: Sequence[str] = ()) -> None:
+        super().__init__(detail)
+        self.missing = list(missing)

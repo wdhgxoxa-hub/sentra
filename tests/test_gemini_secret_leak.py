@@ -23,7 +23,8 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from core.ingestion.synthetic import SyntheticFetcher
-from core.intelligence import gemini_architect, gemini_client, translator
+from core.intelligence import gemini_architect, translator
+from core.llm import gemini as gemini_client
 from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore

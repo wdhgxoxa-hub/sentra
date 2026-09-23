@@ -30,7 +30,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from core.intelligence.gemini_client import GeminiError, build_config, generate_text
+from core.llm.gemini import GeminiError, build_config, generate_text
 
 logger = logging.getLogger(__name__)
 

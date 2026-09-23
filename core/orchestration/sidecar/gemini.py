@@ -75,7 +75,7 @@ def router(ctx: SidecarContext) -> APIRouter:
         por colgada.
         """
         from core.intelligence import gemini_architect
-        from core.intelligence.gemini_client import GeminiError, sanitize
+        from core.llm.gemini import GeminiError, sanitize
 
         key, model = gemini_credenciales(ctx)
         if not key:

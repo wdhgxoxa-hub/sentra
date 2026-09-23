@@ -23,7 +23,7 @@ from unittest import mock
 
 from google.genai import errors, types
 
-from core.intelligence import gemini_architect, gemini_client
+from core.intelligence import gemini_architect
 from core.intelligence.gemini_architect import (
     AVISO_DEMO,
     AVISO_DESCONOCIDA,
@@ -31,6 +31,7 @@ from core.intelligence.gemini_architect import (
     secciones_ausentes,
     stream_architecture,
 )
+from core.llm import gemini as gemini_client
 
 CLAVE = "clave-de-prueba"
 

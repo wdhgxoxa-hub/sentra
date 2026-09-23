@@ -1,9 +1,10 @@
 """
-Frontera con el SDK de Gemini
-=============================
+Proveedor Gemini: la frontera con el SDK
+========================================
 
 Toda llamada a Gemini pasa por aquí: el motor de arquitectura, la prueba de
-clave y el traductor. Es el único sitio que toca el SDK.
+clave y el traductor. Es el único módulo del proyecto que importa el SDK
+(`tests/test_llm_boundary.py` lo comprueba).
 
 Saneado (AUD-031)
 -----------------
@@ -30,11 +31,13 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
 import httpx
+
+from .base import LLMError
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
 KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{35}")
@@ -63,19 +66,11 @@ ClientFactory = Callable[[str], Any]
 _esperar = time.sleep
 
 
-class GeminiError(RuntimeError):
-    """Fallo de Gemini. Su mensaje ya está saneado.
-
-    `code` es estable y lo traduce la interfaz; `transient` dice si merece
-    la pena reintentar; `missing` solo lo usa `GeminiIncomplete`.
-    """
+class GeminiError(LLMError):
+    """Fallo de Gemini (ver `LLMError`). Los códigos `gemini_*` son los que
+    la interfaz ya traduce."""
 
     code = "gemini_error"
-    transient = False
-
-    def __init__(self, detail: str, *, missing: Sequence[str] = ()) -> None:
-        super().__init__(detail)
-        self.missing = list(missing)
 
 
 class GeminiUnavailable(GeminiError):

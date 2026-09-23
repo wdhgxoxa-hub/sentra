@@ -392,7 +392,7 @@ class TestGeminiEndpoints(ConfigTestCase):
     def test_un_plan_incompleto_termina_en_error_tipado_y_no_en_done(self):
         from unittest import mock
 
-        from core.intelligence.gemini_client import GeminiIncomplete
+        from core.llm.gemini import GeminiIncomplete
 
         self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
 

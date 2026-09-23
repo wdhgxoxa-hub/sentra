@@ -25,7 +25,7 @@ from typing import Any
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
-from core.intelligence.gemini_client import (
+from core.llm.gemini import (
     GeminiError,
     GeminiIncomplete,
     build_config,
