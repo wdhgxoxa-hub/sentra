@@ -60,6 +60,7 @@ class SidecarTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="rir_sidecar_")
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.store = LanceDBStore(
             db_path=self.tmpdir, embedder=HashEmbedder(dim=TEST_DIM)
         )
@@ -78,8 +79,6 @@ class SidecarTestCase(unittest.TestCase):
                               insecure_dev=self.token is None)
         self.client = TestClient(self.app)
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
 class TestDefaults(unittest.TestCase):

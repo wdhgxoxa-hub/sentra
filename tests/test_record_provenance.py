@@ -53,9 +53,8 @@ class TestLanceDB(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuente_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_un_escaneo_demo_marca_cada_fila_como_demo(self):
         store = almacen(self.tmp / "lance")
@@ -151,6 +150,7 @@ class TestPostgres(unittest.TestCase):
         import psycopg
 
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuente_pg_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
@@ -161,7 +161,6 @@ class TestPostgres(unittest.TestCase):
 
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _filas(self, sql):
         import psycopg

@@ -48,11 +48,10 @@ class StoreTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="rir_test_")
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.embedder = HashEmbedder(dim=TEST_DIM)
         self.store = LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
 class TestResolveDbPath(unittest.TestCase):

@@ -214,12 +214,10 @@ pub fn volcar<R: Read + Send + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::DirTemporal;
 
-    fn directorio(nombre: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("rir_{nombre}_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
+    fn directorio(nombre: &str) -> DirTemporal {
+        DirTemporal::nuevo(nombre)
     }
 
     /// Clave con la forma de las de Google, construida en ejecucion: ningun
@@ -286,7 +284,7 @@ mod tests {
         }
         drop(log);
 
-        let archivos: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().collect();
+        let archivos: Vec<_> = std::fs::read_dir(&*dir).unwrap().flatten().collect();
         assert_eq!(archivos.len(), max_files, "debe haber exactamente {max_files} archivos");
         for archivo in &archivos {
             let tam = archivo.metadata().unwrap().len();

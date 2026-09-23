@@ -39,9 +39,9 @@ class ConCorpus(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_multiciclo_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     def _estado(self, pages=None):

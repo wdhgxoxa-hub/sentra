@@ -36,14 +36,13 @@ class ConSidecar(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_documento_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                  search_engine=HybridSearchEngine(store=store))
         self.client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
                                             env_path=str(self.tmp / ".env")))
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def prd(self, idioma="es", architecture=None):
         respuesta = self.client.post("/api/blueprint", json={

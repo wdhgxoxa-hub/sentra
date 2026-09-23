@@ -51,6 +51,7 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
         self._entorno = {k: os.environ.pop(k) for k in CLAVES_REDDIT if k in os.environ}
 
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_cred_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.env_path = str(self.tmpdir / ".env")
         self.construidos = []
 
@@ -74,7 +75,6 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
         for clave in CLAVES_REDDIT:
             os.environ.pop(clave, None)
         os.environ.update(self._entorno)
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     def _guardar(self, client_id):

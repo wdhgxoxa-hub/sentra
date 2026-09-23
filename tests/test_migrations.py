@@ -57,9 +57,8 @@ class MigrationDirTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_mig_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def write(self, filename, sql="SELECT 1;"):
         path = self.tmpdir / filename
@@ -262,39 +261,35 @@ class TestApplyingMigrations(unittest.TestCase):
     def test_a_failing_migration_leaves_no_trace(self):
         """Cada migración va en su transacción: o entra entera o no entra."""
         tmpdir = Path(tempfile.mkdtemp(prefix="rir_bad_"))
-        try:
-            (tmpdir / "001_ok.sql").write_text(
-                "CREATE TABLE buena (id int);", encoding="utf-8"
-            )
-            (tmpdir / "002_rota.sql").write_text(
-                "CREATE TABLE mala (id int); ESTO NO ES SQL;", encoding="utf-8"
-            )
-            with self.assertRaises(MigrationError):
-                migrate(self.dsn, tmpdir)
+        self.addCleanup(shutil.rmtree, tmpdir, True)
+        (tmpdir / "001_ok.sql").write_text(
+            "CREATE TABLE buena (id int);", encoding="utf-8"
+        )
+        (tmpdir / "002_rota.sql").write_text(
+            "CREATE TABLE mala (id int); ESTO NO ES SQL;", encoding="utf-8"
+        )
+        with self.assertRaises(MigrationError):
+            migrate(self.dsn, tmpdir)
 
-            applied = self._query(f"SELECT version FROM {MIGRATIONS_TABLE}")
-            self.assertEqual([r[0] for r in applied], [1],
-                             "la primera entra, la rota no")
-            existe = self._query(
-                "SELECT count(*) FROM information_schema.tables "
-                "WHERE table_name = 'mala'"
-            )
-            self.assertEqual(existe[0][0], 0, "la tabla de la migracion rota no existe")
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+        applied = self._query(f"SELECT version FROM {MIGRATIONS_TABLE}")
+        self.assertEqual([r[0] for r in applied], [1],
+                         "la primera entra, la rota no")
+        existe = self._query(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = 'mala'"
+        )
+        self.assertEqual(existe[0][0], 0, "la tabla de la migracion rota no existe")
 
     def test_altering_an_applied_migration_is_detected(self):
         tmpdir = Path(tempfile.mkdtemp(prefix="rir_alt_"))
-        try:
-            path = tmpdir / "001_algo.sql"
-            path.write_text("CREATE TABLE algo (id int);", encoding="utf-8")
-            migrate(self.dsn, tmpdir)
+        path = tmpdir / "001_algo.sql"
+        path.write_text("CREATE TABLE algo (id int);", encoding="utf-8")
+        migrate(self.dsn, tmpdir)
+        self.addCleanup(shutil.rmtree, tmpdir, True)
 
-            path.write_text("CREATE TABLE algo (id bigint);", encoding="utf-8")
-            with self.assertRaises(ChecksumMismatch):
-                migrate(self.dsn, tmpdir)
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+        path.write_text("CREATE TABLE algo (id bigint);", encoding="utf-8")
+        with self.assertRaises(ChecksumMismatch):
+            migrate(self.dsn, tmpdir)
 
     def test_applied_migrations_reads_back_what_was_written(self):
         import psycopg

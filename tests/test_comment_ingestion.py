@@ -147,6 +147,7 @@ class ConGrafo(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_comentarios_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         self.store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         self.fetcher = FetcherConComentarios()
         self.estado = RadarPipeline(deps=RadarDependencies(
@@ -154,8 +155,6 @@ class ConGrafo(unittest.TestCase):
             search_engine=HybridSearchEngine(store=self.store),
         )).run_state("SaaS")
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
 
 class TestGrafo(ConGrafo):

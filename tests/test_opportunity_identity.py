@@ -120,13 +120,13 @@ class TestPostgres(unittest.TestCase):
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         self.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_identidad_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
 
     def tearDown(self):
         import psycopg
 
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def filas(self, sql, params=()):
         import psycopg

@@ -48,6 +48,7 @@ class TestEstadoDeLaFuente(unittest.TestCase):
         logging.disable(logging.CRITICAL)
         ClienteDoble.fallo = None
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_fuente_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.env_path = str(self.tmpdir / ".env")
         store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
         self.deps = RadarDependencies(
@@ -59,7 +60,6 @@ class TestEstadoDeLaFuente(unittest.TestCase):
         )
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     # -- ayudas ----------------------------------------------------------

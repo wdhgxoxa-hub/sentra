@@ -55,6 +55,7 @@ class TestCorteDeProduccion(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_corte_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
         self.deps = RadarDependencies(
             fetcher=SyntheticFetcher(), store=store,
@@ -62,7 +63,6 @@ class TestCorteDeProduccion(unittest.TestCase):
         )
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     def test_el_pipeline_por_defecto_cualifica_senales_del_corpus_demo(self):

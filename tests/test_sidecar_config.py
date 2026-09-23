@@ -38,6 +38,7 @@ class ConfigTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_config_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.env_path = self.tmpdir / ".env"
         self.store = LanceDBStore(
             db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=TEST_DIM)
@@ -52,8 +53,6 @@ class ConfigTestCase(unittest.TestCase):
         )
         self.client = TestClient(self.app)
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
 class TestSyntheticSource(unittest.TestCase):

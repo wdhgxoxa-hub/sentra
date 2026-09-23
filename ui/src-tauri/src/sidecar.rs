@@ -424,6 +424,7 @@ impl Drop for SidecarManager {
 mod tests {
     use super::*;
     use crate::commands::engine::sidecar_health_en;
+    use crate::test_support::DirTemporal;
 
     // Los tests NO tocan variables de entorno: son globales al proceso y
     // cargo ejecuta los tests en paralelo, así que cambiarlas en uno las
@@ -536,10 +537,8 @@ mod tests {
         assert_eq!(cabecera, format!("Bearer {}", sidecar_token()));
     }
 
-    fn proyecto_temporal(nombre: &str, con_venv: bool) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("rir_{nombre}_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+    fn proyecto_temporal(nombre: &str, con_venv: bool) -> DirTemporal {
+        let dir = DirTemporal::nuevo(nombre);
         if con_venv {
             let python = interprete_del_venv(&dir);
             std::fs::create_dir_all(python.parent().unwrap()).unwrap();
@@ -551,21 +550,21 @@ mod tests {
     #[test]
     fn rir_python_manda_sobre_todo() {
         let dir = proyecto_temporal("py_explicito", true);
-        let elegido = resolver_interprete(Some("C:/otro/python.exe".into()), Some(&dir));
+        let elegido = resolver_interprete(Some("C:/otro/python.exe".into()), Some(&*dir));
         assert_eq!(elegido, Ok(std::path::PathBuf::from("C:/otro/python.exe")));
     }
 
     #[test]
     fn sin_rir_python_se_usa_el_venv_del_proyecto() {
         let dir = proyecto_temporal("py_venv", true);
-        assert_eq!(resolver_interprete(None, Some(&dir)), Ok(interprete_del_venv(&dir)));
+        assert_eq!(resolver_interprete(None, Some(&*dir)), Ok(interprete_del_venv(&dir)));
     }
 
     #[test]
     fn sin_venv_ni_rir_python_es_un_error_y_nunca_el_python_global() {
         let dir = proyecto_temporal("py_nada", false);
         for explicito in [None, Some(String::new()), Some("  ".into())] {
-            let resultado = resolver_interprete(explicito, Some(&dir));
+            let resultado = resolver_interprete(explicito, Some(&*dir));
             let detalle = resultado.expect_err("sin intérprete no puede haber ruta");
             assert!(detalle.contains("setup_env.ps1"), "el detalle no dice cómo arreglarlo");
         }
@@ -575,7 +574,8 @@ mod tests {
     #[tokio::test]
     async fn sin_interprete_no_se_lanza_nada_y_queda_el_fallo_con_codigo() {
         let dir = proyecto_temporal("py_arranque", false);
-        let manager = SidecarManager::with_config(config(None, Some(dir), PUERTO_SIN_SIDECAR));
+        let manager =
+            SidecarManager::with_config(config(None, Some(dir.to_path_buf()), PUERTO_SIN_SIDECAR));
         let status = manager.ensure_running(&reqwest::Client::new(), None).await;
 
         assert_eq!(status, SidecarStatus::NoInterpreter);
@@ -623,8 +623,7 @@ mod tests {
         let client = reqwest::Client::new();
         let manager = SidecarManager::with_config(config(Some(python), raiz, TEST_PORT));
         let url = manager.config.base_url();
-        let logs = std::env::temp_dir().join(format!("rir_sidecar_logs_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&logs);
+        let logs = DirTemporal::nuevo("sidecar_logs");
 
         let status = manager.ensure_running(&client, Some(&logs)).await;
         assert_eq!(
@@ -649,6 +648,5 @@ mod tests {
         let registro = std::fs::read_to_string(logs.join(LOG_FILE_NAME)).unwrap_or_default();
         assert!(!registro.trim().is_empty(), "la salida del sidecar no llego al log");
         assert!(!registro.contains(sidecar_token()), "el token llego al log");
-        let _ = std::fs::remove_dir_all(&logs);
     }
 }

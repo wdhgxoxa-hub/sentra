@@ -119,6 +119,7 @@ class TestSidecar(ConLogs):
     def setUp(self):
         super().setUp()
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuga_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                  search_engine=HybridSearchEngine(store=store))
@@ -126,9 +127,6 @@ class TestSidecar(ConLogs):
                                             env_path=str(self.tmp / ".env")))
         self.client.post("/api/gemini", json={"apiKey": CLAVE, "model": "gemini-2.5-flash"})
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
-        super().tearDown()
 
     def test_el_documento_en_streaming_no_la_muestra(self):
         with mock.patch.object(gemini_client, "_cliente_real", cliente_que_filtra):

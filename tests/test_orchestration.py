@@ -127,6 +127,7 @@ class OrchestrationTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="rir_orch_")
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.store = LanceDBStore(
             db_path=self.tmpdir, embedder=HashEmbedder(dim=TEST_DIM)
         )
@@ -137,8 +138,6 @@ class OrchestrationTestCase(unittest.TestCase):
             search_engine=HybridSearchEngine(store=self.store),
         )
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def run_all_nodes(self, state, min_score=MIN_OPPORTUNITY_SCORE):
         """Recorre los cinco nodos en orden, fusionando el estado."""

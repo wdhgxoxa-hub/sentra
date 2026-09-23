@@ -196,6 +196,7 @@ class TestEndpoint(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_pdf_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                  search_engine=HybridSearchEngine(store=store))
@@ -203,7 +204,6 @@ class TestEndpoint(unittest.TestCase):
                                             env_path=str(self.tmpdir / ".env")))
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     def test_devuelve_el_pdf_en_bytes(self):

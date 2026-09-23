@@ -81,10 +81,10 @@ class ConAlmacen(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_top_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
         logging.disable(logging.NOTSET)
 
     def _ejecutar(self, fetcher, **kwargs):

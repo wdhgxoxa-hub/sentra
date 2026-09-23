@@ -37,12 +37,11 @@ class ConApp(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_token_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         self.deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                       search_engine=HybridSearchEngine(store=store))
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def app(self, **kwargs):
         return create_app(deps=self.deps, persist_default=False,

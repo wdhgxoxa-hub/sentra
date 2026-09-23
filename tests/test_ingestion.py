@@ -479,12 +479,11 @@ class TestDotEnvLoading(unittest.TestCase):
     """Carga de credenciales desde un archivo .env, sin dependencias externas."""
 
     def setUp(self):
-        import tempfile
-        self.tmpdir = tempfile.mkdtemp(prefix="rir_env_")
-
-    def tearDown(self):
         import shutil
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        import tempfile
+
+        self.tmpdir = tempfile.mkdtemp(prefix="rir_env_")
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def _write(self, content):
         import os

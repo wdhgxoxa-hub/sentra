@@ -111,6 +111,7 @@ class TestRespuestasDelSidecar(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_contrato_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         self.deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                       search_engine=HybridSearchEngine(store=store))
@@ -119,8 +120,6 @@ class TestRespuestasDelSidecar(unittest.TestCase):
                                             env_path=str(self.tmp / ".env")))
         self.cabecera = {"Authorization": f"Bearer {token}"}
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_la_busqueda_entrega_hybrid_search_hit(self):
         class Hit:

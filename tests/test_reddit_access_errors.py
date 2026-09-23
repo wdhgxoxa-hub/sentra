@@ -259,13 +259,11 @@ class EscaneoConRedDoble(ConRedDoble):
     def setUp(self):
         super().setUp()
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_access_"))
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.store = LanceDBStore(
             db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32)
         )
 
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-        super().tearDown()
 
     def _app(self, fetcher, **kwargs):
         deps = RadarDependencies(
