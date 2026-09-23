@@ -24,6 +24,7 @@ from typing import Any, Callable, Iterator, Mapping, Optional, Tuple
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero
+from core.intelligence.gemini_client import GeminiError, stream_text
 
 MODELO_POR_DEFECTO = "gemini-2.5-pro"
 
@@ -36,7 +37,7 @@ IDIOMA_POR_DEFECTO = "es"
 ClientFactory = Callable[[str], Any]
 
 
-class GeminiSinConfigurar(RuntimeError):
+class GeminiSinConfigurar(GeminiError):
     """No hay clave de API guardada."""
 
 
@@ -220,12 +221,6 @@ def build_prompt(
 # --- Llamada al modelo -------------------------------------------------------
 
 
-def _cliente_real(api_key: str) -> Any:
-    from google import genai
-
-    return genai.Client(api_key=api_key)
-
-
 def _config(sistema: str) -> Any:
     from google.genai import types
 
@@ -252,29 +247,13 @@ def stream_architecture(
         )
 
     sistema, peticion = build_prompt(cluster, language)
-    fabrica = client_factory or _cliente_real
-    cliente = fabrica(api_key)
-
-    respuesta = cliente.models.generate_content_stream(
+    yield from stream_text(
+        api_key,
         model=model,
         contents=peticion,
         config=_config(sistema),
+        client_factory=client_factory,
     )
-
-    for trozo in respuesta:
-        texto = getattr(trozo, "text", None)
-        if texto:
-            yield texto
-
-
-def _limpiar(mensaje: str, api_key: str) -> str:
-    """Quita la clave del mensaje de error.
-
-    Los servicios la devuelven dentro del detalle más veces de lo que parece, y
-    ese detalle acaba en la pantalla y en los logs.
-    """
-    limpio = mensaje.replace(api_key, "***") if api_key else mensaje
-    return limpio[:400]
 
 
 def probe_api_key(
@@ -291,17 +270,16 @@ def probe_api_key(
     if not (api_key or "").strip():
         return False, "No hay clave que probar."
 
-    fabrica = client_factory or _cliente_real
     try:
-        cliente = fabrica(api_key)
-        respuesta = cliente.models.generate_content_stream(
+        # Basta el primer trozo: si llega, la clave y el modelo responden.
+        next(iter(stream_text(
+            api_key,
             model=model,
             contents="ping",
             config=_config("Responde solo: ok"),
-        )
-        for _ in respuesta:
-            break
-    except Exception as exc:  # el SDK lanza de varias formas segun el fallo
-        return False, f"La clave no funciona: {_limpiar(str(exc), api_key)}"
+            client_factory=client_factory,
+        )), None)
+    except GeminiError as exc:
+        return False, f"La clave no funciona: {exc}"
 
     return True, f"Clave válida. Modelo {model} disponible."

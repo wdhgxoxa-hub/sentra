@@ -29,6 +29,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from core.intelligence.gemini_client import GeminiError, generate_text
+
 logger = logging.getLogger(__name__)
 
 MODELO_POR_DEFECTO = "gemini-2.5-flash"
@@ -219,12 +221,6 @@ def _offline(texto: str) -> Translation:
 # --- Motor con modelo --------------------------------------------------------
 
 
-def _cliente_real(api_key: str) -> Any:
-    from google import genai
-
-    return genai.Client(api_key=api_key)
-
-
 def _prompt(textos: Sequence[str], idioma: str) -> str:
     nombre = IDIOMAS.get(idioma, IDIOMAS["es"])
     entrada = json.dumps(list(textos), ensure_ascii=False)
@@ -266,20 +262,21 @@ def _con_modelo(
 ) -> Optional[List[str]]:
     from google.genai import types
 
-    fabrica = client_factory or _cliente_real
     try:
-        cliente = fabrica(api_key)
-        respuesta = cliente.models.generate_content(
+        bruto = generate_text(
+            api_key,
             model=model,
             contents=_prompt(textos, idioma),
             config=types.GenerateContentConfig(temperature=0.2),
+            client_factory=client_factory,
         )
-        return _parsear(getattr(respuesta, "text", ""), len(textos))
-    except Exception:
+    except GeminiError as exc:
         # Cualquier fallo cae al modo sin conexión: la vista tiene que
         # enseñar algo, y el original traducido a medias es mejor que un hueco.
-        logger.warning("La traduccion con Gemini fallo; se usa el modo offline")
+        # El mensaje ya viene saneado de la frontera (AUD-031).
+        logger.warning("La traduccion con Gemini fallo; se usa el modo offline: %s", exc)
         return None
+    return _parsear(bruto, len(textos))
 
 
 # --- Entrada pública ---------------------------------------------------------

@@ -759,6 +759,7 @@ def create_app(
         da la aplicacion por colgada.
         """
         from core.intelligence import gemini_architect
+        from core.intelligence.gemini_client import GeminiError, sanitize
 
         key, model = _gemini_credenciales()
         if not key:
@@ -768,6 +769,9 @@ def create_app(
             )
 
         def cuerpo():
+            # El fallo llega a mitad del texto ya enviado: no se puede
+            # cambiar el codigo de estado, asi que se escribe dentro del
+            # documento, donde quien lo lee lo va a ver.
             try:
                 yield from gemini_architect.stream_architecture(
                     request.cluster,
@@ -775,12 +779,17 @@ def create_app(
                     model=model,
                     language=request.language,
                 )
-            except Exception as exc:
-                # El fallo llega a mitad del texto ya enviado: no se puede
-                # cambiar el codigo de estado, asi que se escribe dentro del
-                # documento, donde quien lo lee lo va a ver.
-                logger.exception("Fallo generando la arquitectura")
+            except GeminiError as exc:
+                # Ya saneado en la frontera y sin la excepcion del SDK
+                # encadenada: la traza no aportaria nada y podria filtrar.
+                logger.warning("Fallo generando la arquitectura: %s", exc)
                 yield f"\n\n> **Error del motor de arquitectura:** {exc}\n"
+            except Exception as exc:
+                logger.exception("Fallo generando la arquitectura")
+                yield (
+                    "\n\n> **Error del motor de arquitectura:** "
+                    f"{sanitize(str(exc), key)}\n"
+                )
 
         return StreamingResponse(cuerpo(), media_type="text/plain; charset=utf-8")
 
