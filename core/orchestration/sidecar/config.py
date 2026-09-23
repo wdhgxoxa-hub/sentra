@@ -7,13 +7,14 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from core.envfile import update_dotenv
+
 from .context import (
     SidecarContext,
     credentials_summary,
     default_env_path,
     gemini_summary,
     synthetic_total,
-    update_dotenv,
 )
 from .schemas import CredentialsRequest, ModeRequest, ProbeResponse
 

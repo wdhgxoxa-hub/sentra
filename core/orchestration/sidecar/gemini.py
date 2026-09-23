@@ -10,10 +10,11 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from core.envfile import update_dotenv
 from core.llm.base import LLMError
 from core.llm.gemini import UsoDeModelo, elegir_modelo, sanitize
 
-from .context import SidecarContext, gemini_credenciales, gemini_summary, update_dotenv
+from .context import SidecarContext, gemini_credenciales, gemini_summary
 from .schemas import (
     ArchitectRequest,
     GeminiModel,

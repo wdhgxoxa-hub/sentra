@@ -17,8 +17,9 @@ import hashlib
 import time
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from core.envfile import default_env_path
 
 from ..graph import RadarDependencies, data_source_of
 from ..pipeline import RadarPipeline
@@ -146,11 +147,6 @@ def safe[T](fn: Callable[[], T], default: T) -> T:
 
 # --- .env ------------------------------------------------------------------------
 
-def default_env_path() -> str:
-    """Ruta del `.env` del proyecto."""
-    return str(Path(__file__).resolve().parents[3] / ".env")
-
-
 def load_dotenv(
     path: str | None, env: MutableMapping[str, str] | None = None
 ) -> MutableMapping[str, str]:
@@ -158,38 +154,6 @@ def load_dotenv(
     from core.ingestion.auth import load_dotenv as _load
 
     return _load(path or default_env_path(), env=env if env is not None else {})
-
-
-def update_dotenv(values: dict[str, str], path: str | None = None) -> Path:
-    """
-    Escribe o actualiza claves en un `.env`, preservando el resto.
-
-    Se reescribe el archivo entero en lugar de anexar: anexar dejaría
-    duplicados y la última línea ganaría en silencio.
-    """
-    target = Path(path or default_env_path())
-    target.parent.mkdir(parents=True, exist_ok=True)
-
-    lines = []
-    if target.exists():
-        lines = target.read_text(encoding="utf-8").splitlines()
-
-    pending = dict(values)
-    result = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#") and "=" in stripped:
-            key = stripped.split("=", 1)[0].strip()
-            if key in pending:
-                result.append(f"{key}={pending.pop(key)}")
-                continue
-        result.append(line)
-
-    for key, value in pending.items():
-        result.append(f"{key}={value}")
-
-    target.write_text("\n".join(result) + "\n", encoding="utf-8")
-    return target
 
 
 @dataclass(frozen=True)
