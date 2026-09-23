@@ -110,6 +110,40 @@ class HashEmbedder:
         return [self.embed_text(t) for t in texts]
 
 
+#: B2: pooling de e5 fijado de forma explícita. fastembed 0.8.0 pasó
+#: intfloat/multilingual-e5-large de CLS a mean pooling y avisaba en cada carga.
+#: Verificado en su código: PooledEmbedding hace mean_pooling y los vectores ya
+#: guardados (evidence_e5) salieron de esa versión. Se registra un modelo propio
+#: con el mismo ONNX, mean pooling y normalización: mismos vectores, sin depender
+#: del valor por defecto de la biblioteca.
+E5_POOLING = "mean"
+E5_MEAN_MODEL_NAME = "sentra/multilingual-e5-large-mean"
+E5_ONNX_REPO = "qdrant/multilingual-e5-large-onnx"
+_REGISTRADOS: set[str] = set()
+
+
+def _nombre_fastembed(model_name: str) -> str:
+    """El nombre con el que se carga en fastembed (e5: el registro propio con pooling fijo)."""
+    if model_name != MULTILINGUAL_MODEL_NAME:
+        return model_name
+    if E5_MEAN_MODEL_NAME not in _REGISTRADOS:
+        from fastembed import TextEmbedding
+        from fastembed.common.model_description import ModelSource, PoolingType
+
+        try:
+            TextEmbedding.add_custom_model(
+                model=E5_MEAN_MODEL_NAME, pooling=PoolingType.MEAN, normalization=True,
+                sources=ModelSource(hf=E5_ONNX_REPO), dim=MULTILINGUAL_VECTOR_DIM,
+                model_file="model.onnx", additional_files=["model.onnx_data"],
+                description="intfloat/multilingual-e5-large con mean pooling explícito",
+                license="mit", size_in_gb=2.24,
+            )
+        except ValueError:
+            pass  # ya registrado en este proceso por otra instancia
+        _REGISTRADOS.add(E5_MEAN_MODEL_NAME)
+    return E5_MEAN_MODEL_NAME
+
+
 class FastEmbedEmbedder:
     """
     Proveedor semantico real sobre fastembed (onnxruntime).
@@ -135,7 +169,7 @@ class FastEmbedEmbedder:
                 ) from exc
 
             try:
-                self._model = TextEmbedding(model_name=model_name)
+                self._model = TextEmbedding(model_name=_nombre_fastembed(model_name))
             except Exception as exc:
                 raise EmbeddingError(
                     f"No se pudo inicializar el modelo '{model_name}': {exc}"

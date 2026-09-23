@@ -79,6 +79,52 @@ class TestPrefijosDeE5(unittest.TestCase):
         self.assertEqual(EvidenceVectorStore.DEFAULT_MODEL, MULTILINGUAL_MODEL_NAME)
 
 
+class TestPoolingExplicito(unittest.TestCase):
+    """B2: e5 con mean pooling fijado explícitamente (fastembed 0.8.0 lo cambió
+    de CLS a mean y avisaba). Se registra un modelo propio con pooling MEAN y
+    normalización: el mismo resultado, sin depender del valor por defecto."""
+
+    def test_e5_se_carga_con_pooling_mean_explicito_y_sin_aviso(self):
+        import warnings
+
+        from fastembed.common.model_description import PoolingType
+
+        from core.storage import embeddings
+
+        registros, creados = [], []
+
+        class TextEmbeddingEspia:
+            @classmethod
+            def add_custom_model(cls, **kwargs):
+                registros.append(kwargs)
+
+            @classmethod
+            def list_supported_models(cls):
+                return []
+
+            def __init__(self, model_name, **_):
+                creados.append(model_name)
+
+            def embed(self, textos):
+                return [np.ones(4, dtype=np.float32) for _ in textos]
+
+        embeddings._REGISTRADOS.clear()
+        with unittest.mock.patch("fastembed.TextEmbedding", TextEmbeddingEspia),                 warnings.catch_warnings(record=True) as avisos:
+            warnings.simplefilter("always")
+            FastEmbedEmbedder(MULTILINGUAL_MODEL_NAME)
+        [registro] = registros
+        self.assertEqual((registro["pooling"], registro["normalization"]), (PoolingType.MEAN, True))
+        self.assertEqual(registro["dim"], MULTILINGUAL_VECTOR_DIM)
+        self.assertEqual(registro["sources"].hf, "qdrant/multilingual-e5-large-onnx")
+        self.assertEqual(creados, [embeddings.E5_MEAN_MODEL_NAME])
+        self.assertFalse([a for a in avisos if "pooling" in str(a.message)])
+
+    def test_la_version_del_pooling_queda_con_nombre(self):
+        from core.storage.embeddings import E5_POOLING
+
+        self.assertEqual(E5_POOLING, "mean")
+
+
 class TestAlmacenDeEvidencia(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="rir_vect_")
