@@ -14,6 +14,8 @@ import type { MultiScanEvent, SourceScanSummary } from "@/types/radar";
 
 export interface MultiScanState {
   status: "idle" | "running" | "done" | "error";
+  /** Para cancelar; null hasta `scan:started`. */
+  scanId: string | null;
   runId: string | null;
   /** Orden en que las anunció el sidecar. */
   sources: string[];
@@ -26,6 +28,7 @@ export interface MultiScanState {
 
 export const ESCANEO_VACIO: MultiScanState = {
   status: "idle",
+  scanId: null,
   runId: null,
   sources: [],
   perSource: {},
@@ -48,6 +51,7 @@ export function reducirEscaneo(estado: MultiScanState, evento: MultiScanEvent): 
       return {
         ...ESCANEO_VACIO,
         status: "running",
+        scanId: evento.scanId,
         runId: evento.runId,
         sources: evento.sources,
         perSource: Object.fromEntries(evento.sources.map((id) => [id, enMarcha()])),

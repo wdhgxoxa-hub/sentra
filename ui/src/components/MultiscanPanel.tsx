@@ -1,9 +1,9 @@
-import { Play } from "lucide-react";
+import { Play, Square } from "lucide-react";
 import { useState } from "react";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError } from "@/lib/errors";
-import { useTriggerMultiscan } from "@/lib/queries";
+import { useCancelScan, useTriggerMultiscan } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import type { ScanProfileInput, SourceCard, SourceScanSummary } from "@/types/radar";
@@ -16,6 +16,7 @@ function lineaDeFuente(t: ReturnType<typeof useT>, s: SourceScanSummary): string
   const items = String(s.items);
   if (s.status === "running") return t.sources.sourceRunning.replace("{items}", items);
   if (s.status === "failed") return t.sources.sourceFailed.replace("{items}", items);
+  if (s.stopReason === "cancelled") return t.sources.sourceCancelled.replace("{items}", items);
   if (s.stopReason) return t.sources.sourceStopped.replace("{items}", items);
   return t.sources.sourceDone.replace("{items}", items);
 }
@@ -28,6 +29,7 @@ function lineaDeFuente(t: ReturnType<typeof useT>, s: SourceScanSummary): string
 export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
   const t = useT();
   const escanear = useTriggerMultiscan();
+  const cancelar = useCancelScan();
   const scan = useMultiscanStore((s) => s.scan);
   const reset = useMultiscanStore((s) => s.reset);
   const fail = useMultiscanStore((s) => s.fail);
@@ -120,7 +122,18 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
             </label>
           ))}
         </fieldset>
-        <div className="flex items-end justify-end">
+        <div className="flex items-end justify-end gap-2">
+          {scan.status === "running" && scan.scanId && (
+            <button
+              type="button"
+              onClick={() => scan.scanId && cancelar.mutate(scan.scanId)}
+              disabled={cancelar.isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Square className="size-3.5" aria-hidden="true" />
+              {cancelar.isPending ? t.sources.cancelling : t.sources.cancel}
+            </button>
+          )}
           <button
             type="submit"
             disabled={!valido || enCurso}
@@ -134,6 +147,12 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
           <p className="text-xs text-warn sm:col-span-2">{t.sources.profileInvalid}</p>
         )}
       </form>
+
+      {cancelar.isError && (
+        <div className="mt-4">
+          <ErrorNotice {...comoError(cancelar.error)} />
+        </div>
+      )}
 
       {scan.status === "error" && scan.error && (
         <div className="mt-4">
@@ -171,6 +190,7 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
 
       {scan.final && (
         <div className="mt-4 flex flex-col gap-2 text-xs text-ink-soft">
+          {scan.final.cancelled && <p className="text-warn">{t.sources.scanCancelled}</p>}
           <p>
             {t.sources.summary
               .replace("{fetched}", String(scan.final.fetched))

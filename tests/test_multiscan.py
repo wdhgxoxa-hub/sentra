@@ -127,6 +127,29 @@ class TestParalelo(unittest.IsolatedAsyncioTestCase):
         resultado = await run_multisource_scan([fuente(Buena)], QUERY, embed=embed)
         self.assertEqual(set(resultado.vectors), {"buena:0", "buena:1"})
 
+    async def test_cancelar_para_cada_fuente_y_conserva_lo_traido(self):
+        class Larga(Buena):
+            id = "larga"
+            textos = tuple(f"queja {n}" for n in range(20))
+
+        pedido = {"parar": False}
+
+        def al_evento(evento):
+            if evento["type"] == "source:progress":
+                pedido["parar"] = True
+
+        resultado = await run_multisource_scan(
+            [fuente(Larga)], QUERY, on_event=al_evento, should_stop=lambda: pedido["parar"])
+        larga = resultado.per_source["larga"]
+        self.assertTrue(resultado.cancelled)
+        self.assertEqual((larga.status, larga.stop_reason), ("done", "cancelled"))
+        self.assertLess(larga.items, 20)
+        self.assertEqual(len(resultado.fetched), larga.items, "lo traído antes se conserva")
+
+    async def test_sin_cancelar_no_consta_como_cancelado(self):
+        resultado = await run_multisource_scan([fuente(Buena)], QUERY, should_stop=lambda: False)
+        self.assertFalse(resultado.cancelled)
+
     async def test_los_vectores_se_calculan_fuera_del_bucle_del_servidor(self):
         # e5-large tarda segundos: en el bucle bloquearía al sidecar entero.
         import threading

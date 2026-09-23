@@ -13,6 +13,7 @@ Aquí viven también los auxiliares del `.env` que usan varios routers.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import time
 from collections.abc import Callable, Mapping, MutableMapping
@@ -60,6 +61,8 @@ class SidecarContext:
     # estas lecturas y escrituras.
     active_runs: set[str] = field(default_factory=set)
     cancelled_runs: set[str] = field(default_factory=set)
+    # Tareas de fondo (escaneo multifuente): referencia fuerte hasta que terminan.
+    background_tasks: set[asyncio.Task[None]] = field(default_factory=set)
     # Estado verificado de cada fuente (F2.4): PostgreSQL en producción.
     sources_state: SourcesStateRepository = field(default_factory=InMemorySourcesState)
     # Vectores e5 de la evidencia (dedup semántica y clustering). Perezoso:

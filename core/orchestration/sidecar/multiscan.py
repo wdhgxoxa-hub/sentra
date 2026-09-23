@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
+import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -72,6 +72,11 @@ def _guardar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> st
         return f"{type(exc).__name__}: {exc}"
 
 
+def _nuevo_id() -> str:
+    """Id de un escaneo que no se guarda (sin ejecución en PostgreSQL)."""
+    return uuid.uuid4().hex
+
+
 def _resumen_fuente(progreso: SourceProgress) -> dict[str, Any]:
     return {"status": progreso.status, "items": progreso.items,
             "errorCode": progreso.error_code, "detail": progreso.detail,
@@ -100,52 +105,63 @@ def router(ctx: SidecarContext) -> APIRouter:
             if persistir:
                 run_id, error_persistencia = await asyncio.to_thread(
                     _abrir_ejecucion, ctx, perfil)
-            yield _sse({"type": "scan:started", "runId": run_id,
-                        "sources": [f.id for f in activas]})
-
+            # Con ejecución, su id: así /api/scan/cancel y cancel_scan (que
+            # además la marca en PostgreSQL) sirven igual que en la pipeline.
+            scan_id = run_id or _nuevo_id()
+            ctx.active_runs.add(scan_id)
             cola: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
-            salt = load_or_create_salt(ctx.env_path)
-            vectores = ctx.evidence_vectors() if ctx.evidence_vectors else None
 
-            async def escanear() -> MultiScanResult:
+            async def trabajo() -> None:
+                """Escaneo, estado y guardado. Vive fuera de la conexión: si
+                el cliente se va, el escaneo termina y su ejecución se cierra
+                de verdad en lugar de quedarse en `running`."""
                 try:
+                    salt = load_or_create_salt(ctx.env_path)
+                    vectores = ctx.evidence_vectors() if ctx.evidence_vectors else None
                     async with fuentes_http.new_client() as cliente:
                         adaptadores = [
                             clase(http=cliente, budget=SourceBudget(source=clase.id),
                                   credentials=credentials_for(clase, env), author_salt=salt)
                             for clase in activas
                         ]
-                        return await run_multisource_scan(
+                        resultado = await run_multisource_scan(
                             adaptadores, perfil.to_query(), on_event=cola.put_nowait,
-                            embed=vectores.embed if vectores else None)
+                            embed=vectores.embed if vectores else None,
+                            should_stop=lambda: scan_id in ctx.cancelled_runs)
+                    await asyncio.to_thread(record_source_outcomes, ctx.sources_state,
+                                            resultado.per_source)
+                    error = error_persistencia
+                    guardado = False
+                    if run_id is not None:
+                        error = await asyncio.to_thread(_guardar, ctx, run_id, resultado)
+                        guardado = error is None
+                    cola.put_nowait({
+                        "type": "scan:done", "runId": run_id, "cancelled": resultado.cancelled,
+                        "persisted": guardado, "persistError": error,
+                        "fetched": len(resultado.fetched), "canonical": len(resultado.items),
+                        "duplicates": len(resultado.duplicates),
+                        "perSource": {s: _resumen_fuente(p)
+                                      for s, p in resultado.per_source.items()},
+                    })
+                # Frontera de la tarea: un fallo aquí debe llegar a la interfaz
+                # como evento, no perderse en una tarea que nadie espera.
+                except Exception as exc:
+                    logger.exception("Fallo en el escaneo multifuente")
+                    cola.put_nowait({"type": "error", "code": "internal_error",
+                                     "message": type(exc).__name__})
                 finally:
+                    ctx.forget(scan_id)
                     cola.put_nowait(None)
 
-            tarea = asyncio.create_task(escanear())
-            try:
-                while (evento := await cola.get()) is not None:
-                    yield _sse(evento)
-                resultado = await tarea
-            finally:
-                # El cliente cerró la conexión: no se deja el escaneo huérfano.
-                if not tarea.done():
-                    tarea.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await tarea
+            tarea = asyncio.create_task(trabajo())
+            # Referencia fuerte: una tarea sin referencias puede recogerse a medias.
+            ctx.background_tasks.add(tarea)
+            tarea.add_done_callback(ctx.background_tasks.discard)
 
-            await asyncio.to_thread(record_source_outcomes, ctx.sources_state,
-                                    resultado.per_source)
-            guardado = False
-            if run_id is not None:
-                error_persistencia = await asyncio.to_thread(_guardar, ctx, run_id, resultado)
-                guardado = error_persistencia is None
-            yield _sse({
-                "type": "scan:done", "runId": run_id,
-                "persisted": guardado, "persistError": error_persistencia,
-                "fetched": len(resultado.fetched), "canonical": len(resultado.items),
-                "duplicates": len(resultado.duplicates),
-                "perSource": {s: _resumen_fuente(p) for s, p in resultado.per_source.items()},
-            })
+            yield _sse({"type": "scan:started", "scanId": scan_id, "runId": run_id,
+                        "sources": [f.id for f in activas]})
+            while (evento := await cola.get()) is not None:
+                yield _sse(evento)
 
         return StreamingResponse(emitir(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache"})

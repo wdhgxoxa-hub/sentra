@@ -93,6 +93,16 @@ class TestPersistencia(unittest.IsolatedAsyncioTestCase):
         await persist_multiscan(almacen, "run-2", vacio)
         self.assertEqual(almacen.llamadas[-1][-1], "failed")
 
+    async def test_un_escaneo_cancelado_cierra_la_ejecucion_como_cancelada(self):
+        almacen = AlmacenDoble()
+        cancelado = resultado()
+        cancelado.cancelled = True
+        resumen = await persist_multiscan(almacen, "run-3", cancelado)
+        self.assertEqual(almacen.llamadas[-1][-1], "cancelled")
+        self.assertEqual(resumen["status"], "cancelled")
+        # Lo traído hasta la cancelación se guarda igual (AUD-010).
+        self.assertEqual(almacen.llamadas[0][1], ["hn:1", "se:9", "hn:2"])
+
     async def test_los_vectores_son_de_los_canonicos_y_se_reutilizan(self):
         vectores = VectoresDoble()
         await persist_multiscan(AlmacenDoble(), "run-1", resultado(), vector_store=vectores)

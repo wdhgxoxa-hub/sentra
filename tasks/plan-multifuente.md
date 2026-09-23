@@ -39,7 +39,7 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 - [x] T2.4 Contrato de adaptador, errores comunes, presupuesto y cabeceras de cuota (Retry-After, X-RateLimit-*).
 - [x] T2.5 Registro de fuentes, `sources_state` y estados verificados; modo comercial.
 - [x] T2.6 Perfil de escaneo, biblioteca de frases v1 (es/en) y modo descubrimiento.
-- [x] T2.7 Escaneo paralelo por fuente: el fallo de una no detiene a las demás. Persistencia y SSE por fuente. *(POST /api/sources/scan/stream. Una respuesta real del escaneo verifica la fuente. Pendiente con la UI de T2.9: cancelar el escaneo multifuente y cerrar su ejecución como `cancelled`; hoy, si el cliente corta, la tarea se cancela pero la ejecución queda en `running`. La pipeline de Reddit se retira en T2.13, al refactorizarla como adaptador.)*
+- [x] T2.7 Escaneo paralelo por fuente: el fallo de una no detiene a las demás. Persistencia y SSE por fuente. *(POST /api/sources/scan/stream. Una respuesta real del escaneo verifica la fuente. Cancelación cooperativa con la ruta de siempre (/api/scan/cancel, cancel_scan): lo traído se guarda y la ejecución se cierra como `cancelled`. El trabajo vive en una tarea de fondo: si la conexión se corta, el escaneo termina y la ejecución se cierra igual. La pipeline de Reddit se retira en T2.13, al refactorizarla como adaptador.)*
 - [x] T2.8 Deduplicación: huella normalizada más similitud de embeddings con un umbral con nombre.
 - [ ] T2.9 UI: sección «Fuentes», resumen en la barra lateral, progreso por fuente y perfil de escaneo.
 - [ ] T2.10–T2.19 Un adaptador por commit, en el orden de la especificación. Cada uno lleva sus dobles oficiales, su tarjeta con «Probar» y su prueba real acotada según R7.

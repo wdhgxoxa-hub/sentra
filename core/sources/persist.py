@@ -67,7 +67,12 @@ async def persist_multiscan(
     errores = [_error_de(p) for p in fallidas]
     # Sin nada traído y con todas las fuentes caídas no hay escaneo que valga.
     todas_fallaron = bool(result.per_source) and len(fallidas) == len(result.per_source)
-    estado = "failed" if todas_fallaron and not result.fetched else "completed"
+    if result.cancelled:
+        estado = "cancelled"
+    elif todas_fallaron and not result.fetched:
+        estado = "failed"
+    else:
+        estado = "completed"
     stats = {"fetched": len(result.fetched), "stored": len(result.fetched)}
     await store.finish_run(run_id, stats, errores, status=estado)
     return {"runId": run_id, "status": estado, "stored": len(result.fetched),

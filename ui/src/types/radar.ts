@@ -724,7 +724,13 @@ export interface SourceScanSummary {
 }
 
 export type MultiScanEvent =
-  | { type: "scan:started"; runId: string | null; sources: string[] }
+  | {
+      type: "scan:started";
+      /** Id para cancelar con `cancelScan`: el de la ejecución si se guarda. */
+      scanId: string;
+      runId: string | null;
+      sources: string[];
+    }
   | { type: "source:started"; source: string }
   | { type: "source:progress"; source: string; items: number }
   | { type: "source:done"; source: string; items: number; stopReason: string | null }
@@ -732,6 +738,8 @@ export type MultiScanEvent =
   | {
       type: "scan:done";
       runId: string | null;
+      /** Lo pidió quien miraba; lo traído hasta entonces se guarda igual. */
+      cancelled: boolean;
       persisted: boolean;
       persistError: string | null;
       /** Todo lo traído, duplicados incluidos. */

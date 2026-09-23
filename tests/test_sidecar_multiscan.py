@@ -99,6 +99,34 @@ class TestEscaneoMultifuente(ConfigTestCase):
         self.assertEqual(run_id, "run-1")
         self.assertEqual([i.id for i in resultado.fetched], ["hackernews:900001"])
 
+    def test_el_inicio_trae_el_id_para_cancelar_que_es_el_de_la_ejecucion(self):
+        from core.orchestration.sidecar import multiscan
+
+        with con_transporte(hn_con_una_queja):
+            inicio = self.escanear(persist=False)[0]
+        self.assertTrue(inicio["scanId"])
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-9", None)), \
+                mock.patch.object(multiscan, "_guardar", return_value=None):
+            inicio = self.escanear(persist=True)[0]
+        self.assertEqual(inicio["scanId"], "run-9")
+
+    def test_cancelar_con_la_ruta_de_siempre_para_las_fuentes_y_lo_dice(self):
+        from core.orchestration.sidecar import multiscan
+
+        # Cancelación anticipada: /api/scan/cancel la guarda para ese id.
+        self.client.post("/api/scan/cancel", json={"runId": "scan-fijo"})
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "_nuevo_id", return_value="scan-fijo"):
+            final = self.escanear(persist=False)[-1]
+        self.assertTrue(final["cancelled"])
+        self.assertEqual(final["perSource"]["hackernews"]["stopReason"], "cancelled")
+        self.assertEqual(final["fetched"], 1, "lo traído antes de cancelar se conserva")
+        # Olvidado al terminar: el siguiente escaneo con ese id no nace muerto.
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "_nuevo_id", return_value="scan-fijo"):
+            self.assertFalse(self.escanear(persist=False)[-1]["cancelled"])
+
     def test_si_no_se_puede_abrir_la_ejecucion_se_dice_y_no_se_guarda(self):
         from core.orchestration.sidecar import multiscan
 

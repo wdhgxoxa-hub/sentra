@@ -478,6 +478,7 @@
     "MultiScanEvent": {
       "scan:started": [
         "runId",
+        "scanId",
         "sources",
         "type"
       ],
@@ -504,6 +505,7 @@
         "type"
       ],
       "scan:done": [
+        "cancelled",
         "canonical",
         "duplicates",
         "fetched",

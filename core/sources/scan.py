@@ -32,10 +32,14 @@ from .errors import SourceBudgetExhausted, SourceError
 logger = logging.getLogger(__name__)
 
 EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
+StopCheck = Callable[[], bool]
 Embedder = Callable[[Sequence[EvidenceItem]], Mapping[str, Sequence[float]]]
 
 #: Cada cuántos ítems se avisa del progreso de una fuente.
 PROGRESS_EVERY = 10
+
+#: Motivo de parada de una fuente cuando quien mira cancela el escaneo.
+CANCELLED = "cancelled"
 
 
 @dataclass
@@ -61,6 +65,8 @@ class MultiScanResult:
     fetched: list[EvidenceItem] = field(default_factory=list)
     vectors: Mapping[str, Sequence[float]] = field(default_factory=dict)
     per_source: dict[str, SourceProgress] = field(default_factory=dict)
+    #: Lo pidió quien miraba; lo traído hasta entonces se conserva.
+    cancelled: bool = False
 
 
 async def _emitir(sink: EventSink | None, evento: dict[str, Any]) -> None:
@@ -72,7 +78,8 @@ async def _emitir(sink: EventSink | None, evento: dict[str, Any]) -> None:
 
 
 async def _escanear(
-    fuente: SourceAdapter, query: SearchQuery, sink: EventSink | None
+    fuente: SourceAdapter, query: SearchQuery, sink: EventSink | None,
+    should_stop: StopCheck | None = None,
 ) -> tuple[SourceProgress, list[EvidenceItem]]:
     progreso = SourceProgress(fuente.id)
     items: list[EvidenceItem] = []
@@ -84,6 +91,9 @@ async def _escanear(
             if progreso.items % PROGRESS_EVERY == 0:
                 await _emitir(sink, {"type": "source:progress", "source": fuente.id,
                                      "items": progreso.items})
+            if should_stop is not None and should_stop():
+                progreso.stop_reason = CANCELLED
+                break
         progreso.status = "done"
     except SourceBudgetExhausted as exc:
         progreso.status, progreso.stop_reason, progreso.detail = "done", exc.code, exc.detail
@@ -115,10 +125,16 @@ async def run_multisource_scan(
     *,
     on_event: EventSink | None = None,
     embed: Embedder | None = None,
+    should_stop: StopCheck | None = None,
 ) -> MultiScanResult:
-    """Escanea todas las fuentes a la vez y deduplica lo que traen."""
-    resultados = await asyncio.gather(*(_escanear(f, query, on_event) for f in fuentes))
-    resultado = MultiScanResult()
+    """Escanea todas las fuentes a la vez y deduplica lo que traen.
+
+    `should_stop` se consulta tras cada ítem: cancelar es cooperativo, para
+    que lo ya traído llegue a guardarse.
+    """
+    resultados = await asyncio.gather(
+        *(_escanear(f, query, on_event, should_stop) for f in fuentes))
+    resultado = MultiScanResult(cancelled=should_stop is not None and should_stop())
     todos: list[EvidenceItem] = []
     for progreso, items in resultados:
         resultado.per_source[progreso.source] = progreso
