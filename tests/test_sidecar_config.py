@@ -207,7 +207,7 @@ class TestCredentialsProbe(ConfigTestCase):
         self.assertIn("credenciales", body["detail"].lower())
 
     def test_a_successful_probe_is_reported(self):
-        import core.orchestration.sidecar_server as sidecar
+        import core.orchestration.sidecar.config as sidecar
 
         async def fake_probe(auth):
             return True, "Token obtenido (scope: *)", None
@@ -226,7 +226,7 @@ class TestCredentialsProbe(ConfigTestCase):
         self.assertIn("Token", body["detail"])
 
     def test_a_failed_probe_explains_why(self):
-        import core.orchestration.sidecar_server as sidecar
+        import core.orchestration.sidecar.config as sidecar
 
         async def fake_probe(auth):
             return False, "HTTP 401: invalid_grant", "reddit_auth_failed"

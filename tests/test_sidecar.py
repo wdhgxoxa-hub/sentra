@@ -171,7 +171,7 @@ class TestScan(SidecarTestCase):
         `signals` y `filtered_items`. La escritura "funcionaba" pero dejaba
         una ejecucion vacia en PostgreSQL.
         """
-        import core.orchestration.sidecar_server as sidecar
+        import core.orchestration.sidecar.scan as sidecar
 
         recibido = {}
 
@@ -200,7 +200,7 @@ class TestScan(SidecarTestCase):
         Un `persisted: false` sin motivo es imposible de diagnosticar: hay
         que saber si fallo la conexion, el esquema o los datos.
         """
-        import core.orchestration.sidecar_server as sidecar
+        import core.orchestration.sidecar.scan as sidecar
 
         async def rota(state, deps, dsn, status="completed", data_source=None):
             return None, False, "OperationalError: no hay conexion"

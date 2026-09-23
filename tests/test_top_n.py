@@ -191,7 +191,7 @@ class TestSidecar(ConAlmacen):
         self.assertEqual(cuerpo["top"]["target"], TOP_N)
 
     def test_el_sidecar_persiste_la_fuente(self):
-        from core.orchestration import sidecar_server
+        from core.orchestration.sidecar import scan as sidecar_scan
 
         recibido = {}
 
@@ -199,12 +199,12 @@ class TestSidecar(ConAlmacen):
             recibido["data_source"] = data_source
             return "run", True, None
 
-        original = sidecar_server._persist
-        sidecar_server._persist = espia
+        original = sidecar_scan._persist
+        sidecar_scan._persist = espia
         try:
             self._app(persist_default=True).post("/api/scan", json={"subreddit": "SaaS"})
         finally:
-            sidecar_server._persist = original
+            sidecar_scan._persist = original
         self.assertEqual(recibido["data_source"], "demo")
 
 

@@ -18,8 +18,9 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
-from core.orchestration import RadarDependencies, sidecar_server
+from core.orchestration import RadarDependencies
 from core.orchestration.pipeline import RedditFetcher
+from core.orchestration.sidecar import config as sidecar_config
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 
@@ -111,7 +112,7 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
             probadas.append(auth.client_id)
             return True, "ok", None
 
-        with mock.patch.object(sidecar_server, "_probe_reddit", sonda):
+        with mock.patch.object(sidecar_config, "_probe_reddit", sonda):
             self.client.post("/api/credentials/test")
 
         self.assertEqual(probadas, ["cliente-B"])

@@ -24,7 +24,7 @@ import pyarrow as pa
 from core.ingestion.synthetic import SyntheticFetcher
 from core.orchestration import RadarDependencies, RadarPipeline
 from core.orchestration.graph import data_source_of
-from core.orchestration.sidecar_server import _hit_to_camel
+from core.orchestration.sidecar.search import hit_to_camel as _hit_to_camel
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 from core.storage.lancedb_store import OpportunityRecord
 from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes

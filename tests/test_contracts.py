@@ -24,14 +24,16 @@ from core.intelligence import IntelligenceEngine
 from core.intelligence.translator import translate
 from core.orchestration import RadarDependencies
 from core.orchestration.aggregation import build_clusters, cluster_to_dict
-from core.orchestration.sidecar_server import _hit_to_camel, create_app
+from core.orchestration.sidecar.search import hit_to_camel as _hit_to_camel
+from core.orchestration.sidecar_server import create_app
 from core.orchestration.source_status import SourceTracker
 from core.orchestration.top_n import run_outcome
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 
 RAIZ = Path(__file__).resolve().parents[1]
 TIPOS = json.loads((RAIZ / "ui" / "src-tauri" / "contract" / "ts_types.json").read_text("utf-8"))
-SIDECAR = RAIZ / "core" / "orchestration" / "sidecar_server.py"
+# Los eventos SSE los emite el router de escaneo (R-D).
+SIDECAR = RAIZ / "core" / "orchestration" / "sidecar" / "scan.py"
 
 #: Discrepancias conocidas y ya registradas como hallazgo. Debe quedar vacío
 #: cuando se corrigen: el test falla si aparece otra, o si una desaparece
