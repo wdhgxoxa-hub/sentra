@@ -222,9 +222,15 @@ pub enum Sonda {
 
 /// Pregunta al puerto del sidecar quien hay (D-B).
 pub async fn sondear(client: &reqwest::Client) -> Sonda {
+    sondear_en(client, &sidecar_url()).await
+}
+
+/// Como `sondear`, contra una URL base dada (la de la configuracion del
+/// gestor del sidecar).
+pub async fn sondear_en(client: &reqwest::Client, base: &str) -> Sonda {
     let respuesta = with_token(
         client
-            .get(format!("{}/api/health", sidecar_url()))
+            .get(format!("{base}/api/health"))
             .timeout(HEALTH_TIMEOUT),
     )
     .send()
@@ -238,9 +244,14 @@ pub async fn sondear(client: &reqwest::Client) -> Sonda {
 
 /// Consulta la salud del sidecar. Devuelve None si no responde.
 pub async fn sidecar_health(client: &reqwest::Client) -> Option<serde_json::Value> {
+    sidecar_health_en(client, &sidecar_url()).await
+}
+
+/// Como `sidecar_health`, contra una URL base dada.
+pub async fn sidecar_health_en(client: &reqwest::Client, base: &str) -> Option<serde_json::Value> {
     let response = with_token(
         client
-            .get(format!("{}/api/health", sidecar_url()))
+            .get(format!("{base}/api/health"))
             .timeout(HEALTH_TIMEOUT),
     )
     .send()

@@ -14,7 +14,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
-use crate::commands::engine::{sondear, sidecar_url, Sonda};
+use crate::commands::engine::{sondear_en, Sonda};
 use crate::sidecar_log::{volcar, RotatingLog, LOG_FILE_NAME, MAX_BYTES, MAX_FILES};
 
 const PYTHON_ENV_VAR: &str = "RIR_PYTHON";
@@ -135,6 +135,59 @@ pub fn sidecar_base_url() -> String {
     format!("http://{SIDECAR_HOST}:{}", sidecar_port())
 }
 
+/// Con qué y dónde se lanza el sidecar.
+///
+/// En producción sale del entorno (`from_env`). Los tests la construyen a
+/// mano: cambiar variables de entorno en un test las cambia para todos los
+/// que corren a la vez en el mismo proceso.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SidecarConfig {
+    /// `RIR_PYTHON`: intérprete explícito (D-D).
+    pub python: Option<String>,
+    /// Raíz del proyecto, desde la que se ejecuta el módulo.
+    pub project_dir: Option<PathBuf>,
+    /// Puerto con el que se lanza y en el que se le pregunta (D-C).
+    pub port: String,
+}
+
+impl SidecarConfig {
+    pub fn from_env() -> Self {
+        Self {
+            python: std::env::var(PYTHON_ENV_VAR).ok(),
+            project_dir: resolver_proyecto(std::env::var(PROJECT_DIR_ENV_VAR).ok()),
+            port: sidecar_port(),
+        }
+    }
+
+    fn base_url(&self) -> String {
+        format!("http://{SIDECAR_HOST}:{}", self.port)
+    }
+}
+
+/// Raíz del proyecto: la indicada (`RIR_PROJECT_DIR`) o, si no, la primera
+/// carpeta hacia arriba desde el ejecutable que contenga el paquete Python.
+///
+/// Tiene que ser la raíz para que `core` sea importable. Se busca hacia
+/// arriba porque en desarrollo el ejecutable vive en `ui/src-tauri/target/debug`.
+fn resolver_proyecto(indicado: Option<String>) -> Option<PathBuf> {
+    if let Some(dir) = indicado {
+        return Some(PathBuf::from(dir));
+    }
+
+    let start = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .or_else(|| std::env::current_dir().ok())?;
+
+    let mut candidate = start.as_path();
+    loop {
+        if candidate.join("core").join("orchestration").is_dir() {
+            return Some(candidate.to_path_buf());
+        }
+        candidate = candidate.parent()?;
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SidecarStatus {
@@ -154,6 +207,7 @@ pub enum SidecarStatus {
 }
 
 pub struct SidecarManager {
+    config: SidecarConfig,
     /// Solo contiene algo si el proceso lo lanzamos nosotros.
     child: Mutex<Option<Child>>,
     /// Por que fallo el ultimo arranque; `None` si fue bien o no se intento.
@@ -162,33 +216,14 @@ pub struct SidecarManager {
 
 impl SidecarManager {
     pub fn new() -> Self {
-        Self {
-            child: Mutex::new(None),
-            fallo: Mutex::new(None),
-        }
+        Self::with_config(SidecarConfig::from_env())
     }
 
-    /// Directorio desde el que se ejecuta el modulo de Python.
-    ///
-    /// Tiene que ser la raiz del proyecto para que `core` sea importable.
-    /// Se busca hacia arriba desde el ejecutable porque en desarrollo este
-    /// vive en `ui/src-tauri/target/debug`.
-    fn project_dir() -> Option<PathBuf> {
-        if let Ok(dir) = std::env::var(PROJECT_DIR_ENV_VAR) {
-            return Some(PathBuf::from(dir));
-        }
-
-        let start = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-            .or_else(|| std::env::current_dir().ok())?;
-
-        let mut candidate = start.as_path();
-        loop {
-            if candidate.join("core").join("orchestration").is_dir() {
-                return Some(candidate.to_path_buf());
-            }
-            candidate = candidate.parent()?;
+    pub fn with_config(config: SidecarConfig) -> Self {
+        Self {
+            config,
+            child: Mutex::new(None),
+            fallo: Mutex::new(None),
         }
     }
 
@@ -198,8 +233,8 @@ impl SidecarManager {
     }
 
     /// Argumentos del proceso hijo.
-    fn argumentos() -> Vec<String> {
-        vec!["-m".into(), MODULE.into(), "--port".into(), sidecar_port()]
+    fn argumentos(&self) -> Vec<String> {
+        vec!["-m".into(), MODULE.into(), "--port".into(), self.config.port.clone()]
     }
 
     /// Log de la salida del hijo, o `None` si no se puede abrir (D-E).
@@ -225,13 +260,13 @@ impl SidecarManager {
 
         let mut command = Command::new(python);
         command
-            .args(Self::argumentos())
+            .args(self.argumentos())
             .envs(Self::entorno())
             .stdout(salida())
             .stderr(salida())
             .stdin(Stdio::null());
 
-        if let Some(dir) = Self::project_dir() {
+        if let Some(dir) = &self.config.project_dir {
             command.current_dir(dir);
         }
 
@@ -280,15 +315,15 @@ impl SidecarManager {
             })
         };
 
-        match sondear(client).await {
+        let url = self.config.base_url();
+        match sondear_en(client, &url).await {
             Sonda::Responde => {
-                log::info!("Sidecar ya activo en {}", sidecar_url());
+                log::info!("Sidecar ya activo en {url}");
                 return (SidecarStatus::AlreadyRunning, None);
             }
             Sonda::Rechaza => {
                 let detalle = format!(
-                    "En {} contesta un sidecar que rechaza el token: el puerto es de otro proceso",
-                    sidecar_url()
+                    "En {url} contesta un sidecar que rechaza el token: el puerto es de otro proceso"
                 );
                 log::error!("{detalle}");
                 return (SidecarStatus::PortInUse, fallo(CODIGO_PUERTO_AJENO, detalle));
@@ -297,8 +332,8 @@ impl SidecarManager {
         }
 
         let python = match resolver_interprete(
-            std::env::var(PYTHON_ENV_VAR).ok(),
-            Self::project_dir().as_deref(),
+            self.config.python.clone(),
+            self.config.project_dir.as_deref(),
         ) {
             Ok(python) => python,
             Err(detalle) => {
@@ -335,7 +370,7 @@ impl SidecarManager {
                 }
             }
 
-            if sondear(client).await == Sonda::Responde {
+            if sondear_en(client, &url).await == Sonda::Responde {
                 log::info!("Sidecar listo tras {} intentos", intento);
                 return (SidecarStatus::Started, None);
             }
@@ -369,7 +404,7 @@ impl SidecarManager {
 /// Raiz del proyecto, para los tests de otros modulos.
 #[cfg(test)]
 pub fn project_root_for_tests() -> Option<PathBuf> {
-    SidecarManager::project_dir()
+    resolver_proyecto(std::env::var(PROJECT_DIR_ENV_VAR).ok())
 }
 
 impl Default for SidecarManager {
@@ -388,50 +423,55 @@ impl Drop for SidecarManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::engine::sidecar_health;
+    use crate::commands::engine::sidecar_health_en;
 
-    /// Puerto propio, para no chocar con un sidecar de desarrollo.
+    // Los tests NO tocan variables de entorno: son globales al proceso y
+    // cargo ejecuta los tests en paralelo, así que cambiarlas en uno las
+    // cambia para todos (antes, los tests de otros módulos leían a veces la
+    // raíz de un proyecto temporal y se saltaban). Cada test construye su
+    // SidecarConfig, y cada uno que sondea un puerto usa el suyo.
+
+    /// Puerto del test que arranca un sidecar de verdad.
     const TEST_PORT: &str = "8799";
+    /// Puerto donde no escucha nadie, para el test sin intérprete.
+    const PUERTO_SIN_SIDECAR: &str = "8798";
 
-    /// Las variables de entorno son globales al proceso y cargo ejecuta los
-    /// tests en paralelo: sin este cerrojo, el test que finge un directorio
-    /// inexistente hace que el que arranca el sidecar de verdad lo lance
-    /// desde ahi y muera al instante.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    fn config(python: Option<String>, project_dir: Option<PathBuf>, port: &str) -> SidecarConfig {
+        SidecarConfig {
+            python,
+            project_dir,
+            port: port.into(),
+        }
+    }
 
     #[test]
     fn project_dir_finds_the_python_package() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Sin esto, el proceso hijo arrancaria en un directorio donde
         // `core` no es importable y moriria al instante.
-        let dir = SidecarManager::project_dir().expect("no se encontro la raiz");
+        let dir = resolver_proyecto(None).expect("no se encontro la raiz");
         assert!(dir.join("core").join("orchestration").is_dir());
     }
 
     #[test]
     fn project_dir_honours_the_environment_variable() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(PROJECT_DIR_ENV_VAR, "C:/ruta/indicada");
-        let dir = SidecarManager::project_dir().unwrap();
-        std::env::remove_var(PROJECT_DIR_ENV_VAR);
+        let dir = resolver_proyecto(Some("C:/ruta/indicada".into())).unwrap();
         assert_eq!(dir, std::path::PathBuf::from("C:/ruta/indicada"));
     }
 
     #[test]
     fn el_puerto_de_lanzamiento_y_el_de_consulta_salen_del_mismo_valor() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(PORT_ENV_VAR, TEST_PORT);
-        let argumentos = SidecarManager::argumentos();
-        let url = sidecar_url();
-        std::env::remove_var(PORT_ENV_VAR);
-
+        let manager = SidecarManager::with_config(config(None, None, TEST_PORT));
+        let argumentos = manager.argumentos();
         let puerto = argumentos
             .iter()
             .position(|a| a == "--port")
             .and_then(|i| argumentos.get(i + 1))
             .expect("el sidecar se lanza sin --port");
         assert_eq!(puerto, TEST_PORT);
-        assert_eq!(url, format!("http://127.0.0.1:{TEST_PORT}"));
+        assert_eq!(manager.config.base_url(), format!("http://127.0.0.1:{TEST_PORT}"));
+
+        // En producción, el gestor y los comandos leen el mismo puerto (D-C).
+        assert_eq!(SidecarConfig::from_env().base_url(), sidecar_base_url());
     }
 
     /// D-C: la URL del sidecar ya no se configura aparte; solo el puerto.
@@ -485,7 +525,7 @@ mod tests {
     #[test]
     fn cada_peticion_lleva_el_token_como_bearer() {
         let peticion = crate::commands::engine::with_token_pub(
-            reqwest::Client::new().get(sidecar_url()),
+            reqwest::Client::new().get(sidecar_base_url()),
         )
         .build()
         .unwrap();
@@ -534,17 +574,10 @@ mod tests {
 
     #[tokio::test]
     async fn sin_interprete_no_se_lanza_nada_y_queda_el_fallo_con_codigo() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = proyecto_temporal("py_arranque", false);
-        std::env::set_var(PORT_ENV_VAR, TEST_PORT);
-        std::env::set_var(PROJECT_DIR_ENV_VAR, &dir);
-        std::env::remove_var(PYTHON_ENV_VAR);
-
-        let manager = SidecarManager::new();
+        let manager = SidecarManager::with_config(config(None, Some(dir), PUERTO_SIN_SIDECAR));
         let status = manager.ensure_running(&reqwest::Client::new(), None).await;
 
-        std::env::remove_var(PROJECT_DIR_ENV_VAR);
-        std::env::remove_var(PORT_ENV_VAR);
         assert_eq!(status, SidecarStatus::NoInterpreter);
         assert!(manager.child.lock().unwrap().is_none(), "no debe haber proceso hijo");
         let fallo = manager.ultimo_fallo().expect("sin fallo registrado");
@@ -576,21 +609,20 @@ mod tests {
     /// Necesita Python y las dependencias del proyecto instaladas.
     #[tokio::test]
     async fn spawns_waits_and_stops_a_real_sidecar() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        std::env::set_var(PORT_ENV_VAR, TEST_PORT);
-
         // El test elige su interprete de forma explicita (D-D): el de la
         // .venv del proyecto si existe; si no, el `python` del PATH, pero
-        // declarado en RIR_PYTHON, no como valor por defecto.
-        let venv = project_root_for_tests().map(|raiz| interprete_del_venv(&raiz));
-        let python = venv
+        // declarado como interprete explicito, no como valor por defecto.
+        let raiz = project_root_for_tests();
+        let python = raiz
+            .as_deref()
+            .map(interprete_del_venv)
             .filter(|p| p.is_file())
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "python".into());
-        std::env::set_var(PYTHON_ENV_VAR, python);
 
         let client = reqwest::Client::new();
-        let manager = SidecarManager::new();
+        let manager = SidecarManager::with_config(config(Some(python), raiz, TEST_PORT));
+        let url = manager.config.base_url();
         let logs = std::env::temp_dir().join(format!("rir_sidecar_logs_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&logs);
 
@@ -602,14 +634,14 @@ mod tests {
         );
 
         // Responde de verdad, no solo "el proceso existe".
-        let health = sidecar_health(&client).await;
+        let health = sidecar_health_en(&client, &url).await;
         assert!(health.is_some(), "no contesto a /api/health");
 
         manager.shutdown();
         tokio::time::sleep(Duration::from_millis(1500)).await;
 
         assert!(
-            sidecar_health(&client).await.is_none(),
+            sidecar_health_en(&client, &url).await.is_none(),
             "el sidecar sigue vivo despues de shutdown"
         );
 
@@ -618,8 +650,5 @@ mod tests {
         assert!(!registro.trim().is_empty(), "la salida del sidecar no llego al log");
         assert!(!registro.contains(sidecar_token()), "el token llego al log");
         let _ = std::fs::remove_dir_all(&logs);
-
-        std::env::remove_var(PORT_ENV_VAR);
-        std::env::remove_var(PYTHON_ENV_VAR);
     }
 }
