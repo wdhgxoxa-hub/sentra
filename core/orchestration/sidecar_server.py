@@ -184,6 +184,11 @@ class ScanResponse(BaseModel):
     # Por que no se persistio. Tragarse el motivo convertia un fallo de base
     # de datos en un silencioso "persisted: false" imposible de diagnosticar.
     persistError: str | None = None
+    # "completed" o "failed". Un escaneo sin acceso a la fuente es "failed"
+    # con un codigo estable que la interfaz traduce (AUD-003).
+    status: str = "completed"
+    failureCode: str | None = None
+    retryAfterSeconds: int | None = None
 
 
 class SearchResponse(BaseModel):
@@ -311,10 +316,12 @@ def create_app(
         run_id: str | None = None
         persisted = False
         persist_error: str | None = None
+        failure = final_state.get("failure") or None
+        status = "failed" if failure else "completed"
 
         if should_persist:
             run_id, persisted, persist_error = await _persist(
-                final_state, dependencies, postgres_dsn
+                final_state, dependencies, postgres_dsn, status=status
             )
 
         result = pipeline.summarize(final_state)
@@ -330,6 +337,9 @@ def create_app(
             qualifiedClusters=list(result.get("qualified_clusters") or []),
             persisted=persisted,
             persistError=persist_error,
+            status=status,
+            failureCode=failure["code"] if failure else None,
+            retryAfterSeconds=failure.get("retryAfterSeconds") if failure else None,
         )
 
 
@@ -555,9 +565,21 @@ def create_app(
                 yield _sse({
                     "type": "run:error",
                     "runId": run_id,
+                    "code": "internal_error",
                     "message": f"{type(exc).__name__}: {exc}",
+                    "retryAfterSeconds": None,
+                    "persistedRunId": None,
+                    "persistError": None,
                 })
                 return
+
+            failure = final_state.get("failure") or None
+            if cancelled:
+                status = "cancelled"
+            elif failure:
+                status = "failed"
+            else:
+                status = "completed"
 
             persisted_run_id = None
             persist_error = None
@@ -568,11 +590,24 @@ def create_app(
                     final_state,
                     dependencies,
                     postgres_dsn,
-                    status="cancelled" if cancelled else "completed",
+                    status=status,
                 )
 
             result = pipeline.summarize(final_state)
             _forget(run_id)
+            if failure and not cancelled:
+                # La fuente no entrego datos: es un fallo, no una cosecha
+                # vacia. El codigo es estable; la interfaz lo traduce.
+                yield _sse({
+                    "type": "run:error",
+                    "runId": run_id,
+                    "code": failure["code"],
+                    "message": failure["message"],
+                    "retryAfterSeconds": failure.get("retryAfterSeconds"),
+                    "persistedRunId": persisted_run_id,
+                    "persistError": persist_error,
+                })
+                return
             yield _sse({
                 "type": "run:cancelled" if cancelled else "run:finished",
                 "runId": run_id,

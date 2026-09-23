@@ -14,17 +14,17 @@ import json
 import unittest
 from datetime import datetime, timezone
 
-from core.ingestion.bypass import RedditBypass, RedditBypassConfig
-from core.ingestion.filters import PainPointFilter, PAIN_POINT_KEYWORDS, FilterResult
+from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
+from core.ingestion.bypass import RedditBypass
+from core.ingestion.client import RedditIngestionClient
+from core.ingestion.errors import RedditCredentialsMissing
+from core.ingestion.filters import PAIN_POINT_KEYWORDS, PainPointFilter
 from core.ingestion.normalizer import (
-    RedditNormalizer,
-    CleanPost,
     CleanComment,
-    UnifiedTimelineItem
+    CleanPost,
+    RedditNormalizer,
 )
 from core.ingestion.pagination import RedditPaginator
-from core.ingestion.client import RedditIngestionClient
-from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
 
 
 class TestRedditBypass(unittest.TestCase):
@@ -291,7 +291,13 @@ class TestSubredditPagination(unittest.TestCase):
     """
 
     def setUp(self):
-        self.client = RedditIngestionClient()
+        # Solo existe la via autenticada (AUD-003): el token lo da un doble.
+        async def token(payload, headers):
+            return {"access_token": "tok", "expires_in": 3600}
+
+        self.client = RedditIngestionClient(
+            oauth=RedditOAuth(client_id="cid", client_secret="csec", token_fetcher=token)
+        )
         self.requests = []
 
     def _install_transport(self, pages):
@@ -334,7 +340,8 @@ class TestSubredditPagination(unittest.TestCase):
         self.assertNotIn("after", self.requests[0]["params"])
 
     def test_empty_response_yields_nothing_and_no_cursor(self):
-        self._install_transport([None])
+        # El unico "vacio" valido: Reddit responde 200 con una lista vacia.
+        self._install_transport([_reddit_listing([], after=None)])
         posts, cursor = asyncio.run(
             self.client.fetch_subreddit_page("smallbusiness", limit=5)
         )
@@ -570,11 +577,13 @@ class TestAuthenticatedFetch(unittest.TestCase):
         client._execute_request = fake_execute
         return client
 
-    def test_anonymous_client_uses_the_public_json_endpoint(self):
+    def test_anonymous_client_fails_instead_of_using_the_public_endpoint(self):
+        # AUD-003: sin credenciales se falla antes de salir a la red; ya no
+        # se cae al endpoint publico .json con cabeceras de navegador.
         client = self._client(with_auth=False)
-        asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
-        self.assertIn("www.reddit.com", self.requests[0]["url"])
-        self.assertTrue(self.requests[0]["url"].endswith(".json"))
+        with self.assertRaises(RedditCredentialsMissing):
+            asyncio.run(client.fetch_subreddit_page("SaaS", limit=1))
+        self.assertEqual(self.requests, [])
 
     def test_authenticated_client_uses_the_oauth_endpoint(self):
         client = self._client(with_auth=True)

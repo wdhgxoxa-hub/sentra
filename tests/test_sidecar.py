@@ -53,7 +53,7 @@ def tearDownModule():
 class SidecarTestCase(unittest.TestCase):
     """Base con una aplicación montada sobre dependencias falsas."""
 
-    token = None
+    token: str | None = None
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="rir_sidecar_")
@@ -171,7 +171,7 @@ class TestScan(SidecarTestCase):
 
         recibido = {}
 
-        async def espia(state, deps, dsn):
+        async def espia(state, deps, dsn, status="completed"):
             recibido.update(state)
             return "run-falso", True, None
 
@@ -198,7 +198,7 @@ class TestScan(SidecarTestCase):
         """
         import core.orchestration.sidecar_server as sidecar
 
-        async def rota(state, deps, dsn):
+        async def rota(state, deps, dsn, status="completed"):
             return None, False, "OperationalError: no hay conexion"
 
         original = sidecar._persist
@@ -297,14 +297,17 @@ class TestScanStream(SidecarTestCase):
 
         deps = RadarDependencies(fetcher=broken, store=self.store)
         app = create_app(deps=deps, persist_default=False)
-        # El fetcher roto lo absorbe el nodo; para forzar el fallo del grafo
-        # entero se rompe el propio pipeline.
+        # Una fuente que no entrega datos es un fallo de la ejecucion, no una
+        # cosecha vacia (AUD-003): nada de "run:finished".
         with TestClient(app).stream(
             "POST", "/api/scan/stream", json={"subreddit": "x"}
         ) as response:
             eventos = _parse_sse("".join(response.iter_text()))
         tipos = {e["type"] for e in eventos}
-        self.assertTrue({"run:started", "run:finished"} <= tipos)
+        self.assertIn("run:started", tipos)
+        self.assertNotIn("run:finished", tipos)
+        self.assertEqual(eventos[-1]["type"], "run:error")
+        self.assertEqual(eventos[-1]["code"], "fetch_failed")
 
     def test_stream_is_protected_by_the_token_too(self):
         app = create_app(deps=self.deps, token="secreto", persist_default=False)

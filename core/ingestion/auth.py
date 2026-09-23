@@ -32,6 +32,21 @@ import time
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping
 from typing import Any
 
+from .errors import (
+    RedditAuthError,
+    RedditAuthFailed,
+    RedditCredentialsMissing,
+    RedditUnavailable,
+    error_for_status,
+)
+
+__all__ = [
+    "RedditAuthError",
+    "RedditOAuth",
+    "load_dotenv",
+    "load_reddit_oauth",
+]
+
 logger = logging.getLogger(__name__)
 
 TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
@@ -43,10 +58,6 @@ DEFAULT_USER_AGENT = "python:reddit-intelligence-radar:v0.5 (by /u/unknown)"
 EXPIRY_MARGIN_SECONDS = 60.0
 
 TokenFetcher = Callable[[dict[str, str], dict[str, str]], Awaitable[dict[str, Any]]]
-
-
-class RedditAuthError(RuntimeError):
-    """No se pudo obtener un token de acceso válido."""
 
 
 def load_dotenv(
@@ -205,28 +216,27 @@ class RedditOAuth:
         Devuelve un token válido, pidiéndolo solo si hace falta.
 
         Raises:
-            RedditAuthError: si faltan credenciales o Reddit no devuelve token.
+            RedditCredentialsMissing: si no hay client_id / client_secret.
+            RedditAuthFailed: si Reddit rechaza las credenciales o no da token.
+            RedditRateLimited, RedditUnavailable: si el endpoint de token no
+                atiende (429, 5xx o red caída).
         """
         if not self.is_configured:
-            raise RedditAuthError(
-                "Faltan credenciales de Reddit. Define RIR_REDDIT_CLIENT_ID y "
-                "RIR_REDDIT_CLIENT_SECRET (ver .env.example) o usa el cliente "
-                "en modo anonimo."
+            raise RedditCredentialsMissing(
+                "Faltan credenciales de Reddit: guarda el Client ID y el Client "
+                "Secret en Configuración."
             )
 
         if self._access_token and time.monotonic() < self._expires_at:
             return self._access_token
 
         fetcher = self._token_fetcher or _fetch_token_over_https
-        try:
-            data = await fetcher(self._grant_payload(), self._auth_headers())
-        except Exception as exc:
-            raise RedditAuthError(f"Fallo pidiendo el token: {exc}") from exc
+        data = await fetcher(self._grant_payload(), self._auth_headers())
 
         token = (data or {}).get("access_token")
         if not token:
             # El cuerpo puede traer detalles del rechazo, pero nunca secretos.
-            raise RedditAuthError(
+            raise RedditAuthFailed(
                 f"Reddit no devolvio access_token (respuesta: {sorted((data or {}).keys())})"
             )
 
@@ -252,12 +262,24 @@ async def _fetch_token_over_https(
     """Obtentor real de token. Se aísla aquí para poder inyectarlo en pruebas."""
     from curl_cffi.requests import AsyncSession
 
-    async with AsyncSession() as session:
-        response = await session.post(
-            TOKEN_URL, data=payload, headers=headers, timeout=20
-        )
-        if response.status_code != 200:
-            raise RedditAuthError(
-                f"HTTP {response.status_code} al pedir el token de acceso"
+    try:
+        async with AsyncSession() as session:
+            response = await session.post(
+                TOKEN_URL, data=payload, headers=headers, timeout=20
             )
-        return response.json()
+    except OSError as exc:  # curl_cffi.RequestException hereda de OSError
+        raise RedditUnavailable(f"Sin respuesta del endpoint de token: {exc}") from exc
+
+    if response.status_code != 200:
+        # En el endpoint de token, 401 y 403 significan lo mismo: Reddit
+        # rechaza el client_id / client_secret.
+        raise error_for_status(
+            response.status_code,
+            "el endpoint de token",
+            headers=response.headers,
+            forbidden_is_auth=True,
+        )
+    try:
+        return dict(response.json())
+    except ValueError as exc:
+        raise RedditUnavailable("El endpoint de token no devolvió JSON") from exc

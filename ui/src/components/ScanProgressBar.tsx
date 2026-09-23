@@ -1,12 +1,31 @@
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 
 import { PipelineGraph } from "@/components/PipelineGraph";
+import type { Dictionary } from "@/i18n/es";
 import { useT } from "@/stores/settingsStore";
+import type { ScanErrorCode } from "@/types/radar";
 import {
   completionRatio,
   useProgressStore,
   type ScanProgress,
 } from "@/stores/progressStore";
+
+/** Texto del fallo, traducido a partir de su código estable. */
+function scanErrorText(
+  t: Dictionary,
+  code: ScanErrorCode | null,
+  retryAfterSeconds: number | null,
+): string {
+  if (code === "reddit_rate_limited") {
+    return retryAfterSeconds === null
+      ? t.scanErrors.reddit_rate_limited_unknown
+      : t.scanErrors.reddit_rate_limited.replace(
+          "{seconds}",
+          String(retryAfterSeconds),
+        );
+  }
+  return t.scanErrors[code ?? "internal_error"];
+}
 
 /**
  * Avance de un escaneo.
@@ -117,14 +136,16 @@ export function ScanProgressBar({
         )}
       </p>
 
-      {progress.message && (
-        <p
-          className={`mt-1.5 text-xs ${
-            failed ? "text-danger" : "text-warn"
-          }`}
-        >
-          {progress.message}
+      {/* Un fallo se explica con el texto traducido de su código estable,
+          nunca con el mensaje crudo de la excepción (AUD-003). */}
+      {failed && (
+        <p className="mt-1.5 text-xs text-danger">
+          {scanErrorText(t, progress.errorCode, progress.retryAfterSeconds)}
         </p>
+      )}
+
+      {!failed && progress.message && (
+        <p className="mt-1.5 text-xs text-warn">{progress.message}</p>
       )}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   type PipelineNode,
   type RadarEvent,
   type RunStats,
+  type ScanErrorCode,
 } from "@/types/radar";
 
 export interface ScanProgress {
@@ -26,6 +27,9 @@ export interface ScanProgress {
   stats: RunStats;
   status: "running" | "finished" | "error";
   message: string | null;
+  /** Motivo del fallo, si lo hubo. Se muestra traducido, nunca en crudo. */
+  errorCode: ScanErrorCode | null;
+  retryAfterSeconds: number | null;
   qualified: number | null;
   clusters: number | null;
   startedAt: number;
@@ -65,6 +69,8 @@ export const useProgressStore = create<ProgressState>((set) => ({
               stats: {},
               status: "running",
               message: null,
+              errorCode: null,
+              retryAfterSeconds: null,
               qualified: null,
               clusters: null,
               startedAt: Date.now(),
@@ -124,7 +130,9 @@ export const useProgressStore = create<ProgressState>((set) => ({
             ...previous,
             status: "error",
             currentNode: null,
-            message: event.message,
+            message: null,
+            errorCode: event.code,
+            retryAfterSeconds: event.retryAfterSeconds,
           },
         },
       };

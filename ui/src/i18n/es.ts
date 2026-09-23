@@ -102,6 +102,17 @@ export const es = {
     },
   },
 
+  scanErrors: {
+    reddit_credentials_missing: "Faltan las credenciales de Reddit. Guárdalas en Configuración.",
+    reddit_auth_failed: "Reddit rechazó las credenciales. Revisa el Client ID y el Client Secret.",
+    reddit_forbidden: "Reddit denegó el acceso a esta comunidad.",
+    reddit_not_found: "La comunidad no existe o es privada.",
+    reddit_rate_limited: "Reddit ha limitado las peticiones. Vuelve a intentarlo en {seconds} s.",
+    reddit_rate_limited_unknown: "Reddit ha limitado las peticiones. Espera antes de reintentar.",
+    reddit_unavailable: "Reddit no está disponible en este momento.",
+    fetch_failed: "La fuente de datos falló y el escaneo no trajo nada.",
+    internal_error: "El motor falló durante el escaneo.",
+  },
   pipeline: {
     title: "Control del pipeline",
     subtitle: "Lanza escaneos y observa el motor trabajar",

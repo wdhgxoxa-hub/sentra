@@ -103,6 +103,17 @@ export const en: Dictionary = {
     },
   },
 
+  scanErrors: {
+    reddit_credentials_missing: "Reddit credentials are missing. Save them in Settings.",
+    reddit_auth_failed: "Reddit rejected the credentials. Check the Client ID and Client Secret.",
+    reddit_forbidden: "Reddit denied access to this community.",
+    reddit_not_found: "The community does not exist or is private.",
+    reddit_rate_limited: "Reddit is rate limiting requests. Try again in {seconds} s.",
+    reddit_rate_limited_unknown: "Reddit is rate limiting requests. Wait before retrying.",
+    reddit_unavailable: "Reddit is not available right now.",
+    fetch_failed: "The data source failed and the scan brought nothing back.",
+    internal_error: "The engine failed during the scan.",
+  },
   pipeline: {
     title: "Pipeline control",
     subtitle: "Start scans and watch the engine work",

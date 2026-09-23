@@ -13,15 +13,18 @@ Construido sobre:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 from curl_cffi.requests import AsyncSession
 
+if TYPE_CHECKING:
+    from curl_cffi.requests.session import ProxySpec
+
 from .auth import OAUTH_DOMAIN, RedditOAuth
 from .bypass import RedditBypass, RedditBypassConfig
+from .errors import RedditCredentialsMissing, RedditUnavailable, error_for_status
 from .filters import FilterResult, PainPointFilter
 from .normalizer import CleanComment, CleanPost, RedditNormalizer, UnifiedTimelineItem
 from .pagination import RedditPaginator
@@ -38,21 +41,21 @@ class RedditIngestionClient:
     def __init__(
         self,
         impersonate_browser: str = "chrome124",
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
         timeout_seconds: float = 15.0,
         rate_limit_delay: float = 1.0,
-        bypass_config: Optional[RedditBypassConfig] = None,
-        pain_filter: Optional[PainPointFilter] = None,
-        paginator: Optional[RedditPaginator] = None,
-        oauth: Optional[RedditOAuth] = None,
+        bypass_config: RedditBypassConfig | None = None,
+        pain_filter: PainPointFilter | None = None,
+        paginator: RedditPaginator | None = None,
+        oauth: RedditOAuth | None = None,
     ) -> None:
         self.impersonate_browser = impersonate_browser
         self.proxy = proxy
         self.timeout_seconds = timeout_seconds
         self.rate_limit_delay = rate_limit_delay
 
-        # Con credenciales se habla con oauth.reddit.com; sin ellas se
-        # intenta el endpoint publico .json, que Reddit ya restringe.
+        # Solo se habla con oauth.reddit.com: sin credenciales, cada listado
+        # falla con RedditCredentialsMissing antes de salir a la red.
         self.oauth = oauth
 
         # Componentes modulares
@@ -80,39 +83,46 @@ class RedditIngestionClient:
         self,
         clean_sub: str,
         listing: str,
-    ) -> Tuple[str, Optional[Dict[str, str]]]:
+    ) -> tuple[str, dict[str, str] | None]:
         """
-        Resuelve a qué dominio hay que pedir y con qué cabeceras.
+        Resuelve la URL de la API OAuth y sus cabeceras.
 
-        Autenticado: `oauth.reddit.com/r/<sub>/<listing>`, sin sufijo `.json`,
-        con el token bearer. Anónimo: el endpoint público `.json`.
+        Solo existe la vía autenticada: `oauth.reddit.com/r/<sub>/<listing>`
+        con el token bearer. Sin credenciales se falla aquí, antes de hacer
+        ninguna petición. Ya no hay caída al endpoint público `.json` con
+        cabeceras de navegador: Reddit lo tiene cerrado, y fingir un
+        navegador convertía esa negativa en un «0 resultados» silencioso.
         """
-        if self.is_authenticated:
-            url = f"{OAUTH_DOMAIN}/r/{clean_sub}/{listing.strip().lower()}"
-            return url, await self.oauth.auth_headers()
-
-        return self.bypass.build_endpoint_url(clean_sub, listing), None
+        if self.oauth is None or not self.oauth.is_configured:
+            raise RedditCredentialsMissing(
+                "Faltan credenciales de Reddit: guarda el Client ID y el Client "
+                "Secret en Configuración."
+            )
+        url = f"{OAUTH_DOMAIN}/r/{clean_sub}/{listing.strip().lower()}"
+        return url, await self.oauth.auth_headers()
 
     async def _execute_request(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        retry_count: int = 3
-    ) -> Optional[Any]:
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        retry_count: int = 3,
+        context: str = "Reddit",
+    ) -> Any:
         """
-        Ejecuta una solicitud HTTP GET asíncrona utilizando curl_cffi con TLS impersonation,
-        inyección de cookies de bypass (over18, pref_gated_sr_optin) y reintentos ante 429.
+        Ejecuta un GET y devuelve el JSON, o lanza el error tipado que toque.
 
-        `headers` permite añadir cabeceras propias de la petición (por ejemplo,
-        el token OAuth), que prevalecen sobre las del bypass.
+        Solo se reintenta lo que es un corte de red: un código HTTP es una
+        respuesta de Reddit y se traduce tal cual (401, 403, 404, 429 con sus
+        segundos de espera, 5xx). Un 200 que no es JSON tampoco es una página
+        vacía: es Reddit sirviendo otra cosa, y se informa como no disponible.
+
+        `headers` son las de la petición (el token OAuth). No se añaden
+        cabeceras ni cookies de navegador.
         """
-        request_headers = self.bypass.get_bypass_headers()
-        if headers:
-            request_headers.update(headers)
-        headers = request_headers
-        cookies = self.bypass.get_bypass_cookies()
-        proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
+        proxies: ProxySpec | None = (
+            {"http": self.proxy, "https": self.proxy} if self.proxy else None
+        )
 
         for attempt in range(1, retry_count + 1):
             await self._throttle()
@@ -124,50 +134,39 @@ class RedditIngestionClient:
                     response = await session.get(
                         url,
                         params=params,
-                        headers=headers,
-                        cookies=cookies,
+                        headers=dict(headers or {}),
                         timeout=self.timeout_seconds
                     )
-
-                    if response.status_code == 200:
-                        try:
-                            return response.json()
-                        except Exception as e:
-                            logger.error(f"Error parseando JSON de {url}: {e}")
-                            return None
-
-                    elif response.status_code == 429:
-                        wait_time = self.paginator.backoff_base_seconds * (2 ** (attempt - 1))
-                        logger.warning(
-                            f"HTTP 429 (Rate Limit) en {url}. Reintento {attempt}/{retry_count} "
-                            f"esperando {wait_time:.1f}s..."
-                        )
-                        await asyncio.sleep(wait_time)
-                        continue
-
-                    elif response.status_code in (403, 404):
-                        logger.warning(f"Respuesta HTTP {response.status_code} para {url}")
-                        return None
-                    else:
-                        logger.warning(f"HTTP {response.status_code} inesperado en {url}")
-
-            except Exception as exc:
-                logger.error(f"Excepción en petición a {url} (intento {attempt}): {exc}")
+            except OSError as exc:  # curl_cffi.RequestException hereda de OSError
+                logger.warning("Sin respuesta de %s (intento %d): %s", url, attempt, exc)
                 if attempt < retry_count:
                     await asyncio.sleep(1.5 * attempt)
-                else:
-                    return None
+                    continue
+                raise RedditUnavailable(
+                    f"Reddit no respondió tras {retry_count} intentos: {exc}"
+                ) from exc
 
-        return None
+            if response.status_code != 200:
+                raise error_for_status(
+                    response.status_code, context, headers=response.headers
+                )
+            try:
+                return response.json()
+            except ValueError as exc:
+                raise RedditUnavailable(
+                    f"Reddit respondió 200 sin JSON en {context}"
+                ) from exc
+
+        raise RedditUnavailable(f"Reddit no respondió en {context}")
 
     # ─── Métodos de Extracción de Alto Nivel ─────────────────────────
 
     def _build_clean_post(
         self,
-        raw_p: Dict[str, Any],
+        raw_p: dict[str, Any],
         clean_sub: str,
         filter_pain_only: bool,
-    ) -> Optional[CleanPost]:
+    ) -> CleanPost | None:
         """
         Normaliza un registro crudo de Reddit en un `CleanPost`.
 
@@ -208,11 +207,11 @@ class RedditIngestionClient:
         subreddit: str,
         listing: str = "hot",
         limit: int = 25,
-        after: Optional[str] = None,
+        after: str | None = None,
         timeframe: str = "month",
-        max_age_days: Optional[int] = None,
+        max_age_days: int | None = None,
         filter_pain_only: bool = False,
-    ) -> Tuple[List[CleanPost], Optional[str]]:
+    ) -> tuple[list[CleanPost], str | None]:
         """
         Extrae UNA página y devuelve explícitamente el cursor de la siguiente.
 
@@ -235,9 +234,11 @@ class RedditIngestionClient:
             timeframe=timeframe
         )
 
-        data = await self._execute_request(url, params=params, headers=auth_headers)
-        if not data or not isinstance(data, dict):
-            return [], None
+        data = await self._execute_request(
+            url, params=params, headers=auth_headers, context=f"r/{clean_sub}"
+        )
+        if not isinstance(data, dict):
+            raise RedditUnavailable(f"r/{clean_sub} devolvió un JSON que no es un listado")
 
         raw_children, next_cursor = self.paginator.extract_children_and_after(data)
         if not raw_children:
@@ -248,7 +249,7 @@ class RedditIngestionClient:
             raw_children, max_age_days=max_age_days
         )
 
-        posts: List[CleanPost] = []
+        posts: list[CleanPost] = []
         for raw_p in valid_raw:
             clean_post = self._build_clean_post(raw_p, clean_sub, filter_pain_only)
             if clean_post is not None:
@@ -268,10 +269,10 @@ class RedditIngestionClient:
         limit_per_page: int = 25,
         max_pages: int = 1,
         timeframe: str = "month",
-        max_age_days: Optional[int] = None,
+        max_age_days: int | None = None,
         filter_pain_only: bool = False,
-        after: Optional[str] = None,
-    ) -> List[CleanPost]:
+        after: str | None = None,
+    ) -> list[CleanPost]:
         """
         Recorre hasta `max_pages` páginas siguiendo la cadena de cursores y
         devuelve los posts deduplicados.
@@ -279,8 +280,8 @@ class RedditIngestionClient:
         `after` permite arrancar el recorrido desde un cursor conocido. Para
         obtener también el cursor final, usar `fetch_subreddit_page`.
         """
-        cursor: Optional[str] = after
-        collected_posts: List[CleanPost] = []
+        cursor: str | None = after
+        collected_posts: list[CleanPost] = []
 
         for _ in range(max_pages):
             posts, cursor = await self.fetch_subreddit_page(
@@ -305,7 +306,7 @@ class RedditIngestionClient:
         post_id: str,
         limit: int = 50,
         filter_pain_only: bool = False
-    ) -> List[CleanComment]:
+    ) -> list[CleanComment]:
         """
         Extrae comentarios de un hilo específico ordenados por puntuación ('top').
         """
@@ -320,7 +321,7 @@ class RedditIngestionClient:
 
         # data[0] es el post, data[1] es el árbol de comentarios
         comments_data = data[1].get("data", {}).get("children", [])
-        collected_comments: List[CleanComment] = []
+        collected_comments: list[CleanComment] = []
 
         for child in comments_data:
             if child.get("kind") != "t1":
@@ -361,7 +362,7 @@ class RedditIngestionClient:
         post_id: str,
         comment_limit: int = 50,
         filter_comments_pain_only: bool = False
-    ) -> Optional[CleanPost]:
+    ) -> CleanPost | None:
         """
         Extrae un post completo junto con sus comentarios en una única estructura `CleanPost`.
         """
@@ -386,7 +387,7 @@ class RedditIngestionClient:
 
         filter_res = self.filter.evaluate(f"{title} {selftext}", author=author, require_pain_match=False)
 
-        comments: List[CleanComment] = []
+        comments: list[CleanComment] = []
         if len(data) >= 2:
             comments_data = data[1].get("data", {}).get("children", [])
             for child in comments_data:
@@ -441,13 +442,13 @@ class RedditIngestionClient:
         subreddit: str,
         post_limit: int = 25,
         max_comments_per_post: int = 5
-    ) -> List[UnifiedTimelineItem]:
+    ) -> list[UnifiedTimelineItem]:
         """
         Aplica el algoritmo de snscrape para generar una cronología unificada e interfoliada
         de publicaciones y comentarios del subreddit en orden temporal descendente.
         """
         posts = await self.fetch_subreddit_posts(subreddit, listing="new", limit_per_page=post_limit, max_pages=1)
-        all_comments: List[CleanComment] = []
+        all_comments: list[CleanComment] = []
 
         # Extraer comentarios de los primeros posts
         for p in posts[:5]:

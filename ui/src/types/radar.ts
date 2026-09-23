@@ -356,7 +356,32 @@ export type RadarEvent =
       stats: RunStats;
       errors: string[];
     }
-  | { type: "run:error"; runId: string; message: string };
+  | {
+      type: "run:error";
+      runId: string;
+      /** Código estable (core/ingestion/errors.py); la interfaz lo traduce. */
+      code: ScanErrorCode;
+      /** Detalle técnico para el registro. No se muestra al usuario. */
+      message: string;
+      retryAfterSeconds: number | null;
+      persistedRunId: string | null;
+      persistError: string | null;
+    };
+
+/**
+ * Motivos por los que un escaneo falla (AUD-003). Espejo de los `code` de
+ * `core/ingestion/errors.py`, más `fetch_failed` (fuente no Reddit) e
+ * `internal_error` (fallo del propio motor).
+ */
+export type ScanErrorCode =
+  | "reddit_credentials_missing"
+  | "reddit_auth_failed"
+  | "reddit_forbidden"
+  | "reddit_not_found"
+  | "reddit_rate_limited"
+  | "reddit_unavailable"
+  | "fetch_failed"
+  | "internal_error";
 
 export const RADAR_EVENT_CHANNEL = "radar:events";
 

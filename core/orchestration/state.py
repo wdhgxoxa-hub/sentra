@@ -16,7 +16,7 @@ cosechado o bien reprocesaría la página anterior.
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, Dict, List, Optional, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from core.intelligence import AnalyzedSignal
 from core.storage import OpportunityRecord
@@ -52,7 +52,7 @@ BLOCKING_RISK_FLAGS = frozenset({
 RECOMPUTED_STATS = frozenset({"clusters", "qualified_clusters"})
 
 
-def _merge_stats(left: Dict[str, int], right: Dict[str, int]) -> Dict[str, int]:
+def _merge_stats(left: dict[str, int], right: dict[str, int]) -> dict[str, int]:
     """
     Fusiona los contadores de dos vueltas del ciclo.
 
@@ -77,28 +77,33 @@ class RadarState(TypedDict, total=False):
     sort: str
 
     # --- Posición en la fuente (se reemplazan en cada ciclo) ---
-    cursor: Optional[str]
+    cursor: str | None
     cycle: int
 
     # --- Material en curso (se reemplaza en cada ciclo) ---
-    raw_items: List[Dict[str, Any]]
-    filtered_items: List[Dict[str, Any]]
-    signals: List[AnalyzedSignal]
+    raw_items: list[dict[str, Any]]
+    filtered_items: list[dict[str, Any]]
+    signals: list[AnalyzedSignal]
 
     # --- Cosecha acumulada de toda la ejecución ---
-    stored_ids: Annotated[List[str], operator.add]
-    qualified: Annotated[List[Dict[str, Any]], operator.add]
-    errors: Annotated[List[str], operator.add]
-    stats: Annotated[Dict[str, int], _merge_stats]
+    stored_ids: Annotated[list[str], operator.add]
+    qualified: Annotated[list[dict[str, Any]], operator.add]
+    errors: Annotated[list[str], operator.add]
+    stats: Annotated[dict[str, int], _merge_stats]
 
     # La agregación necesita TODA la cosecha, no solo la página en curso:
     # un problema que aparece una vez por ciclo solo se ve al juntarlos.
-    all_signals: Annotated[List[AnalyzedSignal], operator.add]
+    all_signals: Annotated[list[AnalyzedSignal], operator.add]
 
     # Se recalculan enteros en cada vuelta sobre `all_signals`, así que se
     # reemplazan en lugar de acumularse.
-    clusters: List[Dict[str, Any]]
-    qualified_clusters: List[Dict[str, Any]]
+    clusters: list[dict[str, Any]]
+    qualified_clusters: list[dict[str, Any]]
+
+    # Motivo tipado por el que la fuente no entregó datos (AUD-003):
+    # `{"code", "message", "retryAfterSeconds"}`. Si existe, la ejecución ha
+    # FALLADO: no es una cosecha vacía.
+    failure: dict[str, Any] | None
 
 
 def new_state(
@@ -123,6 +128,7 @@ def new_state(
         all_signals=[],
         clusters=[],
         qualified_clusters=[],
+        failure=None,
     )
 
 

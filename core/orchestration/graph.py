@@ -22,19 +22,20 @@ Dos decisiones de diseño sostienen todo lo demás:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
 from core.ingestion import PainPointFilter
+from core.ingestion.errors import RedditAccessError
 from core.intelligence import AnalyzedSignal, IntelligenceEngine
 from core.storage import HybridSearchEngine, LanceDBStore
 
 from .aggregation import build_clusters, cluster_to_dict
 from .state import (
     BLOCKING_RISK_FLAGS,
-    MIN_OPPORTUNITY_SCORE,
     OPPORTUNITY_CLUSTER_THRESHOLD,
     SIGNAL_THRESHOLD,
     RadarState,
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 # Firma del fetcher inyectable:
 #   (subreddit, limit, sort, cursor) -> (items, next_cursor)
-Fetcher = Callable[..., Tuple[Sequence[Dict[str, Any]], Optional[str]]]
+Fetcher = Callable[..., tuple[Sequence[dict[str, Any]], str | None]]
 
 DEFAULT_TARGET_QUALIFIED = 10
 DEFAULT_MAX_CYCLES = 5
@@ -63,9 +64,9 @@ class RadarDependencies:
 
     fetcher: Fetcher
     store: LanceDBStore
-    pain_filter: Optional[PainPointFilter] = None
-    engine: Optional[IntelligenceEngine] = None
-    search_engine: Optional[HybridSearchEngine] = None
+    pain_filter: PainPointFilter | None = None
+    engine: IntelligenceEngine | None = None
+    search_engine: HybridSearchEngine | None = None
 
     def get_filter(self) -> PainPointFilter:
         if self.pain_filter is None:
@@ -83,7 +84,7 @@ class RadarDependencies:
         return self.search_engine
 
 
-def _item_text(item: Dict[str, Any]) -> str:
+def _item_text(item: dict[str, Any]) -> str:
     """Texto evaluable de un ítem, sea post (title+selftext) o comentario (body)."""
     title = str(item.get("title") or "")
     body = str(item.get("selftext") or item.get("body") or "")
@@ -94,8 +95,32 @@ def _item_text(item: Dict[str, Any]) -> str:
 # Nodos
 # --------------------------------------------------------------------------
 
-def fetch_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
-    """Trae una página de la fuente y avanza el cursor."""
+def _fetch_failure(
+    cycle: int, code: str, message: str, retry_after: int | None = None
+) -> dict[str, Any]:
+    """Resultado de un fetch que no pudo traer datos: la ejecución FALLA."""
+    logger.error("FetchNode [%s]: %s", code, message)
+    return {
+        "raw_items": [],
+        "cursor": None,
+        "cycle": cycle,
+        "errors": [f"fetch: {code}: {message}"],
+        "stats": {"fetch_errors": 1},
+        "failure": {
+            "code": code,
+            "message": message,
+            "retryAfterSeconds": retry_after,
+        },
+    }
+
+
+def fetch_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
+    """
+    Trae una página de la fuente y avanza el cursor.
+
+    Si la fuente no entrega datos, la ejecución falla con un motivo tipado
+    (`failure`). Una página vacía solo es la que la fuente devolvió vacía.
+    """
     cycle = int(state.get("cycle", 0)) + 1
     try:
         items, next_cursor = deps.fetcher(
@@ -104,15 +129,14 @@ def fetch_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
             state.get("sort", "hot"),
             cursor=state.get("cursor"),
         )
-    except Exception as exc:
-        logger.error("FetchNode: %s", exc)
-        return {
-            "raw_items": [],
-            "cursor": None,
-            "cycle": cycle,
-            "errors": [f"fetch: {exc}"],
-            "stats": {"fetch_errors": 1},
-        }
+    except RedditAccessError as exc:
+        return _fetch_failure(
+            cycle, exc.code, str(exc), getattr(exc, "retry_after_seconds", None)
+        )
+    # Frontera con un fetcher inyectable: cualquier otro fallo también debe
+    # terminar en un fallo explícito de la ejecución, nunca en una página vacía.
+    except Exception as exc:  # noqa: BLE001
+        return _fetch_failure(cycle, "fetch_failed", f"{type(exc).__name__}: {exc}")
 
     items = list(items)
     return {
@@ -123,13 +147,13 @@ def fetch_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
     }
 
 
-def filter_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
+def filter_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     """Descarta bots, spam de afiliados y ruido sin señal de dolor."""
     raw_items = state.get("raw_items") or []
     pain_filter = deps.get_filter()
 
-    kept: List[Dict[str, Any]] = []
-    errors: List[str] = []
+    kept: list[dict[str, Any]] = []
+    errors: list[str] = []
 
     for item in raw_items:
         try:
@@ -138,7 +162,9 @@ def filter_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
             )
             if verdict.passed:
                 kept.append({**item, "matched_keywords": verdict.matched_keywords})
-        except Exception as exc:
+        # Resiliencia por item (ver cabecera): un post que rompe el filtro se
+        # anota en `errors` y no tumba el resto de la pagina.
+        except Exception as exc:  # noqa: BLE001
             logger.error("FilterNode (%s): %s", item.get("id"), exc)
             errors.append(f"filter[{item.get('id')}]: {exc}")
 
@@ -150,15 +176,15 @@ def filter_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
     }
 
 
-def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
+def intelligence_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     """Analiza cada ítem superviviente: NLI, JTBD y scoring temporal."""
     items = state.get("filtered_items") or []
     if not items:
         return {"signals": [], "stats": {"analyzed": 0}}
 
     engine = deps.get_engine()
-    signals: List[AnalyzedSignal] = []
-    errors: List[str] = []
+    signals: list[AnalyzedSignal] = []
+    errors: list[str] = []
 
     for item in items:
         try:
@@ -180,7 +206,8 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, A
                     community_count=1,
                 )
             )
-        except Exception as exc:
+        # Resiliencia por item: un analisis fallido se anota y el lote sigue.
+        except Exception as exc:  # noqa: BLE001
             logger.error("IntelligenceNode (%s): %s", item.get("id"), exc)
             errors.append(f"intelligence[{item.get('id')}]: {exc}")
 
@@ -194,7 +221,7 @@ def intelligence_node(state: RadarState, deps: RadarDependencies) -> Dict[str, A
     }
 
 
-def storage_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
+def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     """Persiste las señales como registros vectoriales e indexa el corpus."""
     signals = state.get("signals") or []
     if not signals:
@@ -212,7 +239,8 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
             for signal in signals
         ]
         deps.store.insert_opportunities(records)
-    except Exception as exc:
+    # Frontera con LanceDB: cualquier fallo del almacen se anota en `errors`.
+    except Exception as exc:  # noqa: BLE001
         logger.error("StorageNode: %s", exc)
         return {
             "stored_ids": [],
@@ -220,14 +248,15 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> Dict[str, Any]:
             "stats": {"storage_errors": 1},
         }
 
-    errors: List[str] = []
+    errors: list[str] = []
     try:
         # Se extiende el índice léxico, no se reemplaza: el grafo es cíclico y
         # `index_corpus` descartaría lo cosechado en las vueltas anteriores.
         deps.get_search_engine().extend_corpus(
             [record.model_dump(exclude={"vector"}) for record in records]
         )
-    except Exception as exc:
+    # El indice lexico es secundario: si falla, la busqueda densa sigue.
+    except Exception as exc:  # noqa: BLE001
         logger.error("StorageNode (indexado BM25): %s", exc)
         errors.append(f"index: {exc}")
 
@@ -242,7 +271,7 @@ def quality_gate_node(
     state: RadarState,
     deps: RadarDependencies,
     min_score: float = SIGNAL_THRESHOLD,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Filtro de higiene sobre la señal INDIVIDUAL.
 
@@ -255,7 +284,7 @@ def quality_gate_node(
     patrón de afiliado no pasa ni con 99 puntos, porque el riesgo no es una
     penalización gradual sino una descalificación.
     """
-    qualified: List[Dict[str, Any]] = []
+    qualified: list[dict[str, Any]] = []
     rejected = 0
 
     for signal in state.get("signals") or []:
@@ -292,7 +321,7 @@ def aggregation_node(
     state: RadarState,
     deps: RadarDependencies,
     cluster_threshold: float = OPPORTUNITY_CLUSTER_THRESHOLD,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Consolida la cosecha completa en problemas recurrentes y los cualifica.
 
@@ -314,7 +343,8 @@ def aggregation_node(
             scorer=deps.get_engine().temporal_scorer,
             pain_filter=deps.get_filter(),
         )
-    except Exception as exc:
+    # Resiliencia por nodo: un fallo al agrupar se anota y no pierde la cosecha.
+    except Exception as exc:  # noqa: BLE001
         logger.error("AggregationNode: %s", exc)
         return {
             "clusters": [],
@@ -384,6 +414,8 @@ def build_graph(
 
     def route(state: RadarState) -> str:
         """Decide si hay que dar otra vuelta o cerrar la ejecución."""
+        if state.get("failure"):
+            return END
         if len(state.get("qualified") or []) >= target_qualified:
             return END
         if state.get("cursor") is None:
