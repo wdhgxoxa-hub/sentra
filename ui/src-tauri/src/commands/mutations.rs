@@ -35,9 +35,11 @@ const VALID_STATUSES: [&str; 5] = ["new", "triaged", "validated", "rejected", "s
 
 /// Registra el juicio humano sobre un problema recurrente.
 ///
-/// Va por `cluster_key` y no por el id de una fila de `opportunity_clusters`
-/// porque esa tabla guarda una lectura por ejecucion: validar una fila seria
-/// validar una foto. El problema sobrevive a cada escaneo.
+/// Llega la `cluster_key` de la lectura que se esta viendo, pero el juicio
+/// se guarda sobre la oportunidad (`opportunity_id`, D-G): la clave cambia
+/// cuando el problema gana palabras entre escaneos, y el juicio tiene que
+/// seguirle. Validar una fila de `opportunity_clusters` seria validar una
+/// foto; validar la clave, perder el juicio en el siguiente escaneo.
 ///
 /// `validated_at` se fija la primera vez que pasa a 'validated' y no se
 /// borra despues: interesa saber cuando se tomo la decision aunque luego
@@ -74,20 +76,40 @@ pub async fn set_validation(
         ));
     }
 
+    // La oportunidad de la ultima lectura con esa clave.
+    let lectura = sqlx::query_as::<_, (String, Option<f64>)>(
+        r#"
+        SELECT opportunity_id::text, final_score::float8
+        FROM opportunity_clusters
+        WHERE tenant_id = $1::uuid AND cluster_key = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(LOCAL_TENANT)
+    .bind(cluster_key)
+    .fetch_optional(pool)
+    .await?;
+    let Some((opportunity_id, puntuacion)) = lectura else {
+        return Err(RadarError::Invalid(format!(
+            "No hay ninguna oportunidad con la clave '{cluster_key}'"
+        )));
+    };
+
     let row = sqlx::query_as::<_, ClusterValidation>(
         r#"
         INSERT INTO cluster_validations (
-            tenant_id, cluster_key, status, notes, assigned_to,
+            tenant_id, opportunity_id, cluster_key, status, notes, assigned_to,
             validated_at, score_at_decision
         )
         VALUES (
-            $1::uuid, $2, $3::validation_status, $4, $5,
+            $1::uuid, $6::uuid, $2, $3::validation_status, $4, $5,
             CASE WHEN $3 = 'validated' THEN now() ELSE NULL END,
-            (SELECT final_score FROM opportunity_clusters
-              WHERE tenant_id = $1::uuid AND cluster_key = $2
-              ORDER BY created_at DESC LIMIT 1)
+            $7
         )
-        ON CONFLICT (tenant_id, cluster_key) DO UPDATE SET
+        ON CONFLICT (tenant_id, opportunity_id) DO UPDATE SET
+            -- La ultima clave vista, informativa: la identidad no cambia.
+            cluster_key  = EXCLUDED.cluster_key,
             status       = EXCLUDED.status,
             notes        = COALESCE(EXCLUDED.notes, cluster_validations.notes),
             assigned_to  = COALESCE(EXCLUDED.assigned_to, cluster_validations.assigned_to),
@@ -110,6 +132,8 @@ pub async fn set_validation(
     .bind(status)
     .bind(notes)
     .bind(assigned_to)
+    .bind(opportunity_id)
+    .bind(puntuacion)
     .fetch_one(pool)
     .await?;
 
@@ -453,6 +477,78 @@ mod tests {
 
     // --- Validacion de oportunidades ---
 
+    /// Inserta una lectura de la oportunidad `opportunity_id` con la clave
+    /// `clave`, como la escribe el motor tras un escaneo.
+    async fn sembrar_lectura(pool: &sqlx::PgPool, clave: &str, opportunity_id: &str) {
+        sqlx::query(
+            r#"
+            WITH r AS (
+                INSERT INTO pipeline_runs (tenant_id, subreddit_name, status)
+                VALUES ($1::uuid, 'SaaS', 'completed') RETURNING id
+            )
+            INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label,
+                intent_type, mention_count, community_count, final_score, opportunity_id)
+            SELECT $1::uuid, id, $2, $2, 'complaint', 2, 1, 42, $3::uuid FROM r
+            "#,
+        )
+        .bind(LOCAL_TENANT)
+        .bind(clave)
+        .bind(opportunity_id)
+        .execute(pool)
+        .await
+        .expect("no se pudo sembrar la lectura");
+    }
+
+    /// UUID nuevo, de la propia base, para no fijar ninguno en el codigo.
+    async fn uuid_nuevo(pool: &sqlx::PgPool) -> String {
+        sqlx::query_scalar::<_, String>("SELECT uuidv7()::text")
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_key_without_readings_is_rejected() {
+        let pool = pool_or_skip!();
+        let result = set_validation(&pool, "sin-lecturas", "triaged", None, None).await;
+        assert!(matches!(result, Err(RadarError::Invalid(_))));
+    }
+
+    /// AUD-019: la validacion es de la oportunidad, no de su clave. Cuando el
+    /// problema gana palabras y su clave cambia, el juicio y el historial
+    /// siguen con el.
+    #[tokio::test]
+    async fn validation_and_history_survive_a_key_change() {
+        let pool = pool_or_skip!();
+        let oportunidad = uuid_nuevo(&pool).await;
+        sembrar_lectura(&pool, "complaint:factura|manual", &oportunidad).await;
+        set_validation(&pool, "complaint:factura|manual", "triaged", Some("mirando".into()), None)
+            .await
+            .expect("no se pudo validar");
+
+        sembrar_lectura(&pool, "complaint:factura|manual|horas", &oportunidad).await;
+        let segunda = set_validation(&pool, "complaint:factura|manual|horas", "validated", None, None)
+            .await
+            .expect("no se pudo actualizar con la clave nueva");
+        assert_eq!(segunda.notes.as_deref(), Some("mirando"), "es el mismo juicio");
+        assert_eq!(segunda.cluster_key, "complaint:factura|manual|horas");
+
+        let filas: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM cluster_validations WHERE opportunity_id = $1::uuid",
+        )
+        .bind(&oportunidad)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(filas, 1, "un solo juicio por oportunidad");
+
+        let historial =
+            crate::commands::radar::historial_de(&pool, "complaint:factura|manual|horas")
+                .await
+                .unwrap();
+        assert_eq!(historial.len(), 2, "el historial incluye la lectura con la clave vieja");
+    }
+
     #[tokio::test]
     async fn an_unknown_status_is_rejected() {
         let pool = pool_or_skip!();
@@ -470,6 +566,8 @@ mod tests {
     #[tokio::test]
     async fn a_validation_can_be_created_and_updated() {
         let pool = pool_or_skip!();
+        let oportunidad = uuid_nuevo(&pool).await;
+        sembrar_lectura(&pool, "invoice+manual", &oportunidad).await;
 
         let first = set_validation(&pool, "invoice+manual", "triaged", Some("mirando".into()), None)
             .await
@@ -491,6 +589,8 @@ mod tests {
     #[tokio::test]
     async fn the_first_validation_date_is_preserved() {
         let pool = pool_or_skip!();
+        let oportunidad = uuid_nuevo(&pool).await;
+        sembrar_lectura(&pool, "k", &oportunidad).await;
 
         let validated = set_validation(&pool, "k", "validated", None, None).await.unwrap();
         let fecha = validated.validated_at.clone().unwrap();

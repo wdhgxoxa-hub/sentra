@@ -54,6 +54,7 @@
       "label",
       "linkedSignals",
       "mentionCount",
+      "opportunityId",
       "qualified",
       "representativeContent",
       "representativeRedditId",

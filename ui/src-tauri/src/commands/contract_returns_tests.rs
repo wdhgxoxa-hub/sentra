@@ -142,6 +142,7 @@ fn get_opportunity_board_y_detail_devuelven_opportunity_cluster() {
             validated_at: None,
             cluster_stats: json!({}),
             data_source: None,
+            opportunity_id: texto(),
         },
         "OpportunityCluster",
     );

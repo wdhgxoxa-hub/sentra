@@ -149,6 +149,7 @@ struct OpportunityClusterRow {
     validated_at: Option<String>,
     cluster_stats: serde_json::Value,
     data_source: Option<String>,
+    opportunity_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -197,6 +198,8 @@ pub struct OpportunityCluster {
     pub cluster_stats: serde_json::Value,
     /// "demo" o "reddit": fuente de la ejecución que produjo esta lectura.
     pub data_source: Option<String>,
+    /// Identidad estable de la oportunidad entre escaneos (D-G).
+    pub opportunity_id: String,
 }
 
 /// Una cita que sostiene una oportunidad.
@@ -265,6 +268,7 @@ impl TryFrom<OpportunityClusterRow> for OpportunityCluster {
             validated_at: row.validated_at,
             cluster_stats: row.cluster_stats,
             data_source: row.data_source,
+            opportunity_id: row.opportunity_id,
         })
     }
 }
@@ -304,7 +308,8 @@ const BOARD_COLUMNS: &str = r#"
     validation_assignee,
     validated_at::text         AS validated_at,
     cluster_stats,
-    data_source
+    data_source,
+    opportunity_id::text       AS opportunity_id
 "#;
 
 /// Tablero de problemas recurrentes consolidados (migracion 002).
@@ -313,19 +318,20 @@ pub async fn get_opportunity_board(
     state: State<'_, AppState>,
     params: BoardParams,
 ) -> RadarResult<Vec<OpportunityCluster>> {
-    // DISTINCT ON por cluster_key: la tabla guarda una lectura por
+    // DISTINCT ON por oportunidad (D-G): la tabla guarda una lectura por
     // ejecucion, asi que sin esto el tablero mostraria el mismo problema
-    // repetido tantas veces como se haya escaneado, como si fueran
-    // oportunidades distintas. Interesa la lectura mas reciente de cada uno.
+    // repetido tantas veces como se haya escaneado. Por clave tampoco
+    // basta: la clave cambia cuando el problema gana palabras. Interesa la
+    // lectura mas reciente de cada oportunidad.
     let sql = format!(
         r#"
         SELECT * FROM (
-            SELECT DISTINCT ON (cluster_key) {BOARD_COLUMNS}
+            SELECT DISTINCT ON (opportunity_id) {BOARD_COLUMNS}
             FROM v_opportunity_board
             WHERE tenant_id = $1::uuid
               AND final_score >= $2
               AND (NOT $3 OR qualified)
-            ORDER BY cluster_key, created_at DESC
+            ORDER BY opportunity_id, created_at DESC
         ) ultimas
         ORDER BY final_score DESC, created_at DESC
         LIMIT $4
@@ -406,6 +412,16 @@ pub async fn get_cluster_history(
     state: State<'_, AppState>,
     cluster_key: String,
 ) -> RadarResult<Vec<ClusterHistoryPoint>> {
+    historial_de(&state.db.pool()?, &cluster_key).await
+}
+
+/// Todas las lecturas de la oportunidad a la que pertenece la ultima
+/// lectura con `cluster_key` (D-G): la clave cambia entre escaneos, la
+/// oportunidad no, asi que el historial no se parte.
+pub async fn historial_de(
+    pool: &sqlx::PgPool,
+    cluster_key: &str,
+) -> RadarResult<Vec<ClusterHistoryPoint>> {
     let rows = sqlx::query_as::<_, ClusterHistoryPoint>(
         r#"
         SELECT
@@ -420,14 +436,18 @@ pub async fn get_cluster_history(
             r.data_source
         FROM opportunity_clusters c
         LEFT JOIN pipeline_runs r ON r.id = c.run_id
-        WHERE c.tenant_id = $1::uuid AND c.cluster_key = $2
+        WHERE c.tenant_id = $1::uuid
+          AND c.opportunity_id = (
+              SELECT opportunity_id FROM opportunity_clusters
+              WHERE tenant_id = $1::uuid AND cluster_key = $2
+              ORDER BY created_at DESC LIMIT 1)
         ORDER BY c.created_at DESC
         LIMIT 100
         "#,
     )
     .bind(LOCAL_TENANT)
     .bind(cluster_key)
-    .fetch_all(&state.db.pool()?)
+    .fetch_all(pool)
     .await?;
 
     Ok(rows)

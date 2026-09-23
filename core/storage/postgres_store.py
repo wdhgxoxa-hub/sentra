@@ -31,9 +31,12 @@ import json
 import logging
 import os
 import sys
+import uuid
 from collections.abc import Coroutine, Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Self, TypeVar
+
+from .identity import Candidato, Previo, asignar_identidades
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
@@ -770,15 +773,56 @@ class PostgresStore:
         )
         return str(result["id"])
 
+    async def fetch_opportunity_identities(self) -> list[Previo]:
+        """Última lectura de cada oportunidad: sus señales y sus palabras (D-G)."""
+        rows = await self._fetchall(
+            """
+            SELECT DISTINCT ON (c.opportunity_id)
+                   c.opportunity_id::text AS opportunity_id,
+                   c.keywords,
+                   ARRAY(SELECT s.reddit_id
+                           FROM opportunity_cluster_signals cs
+                           JOIN analyzed_signals s ON s.id = cs.signal_id
+                          WHERE cs.cluster_id = c.id) AS members
+            FROM opportunity_clusters c
+            WHERE c.tenant_id = %s
+            ORDER BY c.opportunity_id, c.created_at DESC
+            """,
+            (self.tenant_id,),
+        )
+        return [
+            Previo(str(r["opportunity_id"]), set(r["members"] or []), set(r["keywords"] or []))
+            for r in rows
+        ]
+
+    async def assign_opportunity_ids(
+        self, clusters: Sequence[dict[str, Any]]
+    ) -> dict[str, str]:
+        """UUID de cada cluster: heredado de una oportunidad anterior o nuevo (D-G)."""
+        candidatos = [
+            Candidato(
+                str(c.get("key") or ""),
+                {str(i) for i in c.get("signal_ids") or []},
+                {str(k) for k in c.get("keywords") or []},
+            )
+            for c in clusters
+        ]
+        heredados = asignar_identidades(candidatos, await self.fetch_opportunity_identities())
+        return {clave: uid or str(uuid.uuid4()) for clave, uid in heredados.items()}
+
     async def save_cluster(
         self,
         cluster: dict[str, Any],
         run_id: str | None,
         signal_uuids: dict[str, str],
         qualified: bool = False,
+        opportunity_id: str | None = None,
     ) -> str | None:
         """
         Inserta un cluster y lo enlaza con las señales que lo sostienen.
+
+        `opportunity_id` es su identidad estable (D-G); sin ella se le asigna
+        una nueva, como a una oportunidad que aparece por primera vez.
 
         `signal_uuids` mapea el identificador de Reddit al uuid de la señal
         ya persistida. Las señales que no estén ahí (por ejemplo, de una
@@ -800,9 +844,9 @@ class PostgresStore:
                 current_solutions, risk_flags, spread_factor, frequency_factor,
                 severity_factor, recency_factor, paid_signal_factor, raw_score,
                 final_score, urgency_tier, qualified, evidence, top_rank,
-                cluster_stats)
+                cluster_stats, opportunity_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,%s,%s,%s,%s,%s)
+                    %s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (tenant_id, run_id, cluster_key) DO UPDATE
                 SET final_score = EXCLUDED.final_score,
                     qualified   = EXCLUDED.qualified,
@@ -824,6 +868,7 @@ class PostgresStore:
                 json.dumps(row["evidence"], default=str),
                 row["top_rank"],
                 json.dumps(row["cluster_stats"]),
+                opportunity_id or str(uuid.uuid4()),
             ),
         )
         cluster_id = str(result["id"])
@@ -927,13 +972,16 @@ class PostgresStore:
             qualified_keys = {
                 c.get("key") for c in (state.get("qualified_clusters") or [])
             }
+            clusters = list(state.get("clusters") or [])
+            identidades = await self.assign_opportunity_ids(clusters)
             clusters_saved = 0
-            for cluster in state.get("clusters") or []:
+            for cluster in clusters:
                 saved = await self.save_cluster(
                     cluster,
                     run_id=run_id,
                     signal_uuids=signal_uuids,
                     qualified=cluster.get("key") in qualified_keys,
+                    opportunity_id=identidades.get(str(cluster.get("key") or "")),
                 )
                 if saved:
                     clusters_saved += 1

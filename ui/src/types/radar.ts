@@ -188,6 +188,8 @@ export interface OpportunityCluster {
   clusterStats: ClusterStats;
   /** Fuente de la ejecución que produjo esta lectura. */
   dataSource: DataSource | null;
+  /** Identidad estable entre escaneos (D-G): la clave cambia, esto no. */
+  opportunityId: string;
 }
 
 /**
