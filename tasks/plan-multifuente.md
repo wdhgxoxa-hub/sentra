@@ -50,16 +50,16 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 
 ## Fase 3 — Juez
 
-- [ ] T3.1 Etapa 0: filtro de calidad determinista con motivos. La autopromoción se conserva como señal de competencia.
-- [ ] T3.2 Conjunto dorado de al menos 60 ítems (es/en), inventado.
-- [ ] T3.3 Etapa 1: etiquetado con `generate_json`, verificación de `evidence_span`, caché por hash, lotes y `undetermined` sin proveedor.
-- [ ] T3.4 Etapa 2: clustering con e5-large e identidad D-G.
-- [ ] T3.5 Etapa 3: siete dimensiones y pesos v1 versionados (D-M3).
-- [ ] T3.6 Etapa 4: ocho compuertas y tabla de veredictos D-M3. Tests: uno CONSTRUIR, uno INVESTIGAR MÁS por compuerta, uno DESCARTAR y el de honestidad.
-- [ ] T3.7 Etapa 5: abogado del diablo, que solo baja.
-- [ ] T3.8 Persistencia de `niche_verdicts` y el Top 6 ordenado por veredicto (AUD-007).
-- [ ] T3.9 UI: mapa de corroboración, panel del juez y abogado del diablo.
-- [ ] T3.10 Concordancia real con 20 ítems dorados, dentro del cupo de Gemini.
+- [x] T3.1 Etapa 0: filtro de calidad determinista con motivos. La autopromoción se conserva como señal de competencia.
+- [x] T3.2 Conjunto dorado de al menos 60 ítems (es/en), inventado.
+- [x] T3.3 Etapa 1: etiquetado con `generate_json`, verificación de `evidence_span`, caché por hash, lotes y `undetermined` sin proveedor.
+- [x] T3.4 Etapa 2: clustering con e5-large e identidad D-G.
+- [x] T3.5 Etapa 3: siete dimensiones y pesos v1 versionados (D-M3).
+- [x] T3.6 Etapa 4: ocho compuertas y tabla de veredictos D-M3. Tests: uno CONSTRUIR, uno INVESTIGAR MÁS por compuerta, uno DESCARTAR y el de honestidad.
+- [x] T3.7 Etapa 5: abogado del diablo, que solo baja.
+- [x] T3.8 Persistencia de `niche_verdicts` y el Top 6 ordenado por veredicto (AUD-007).
+- [x] T3.9 UI: mapa de corroboración, panel del juez y abogado del diablo.
+- [x] T3.10 Concordancia real con 20 ítems dorados, dentro del cupo de Gemini.
 - **Checkpoint F3**: informe.
 
 ## Cierre
@@ -97,3 +97,17 @@ Pruebas reales acotadas (R7), peticiones a la API:
 - Además, sondas pulsadas por el usuario desde la app (no cuentan como pruebas de la misión).
 
 Pendiente de decisión del usuario: en GitHub la comunidad y la URL llevan owner/repo; el owner puede ser una cuenta personal (no es el autor de la queja, que va hasheado).
+
+## Concordancia real del etiquetado (T3.10, 2026-09-23)
+
+Selección fija y declarada antes de medir: g-en-01..10 y g-es-01..10 del conjunto dorado v2026-09-23.v1.
+Modelo gemini-3.8-flash (el «defecto» elegido por models.list en F1), un lote de 20, max_retries=0.
+
+| Etiquetador | Llamadas | is_pain | intent | workaround | wtp | Cobertura |
+|---|---|---|---|---|---|---|
+| labels-v1 | 1 | 100 % | 40 % | 70 % | 100 % | 100 % |
+| labels-v2 | 1 | 100 % | 80 % | 70 % | 100 % | 100 % |
+
+- v1: 8 de los 12 fallos de intent eran undetermined: el prompt no nombraba las claves de evidence_spans y la verificación anuló lo que no traía fragmento. v2 las nombra (prompt y esquema).
+- Desacuerdos restantes, semánticos y simétricos en/es: intent queja frente a mencion_competidor (04) y parche_casero (09); el modelo cuenta el trabajo manual como parche casero (01, 02, 10). El conjunto dorado no se ajustó a los resultados.
+- Llamadas reales a Gemini en la misión: 4 de 10 (F1: 2; concordancia: 2).

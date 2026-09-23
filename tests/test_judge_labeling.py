@@ -117,6 +117,23 @@ class TestVerificacion(unittest.TestCase):
         self.assertEqual((verificada.is_pain, verificada.intent), ("no", "pregunta_neutra"))
 
 
+class TestInstrucciones(unittest.TestCase):
+    """Concordancia real v1: 8 intents quedaron undetermined porque el prompt
+    no decía con qué claves rellenar evidence_spans."""
+
+    def test_el_prompt_y_el_esquema_nombran_las_claves_de_los_fragmentos(self):
+        from core.judge.labels import SPAN_KEYS, SYSTEM_PROMPT
+
+        self.assertEqual(SPAN_KEYS, ("is_pain", "intent", "workaround_described", "wtp_signal"))
+        descripcion = LLMItemLabel.model_json_schema()["properties"]["evidence_spans"]["description"]
+        for clave in SPAN_KEYS:
+            self.assertIn(clave, SYSTEM_PROMPT)
+            self.assertIn(clave, descripcion)
+
+    def test_la_version_cambia_con_el_prompt(self):
+        self.assertEqual(LABELER_VERSION, "labels-v2")
+
+
 class TestEtiquetado(unittest.TestCase):
     def test_sin_proveedor_todo_undetermined_sin_heuristicas(self):
         items = [item_de(d) for d in GOLDEN[:5]]

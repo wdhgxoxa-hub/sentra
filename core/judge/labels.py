@@ -28,7 +28,11 @@ from core.llm.base import LLMBudgetExhausted, LLMError, LLMProvider
 logger = logging.getLogger(__name__)
 
 #: Versión del etiquetador (prompt + esquema). Cambiarla invalida la caché.
-LABELER_VERSION = "labels-v1"
+#: v2: el prompt y el esquema nombran las claves de evidence_spans (en v1 el
+#: modelo omitía la de intent y la verificación la anulaba).
+LABELER_VERSION = "labels-v2"
+#: Claves exactas de evidence_spans.
+SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal")
 #: D-M4: ítems etiquetados por escaneo.
 MAX_ITEMS_PER_SCAN = 300
 #: Ítems por llamada al LLM.
@@ -78,8 +82,12 @@ class LLMItemLabel(BaseModel):
     workaround_described: bool
     wtp_signal: bool
     competitors_mentioned: list[CompetitorMention] = Field(default_factory=list)
-    #: Fragmento literal por etiqueta positiva: is_pain, intent, workaround_described, wtp_signal.
-    evidence_spans: dict[str, str] = Field(default_factory=dict)
+    #: Fragmento literal por etiqueta positiva.
+    evidence_spans: dict[str, str] = Field(
+        default_factory=dict,
+        description=("Fragmento LITERAL del texto por cada etiqueta positiva, con estas claves "
+                     "exactas: is_pain, intent (salvo pregunta_neutra), workaround_described, "
+                     "wtp_signal."))
 
 
 class LLMLabelBatch(BaseModel):
@@ -174,9 +182,11 @@ SYSTEM_PROMPT = (
     "Eres un etiquetador de evidencia de mercado. No juzgas ni recomiendas: solo etiquetas. "
     "Para cada ítem devuelve is_pain, pain_confidence, pain_type, intent, severity, "
     "workaround_described, wtp_signal y competitors_mentioned. Para cada etiqueta positiva "
-    "copia en evidence_spans el fragmento LITERAL del texto que la justifica, sin parafrasear; "
-    "si no hay fragmento literal, la etiqueta es false. Los textos pueden estar en inglés o en "
-    "español; responde en el esquema pedido."
+    "copia en evidence_spans el fragmento LITERAL del texto que la justifica, sin parafrasear, "
+    "usando exactamente estas claves: is_pain, intent, workaround_described y wtp_signal. La "
+    "clave intent es obligatoria salvo para pregunta_neutra. Cada competidor lleva su propio "
+    "evidence_span. Si no hay fragmento literal, la etiqueta es false. Los textos pueden estar "
+    "en inglés o en español; responde en el esquema pedido."
 )
 
 
