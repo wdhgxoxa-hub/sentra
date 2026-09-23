@@ -129,6 +129,8 @@ CREATE TABLE sources_state (
     last_verified_at  timestamptz,
     error_code        text,
     detail            text,
+    -- Aparte del estado: deshabilitar no borra lo último que dijo la API.
+    disabled          boolean NOT NULL DEFAULT false,
     updated_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (tenant_id, source),
     CONSTRAINT sources_state_verified CHECK (status <> 'verificada' OR last_verified_at IS NOT NULL),
