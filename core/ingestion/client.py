@@ -76,11 +76,6 @@ class RedditIngestionClient:
             await asyncio.sleep(self.rate_limit_delay - elapsed)
         self._last_request_time = time.monotonic()
 
-    @property
-    def is_authenticated(self) -> bool:
-        """True si hay credenciales OAuth utilizables."""
-        return bool(self.oauth and self.oauth.is_configured)
-
     async def _oauth_headers(self) -> dict[str, str]:
         """Cabeceras de la API OAuth, o error tipado si faltan credenciales."""
         if self.oauth is None or not self.oauth.is_configured:

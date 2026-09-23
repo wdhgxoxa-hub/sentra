@@ -125,6 +125,12 @@ class TestSinSuplantacion(ConRedFalsa):
                 self.assertNotRegex(texto, r"impersonate|curl_cffi|over18|Sec-Fetch")
         self.assertNotRegex((RAIZ / "requirements.txt").read_text(encoding="utf-8"), "curl_cffi")
 
+    def test_el_cliente_no_dice_estar_autenticado_sin_haberlo_comprobado(self):
+        """R-B: is_authenticated solo miraba si había credenciales, no si
+        Reddit las aceptaba, y nadie la usaba. Quien necesite saberlo prueba
+        las credenciales (/api/credentials/test)."""
+        self.assertFalse(hasattr(RedditIngestionClient, "is_authenticated"))
+
     def test_quien_crea_el_cliente_usa_sus_parametros_reales(self):
         """Tras quitar la suplantación, scripts/demo_ingestion.py seguía
         pasando impersonate_browser y moría con TypeError al arrancar."""
