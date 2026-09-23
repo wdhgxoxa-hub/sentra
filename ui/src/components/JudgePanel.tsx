@@ -84,7 +84,10 @@ function VerdictCard({ v, t, nombre }: { v: JudgeVerdict; t: T; nombre: (id: str
               {d.note === "undetermined"
                 ? t.judge.undetermined
                 : d.note === "sin_datos"
-                  ? t.judge.noData
+                  ? // D-M9: el hueco sin menciones es un valor neutro, nunca una cifra medida.
+                    d.name === "hueco"
+                    ? t.judge.noCompetitionData
+                    : t.judge.noData
                   : `${d.value === null ? "—" : cifra(d.value)} (${((d.normalized ?? 0) * 100).toFixed(0)} %)`}
             </li>
           ))}

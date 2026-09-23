@@ -593,6 +593,7 @@ export const es = {
       viabilidad: "Viabilidad para un desarrollador solo",
     },
     noData: "sin datos",
+    noCompetitionData: "sin datos de competencia (valor neutro 0,5, no medido)",
     undetermined: "sin determinar (Fase 4)",
     advocate: "Abogado del diablo",
     advocateDowngraded: "Bajó el veredicto: {reason}",

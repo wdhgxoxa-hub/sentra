@@ -83,6 +83,15 @@ cierre. La UI de cada pieza va en el mismo commit que la pieza.
   la variante por identificador técnico: Bluesky `bsky.app/profile/<DID>/post/<rkey>`;
   Mastodon, la URL por id de estado sin `@usuario`. Nunca se guarda el @handle;
   el autor sigue solo como hash.
+- **D-M8 · Sin abogado del diablo no hay CONSTRUIR (usuario, 2026-09-23).** Si el abogado
+  no puede ejecutarse (sin proveedor o con error), un CONSTRUIR baja a INVESTIGAR MÁS.
+- **D-M9 · Hueco sin datos (usuario, 2026-09-23).** Sin menciones de competidores el hueco
+  vale 0,5 y la UI lo muestra como «sin datos de competencia», nunca como cifra medida.
+- **D-M10 · GitHub con owner/repo (usuario, 2026-09-23).** La URL identifica el
+  repositorio, no al autor de la queja; el autor de la issue sigue solo como hash.
+- **D-M11 · Mastodon por API (usuario, 2026-09-23).** El enlace es la URL de la API
+  (JSON), sin @usuario.
+  Las cuatro las fija tests/test_decisiones_usuario.py.
 - **D-SE1..D-SE5 · Stack Exchange (usuario, 2026-09-23).** Clave opcional
   `RIR_STACKEXCHANGE_KEY` solo desde la tarjeta; sin OAuth; solo uso personal;
   atribución visible (insignia, sitio, URL en texto plano) en UI, documento y PDF.

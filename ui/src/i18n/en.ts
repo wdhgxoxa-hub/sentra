@@ -588,6 +588,7 @@ export const en: Dictionary = {
       viabilidad: "Solo-developer feasibility",
     },
     noData: "no data",
+    noCompetitionData: "no competition data (neutral 0.5, not measured)",
     undetermined: "undetermined (Phase 4)",
     advocate: "Devil's advocate",
     advocateDowngraded: "Lowered the verdict: {reason}",
