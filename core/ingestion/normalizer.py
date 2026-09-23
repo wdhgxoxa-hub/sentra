@@ -11,8 +11,12 @@ Integra:
 from __future__ import annotations
 
 import re
+from collections.abc import Generator, Iterable, Sequence
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+)
+
 from pydantic import BaseModel, Field
 
 
@@ -25,11 +29,11 @@ class CleanComment(BaseModel):
     score: int = 0
     created_utc: float = 0.0
     permalink: str = ""
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     #: Nivel en el árbol del hilo: 0 responde al post, 1 a un comentario...
     depth: int = 0
     is_pain_signal: bool = False
-    matched_keywords: List[str] = Field(default_factory=list)
+    matched_keywords: list[str] = Field(default_factory=list)
 
 
 class CleanPost(BaseModel):
@@ -46,9 +50,9 @@ class CleanPost(BaseModel):
     url: str = ""
     permalink: str = ""
     flair: str = ""
-    comments: List[CleanComment] = Field(default_factory=list)
+    comments: list[CleanComment] = Field(default_factory=list)
     is_pain_signal: bool = False
-    matched_keywords: List[str] = Field(default_factory=list)
+    matched_keywords: list[str] = Field(default_factory=list)
 
 
 class UnifiedTimelineItem(BaseModel):
@@ -84,7 +88,7 @@ class RedditNormalizer:
         return clean
 
     @staticmethod
-    def is_deleted_or_removed(text: Optional[str]) -> bool:
+    def is_deleted_or_removed(text: str | None) -> bool:
         """Determina si un texto representa contenido eliminado por usuario o moderador."""
         if text is None:
             return True
@@ -92,7 +96,7 @@ class RedditNormalizer:
         return clean in {"[deleted]", "[removed]", ""}
 
     @staticmethod
-    def clean_text_body(text: Optional[str], max_length: Optional[int] = None) -> str:
+    def clean_text_body(text: str | None, max_length: int | None = None) -> str:
         """
         Limpia texto de publicaciones o comentarios:
         - Normaliza espacios en blanco y saltos de línea repetidos.
@@ -109,7 +113,7 @@ class RedditNormalizer:
         return cleaned
 
     @staticmethod
-    def deduplicate_posts(posts: Sequence[Union[CleanPost, Dict[str, Any]]]) -> List[Any]:
+    def deduplicate_posts(posts: Sequence[CleanPost | dict[str, Any]]) -> list[Any]:
         """
         Deduplica una secuencia de publicaciones conservando el primer ítem encontrado
         y respetando el orden de mayor engagement/score.
