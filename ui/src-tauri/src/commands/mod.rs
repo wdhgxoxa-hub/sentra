@@ -8,6 +8,7 @@
 //! - `mutations`: las escrituras, juntas para que la superficie con la
 //!   que se cambia el estado del sistema sea facil de revisar.
 //! - `settings`: configuracion y credenciales, delegadas al sidecar.
+//! - `sources`: fuentes multifuente (estado, credenciales, escaneo), delegadas al sidecar.
 //! - `blueprint`: especificacion de proyecto, redactada por el motor.
 //! - `architect`: plan de construccion, redactado por Gemini.
 
@@ -19,6 +20,7 @@ pub mod health;
 pub mod mutations;
 pub mod radar;
 pub mod settings;
+pub mod sources;
 
 #[cfg(test)]
 mod contract_returns_tests;

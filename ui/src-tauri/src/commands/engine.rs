@@ -24,7 +24,7 @@ pub const RADAR_EVENT_CHANNEL: &str = "radar:events";
 
 /// Un escaneo puede recorrer varios ciclos y analizar decenas de posts;
 /// el timeout corto de una API web no sirve aqui.
-const SCAN_TIMEOUT: Duration = Duration::from_secs(600);
+pub(crate) const SCAN_TIMEOUT: Duration = Duration::from_secs(600);
 const SEARCH_TIMEOUT: Duration = Duration::from_secs(60);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -175,6 +175,15 @@ pub async fn trigger_scan(
         )));
     }
 
+    relay_sse(&app, response, RADAR_EVENT_CHANNEL).await
+}
+
+/// Reenvia cada evento SSE del sidecar por `channel` y devuelve el ultimo.
+pub(crate) async fn relay_sse(
+    app: &AppHandle,
+    response: reqwest::Response,
+    channel: &str,
+) -> RadarResult<serde_json::Value> {
     let mut stream = response.bytes_stream();
     // Los trozos de red no respetan los limites de los eventos: un evento
     // puede llegar partido en dos y dos eventos en un mismo trozo.
@@ -190,7 +199,7 @@ pub async fn trigger_scan(
 ") {
             let block: String = buffer.drain(..position + 2).collect();
             if let Some(event) = parse_sse_block(&block) {
-                let _ = app.emit(RADAR_EVENT_CHANNEL, &event);
+                let _ = app.emit(channel, &event);
                 last_event = event;
             }
         }

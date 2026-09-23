@@ -166,6 +166,8 @@ class SourceStatus(BaseModel):
     detail: str | None
     disabled: bool
     excluded_by_commercial_mode: bool
+    cost_unit: str
+    cost_note: str
 
 
 def credentials_for(fuente: type[SourceAdapter], env: Mapping[str, str]) -> dict[str, str]:
@@ -213,6 +215,8 @@ def source_status(
         detail=guardado.detail,
         disabled=guardado.disabled,
         excluded_by_commercial_mode=commercial_mode and not fuente.commercial_use_allowed,
+        cost_unit=fuente.cost_model.unit,
+        cost_note=fuente.cost_model.note,
     )
 
 

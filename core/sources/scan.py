@@ -99,13 +99,13 @@ async def _escanear(
     progreso.units = fuente.budget.spent_units
     progreso.usd = fuente.budget.spent_usd
 
-    evento: dict[str, Any] = {"type": "source:done" if progreso.status == "done" else "source:error",
-                              "source": fuente.id, "items": progreso.items}
     if progreso.status == "failed":
-        evento |= {"code": progreso.error_code, "detail": progreso.detail}
-    elif progreso.stop_reason:
-        evento["stopReason"] = progreso.stop_reason
-    await _emitir(sink, evento)
+        await _emitir(sink, {"type": "source:error", "source": fuente.id,
+                             "items": progreso.items, "code": progreso.error_code,
+                             "detail": progreso.detail})
+    else:
+        await _emitir(sink, {"type": "source:done", "source": fuente.id,
+                             "items": progreso.items, "stopReason": progreso.stop_reason})
     return progreso, items
 
 

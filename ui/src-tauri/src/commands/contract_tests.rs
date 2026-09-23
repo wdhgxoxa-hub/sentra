@@ -129,3 +129,32 @@ fn upsert_subreddit_recibe_todos_los_campos_opcionales() {
     assert_eq!(p.status.as_deref(), Some("paused"));
     assert_eq!(p.tags, Some(vec!["b2b".to_string()]));
 }
+
+#[test]
+fn trigger_multiscan_recibe_el_perfil_en_camel_case() {
+    use crate::commands::sources::ScanProfileParams;
+
+    // ipc.ts -> invoke("trigger_multiscan", { profile: { name, keywords, discovery, windowDays, languages } })
+    let payload = json!({ "profile": {
+        "name": "facturas", "keywords": ["invoice"], "discovery": false,
+        "windowDays": 180, "languages": ["en", "es"]
+    }});
+    let perfil: ScanProfileParams = argumento(&payload, "profile");
+    assert_eq!(perfil.name, "facturas");
+    assert_eq!(perfil.keywords, vec!["invoice"]);
+    assert!(!perfil.discovery);
+    assert_eq!(perfil.window_days, 180);
+    assert_eq!(perfil.languages, vec!["en", "es"]);
+}
+
+#[test]
+fn save_source_credentials_recibe_los_valores_por_campo() {
+    use std::collections::BTreeMap;
+
+    // ipc.ts -> invoke("save_source_credentials", { source, values: { token: "..." } })
+    let payload = json!({ "source": "github", "values": { "token": "tok" } });
+    let fuente: String = argumento(&payload, "source");
+    let valores: BTreeMap<String, String> = argumento(&payload, "values");
+    assert_eq!(fuente, "github");
+    assert_eq!(valores.get("token").map(String::as_str), Some("tok"));
+}

@@ -448,3 +448,42 @@ fn get_database_status_devuelve_database_status() {
         "DatabaseStatus",
     );
 }
+
+#[test]
+fn las_fuentes_devuelven_sources_overview_source_card_y_probe() {
+    use crate::commands::sources::{SourceCard, SourceCredentialState, SourceProbeResult, SourcesOverview};
+
+    let credencial = SourceCredentialState {
+        name: texto(),
+        env_var: texto(),
+        secret: true,
+        required: true,
+        configured: false,
+    };
+    cumple(&credencial, "SourceCredentialState");
+    let tarjeta = SourceCard {
+        source: texto(),
+        display_name: texto(),
+        terms_url: texto(),
+        commercial_use_allowed: true,
+        requires_credentials: true,
+        credential_fields: vec![credencial],
+        status: "verificada".into(),
+        last_verified_at: None,
+        error_code: None,
+        detail: None,
+        disabled: false,
+        excluded_by_commercial_mode: false,
+        cost_unit: "request".into(),
+        cost_note: texto(),
+    };
+    cumple(&tarjeta, "SourceCard");
+    cumple(
+        &SourcesOverview { commercial_mode: false, sources: vec![tarjeta] },
+        "SourcesOverview",
+    );
+    cumple(
+        &SourceProbeResult { ok: true, code: None, detail: texto(), checked_at: None },
+        "SourceProbeResult",
+    );
+}

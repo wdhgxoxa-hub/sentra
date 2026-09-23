@@ -93,6 +93,13 @@ pub fn run() {
             commands::settings::set_fetcher_mode,
             commands::settings::save_reddit_credentials,
             commands::settings::test_reddit_connection,
+            // Fuentes (F2)
+            commands::sources::list_sources,
+            commands::sources::save_source_credentials,
+            commands::sources::probe_source,
+            commands::sources::set_source_enabled,
+            commands::sources::set_commercial_mode,
+            commands::sources::trigger_multiscan,
             // Especificacion de proyecto
             commands::blueprint::generate_blueprint,
             // Documento entregable (AUD-008)

@@ -35,6 +35,9 @@ RAIZ = Path(__file__).resolve().parents[1]
 TIPOS = json.loads((RAIZ / "ui" / "src-tauri" / "contract" / "ts_types.json").read_text("utf-8"))
 # Los eventos SSE los emite el router de escaneo (R-D).
 SIDECAR = RAIZ / "core" / "orchestration" / "sidecar" / "scan.py"
+# Los del escaneo multifuente, el núcleo (source:*) y el router (scan:*, error).
+MULTIFUENTE = (RAIZ / "core" / "sources" / "scan.py",
+               RAIZ / "core" / "orchestration" / "sidecar" / "multiscan.py")
 
 #: Discrepancias conocidas y ya registradas como hallazgo. Debe quedar vacío
 #: cuando se corrigen: el test falla si aparece otra, o si una desaparece
@@ -50,15 +53,18 @@ def snake(nombre: str) -> str:
     return re.sub(r"(?<!^)([A-Z])", r"_\1", nombre).lower()
 
 
-def eventos_emitidos() -> dict[str, list[set[str]]]:
+def eventos_emitidos(
+    archivos: tuple[Path, ...] = (SIDECAR,), es_evento=lambda t: t.startswith("run:"),
+) -> dict[str, list[set[str]]]:
     """Cada `type` que emite el sidecar con las claves de cada emisión.
 
     Se leen del código (literales de dict con clave "type"), no de un
     listado escrito a mano que pueda desfasarse.
     """
-    arbol = ast.parse(SIDECAR.read_text(encoding="utf-8"))
     emitidos: dict[str, list[set[str]]] = {}
-    for nodo in ast.walk(arbol):
+    nodos = [n for archivo in archivos
+             for n in ast.walk(ast.parse(archivo.read_text(encoding="utf-8")))]
+    for nodo in nodos:
         if not isinstance(nodo, ast.Dict):
             continue
         claves = [
@@ -73,7 +79,7 @@ def eventos_emitidos() -> dict[str, list[set[str]]]:
             if (
                 isinstance(rama, ast.Constant)
                 and isinstance(rama.value, str)
-                and rama.value.startswith("run:")
+                and es_evento(rama.value)
             ):
                 emitidos.setdefault(rama.value, []).append(set(claves))
     return emitidos
@@ -104,6 +110,22 @@ class TestEventos(unittest.TestCase):
         for tipo, emisiones in eventos_emitidos().items():
             if tipo in EVENTOS_PENDIENTES:
                 continue
+            for claves in emisiones:
+                self.assertEqual(claves, set(union[tipo]), tipo)
+
+
+class TestEventosMultifuente(unittest.TestCase):
+
+    def emitidos(self):
+        return eventos_emitidos(
+            MULTIFUENTE, lambda t: t.startswith(("source:", "scan:")) or t == "error")
+
+    def test_cada_evento_emitido_existe_en_la_union_y_viceversa(self):
+        self.assertEqual(set(self.emitidos()), set(TIPOS["uniones"]["MultiScanEvent"]))
+
+    def test_cada_emision_lleva_las_claves_de_su_variante(self):
+        union = TIPOS["uniones"]["MultiScanEvent"]
+        for tipo, emisiones in self.emitidos().items():
             for claves in emisiones:
                 self.assertEqual(claves, set(union[tipo]), tipo)
 
@@ -140,6 +162,36 @@ class TestRespuestasDelSidecar(unittest.TestCase):
 
     def test_el_estado_de_la_fuente_entrega_source_status(self):
         self.assertEqual(set(SourceTracker().snapshot("demo", False)), interfaz("SourceStatus"))
+
+    def test_las_fuentes_entregan_sources_overview_y_source_card(self):
+        cuerpo = self.client.get("/api/sources", headers=self.cabecera).json()
+        self.assertEqual(set(cuerpo), interfaz("SourcesOverview"))
+        self.assertEqual(set(cuerpo["sources"][0]), interfaz("SourceCard"))
+
+    def test_cada_credencial_entrega_source_credential_state(self):
+        from core.orchestration.sidecar.sources import _en_camel
+        from core.sources.base import CostModel, CredentialField, SourceAdapter
+        from core.sources.registry import source_status
+
+        class ConClave(SourceAdapter):
+            id, display_name, terms_url = "x", "X", "https://example.com/t"
+            commercial_use_allowed, requires_credentials = True, True
+            cost_model = CostModel(unit="request")
+            credential_fields = (CredentialField(name="token", env_var="RIR_X_TOKEN"),)
+
+        estado = _en_camel(source_status(ConClave, {}, None, False).model_dump(mode="json"))
+        self.assertEqual(set(estado["credentialFields"][0]), interfaz("SourceCredentialState"))
+
+    def test_probar_entrega_source_probe_result(self):
+        # Sin red: el camino de «faltan credenciales» devuelve la misma forma.
+        from core.orchestration.sidecar.sources import _en_camel
+        from core.sources.base import ProbeResult
+        from core.sources.errors import SourceCredentialsMissing
+
+        error = SourceCredentialsMissing("x", "faltan: token")
+        forma = _en_camel(ProbeResult(ok=False, code=error.code, detail=error.detail,
+                                      checked_at="2026-09-01T00:00:00Z").model_dump(mode="json"))
+        self.assertEqual(set(forma), interfaz("SourceProbeResult"))
 
     def test_el_resultado_top_n_entrega_run_top_outcome(self):
         self.assertEqual(set(run_outcome([], 0, "exhausted")), interfaz("RunTopOutcome"))

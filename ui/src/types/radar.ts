@@ -643,6 +643,106 @@ export interface ProbeResult {
 }
 
 // ---------------------------------------------------------------------
+// Fuentes (F2): estado verificado, credenciales y escaneo multifuente
+// ---------------------------------------------------------------------
+
+/** Verde solo con una respuesta real de la API (core/sources/registry.py). */
+export type SourceStatusName =
+  | "no_configurada"
+  | "configurada_sin_verificar"
+  | "verificada"
+  | "error"
+  | "deshabilitada_por_usuario";
+
+/** En qué se mide el gasto de una fuente. */
+export type SourceCostUnit = "request" | "quota_unit" | "usd";
+
+/** Qué credencial hay, nunca su valor. */
+export interface SourceCredentialState {
+  name: string;
+  envVar: string;
+  secret: boolean;
+  required: boolean;
+  configured: boolean;
+}
+
+export interface SourceCard {
+  source: string;
+  displayName: string;
+  /** Términos de la plataforma, enlazados desde la tarjeta. */
+  termsUrl: string;
+  /** false = «solo uso personal»: el modo comercial la excluye. */
+  commercialUseAllowed: boolean;
+  requiresCredentials: boolean;
+  credentialFields: SourceCredentialState[];
+  status: SourceStatusName;
+  /** Última respuesta real con éxito (ISO 8601). */
+  lastVerifiedAt: string | null;
+  /** Código estable del último fallo (source_*), solo en `error`. */
+  errorCode: string | null;
+  detail: string | null;
+  disabled: boolean;
+  excludedByCommercialMode: boolean;
+  costUnit: SourceCostUnit;
+  costNote: string;
+}
+
+export interface SourcesOverview {
+  commercialMode: boolean;
+  sources: SourceCard[];
+}
+
+/** Resultado del botón «Probar». `checkedAt` null = no llegó a llamar. */
+export interface SourceProbeResult {
+  ok: boolean;
+  code: string | null;
+  detail: string;
+  checkedAt: string | null;
+}
+
+/** Perfil de escaneo (core/sources/profile.py). Sin tema = descubrimiento. */
+export interface ScanProfileInput {
+  name: string;
+  keywords: string[];
+  discovery: boolean;
+  windowDays: number;
+  languages: string[];
+}
+
+export interface SourceScanSummary {
+  status: "running" | "done" | "failed";
+  items: number;
+  errorCode: string | null;
+  detail: string | null;
+  /** Presupuesto agotado: termina sin fallar. */
+  stopReason: string | null;
+  requests: number;
+  units: number;
+  usd: number;
+}
+
+export type MultiScanEvent =
+  | { type: "scan:started"; runId: string | null; sources: string[] }
+  | { type: "source:started"; source: string }
+  | { type: "source:progress"; source: string; items: number }
+  | { type: "source:done"; source: string; items: number; stopReason: string | null }
+  | { type: "source:error"; source: string; items: number; code: string; detail: string | null }
+  | {
+      type: "scan:done";
+      runId: string | null;
+      persisted: boolean;
+      persistError: string | null;
+      /** Todo lo traído, duplicados incluidos. */
+      fetched: number;
+      canonical: number;
+      duplicates: number;
+      perSource: Record<string, SourceScanSummary>;
+    }
+  | { type: "error"; code: string; message: string };
+
+export const SOURCES_EVENT_CHANNEL = "sources:events";
+
+// ---------------------------------------------------------------------
 // Ayudas de presentación
 // ---------------------------------------------------------------------
 

@@ -97,6 +97,16 @@ class TestEstado(unittest.TestCase):
         self.assertEqual(campos, {"token": True, "extra": False})
         self.assertNotIn("secreto-123", estado.model_dump_json())
 
+    def test_el_estado_lleva_el_coste_para_la_tarjeta(self):
+        class DeCuota(Publica):
+            id = "cuota"
+            cost_model = CostModel(unit="quota_unit", per_request=100,
+                                   note="10.000 unidades al día")
+
+        estado = self.estado(DeCuota)
+        self.assertEqual((estado.cost_unit, estado.cost_note),
+                         ("quota_unit", "10.000 unidades al día"))
+
 
 class TestActivas(unittest.TestCase):
     def test_solo_las_conectadas_y_habilitadas(self):

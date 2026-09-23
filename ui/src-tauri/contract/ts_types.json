@@ -298,6 +298,56 @@
       "detail",
       "ok"
     ],
+    "SourceCredentialState": [
+      "configured",
+      "envVar",
+      "name",
+      "required",
+      "secret"
+    ],
+    "SourceCard": [
+      "commercialUseAllowed",
+      "costNote",
+      "costUnit",
+      "credentialFields",
+      "detail",
+      "disabled",
+      "displayName",
+      "errorCode",
+      "excludedByCommercialMode",
+      "lastVerifiedAt",
+      "requiresCredentials",
+      "source",
+      "status",
+      "termsUrl"
+    ],
+    "SourcesOverview": [
+      "commercialMode",
+      "sources"
+    ],
+    "SourceProbeResult": [
+      "checkedAt",
+      "code",
+      "detail",
+      "ok"
+    ],
+    "ScanProfileInput": [
+      "discovery",
+      "keywords",
+      "languages",
+      "name",
+      "windowDays"
+    ],
+    "SourceScanSummary": [
+      "detail",
+      "errorCode",
+      "items",
+      "requests",
+      "status",
+      "stopReason",
+      "units",
+      "usd"
+    ],
     "BlueprintPhase": [
       "items",
       "name"
@@ -421,6 +471,50 @@
         "persistedRunId",
         "retryAfterSeconds",
         "runId",
+        "type"
+      ]
+    },
+    "MultiScanEvent": {
+      "scan:started": [
+        "runId",
+        "sources",
+        "type"
+      ],
+      "source:started": [
+        "source",
+        "type"
+      ],
+      "source:progress": [
+        "items",
+        "source",
+        "type"
+      ],
+      "source:done": [
+        "items",
+        "source",
+        "stopReason",
+        "type"
+      ],
+      "source:error": [
+        "code",
+        "detail",
+        "items",
+        "source",
+        "type"
+      ],
+      "scan:done": [
+        "canonical",
+        "duplicates",
+        "fetched",
+        "perSource",
+        "persistError",
+        "persisted",
+        "runId",
+        "type"
+      ],
+      "error": [
+        "code",
+        "message",
         "type"
       ]
     }
