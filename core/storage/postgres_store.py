@@ -445,6 +445,49 @@ class PostgresStore:
         await self.connection.commit()
         return len(items)
 
+    async def save_verdicts(self, run_id: str, verdicts: Sequence[dict[str, Any]]) -> list[str]:
+        """Guarda los veredictos del juez de una ejecución y sus miembros (F3.8).
+
+        Cada veredicto trae cluster_key, keywords, verdict, rule, score,
+        weights_version, missing, gates, dimensions, advocate, member_ids y
+        opportunity_id. Devuelve los ids creados.
+        """
+        ids: list[str] = []
+        for v in verdicts:
+            fila = await self._fetchone_returning(
+                """
+                INSERT INTO niche_verdicts (tenant_id, run_id, opportunity_id, cluster_key,
+                    keywords, verdict, rule, score, weights_version, missing, gates,
+                    dimensions, advocate, member_count)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (run_id, cluster_key) DO UPDATE SET
+                    verdict = EXCLUDED.verdict, rule = EXCLUDED.rule, score = EXCLUDED.score,
+                    missing = EXCLUDED.missing, gates = EXCLUDED.gates,
+                    dimensions = EXCLUDED.dimensions, advocate = EXCLUDED.advocate,
+                    member_count = EXCLUDED.member_count
+                RETURNING id
+                """,
+                (
+                    self.tenant_id, run_id, v.get("opportunity_id"), v["cluster_key"],
+                    list(v.get("keywords") or []), v["verdict"], v["rule"],
+                    round(float(v["score"]), 2), v["weights_version"], list(v.get("missing") or []),
+                    json.dumps(v["gates"], default=str), json.dumps(v["dimensions"], default=str),
+                    json.dumps(v.get("advocate") or {}, default=str), len(v["member_ids"]),
+                ),
+            )
+            verdict_id = str(fila["id"])
+            for evidencia in v["member_ids"]:
+                await self.connection.execute(
+                    """
+                    INSERT INTO cluster_evidence (tenant_id, verdict_id, evidence_id)
+                    VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
+                    """,
+                    (self.tenant_id, verdict_id, evidencia),
+                )
+            ids.append(verdict_id)
+        await self.connection.commit()
+        return ids
+
     async def purge_expired_evidence(
         self, source: str, days: int, now: datetime | None = None
     ) -> list[str]:
