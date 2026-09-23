@@ -194,7 +194,7 @@ def source_status(
         for c in fuente.credential_fields
     ]
     faltan = any(c.required and not c.configured for c in campos)
-    guardado = guardado or SavedSourceState(fuente.id)
+    guardado = guardado or SavedSourceState(fuente.id, disabled=fuente.disabled_by_default)
 
     estado: SourceStatusName
     detalle = guardado.detail

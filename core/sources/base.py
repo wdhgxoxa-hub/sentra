@@ -124,6 +124,8 @@ class SourceAdapter(ABC):
     pending_approval: ClassVar[str | None] = None
     #: Días que los términos dejan guardar la evidencia sin refrescarla; None = sin límite.
     retention_days: ClassVar[int | None] = None
+    #: Apagada hasta que el usuario la encienda (X: de pago).
+    disabled_by_default: ClassVar[bool] = False
 
     @classmethod
     def default_budget(cls) -> SourceBudget:
