@@ -749,8 +749,9 @@ mod tests {
         sqlx::query(
             r#"
             INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label,
-                mention_count, community_count, final_score, qualified, top_rank)
-            VALUES ($1::uuid, $2::uuid, $3, $3, 5, 3, $4, $5, $6)
+                mention_count, community_count, final_score, qualified, top_rank,
+                opportunity_id)
+            VALUES ($1::uuid, $2::uuid, $3, $3, 5, 3, $4, $5, $6, uuidv7())
             "#,
         )
         .bind(LOCAL_TENANT)
