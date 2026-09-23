@@ -1,7 +1,8 @@
-import { Radar, Search, Settings, SlidersHorizontal, Target } from "lucide-react";
+import { Radar, RadioTower, Search, Settings, SlidersHorizontal, Target } from "lucide-react";
 
 import isotipo from "@/assets/isotipo.png";
 import { HealthIndicator } from "@/components/HealthIndicator";
+import { useSources } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore, type RadarView } from "@/stores/uiStore";
 
@@ -10,8 +11,34 @@ const ICONS = {
   opportunity: Target,
   search: Search,
   pipeline: SlidersHorizontal,
+  sources: RadioTower,
   settings: Settings,
 } as const;
+
+/**
+ * «X de N fuentes activas». N es el catálogo real del motor, no una cifra
+ * prometida; sin respuesta del motor no se inventa ningún número.
+ */
+function SourcesSummary() {
+  const t = useT();
+  const setView = useUiStore((state) => state.setView);
+  const fuentes = useSources();
+  const lista = fuentes.data?.sources;
+  const texto = lista
+    ? t.sources.activeSummary
+        .replace("{active}", String(lista.filter((s) => s.active).length))
+        .replace("{total}", String(lista.length))
+    : t.sources.summaryUnknown;
+  return (
+    <button
+      type="button"
+      onClick={() => setView("sources")}
+      className="mb-2 w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
+    >
+      {texto}
+    </button>
+  );
+}
 
 /**
  * Navegación principal.
@@ -27,7 +54,7 @@ export function Sidebar() {
 
   const items: RadarView[] = ["radar"];
   if (selectedCluster) items.push("opportunity");
-  items.push("search", "pipeline", "settings");
+  items.push("search", "pipeline", "sources", "settings");
 
   return (
     <nav
@@ -85,6 +112,7 @@ export function Sidebar() {
       </ul>
 
       <div className="mt-auto border-t border-border pt-3">
+        <SourcesSummary />
         <HealthIndicator />
       </div>
     </nav>

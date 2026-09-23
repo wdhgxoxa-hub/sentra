@@ -3,8 +3,9 @@ import { useEffect } from "react";
 import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
-import { onRadarEvent } from "@/lib/ipc";
+import { onRadarEvent, onSourcesEvent } from "@/lib/ipc";
 import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
+import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useProgressStore } from "@/stores/progressStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -13,11 +14,13 @@ import { PipelineControl } from "@/views/PipelineControl";
 import { RadarViewPage } from "@/views/RadarView";
 import { SearchConsole } from "@/views/SearchConsole";
 import { SettingsView } from "@/views/SettingsView";
+import { SourcesView } from "@/views/SourcesView";
 
 export default function App() {
   const t = useT();
   const view = useUiStore((state) => state.view);
   const applyProgress = useProgressStore((state) => state.apply);
+  const applyMultiscan = useMultiscanStore((state) => state.apply);
   const baseDeDatos = useDatabaseStatus();
   const sinBase = baseDeDatos.data !== undefined && !baseDeDatos.data.connected;
 
@@ -40,6 +43,14 @@ export default function App() {
       void unlisten.then((stop) => stop());
     };
   }, [applyProgress]);
+
+  // El escaneo multifuente sigue aunque se cambie de vista: se escucha aquí.
+  useEffect(() => {
+    const unlisten = onSourcesEvent(applyMultiscan);
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  }, [applyMultiscan]);
 
   return (
     <div className="flex h-full bg-bg">
@@ -68,6 +79,7 @@ export default function App() {
                 {view === "search" && <SearchConsole />}
                 {view === "pipeline" && <PipelineControl />}
                 {view === "settings" && <SettingsView />}
+                {view === "sources" && <SourcesView />}
               </>
             )}
           </ErrorBoundary>

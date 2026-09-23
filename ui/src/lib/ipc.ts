@@ -49,6 +49,12 @@ import {
   type CredentialsSummary,
   type FetcherMode,
   type ProbeResult,
+  SOURCES_EVENT_CHANNEL,
+  type MultiScanEvent,
+  type ScanProfileInput,
+  type SourceCard,
+  type SourceProbeResult,
+  type SourcesOverview,
 } from "@/types/radar";
 
 export const ipc = {
@@ -169,6 +175,31 @@ export const ipc = {
 
   /** [pg] Vuelve a intentar la conexión con PostgreSQL. */
   retryDatabase: () => invoke<DatabaseStatus>("retry_database"),
+
+  /** [sidecar] Cada fuente con su estado verificado y el modo comercial. */
+  listSources: () => invoke<SourcesOverview>("list_sources"),
+
+  /** [sidecar] Guarda credenciales de una fuente. Nunca vuelven. */
+  saveSourceCredentials: (source: string, values: Record<string, string>) =>
+    invoke<SourceCard>("save_source_credentials", { source, values }),
+
+  /** [sidecar] Llamada mínima real a la API de la fuente. */
+  probeSource: (source: string) => invoke<SourceProbeResult>("probe_source", { source }),
+
+  /** [sidecar] Enciende o apaga una fuente. */
+  setSourceEnabled: (source: string, enabled: boolean) =>
+    invoke<SourceCard>("set_source_enabled", { source, enabled }),
+
+  /** [sidecar] Modo comercial: excluye las de «solo uso personal». */
+  setCommercialMode: (enabled: boolean) =>
+    invoke<SourcesOverview>("set_commercial_mode", { enabled }),
+
+  /**
+   * [sidecar] Escaneo multifuente. El progreso llega por `onSourcesEvent`;
+   * la promesa devuelve el último evento (`scan:done` o `error`).
+   */
+  triggerMultiscan: (profile: ScanProfileInput) =>
+    invoke<MultiScanEvent>("trigger_multiscan", { profile }),
 } as const;
 
 /**
@@ -181,6 +212,15 @@ export function onRadarEvent(
   handler: (event: RadarEvent) => void,
 ): Promise<UnlistenFn> {
   return listen<RadarEvent>(RADAR_EVENT_CHANNEL, (message) =>
+    handler(message.payload),
+  );
+}
+
+/** Se suscribe al progreso del escaneo multifuente, fuente a fuente. */
+export function onSourcesEvent(
+  handler: (event: MultiScanEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<MultiScanEvent>(SOURCES_EVENT_CHANNEL, (message) =>
     handler(message.payload),
   );
 }

@@ -28,6 +28,8 @@ import type {
   SearchParams,
   UpsertSubredditParams,
   ValidationStatus,
+  ScanProfileInput,
+  SourcesOverview,
 } from "@/types/radar";
 
 export const queryClient = new QueryClient({
@@ -60,6 +62,7 @@ export const queryKeys = {
   // Bajo `settings`: guardar la clave la invalida con el resto de ajustes.
   geminiModels: ["radar", "settings", "gemini-models"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
+  sources: ["radar", "sources"] as const,
   blueprint: (key: string, language: string, architecture: string | null) =>
     ["radar", "blueprint", key, language, architecture] as const,
 } as const;
@@ -268,6 +271,61 @@ export function useSaveCredentials() {
 export function useTestConnection() {
   return useMutation({
     mutationFn: () => ipc.testRedditConnection(),
+  });
+}
+
+// --- Fuentes (F2) -----------------------------------------------------
+
+export function useSources() {
+  return useQuery<SourcesOverview>({
+    queryKey: queryKeys.sources,
+    queryFn: () => ipc.listSources(),
+    // Igual que los ajustes: si el motor no responde, lo dice la salud.
+    retry: false,
+  });
+}
+
+export function useSaveSourceCredentials() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ source, values }: { source: string; values: Record<string, string> }) =>
+      ipc.saveSourceCredentials(source, values),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
+  });
+}
+
+/** Mutación y no consulta: hace una llamada real y gasta cuota. */
+export function useProbeSource() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (source: string) => ipc.probeSource(source),
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
+  });
+}
+
+export function useSetSourceEnabled() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ source, enabled }: { source: string; enabled: boolean }) =>
+      ipc.setSourceEnabled(source, enabled),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
+  });
+}
+
+export function useSetCommercialMode() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => ipc.setCommercialMode(enabled),
+    onSuccess: (overview) => client.setQueryData(queryKeys.sources, overview),
+  });
+}
+
+/** Al terminar, el estado de cada fuente cambió (verificada o en error). */
+export function useTriggerMultiscan() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (profile: ScanProfileInput) => ipc.triggerMultiscan(profile),
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
   });
 }
 

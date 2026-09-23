@@ -112,5 +112,30 @@ class TestEscaneoMultifuente(ConfigTestCase):
         guardar.assert_not_called()
 
 
+class TestCodigosTraducidos(unittest.TestCase):
+    def test_es_y_en_traducen_los_codigos_del_evento_error(self):
+        import ast
+        import re
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parents[1]
+        arbol = ast.parse((raiz / "core/orchestration/sidecar/multiscan.py").read_text("utf-8"))
+        codigos = {
+            n.values[[k.value for k in n.keys].index("code")].value
+            for n in ast.walk(arbol)
+            if isinstance(n, ast.Dict)
+            and all(isinstance(k, ast.Constant) for k in n.keys)
+            and {"type", "code"} <= {k.value for k in n.keys}
+            and isinstance(n.values[[k.value for k in n.keys].index("code")], ast.Constant)
+        }
+        self.assertIn("no_active_sources", codigos)
+        for idioma in ("es", "en"):
+            fuente = (raiz / "ui/src/i18n" / f"{idioma}.ts").read_text(encoding="utf-8")
+            bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
+            traducidos = set(re.findall(r"^\s+(\w+):", bloque.group(1), re.MULTILINE))
+            with self.subTest(idioma=idioma):
+                self.assertEqual(codigos - traducidos, set())
+
+
 if __name__ == "__main__":
     unittest.main()

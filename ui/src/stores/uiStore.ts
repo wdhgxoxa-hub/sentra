@@ -19,6 +19,7 @@ export type RadarView =
   | "opportunity"
   | "search"
   | "pipeline"
+  | "sources"
   | "settings";
 
 interface UiState {
