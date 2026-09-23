@@ -29,6 +29,7 @@ from core.orchestration.sidecar_server import create_app
 from core.orchestration.source_status import SourceTracker
 from core.orchestration.top_n import run_outcome
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 RAIZ = Path(__file__).resolve().parents[1]
 TIPOS = json.loads((RAIZ / "ui" / "src-tauri" / "contract" / "ts_types.json").read_text("utf-8"))
@@ -110,6 +111,7 @@ class TestEventos(unittest.TestCase):
 class TestRespuestasDelSidecar(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_contrato_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))

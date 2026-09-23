@@ -315,7 +315,8 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
             gemini: GeminiSummary {
                 configured: false,
                 key_masked: texto(),
-                model: texto(),
+                model: Some(texto()),
+                general_model: Some(texto()),
             },
         },
         "AppSettings",

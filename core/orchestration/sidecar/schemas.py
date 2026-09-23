@@ -82,10 +82,27 @@ class BlueprintRequest(BaseModel):
 
 
 class GeminiRequest(BaseModel):
-    """Clave y modelo del motor de arquitectura."""
+    """Clave y modelos de Gemini. Un modelo vacío significa «automático»."""
 
     apiKey: str = ""
-    model: str = "gemini-2.5-pro"
+    model: str = ""
+    generalModel: str = ""
+
+
+class GeminiModel(BaseModel):
+    id: str
+    displayName: str
+
+
+class GeminiModelsResponse(BaseModel):
+    """Modelos que la clave puede usar y los que se usarían ahora mismo."""
+
+    ok: bool
+    code: str | None = None
+    detail: str = ""
+    models: list[GeminiModel] = Field(default_factory=list)
+    general: str | None = None
+    documents: str | None = None
 
 
 class ArchitectRequest(BaseModel):

@@ -30,7 +30,10 @@ pub struct GeminiSummary {
     pub configured: bool,
     /// Clave recortada. La entera no sale nunca del sidecar.
     pub key_masked: String,
-    pub model: String,
+    /// Modelo de documentos guardado; `None` = automático (el Pro 3.x más reciente).
+    pub model: Option<String>,
+    /// Modelo general guardado; `None` = automático (el Flash 3.x estable más reciente).
+    pub general_model: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

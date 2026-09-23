@@ -28,6 +28,7 @@ from core.llm import gemini as gemini_client
 from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 CLAVE = "AIza" + "Sy" + "Q7x" * 11  # 39 caracteres, forma de clave de Google
 OTRA = "AIza" + "Zz" + "k9_" * 11   # una clave distinta que el error pudiera citar
@@ -47,6 +48,9 @@ def cliente_que_filtra(api_key):
 
         def generate_content(self, **_kw):
             raise ErrorDelSdk(f"403 PERMISSION_DENIED key={api_key}")
+
+        def list(self):
+            raise ErrorDelSdk(f"400 API_KEY_INVALID models?key={api_key} {OTRA}")
 
     class Cliente:
         models = Modelos()
@@ -96,21 +100,23 @@ class TestFrontera(ConLogs):
     def test_el_error_del_streaming_no_arrastra_la_clave(self):
         with self.assertRaises(gemini_client.GeminiError) as ctx:
             list(gemini_architect.stream_architecture(
-                {"label": "x"}, api_key=CLAVE, client_factory=cliente_que_filtra))
+                {"label": "x"}, api_key=CLAVE, model="m", client_factory=cliente_que_filtra))
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
         # La excepción original (con la clave) no viaja encadenada.
         self.assertIsNone(ctx.exception.__cause__)
         self.assertTrue(ctx.exception.__suppress_context__)
 
-    def test_la_prueba_de_clave_no_la_devuelve(self):
-        ok, detalle = gemini_architect.probe_api_key(CLAVE, client_factory=cliente_que_filtra)
-        self.assertFalse(ok)
-        self.assertSinClaves(detalle)
+    def test_listar_modelos_no_la_devuelve(self):
+        proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra)
+        with self.assertRaises(gemini_client.GeminiError) as ctx:
+            proveedor.list_models()
+        self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
 
     def test_la_traduccion_no_la_deja_en_el_log(self):
         translator.clear_cache()
         resultado = translator.translate(
-            ["texto nuevo sin traducir"], "es", api_key=CLAVE, client_factory=cliente_que_filtra)
+            ["texto nuevo sin traducir"], "es", api_key=CLAVE, model="m",
+            client_factory=cliente_que_filtra)
         self.assertEqual(resultado[0].engine, "offline")
         self.assertSinClaves(resultado[0].text)
 
@@ -118,6 +124,7 @@ class TestFrontera(ConLogs):
 class TestSidecar(ConLogs):
 
     def setUp(self):
+        prohibir_red_real(self)
         super().setUp()
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuga_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)

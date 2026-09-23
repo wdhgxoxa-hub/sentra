@@ -14,6 +14,7 @@ from core.intelligence.translator import (
 )
 
 CLAVE = "AIzaSy-CLAVE-DE-PRUEBA-NO-REAL"
+MODELO = "gemini-3.6-flash"
 
 
 class ClienteFalso:
@@ -78,7 +79,7 @@ class TestConClave(BaseTraductor):
         salida = translate(
             ["The export is broken"],
             "es",
-            api_key=CLAVE,
+            api_key=CLAVE, model=MODELO,
             client_factory=lambda _k: cliente,
         )
         self.assertEqual(salida[0].text, "La exportacion esta rota")
@@ -90,19 +91,19 @@ class TestConClave(BaseTraductor):
         translate(
             ["one", "two", "three"],
             "es",
-            api_key=CLAVE,
+            api_key=CLAVE, model=MODELO,
             client_factory=lambda _k: cliente,
         )
         self.assertEqual(len(cliente.llamadas), 1)
 
     def test_la_clave_no_viaja_en_el_prompt(self):
         cliente = ClienteFalso(respuesta='["x"]')
-        translate(["y"], "es", api_key=CLAVE, client_factory=lambda _k: cliente)
+        translate(["y"], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
         self.assertNotIn(CLAVE, str(cliente.llamadas[0]["contents"]))
 
     def test_el_idioma_destino_llega_al_prompt(self):
         cliente = ClienteFalso(respuesta='["x"]')
-        translate(["y"], "en", api_key=CLAVE, client_factory=lambda _k: cliente)
+        translate(["y"], "en", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
         contenido = str(cliente.llamadas[0]["contents"]).lower()
         self.assertTrue("english" in contenido or "ingl" in contenido)
 
@@ -115,7 +116,7 @@ class TestCuandoGeminiFalla(BaseTraductor):
         salida = translate(
             ["The export is broken"],
             "es",
-            api_key=CLAVE,
+            api_key=CLAVE, model=MODELO,
             client_factory=lambda _k: cliente,
         )
         self.assertEqual(salida[0].engine, "offline")
@@ -126,7 +127,7 @@ class TestCuandoGeminiFalla(BaseTraductor):
         salida = translate(
             ["The export is broken"],
             "es",
-            api_key=CLAVE,
+            api_key=CLAVE, model=MODELO,
             client_factory=lambda _k: cliente,
         )
         self.assertEqual(salida[0].engine, "offline")
@@ -136,7 +137,7 @@ class TestCuandoGeminiFalla(BaseTraductor):
         salida = translate(
             ["uno", "dos"],
             "es",
-            api_key=CLAVE,
+            api_key=CLAVE, model=MODELO,
             client_factory=lambda _k: cliente,
         )
         self.assertEqual(len(salida), 2)
@@ -147,16 +148,16 @@ class TestCache(BaseTraductor):
     def test_no_vuelve_a_llamar_por_el_mismo_texto(self):
         cliente = ClienteFalso(respuesta='["traducido"]')
         for _ in range(3):
-            translate(["mismo"], "es", api_key=CLAVE, client_factory=lambda _k: cliente)
+            translate(["mismo"], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
         self.assertEqual(len(cliente.llamadas), 1)
 
     def test_solo_pide_los_textos_que_faltan(self):
         cliente = ClienteFalso(respuesta='["a"]')
-        translate(["uno"], "es", api_key=CLAVE, client_factory=lambda _k: cliente)
+        translate(["uno"], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
 
         cliente.respuesta = '["b"]'
         salida = translate(
-            ["uno", "dos"], "es", api_key=CLAVE, client_factory=lambda _k: cliente
+            ["uno", "dos"], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente
         )
         # La segunda llamada solo lleva el texto nuevo.
         self.assertEqual(len(cliente.llamadas), 2)
@@ -166,10 +167,10 @@ class TestCache(BaseTraductor):
 
     def test_el_idioma_forma_parte_de_la_clave(self):
         cliente = ClienteFalso(respuesta='["es"]')
-        translate(["hola"], "es", api_key=CLAVE, client_factory=lambda _k: cliente)
+        translate(["hola"], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
         cliente.respuesta = '["en"]'
         salida = translate(
-            ["hola"], "en", api_key=CLAVE, client_factory=lambda _k: cliente
+            ["hola"], "en", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente
         )
         self.assertEqual(len(cliente.llamadas), 2)
         self.assertEqual(salida[0].text, "en")
@@ -178,7 +179,7 @@ class TestCache(BaseTraductor):
 class TestEntradasRaras(BaseTraductor):
     def test_sin_textos_no_llama_a_nadie(self):
         cliente = ClienteFalso()
-        salida = translate([], "es", api_key=CLAVE, client_factory=lambda _k: cliente)
+        salida = translate([], "es", api_key=CLAVE, model=MODELO, client_factory=lambda _k: cliente)
         self.assertEqual(salida, [])
         self.assertEqual(cliente.llamadas, [])
 
@@ -190,6 +191,14 @@ class TestEntradasRaras(BaseTraductor):
         salida = translate(["The export is broken"], "es")
         datos = salida[0].to_dict()
         self.assertEqual(set(datos), {"text", "engine", "approximate"})
+
+
+class TestContrato(unittest.TestCase):
+    def test_con_clave_hay_que_decir_el_modelo(self):
+        """El modelo lo elige quien llama entre los disponibles (F1.2): no
+        hay nombre fijo en el traductor al que caer por defecto."""
+        with self.assertRaises(ValueError):
+            translate(["hola"], "es", api_key=CLAVE)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ from core.orchestration.sidecar_server import (
     create_app,
 )
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 TEST_DIM = 64
 
@@ -59,6 +60,7 @@ class SidecarTestCase(unittest.TestCase):
     token: str | None = None
 
     def setUp(self):
+        prohibir_red_real(self)
         self.tmpdir = tempfile.mkdtemp(prefix="rir_sidecar_")
         self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.store = LanceDBStore(
@@ -503,6 +505,7 @@ class TestSurface(SidecarTestCase):
                 "/api/blueprint",
                 "/api/gemini",
                 "/api/gemini/test",
+                "/api/gemini/models",
                 "/api/architect/generate",
                 "/api/translate",
                 "/api/document/pdf",

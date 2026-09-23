@@ -31,6 +31,7 @@ from core.ingestion import RedditIngestionClient
 from core.ingestion.auth import RedditOAuth
 from core.ingestion.errors import RedditUserAgentInvalid
 from core.ingestion.user_agent import validar_user_agent
+from tests._sin_red import prohibir_red_real
 
 RAIZ = Path(__file__).resolve().parents[1]
 UA = "python:sentra-tests:1.0 (by /u/sentra_ci)"
@@ -68,6 +69,7 @@ class RedFalsa:
 class ConRedFalsa(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         self.red = RedFalsa()
         cliente = partial(httpx.AsyncClient, transport=httpx.MockTransport(self.red))
         for destino in ("core.ingestion.client.AsyncClient", "core.ingestion.auth.AsyncClient"):

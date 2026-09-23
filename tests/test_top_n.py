@@ -22,6 +22,7 @@ from core.ingestion.synthetic import SyntheticFetcher
 from core.orchestration import RadarDependencies, RadarPipeline, build_graph, new_state
 from core.orchestration.top_n import TOP_N, rank_key, rank_top
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 # Siete problemas con un término de dolor propio cada uno: no comparten
 # vocabulario, así que el agrupado los mantiene separados.
@@ -79,6 +80,7 @@ class FuentePaginada:
 class ConAlmacen(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_top_"))
         self.addCleanup(shutil.rmtree, self.tmpdir, True)

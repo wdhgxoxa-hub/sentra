@@ -26,6 +26,7 @@ from core.orchestration.pipeline import RedditFetcher
 from core.orchestration.sidecar import config as sidecar_config
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 
 class ClienteDoble:
@@ -45,6 +46,7 @@ class ClienteDoble:
 class TestEstadoDeLaFuente(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         logging.disable(logging.CRITICAL)
         ClienteDoble.fallo = None
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_fuente_"))

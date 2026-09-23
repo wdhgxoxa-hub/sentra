@@ -27,12 +27,6 @@ from typing import Any
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
 from core.llm.gemini import GeminiError, GeminiIncomplete, GeminiProvider
 
-MODELO_POR_DEFECTO = "gemini-2.5-pro"
-
-#: Modelos ofrecidos en la interfaz. El Pro va primero a propósito: esto es
-#: diseño de arquitectura, donde importa más razonar bien que responder rápido.
-MODELOS_DISPONIBLES = ("gemini-2.5-pro", "gemini-2.5-flash")
-
 IDIOMA_POR_DEFECTO = "es"
 
 #: Límite de salida del plan. En la familia 2.5 el razonamiento cuenta dentro
@@ -42,10 +36,6 @@ MAX_OUTPUT_TOKENS = 65_536
 #: Timeout de cada petición del plan (ms). Por debajo de los 600 s del puente
 #: de Rust, para que el corte llegue como error tipado y no como caída.
 TIMEOUT_MS = 540_000
-
-#: La prueba de clave es una llamada mínima: si tarda, algo va mal.
-PROBE_TIMEOUT_MS = 30_000
-PROBE_MAX_OUTPUT_TOKENS = 1_024
 
 #: Secciones que el plan debe traer, en el orden en que las pide el sistema.
 #: Se buscan como títulos Markdown (la línea empieza por #) y por prefijo,
@@ -427,7 +417,7 @@ def stream_architecture(
     cluster: Mapping[str, Any],
     *,
     api_key: str,
-    model: str = MODELO_POR_DEFECTO,
+    model: str,
     language: str = IDIOMA_POR_DEFECTO,
     client_factory: ClientFactory | None = None,
 ) -> Iterator[str]:
@@ -469,29 +459,3 @@ def stream_architecture(
         raise GeminiIncomplete(
             f"Faltan secciones exigidas: {', '.join(faltan)}", missing=faltan
         )
-
-
-def probe_api_key(
-    api_key: str,
-    *,
-    model: str = MODELO_POR_DEFECTO,
-    client_factory: ClientFactory | None = None,
-) -> tuple[bool, str]:
-    """Comprueba que la clave sirve, con la llamada más barata posible.
-
-    Devuelve `(ok, detalle)` en lugar de lanzar: quien pulsa «probar» espera
-    una respuesta, no una excepción.
-    """
-    if not (api_key or "").strip():
-        return False, "No hay clave que probar."
-
-    try:
-        GeminiProvider(api_key, client_factory=client_factory).ping(
-            model=model,
-            max_output_tokens=PROBE_MAX_OUTPUT_TOKENS,
-            timeout_ms=PROBE_TIMEOUT_MS,
-        )
-    except GeminiError as exc:
-        return False, f"La clave no funciona: {exc}"
-
-    return True, f"Clave válida. Modelo {model} disponible."

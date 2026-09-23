@@ -23,6 +23,7 @@ from core.ingestion.synthetic import SyntheticFetcher
 from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 from tests.test_pdf_export import cluster
 
 PLAN = "# FASE 1\n\n## Lógica central\n\n- Paso uno"
@@ -35,6 +36,7 @@ def texto_pdf(pdf: bytes) -> str:
 class ConSidecar(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_documento_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))

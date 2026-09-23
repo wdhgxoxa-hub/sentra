@@ -10,15 +10,16 @@ import unittest
 from core.intelligence.gemini_architect import (
     AVISO_DEMO,
     AVISO_DESCONOCIDA,
-    MODELO_POR_DEFECTO,
     SECCIONES_OBLIGATORIAS,
     GeminiSinConfigurar,
     build_prompt,
-    probe_api_key,
     stream_architecture,
 )
 
 CLAVE = "AIzaSy-CLAVE-DE-PRUEBA-NO-REAL"
+
+#: Modelo con el que se llama en los tests: lo elige quien llama (F1.2).
+MODELO = "gemini-3.1-pro-preview"
 
 CLUSTER = {
     "clusterKey": "complaint:invoice|manual",
@@ -203,20 +204,19 @@ class TestProcedencia(unittest.TestCase):
 class TestStreaming(unittest.TestCase):
     def test_sin_clave_avisa_en_lugar_de_llamar(self):
         with self.assertRaises(GeminiSinConfigurar):
-            list(stream_architecture(CLUSTER, api_key="", client_factory=lambda _k: None))
+            list(stream_architecture(CLUSTER, model=MODELO, api_key="", client_factory=lambda _k: None))
 
     def test_devuelve_los_trozos_en_orden(self):
         cliente = ClienteFalso(trozos=(PLAN[:10], PLAN[10:]))
         trozos = list(
-            stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
+            stream_architecture(CLUSTER, model=MODELO, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
         self.assertEqual(trozos, [AVISO_INICIAL, PLAN[:10], PLAN[10:]])
 
-    def test_usa_el_modelo_pedido_y_por_defecto_el_pro(self):
+    def test_usa_el_modelo_que_se_le_pide(self):
         cliente = ClienteFalso()
-        list(stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente))
-        self.assertEqual(cliente.llamadas[0]["model"], MODELO_POR_DEFECTO)
-        self.assertEqual(MODELO_POR_DEFECTO, "gemini-2.5-pro")
+        list(stream_architecture(CLUSTER, model=MODELO, api_key=CLAVE, client_factory=lambda _k: cliente))
+        self.assertEqual(cliente.llamadas[0]["model"], MODELO)
 
         otro = ClienteFalso()
         list(
@@ -229,13 +229,13 @@ class TestStreaming(unittest.TestCase):
 
     def test_manda_la_instruccion_de_sistema(self):
         cliente = ClienteFalso()
-        list(stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente))
+        list(stream_architecture(CLUSTER, model=MODELO, api_key=CLAVE, client_factory=lambda _k: cliente))
         config = cliente.llamadas[0]["config"]
         self.assertIn("FASE 1", config.system_instruction)
 
     def test_la_clave_no_viaja_dentro_del_prompt(self):
         cliente = ClienteFalso()
-        list(stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente))
+        list(stream_architecture(CLUSTER, model=MODELO, api_key=CLAVE, client_factory=lambda _k: cliente))
         llamada = cliente.llamadas[0]
         self.assertNotIn(CLAVE, str(llamada["contents"]))
         self.assertNotIn(CLAVE, str(llamada["config"].system_instruction))
@@ -243,27 +243,9 @@ class TestStreaming(unittest.TestCase):
     def test_ignora_los_trozos_vacios(self):
         cliente = ClienteFalso(trozos=(PLAN[:5], "", None, PLAN[5:]))
         trozos = list(
-            stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
+            stream_architecture(CLUSTER, model=MODELO, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
         self.assertEqual(trozos, [AVISO_INICIAL, PLAN[:5], PLAN[5:]])
-
-
-class TestProbe(unittest.TestCase):
-    def test_sin_clave_responde_que_no_sin_lanzar(self):
-        ok, detalle = probe_api_key("", client_factory=lambda _k: None)
-        self.assertFalse(ok)
-        self.assertTrue(detalle.strip())
-
-    def test_con_clave_valida_responde_que_si(self):
-        ok, detalle = probe_api_key(CLAVE, client_factory=lambda _k: ClienteFalso())
-        self.assertTrue(ok)
-        self.assertIn(MODELO_POR_DEFECTO, detalle)
-
-    def test_un_fallo_del_servicio_se_cuenta_sin_filtrar_la_clave(self):
-        cliente = ClienteFalso(error=RuntimeError(f"401 clave {CLAVE} invalida"))
-        ok, detalle = probe_api_key(CLAVE, client_factory=lambda _k: cliente)
-        self.assertFalse(ok)
-        self.assertNotIn(CLAVE, detalle)
 
 
 if __name__ == "__main__":

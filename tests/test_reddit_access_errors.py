@@ -40,6 +40,7 @@ from core.orchestration import RadarDependencies
 from core.orchestration.pipeline import RedditFetcher
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
@@ -259,6 +260,7 @@ def _eventos(raw):
 class EscaneoConRedDoble(ConRedDoble):
 
     def setUp(self):
+        prohibir_red_real(self)
         super().setUp()
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_access_"))
         self.addCleanup(shutil.rmtree, self.tmpdir, True)

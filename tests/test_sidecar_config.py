@@ -22,6 +22,7 @@ from core.ingestion.synthetic import SyntheticFetcher, total_posts
 from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 TEST_DIM = 64
 
@@ -37,6 +38,7 @@ def tearDownModule():
 class ConfigTestCase(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_config_"))
         self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.env_path = self.tmpdir / ".env"
@@ -312,6 +314,17 @@ class TestGeminiEndpoints(ConfigTestCase):
 
     CLAVE = "AIzaSy-CLAVE-FALSA-PARA-TESTS"
 
+    def setUp(self):
+        super().setUp()
+        # Sobre la guardia de red: la ruta del plan lista modelos antes de generar.
+        from unittest import mock
+
+        from tests._gemini_dobles import ClienteConCatalogo
+
+        parche = mock.patch("core.llm.gemini._cliente_real", ClienteConCatalogo)
+        parche.start()
+        self.addCleanup(parche.stop)
+
     CLUSTER: ClassVar[dict[str, Any]] = {
         "label": "invoice + manual",
         "keywords": ["invoice"],
@@ -325,7 +338,7 @@ class TestGeminiEndpoints(ConfigTestCase):
     def test_al_principio_no_hay_clave_configurada(self):
         gemini = self.client.get("/api/config").json()["gemini"]
         self.assertFalse(gemini["configured"])
-        self.assertEqual(gemini["model"], "gemini-2.5-pro")
+        self.assertIsNone(gemini["model"])  # automático: se elige de la lista en vivo
 
     def test_guardar_la_clave_la_escribe_en_el_env(self):
         respuesta = self.client.post(

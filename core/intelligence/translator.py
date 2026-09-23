@@ -34,8 +34,6 @@ from core.llm.gemini import GeminiError, GeminiProvider
 
 logger = logging.getLogger(__name__)
 
-MODELO_POR_DEFECTO = "gemini-2.5-flash"
-
 #: Una tanda de citas cabe de sobra; el razonamiento de 2.5 cuenta dentro.
 MAX_OUTPUT_TOKENS = 8_192
 
@@ -299,13 +297,17 @@ def translate(
     target: str = "es",
     *,
     api_key: str = "",
-    model: str = MODELO_POR_DEFECTO,
+    model: str = "",
     client_factory: ClientFactory | None = None,
 ) -> list[Translation]:
     """Traduce una tanda de citas al idioma pedido.
 
     Devuelve una traducción por texto y en el mismo orden, pase lo que pase.
+    Con clave hace falta el modelo: lo elige quien llama entre los que la
+    clave puede usar (F1.2), nunca un nombre fijo en el código.
     """
+    if api_key.strip() and not model:
+        raise ValueError("Con clave de Gemini hay que indicar el modelo.")
     if not texts:
         return []
 

@@ -767,7 +767,10 @@ export type GeminiModel = (typeof GEMINI_MODELS)[number];
 export interface GeminiSummary {
   configured: boolean;
   keyMasked: string;
-  model: string;
+  /** Modelo de documentos guardado; `null` = automático (el Pro 3.x más reciente). */
+  model: string | null;
+  /** Modelo general guardado; `null` = automático (el Flash 3.x estable más reciente). */
+  generalModel: string | null;
 }
 
 /** Un trozo del documento segun se genera. */

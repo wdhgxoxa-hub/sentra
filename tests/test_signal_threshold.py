@@ -23,6 +23,7 @@ from core.orchestration import RadarDependencies, RadarPipeline, state
 from core.orchestration.mcp_server import build_tools
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 
 def techo_de_una_senal() -> float:
@@ -53,6 +54,7 @@ class TestConstantes(unittest.TestCase):
 class TestCorteDeProduccion(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         logging.disable(logging.CRITICAL)
         self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_corte_"))
         self.addCleanup(shutil.rmtree, self.tmpdir, True)

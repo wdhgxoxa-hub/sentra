@@ -107,7 +107,7 @@ class Guion:
 
 
 def generar(guion, cluster=CLUSTER, idioma="es"):
-    return "".join(stream_architecture(cluster, api_key=CLAVE, language=idioma,
+    return "".join(stream_architecture(cluster, api_key=CLAVE, model="m", language=idioma,
                                        client_factory=guion))
 
 
@@ -263,7 +263,7 @@ class TestEstructura(ConEsperaFalsa):
         with self.assertRaises(gemini_client.GeminiError):
             # extend conserva lo recibido antes de la excepción.
             emitido.extend(stream_architecture(
-                demo, api_key=CLAVE, client_factory=Guion(cliente(400)),
+                demo, api_key=CLAVE, model="m", client_factory=Guion(cliente(400)),
             ))
         self.assertEqual(emitido, [])
 

@@ -28,6 +28,7 @@ from core.ingestion.synthetic import SyntheticFetcher
 from core.orchestration import RadarDependencies, sidecar_server
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 TOKEN = "ab" * 32
 OTRO = "cd" * 32
@@ -36,6 +37,7 @@ OTRO = "cd" * 32
 class ConApp(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_token_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))

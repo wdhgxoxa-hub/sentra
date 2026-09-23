@@ -23,6 +23,7 @@ from core.orchestration.pipeline import RedditFetcher
 from core.orchestration.sidecar import config as sidecar_config
 from core.orchestration.sidecar_server import create_app
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from tests._sin_red import prohibir_red_real
 
 CLAVES_REDDIT = (
     "RIR_REDDIT_CLIENT_ID",
@@ -46,6 +47,7 @@ class ClienteDoble:
 class TestCredencialesSinReiniciar(unittest.TestCase):
 
     def setUp(self):
+        prohibir_red_real(self)
         logging.disable(logging.CRITICAL)
         # El entorno del proceso no puede aportar credenciales a la prueba.
         self._entorno = {k: os.environ.pop(k) for k in CLAVES_REDDIT if k in os.environ}
