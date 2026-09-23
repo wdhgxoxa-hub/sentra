@@ -11,6 +11,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 from core.storage import (
     DEFAULT_VECTOR_DIM,
@@ -224,6 +225,18 @@ class TestDeleteById(StoreTestCase):
         self.assertTrue(self.store.delete_by_id("o'brien"))
         self.assertIsNone(self.store.get_by_id("o'brien"))
 
+    def test_a_store_failure_reports_false(self):
+        from unittest import mock
+
+        with mock.patch.object(self.store._table, "delete", side_effect=OSError("disco")), \
+                self.assertLogs("core.storage.lancedb_store", "ERROR"):
+            self.assertFalse(self.store.delete_by_id("a1"))
+
+    def test_a_programming_error_is_not_swallowed(self):
+        # Un id que no es texto es un fallo de quien llama, no del almacén.
+        with self.assertRaises(TypeError):
+            self.store.delete_by_id(42)
+
 
 class TestVectorSearch(StoreTestCase):
 
@@ -291,7 +304,7 @@ class TestVectorSearch(StoreTestCase):
 class TestHybridSearch(StoreTestCase):
     """Fusion Reciprocal Rank Fusion entre la rama densa y la lexica BM25."""
 
-    CORPUS = [
+    CORPUS: ClassVar[list[dict]] = [
         {"id": "a1", "text": "no consigo exportar las facturas a csv desde la app",
          "subreddit": "smallbusiness", "urgency_tier": "HIGH", "opportunity_score": 0.9},
         {"id": "b2", "text": "busco una alternativa a notion para equipos grandes",
@@ -365,7 +378,7 @@ class TestHybridSearch(StoreTestCase):
         self.assertNotIn("b2", {r.id for r in results})
 
     def test_metadata_travels_from_the_corpus_to_the_result(self):
-        top = [r for r in self.engine.search("pgpool", limit=3) if r.id == "c3"][0]
+        top = next(r for r in self.engine.search("pgpool", limit=3) if r.id == "c3")
         self.assertEqual(top.subreddit, "devops")
         self.assertEqual(top.urgency_tier, "HIGH")
 
@@ -450,7 +463,7 @@ class TestRealEmbeddings(unittest.TestCase):
 class TestPublicApi(unittest.TestCase):
 
     def test_package_exports_the_documented_surface(self):
-        import core.storage as storage
+        from core import storage
 
         for name in (
             "LanceDBStore", "OpportunityRecord", "HybridSearchEngine",

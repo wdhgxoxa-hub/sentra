@@ -337,10 +337,13 @@ class LanceDBStore:
         Returns:
             True solo si el borrado redujo efectivamente el numero de filas.
         """
+        predicate = f"id = {_sql_literal(record_id)}"
         try:
             before = self.count_records()
-            self._table.delete(f"id = {_sql_literal(record_id)}")
+            self._table.delete(predicate)
             return self.count_records() < before
-        except Exception as e:
+        # Fallos del almacén (disco, dataset, predicado rechazado). Un id que
+        # no es texto lanza TypeError antes y llega a quien llama.
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Error eliminando registro {record_id}: {e}")
             return False
