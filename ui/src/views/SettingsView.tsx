@@ -17,6 +17,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { Explain } from "@/components/Explain";
 import { comoError } from "@/lib/errors";
 import {
+  useGeminiModels,
   useSaveCredentials,
   useSaveGeminiKey,
   useSetFetcherMode,
@@ -30,7 +31,7 @@ import {
   type Language,
   type Theme,
 } from "@/stores/settingsStore";
-import { GEMINI_MODELS, type FetcherMode } from "@/types/radar";
+import type { FetcherMode, GeminiModelsResult } from "@/types/radar";
 
 const LANGUAGES: Array<{ value: Language; label: string }> = [
   { value: "es", label: "Español" },
@@ -69,8 +70,10 @@ export function SettingsView() {
   const [verClave, setVerClave] = useState(false);
   // El modelo elegido gana; si nadie ha tocado el selector, manda el
   // guardado. Sincronizarlo con un efecto solo serviria para pelearse con el
-  // refresco de la consulta.
-  const [modeloElegido, setModeloElegido] = useState<string | null>(null);
+  // refresco de la consulta. "" es "automático".
+  const [documentosElegido, setDocumentosElegido] = useState<string | null>(null);
+  const [generalElegido, setGeneralElegido] = useState<string | null>(null);
+  const modelos = useGeminiModels(Boolean(settings.data?.gemini?.configured));
 
   const themes: Array<{ value: Theme; label: string; Icon: typeof Sun }> = [
     { value: "light", label: t.settings.themeLight, Icon: Sun },
@@ -93,8 +96,8 @@ export function SettingsView() {
     );
   };
 
-  const modelo =
-    modeloElegido ?? settings.data?.gemini?.model ?? GEMINI_MODELS[0];
+  const documentos = documentosElegido ?? settings.data?.gemini?.model ?? "";
+  const general = generalElegido ?? settings.data?.gemini?.generalModel ?? "";
 
   const campo =
     "w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition-colors focus:border-accent";
@@ -437,31 +440,56 @@ export function SettingsView() {
             </div>
           </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs text-ink-soft">{t.settings.model}</span>
-            <select
-              value={modelo}
-              onChange={(event) => setModeloElegido(event.target.value)}
-              className={campo}
-            >
-              {GEMINI_MODELS.map((opcion) => (
-                <option key={opcion} value={opcion}>
-                  {opcion}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] leading-relaxed text-ink-faint">
-              {t.settings.modelHint}
-            </span>
-          </label>
+          {/* Modelos: solo los que la clave puede usar (lista en vivo). */}
+          {!settings.data?.gemini?.configured ? (
+            <p className="text-[11px] leading-relaxed text-ink-faint">
+              {t.settings.modelsNeedKey}
+            </p>
+          ) : modelos.isPending ? (
+            <p className="text-xs text-ink-soft">{t.settings.modelsLoading}</p>
+          ) : modelos.isError ? (
+            <ErrorNotice {...comoError(modelos.error)} title={t.settings.modelsFailed} />
+          ) : !modelos.data.ok ? (
+            <ErrorNotice
+              code={modelos.data.code ?? "gemini_error"}
+              detail={modelos.data.detail}
+              title={t.settings.modelsFailed}
+            />
+          ) : (
+            <>
+              <SelectorDeModelo
+                etiqueta={t.settings.modelDocuments}
+                pista={t.settings.modelDocumentsHint}
+                valor={documentos}
+                automatico={modelos.data.documents}
+                lista={modelos.data}
+                onChange={setDocumentosElegido}
+                clase={campo}
+              />
+              <SelectorDeModelo
+                etiqueta={t.settings.modelGeneral}
+                pista={t.settings.modelGeneralHint}
+                valor={general}
+                automatico={modelos.data.general}
+                lista={modelos.data}
+                onChange={setGeneralElegido}
+                clase={campo}
+              />
+            </>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={guardarGemini.isPending || !geminiKey.trim()}
+              disabled={
+                guardarGemini.isPending ||
+                (!geminiKey.trim() && !settings.data?.gemini?.configured)
+              }
               onClick={() =>
                 guardarGemini.mutate(
-                  { apiKey: geminiKey.trim(), model: modelo },
+                  // Sin clave nueva, el motor conserva la guardada y solo
+                  // cambia los modelos.
+                  { apiKey: geminiKey.trim(), model: documentos, generalModel: general },
                   {
                     // La clave se borra del formulario en cuanto viaja: no
                     // tiene por que seguir en pantalla ni en memoria.
@@ -471,7 +499,11 @@ export function SettingsView() {
               }
               className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
-              {guardarGemini.isPending ? t.pipeline.saving : t.settings.saveKey}
+              {guardarGemini.isPending
+                ? t.pipeline.saving
+                : geminiKey.trim()
+                  ? t.settings.saveKey
+                  : t.settings.saveModels}
             </button>
 
             <button
@@ -512,5 +544,50 @@ export function SettingsView() {
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * Selector de un modelo de Gemini. La primera opción es «automático» y dice
+ * cuál se usaría; el resto son los modelos que la clave puede usar.
+ */
+function SelectorDeModelo({
+  etiqueta,
+  pista,
+  valor,
+  automatico,
+  lista,
+  onChange,
+  clase,
+}: {
+  etiqueta: string;
+  pista: string;
+  valor: string;
+  automatico: string | null;
+  lista: GeminiModelsResult;
+  onChange: (valor: string) => void;
+  clase: string;
+}) {
+  const t = useT();
+  const guardadoAusente = valor !== "" && !lista.models.some((m) => m.id === valor);
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs text-ink-soft">{etiqueta}</span>
+      <select value={valor} onChange={(event) => onChange(event.target.value)} className={clase}>
+        <option value="">
+          {`${t.settings.automatic} (${automatico ?? t.settings.noCandidate})`}
+        </option>
+        {guardadoAusente && (
+          <option value={valor}>{`${valor} — ${t.settings.modelGone}`}</option>
+        )}
+        {lista.models.map((modelo) => (
+          <option key={modelo.id} value={modelo.id}>
+            {modelo.id}
+          </option>
+        ))}
+      </select>
+      {guardadoAusente && <ErrorNotice code="llm_model_unavailable" detail={valor} />}
+      <span className="text-[11px] leading-relaxed text-ink-faint">{pista}</span>
+    </label>
   );
 }

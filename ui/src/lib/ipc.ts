@@ -22,6 +22,7 @@ import {
   type ArchitectChunk,
   ARCHITECT_EVENT_CHANNEL,
   type BlueprintDoc,
+  type GeminiModelsResult,
   type GeminiSummary,
   type QuoteTranslation,
   type AppHealth,
@@ -143,9 +144,15 @@ export const ipc = {
   translateQuotes: (texts: string[], target: string) =>
     invoke<QuoteTranslation[]>("translate_quotes", { texts, target }),
 
-  /** [sidecar] Guarda la clave de Gemini en el .env del proyecto. */
-  saveGeminiKey: (apiKey: string, model: string) =>
-    invoke<GeminiSummary>("save_gemini_key", { params: { apiKey, model } }),
+  /**
+   * [sidecar] Guarda la clave de Gemini y los modelos en el .env del
+   * proyecto. Modelo vacío = automático; clave vacía = se conserva la guardada.
+   */
+  saveGeminiKey: (apiKey: string, model: string, generalModel: string) =>
+    invoke<GeminiSummary>("save_gemini_key", { params: { apiKey, model, generalModel } }),
+
+  /** [sidecar] Modelos que la clave guardada puede usar (lista en vivo). */
+  listGeminiModels: () => invoke<GeminiModelsResult>("list_gemini_models"),
 
   /** [sidecar] Comprueba contra Google que la clave sirve. */
   testGeminiKey: () => invoke<ProbeResult>("test_gemini_key"),

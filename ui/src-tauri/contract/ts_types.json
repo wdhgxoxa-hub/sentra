@@ -337,6 +337,18 @@
       "signature",
       "text"
     ],
+    "GeminiModel": [
+      "displayName",
+      "id"
+    ],
+    "GeminiModelsResult": [
+      "code",
+      "detail",
+      "documents",
+      "general",
+      "models",
+      "ok"
+    ],
     "GeminiSummary": [
       "configured",
       "generalModel",

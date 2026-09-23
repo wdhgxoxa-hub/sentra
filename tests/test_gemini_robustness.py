@@ -286,11 +286,13 @@ class TestCodigosTraducidos(unittest.TestCase):
         import re
         from pathlib import Path
 
+        from core.llm import base
+
         python = {
             clase.code
-            for modulo in (gemini_client, gemini_architect)
+            for modulo in (base, gemini_client, gemini_architect)
             for clase in vars(modulo).values()
-            if isinstance(clase, type) and issubclass(clase, gemini_client.GeminiError)
+            if isinstance(clase, type) and issubclass(clase, base.LLMError)
         } | {"internal_error"}
         rust = (Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "src"
                 / "commands" / "architect.rs").read_text(encoding="utf-8")
@@ -303,6 +305,7 @@ class TestCodigosTraducidos(unittest.TestCase):
         codigos = self.codigos()
         self.assertIn("architect_interrupted", codigos)
         self.assertIn("gemini_not_configured", codigos)
+        self.assertIn("llm_model_unavailable", codigos)
         for idioma in ("es", "en"):
             fuente = (Path(__file__).resolve().parents[1] / "ui" / "src" / "i18n"
                       / f"{idioma}.ts").read_text(encoding="utf-8")

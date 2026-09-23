@@ -31,20 +31,50 @@ pub const ARCHITECT_EVENT_CHANNEL: &str = "sentra:architect";
 const GENERATE_TIMEOUT: Duration = Duration::from_secs(600);
 const SHORT_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Llega anidado (`{ params: { apiKey, model } }`): Tauri solo traduce los
-/// nombres de primer nivel, asi que el camelCase de los campos lo pone serde.
+/// Llega anidado (`{ params: { apiKey, model, generalModel } }`): Tauri solo
+/// traduce los nombres de primer nivel, asi que el camelCase lo pone serde.
+///
+/// Un modelo vacio es "automatico" (lo elige el sidecar de la lista en vivo).
+/// Una clave vacia conserva la guardada: cambiar de modelo no obliga a
+/// teclearla otra vez.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiKeyParams {
+    #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
     pub model: String,
+    #[serde(default)]
+    pub general_model: String,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GeminiBody {
-    #[serde(rename = "apiKey")]
     api_key: String,
     model: String,
+    general_model: String,
+}
+
+/// Un modelo que la clave puede usar, tal como lo lista el sidecar.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiModel {
+    pub id: String,
+    pub display_name: String,
+}
+
+/// Modelos que la clave puede usar (models.list) y el que se usaria en cada
+/// uso. Con `ok = false`, `code` dice por que (sin clave, clave mala, red).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiModelsResult {
+    pub ok: bool,
+    pub code: Option<String>,
+    pub detail: String,
+    pub models: Vec<GeminiModel>,
+    pub general: Option<String>,
+    pub documents: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -141,10 +171,7 @@ pub async fn save_gemini_key(
     state: State<'_, AppState>,
     params: GeminiKeyParams,
 ) -> RadarResult<GeminiSummary> {
-    if params.api_key.trim().is_empty() {
-        return Err(RadarError::Invalid("La clave no puede estar vacia".into()));
-    }
-
+    // Sin clave nueva, el sidecar conserva la guardada o responde 400.
     let response = with_token_pub(
         state
             .http
@@ -153,6 +180,7 @@ pub async fn save_gemini_key(
             .json(&GeminiBody {
                 api_key: params.api_key,
                 model: params.model,
+                general_model: params.general_model,
             }),
     )
     .send()
@@ -173,6 +201,23 @@ pub async fn save_gemini_key(
 
     let envelope: Envelope = response.json().await.map_err(transport_error)?;
     Ok(envelope.gemini)
+}
+
+/// Modelos que la clave guardada puede usar. El sidecar reutiliza la lista
+/// unos minutos: cada consulta real a Google es una llamada de la cuota.
+#[tauri::command]
+pub async fn list_gemini_models(state: State<'_, AppState>) -> RadarResult<GeminiModelsResult> {
+    let response = with_token_pub(
+        state
+            .http
+            .get(format!("{}/api/gemini/models", sidecar_url()))
+            .timeout(SHORT_TIMEOUT),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    response.json().await.map_err(transport_error)
 }
 
 /// Comprueba contra Google que la clave guardada sirve.

@@ -324,6 +324,17 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
     assert_eq!(claves(&json["credentials"]), claves_ts("CredentialsSummary"));
     assert_eq!(claves(&json["gemini"]), claves_ts("GeminiSummary"));
     cumple(&ProbeResult { ok: true, detail: texto() }, "ProbeResult");
+    let lista = architect::GeminiModelsResult {
+        ok: true,
+        code: Some(texto()),
+        detail: texto(),
+        models: vec![architect::GeminiModel { id: texto(), display_name: texto() }],
+        general: Some(texto()),
+        documents: Some(texto()),
+    };
+    cumple(&lista, "GeminiModelsResult");
+    let json_lista = serde_json::to_value(&lista).unwrap();
+    assert_eq!(claves(&json_lista["models"][0]), claves_ts("GeminiModel"));
     cumple(&architect::ProbeResult { ok: true, detail: texto() }, "ProbeResult");
 }
 

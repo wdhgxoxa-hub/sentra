@@ -86,13 +86,18 @@ def router(ctx: SidecarContext) -> APIRouter:
 
     @rutas.post("/api/gemini")
     def save_gemini(request: GeminiRequest) -> dict[str, Any]:
-        """Guarda la clave y los modelos elegidos (vacío = automático) en el `.env`."""
-        if not request.apiKey.strip():
+        """Guarda la clave y los modelos elegidos (vacío = automático) en el `.env`.
+
+        Sin clave nueva se conserva la guardada: elegir modelo no obliga a
+        volver a teclear la clave. Sin ninguna de las dos, 400.
+        """
+        clave = request.apiKey.strip() or gemini_credenciales(ctx).key
+        if not clave:
             raise HTTPException(status_code=400, detail="La clave no puede estar vacia")
 
         update_dotenv(
             {
-                "RIR_GEMINI_API_KEY": request.apiKey.strip(),
+                "RIR_GEMINI_API_KEY": clave,
                 "RIR_GEMINI_MODEL": request.model.strip(),
                 "RIR_GEMINI_GENERAL_MODEL": request.generalModel.strip(),
             },

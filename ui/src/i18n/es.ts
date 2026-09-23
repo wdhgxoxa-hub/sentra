@@ -246,15 +246,26 @@ export const es = {
     loading: "Consultando al motor…",
     unreachable:
       "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la fuente de datos y las credenciales necesitan que el motor esté en marcha.",
-    aiEngine: "Motor de arquitectura (Google Gemini)",
+    aiEngine: "Motor de IA (Google Gemini)",
     aiHint:
       "La clave se pide en aistudio.google.com y se guarda en el mismo .env que las de Reddit. Sin ella, el botón de arquitectura de cada oportunidad queda inactivo.",
     apiKey: "Clave de API",
     showKey: "Mostrar",
     hideKey: "Ocultar",
-    model: "Modelo",
-    modelHint:
-      "Pro razona más hondo y tarda más; Flash responde antes y sirve para tantear.",
+    modelDocuments: "Modelo para documentos",
+    modelDocumentsHint:
+      "Escribe el plan de arquitectura. Automático: el Pro 3.x más reciente que admita tu clave.",
+    modelGeneral: "Modelo general",
+    modelGeneralHint:
+      "Traduce citas y etiqueta evidencia. Automático: el Flash 3.x estable más reciente que admita tu clave.",
+    automatic: "Automático",
+    noCandidate: "sin candidato disponible",
+    modelGone: "ya no está disponible",
+    modelsNeedKey:
+      "Guarda la clave para ver los modelos que puede usar. La lista se pide a Google, no está escrita en la aplicación.",
+    modelsLoading: "Consultando los modelos de tu clave…",
+    modelsFailed: "No se pudo obtener la lista de modelos.",
+    saveModels: "Guardar modelos",
     modeFailed: "No se pudo cambiar la fuente de datos.",
     keySaved: "Clave guardada",
     probeFailed: "No se pudo probar la clave.",
@@ -434,6 +445,12 @@ export const es = {
     persist_failed: "Cosecha completa, pero no se pudo guardar en la base de datos.",
     gemini_not_configured: "No hay clave de Gemini guardada. Se configura en Ajustes.",
     gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
+    llm_error: "El motor de IA falló.",
+    llm_model_unavailable:
+      "El modelo guardado ya no está disponible para tu clave. Elige otro en Ajustes.",
+    llm_invalid_json: "El modelo devolvió una respuesta que no cumple el formato pedido, ni al reintentar.",
+    llm_budget_exhausted:
+      "Se agotó el presupuesto de tokens del escaneo. Súbelo en Ajustes o escanea menos evidencia.",
     gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
     gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
     gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",

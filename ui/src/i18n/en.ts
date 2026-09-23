@@ -247,15 +247,26 @@ export const en: Dictionary = {
     loading: "Asking the engine…",
     unreachable:
       "Could not read the engine settings. Language and theme still work; the data source and credentials need the engine running.",
-    aiEngine: "Architecture engine (Google Gemini)",
+    aiEngine: "AI engine (Google Gemini)",
     aiHint:
       "The key comes from aistudio.google.com and is stored in the same .env as the Reddit ones. Without it, the architecture button on each opportunity stays disabled.",
     apiKey: "API key",
     showKey: "Show",
     hideKey: "Hide",
-    model: "Model",
-    modelHint:
-      "Pro reasons deeper and takes longer; Flash answers sooner and is fine for a first pass.",
+    modelDocuments: "Model for documents",
+    modelDocumentsHint:
+      "Writes the architecture plan. Automatic: the newest 3.x Pro your key can use.",
+    modelGeneral: "General model",
+    modelGeneralHint:
+      "Translates quotes and labels evidence. Automatic: the newest stable 3.x Flash your key can use.",
+    automatic: "Automatic",
+    noCandidate: "no candidate available",
+    modelGone: "no longer available",
+    modelsNeedKey:
+      "Save the key to see the models it can use. The list comes from Google; it is not written into the app.",
+    modelsLoading: "Asking which models your key can use…",
+    modelsFailed: "The model list could not be fetched.",
+    saveModels: "Save models",
     modeFailed: "The data source could not be changed.",
     keySaved: "Key saved",
     probeFailed: "The key could not be tested.",
@@ -429,6 +440,12 @@ export const en: Dictionary = {
     persist_failed: "Harvest complete, but it could not be saved to the database.",
     gemini_not_configured: "No Gemini key is saved. Set it up in Settings.",
     gemini_error: "Gemini rejected the request. Check the key and the model in Settings.",
+    llm_error: "The AI engine failed.",
+    llm_model_unavailable:
+      "The saved model is no longer available for your key. Pick another one in Settings.",
+    llm_invalid_json: "The model returned a reply that does not match the requested format, even after a retry.",
+    llm_budget_exhausted:
+      "The scan's token budget ran out. Raise it in Settings or scan less evidence.",
     gemini_unavailable: "Gemini is not available right now. It was retried several times; try again in a while.",
     gemini_rate_limited: "The Gemini quota ran out. Wait a little or check your key's plan.",
     gemini_timeout: "Gemini took too long to answer. Try gemini-2.5-flash if you do not need deep reasoning.",

@@ -30,12 +30,24 @@ fn argumento<T: DeserializeOwned>(payload: &Value, name: &str) -> T {
 }
 
 #[test]
-fn save_gemini_key_recibe_la_clave_y_el_modelo() {
-    // ipc.ts:133 -> invoke("save_gemini_key", { params: { apiKey, model } })
-    let payload = json!({ "params": { "apiKey": "clave-de-prueba", "model": "gemini-2.5-flash" } });
+fn save_gemini_key_recibe_la_clave_y_los_dos_modelos() {
+    // ipc.ts -> invoke("save_gemini_key", { params: { apiKey, model, generalModel } })
+    let payload = json!({ "params": {
+        "apiKey": "clave-de-prueba", "model": "gemini-3.1-pro-preview", "generalModel": ""
+    }});
     let params: GeminiKeyParams = argumento(&payload, "params");
     assert_eq!(params.api_key, "clave-de-prueba");
-    assert_eq!(params.model, "gemini-2.5-flash");
+    assert_eq!(params.model, "gemini-3.1-pro-preview");
+    assert_eq!(params.general_model, "", "vacío = automático");
+}
+
+#[test]
+fn save_gemini_key_sin_clave_nueva_cambia_solo_los_modelos() {
+    // Elegir modelo no obliga a teclear otra vez la clave: la conserva el sidecar.
+    let payload = json!({ "params": { "apiKey": "", "model": "", "generalModel": "gemini-3.5-flash" } });
+    let params: GeminiKeyParams = argumento(&payload, "params");
+    assert!(params.api_key.is_empty());
+    assert_eq!(params.general_model, "gemini-3.5-flash");
 }
 
 #[test]

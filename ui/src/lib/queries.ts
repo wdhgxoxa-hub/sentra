@@ -18,6 +18,7 @@ import {
 import { ipc } from "@/lib/ipc";
 import type {
   AppSettings,
+  GeminiModelsResult,
   BlueprintDoc,
   BoardParams,
   CredentialsInput,
@@ -56,6 +57,8 @@ export const queryKeys = {
   // preguntar por la conexión, que solo cambia al reintentar.
   database: ["database"] as const,
   settings: ["radar", "settings"] as const,
+  // Bajo `settings`: guardar la clave la invalida con el resto de ajustes.
+  geminiModels: ["radar", "settings", "gemini-models"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
   blueprint: (key: string, language: string, architecture: string | null) =>
     ["radar", "blueprint", key, language, architecture] as const,
@@ -305,9 +308,29 @@ export function useBlueprint(
 export function useSaveGeminiKey() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ apiKey, model }: { apiKey: string; model: string }) =>
-      ipc.saveGeminiKey(apiKey, model),
+    mutationFn: ({
+      apiKey,
+      model,
+      generalModel,
+    }: {
+      apiKey: string;
+      model: string;
+      generalModel: string;
+    }) => ipc.saveGeminiKey(apiKey, model, generalModel),
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.settings }),
+  });
+}
+
+/**
+ * Modelos que la clave guardada puede usar. Solo se pregunta con clave: sin
+ * ella no hay lista que pedir. El sidecar la reutiliza unos minutos.
+ */
+export function useGeminiModels(enabled: boolean) {
+  return useQuery<GeminiModelsResult>({
+    queryKey: queryKeys.geminiModels,
+    queryFn: () => ipc.listGeminiModels(),
+    enabled,
+    retry: false,
   });
 }
 

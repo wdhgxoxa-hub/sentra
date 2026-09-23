@@ -57,6 +57,26 @@ class TestConfiguracion(ConCatalogo):
         self.assertEqual(gemini["generalModel"], "gemini-3.5-flash")
 
 
+class TestGuardarModelos(ConCatalogo):
+    def test_sin_clave_nueva_se_cambian_los_modelos_y_se_conserva_la_guardada(self):
+        """Elegir modelo no obliga a volver a teclear la clave."""
+        self.guardar()
+        respuesta = self.client.post(
+            "/api/gemini", json={"apiKey": "", "model": "gemini-2.5-flash",
+                                 "generalModel": "gemini-3.5-flash"}
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        gemini = self.client.get("/api/config").json()["gemini"]
+        self.assertTrue(gemini["configured"])
+        self.assertEqual(gemini["model"], "gemini-2.5-flash")
+        self.assertEqual(gemini["generalModel"], "gemini-3.5-flash")
+        self.assertIn(CLAVE, self.env_path.read_text(encoding="utf-8"))
+
+    def test_sin_clave_nueva_ni_guardada_se_rechaza(self):
+        respuesta = self.client.post("/api/gemini", json={"apiKey": "", "model": ""})
+        self.assertEqual(respuesta.status_code, 400)
+
+
 class TestListaDeModelos(ConCatalogo):
     def test_sin_clave_lo_dice_con_codigo(self):
         cuerpo = self.client.get("/api/gemini/models").json()

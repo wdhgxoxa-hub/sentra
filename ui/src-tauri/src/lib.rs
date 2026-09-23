@@ -100,6 +100,7 @@ pub fn run() {
             // Motor de arquitectura (Gemini)
             commands::architect::save_gemini_key,
             commands::architect::test_gemini_key,
+            commands::architect::list_gemini_models,
             commands::architect::generate_architecture,
             // Estado agregado
             commands::health::get_app_health,

@@ -759,9 +759,26 @@ export interface DocumentBlock {
 /** Canal por el que llega el plan de arquitectura mientras se escribe. */
 export const ARCHITECT_EVENT_CHANNEL = "sentra:architect";
 
-/** Modelos ofrecidos para el motor de arquitectura. */
-export const GEMINI_MODELS = ["gemini-2.5-pro", "gemini-2.5-flash"] as const;
-export type GeminiModel = (typeof GEMINI_MODELS)[number];
+/** Un modelo que la clave puede usar (lista en vivo, `models.list`). */
+export interface GeminiModel {
+  id: string;
+  displayName: string;
+}
+
+/**
+ * Modelos que la clave puede usar y el que se usaría en cada uso. Con
+ * `ok = false`, `code` dice por qué (sin clave, clave mala, sin red).
+ */
+export interface GeminiModelsResult {
+  ok: boolean;
+  code: string | null;
+  detail: string;
+  models: GeminiModel[];
+  /** Modelo general que se usaría ahora (el guardado o el automático). */
+  general: string | null;
+  /** Modelo de documentos que se usaría ahora. */
+  documents: string | null;
+}
 
 /** Estado del motor de arquitectura. La clave entera no sale del sidecar. */
 export interface GeminiSummary {
