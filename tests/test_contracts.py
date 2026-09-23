@@ -68,9 +68,12 @@ def eventos_emitidos() -> dict[str, list[set[str]]]:
         valor = nodo.values[claves.index("type")]
         ramas = [valor.body, valor.orelse] if isinstance(valor, ast.IfExp) else [valor]
         for rama in ramas:
-            if isinstance(rama, ast.Constant) and isinstance(rama.value, str):
-                if rama.value.startswith("run:"):
-                    emitidos.setdefault(rama.value, []).append(set(claves))
+            if (
+                isinstance(rama, ast.Constant)
+                and isinstance(rama.value, str)
+                and rama.value.startswith("run:")
+            ):
+                emitidos.setdefault(rama.value, []).append(set(claves))
     return emitidos
 
 
