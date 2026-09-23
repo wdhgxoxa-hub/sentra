@@ -1,0 +1,29 @@
+# Configuración de las herramientas de calidad de Python (AUD-023, AUD-024).
+# Las versiones de ruff y mypy están fijadas en requirements-dev.txt;
+# tests/test_quality_config.py comprueba que esto y aquello coinciden.
+
+[tool.ruff]
+# Cada versión de ruff trae su propio juego de reglas por defecto: sin fijarla,
+# el mismo código da cifras distintas en cada máquina. Se usa ese juego por
+# defecto, el mismo con el que se hizo la auditoría.
+required-version = "==0.16.6"
+# El intérprete del proyecto (scripts/setup_env.ps1 crea la venv con 3.12).
+target-version = "py312"
+line-length = 88
+# repos/ son clones de terceros (ignorados por git, y ruff respeta .gitignore).
+extend-exclude = ["repos"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["core", "scripts", "tests"]
+strict_optional = true
+# Varias dependencias (lancedb, rank_bm25, reportlab, fastembed...) no publican
+# tipos: sin esto mypy se detiene en sus importaciones en vez de en nuestro código.
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# El código de producción no admite funciones sin tipar: son justo las que
+# mypy deja de revisar.
+module = "core.*"
+disallow_untyped_defs = true
