@@ -15,6 +15,7 @@ import { ipc, onArchitectChunk } from "@/lib/ipc";
 import { useSettings } from "@/lib/queries";
 import { useArchitectStore } from "@/stores/architectStore";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
+import type { ArchitectFailure } from "@/types/radar";
 
 /** Texto original de un nodo del árbol de Markdown, sin las etiquetas del resaltado. */
 function textoDe(nodo: unknown): string {
@@ -56,6 +57,9 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
   const [texto, setTexto] = useState("");
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El fallo tipado llega por el canal antes de que el comando rechace; si
+  // lo hay, se muestra ese y no el texto del rechazo (AUD-020).
+  const [fallo, setFallo] = useState<ArchitectFailure | null>(null);
   const [copiado, setCopiado] = useState<"si" | "no" | null>(null);
   const finDelTexto = useRef<HTMLDivElement | null>(null);
 
@@ -68,7 +72,12 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
   // el clic alcance a registrarse, y se perderían.
   useEffect(() => {
     const unlisten = onArchitectChunk((chunk) => {
-      if (chunk.clusterKey !== clusterKey || chunk.done) return;
+      if (chunk.clusterKey !== clusterKey) return;
+      if (chunk.error) {
+        setFallo(chunk.error);
+        return;
+      }
+      if (chunk.done) return;
       setTexto((previo) => previo + chunk.text);
     });
     return () => {
@@ -84,6 +93,7 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
   const generar = async () => {
     setTexto("");
     setError(null);
+    setFallo(null);
     setGenerando(true);
     try {
       const completo = await ipc.generateArchitecture(clusterKey, language);
@@ -143,13 +153,32 @@ export function ArchitectPanel({ clusterKey }: { clusterKey: string }) {
       </div>
 
       <div className="px-5 py-5">
-        {error && (
-          <p className="mb-3 text-sm text-danger">
-            {t.architect.error}: {error}
-          </p>
+        {fallo ? (
+          <div className="mb-3 text-sm text-danger">
+            <p>
+              {t.architect.failures[fallo.code as keyof typeof t.architect.failures] ??
+                t.architect.error}
+            </p>
+            {fallo.missing.length > 0 && (
+              <p className="mt-1 text-xs">
+                {t.architect.missing}: {fallo.missing.join(", ")}
+              </p>
+            )}
+            {texto && <p className="mt-1 text-xs text-warn">{t.architect.incomplete}</p>}
+            <details className="mt-1 text-xs text-ink-faint">
+              <summary className="cursor-pointer">{t.architect.technicalDetails}</summary>
+              <p className="mt-1 font-mono">{fallo.detail}</p>
+            </details>
+          </div>
+        ) : (
+          error && (
+            <p className="mb-3 text-sm text-danger">
+              {t.architect.error}: {error}
+            </p>
+          )
         )}
 
-        {!texto && !generando && !error && (
+        {!texto && !generando && !error && !fallo && (
           <p className="text-sm leading-relaxed text-ink-soft">
             {t.architect.empty}
           </p>

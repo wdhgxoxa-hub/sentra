@@ -358,7 +358,14 @@ class TestGeminiEndpoints(ConfigTestCase):
         )
         self.assertEqual(respuesta.status_code, 412)
 
-    def test_generar_devuelve_el_texto_en_trozos(self):
+    @staticmethod
+    def eventos(respuesta):
+        """El cuerpo NDJSON del plan, evento a evento (AUD-020)."""
+        import json
+
+        return [json.loads(linea) for linea in respuesta.text.splitlines() if linea]
+
+    def test_generar_devuelve_el_texto_en_trozos_y_termina_en_done(self):
         from unittest import mock
 
         self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
@@ -376,8 +383,39 @@ class TestGeminiEndpoints(ConfigTestCase):
             )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("# FASE 1", respuesta.text)
-        self.assertIn("contenido", respuesta.text)
+        self.assertEqual(respuesta.headers["content-type"], "application/x-ndjson")
+        self.assertEqual(self.eventos(respuesta), [
+            {"type": "chunk", "text": "# FASE 1"},
+            {"type": "chunk", "text": "\ncontenido"},
+            {"type": "done"},
+        ])
+
+    def test_un_plan_incompleto_termina_en_error_tipado_y_no_en_done(self):
+        from unittest import mock
+
+        from core.intelligence.gemini_client import GeminiIncomplete
+
+        self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
+
+        def falso(cluster, **kwargs):
+            yield "# FASE 1"
+            raise GeminiIncomplete("Faltan secciones exigidas: Hoja de ruta",
+                                   missing=["Hoja de ruta"])
+
+        with mock.patch(
+            "core.intelligence.gemini_architect.stream_architecture", falso
+        ):
+            respuesta = self.client.post(
+                "/api/architect/generate", json={"cluster": self.CLUSTER}
+            )
+
+        eventos = self.eventos(respuesta)
+        self.assertNotIn({"type": "done"}, eventos)
+        self.assertEqual(eventos[-1], {
+            "type": "error", "code": "gemini_incomplete",
+            "detail": "Faltan secciones exigidas: Hoja de ruta",
+            "missing": ["Hoja de ruta"],
+        })
 
     def test_generar_usa_el_modelo_guardado(self):
         from unittest import mock
@@ -416,7 +454,10 @@ class TestGeminiEndpoints(ConfigTestCase):
             )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertIn("se cayo el servicio", respuesta.text)
+        ultimo = self.eventos(respuesta)[-1]
+        self.assertEqual(ultimo["type"], "error")
+        self.assertEqual(ultimo["code"], "internal_error")
+        self.assertIn("se cayo el servicio", ultimo["detail"])
         self.assertEqual(self.client.get("/api/health").status_code, 200)
 
 

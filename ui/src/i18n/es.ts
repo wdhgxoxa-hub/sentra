@@ -260,6 +260,22 @@ export const es = {
       "Púlsalo y Gemini redacta un plan de construcción en dos fases a partir de esta evidencia: un MVP para 24-48 h y el producto completo para cuando valide.",
     warning:
       "Esto lo escribe un modelo generativo, no el radar. Revisa el código y el esquema antes de ejecutarlos.",
+    incomplete: "Documento incompleto: no se guarda para el PDF.",
+    missing: "Secciones que faltan",
+    technicalDetails: "Detalles técnicos",
+    failures: {
+      gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
+      gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
+      gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
+      gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",
+      gemini_blocked: "Gemini bloqueó la respuesta por sus filtros de seguridad.",
+      gemini_empty: "Gemini terminó sin escribir nada.",
+      gemini_truncated: "El documento se cortó al llegar al límite de longitud del modelo.",
+      gemini_incomplete: "El documento llegó sin todas las secciones exigidas.",
+      internal_error: "Fallo interno del motor de arquitectura.",
+      architect_protocol: "El motor devolvió una respuesta que la aplicación no entiende.",
+      architect_interrupted: "La conexión con el motor se cortó antes de terminar el documento.",
+    },
   },
   blueprint: {
     open: "Ver especificación del proyecto (PRD)",

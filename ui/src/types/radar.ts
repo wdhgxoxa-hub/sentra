@@ -736,7 +736,18 @@ export interface GeminiSummary {
 export interface ArchitectChunk {
   clusterKey: string;
   text: string;
+  /** Solo `true` cuando el motor confirma el plan completo (AUD-020). */
   done: boolean;
+  /** Por qué el plan no se dio por terminado; null mientras va bien. */
+  error: ArchitectFailure | null;
+}
+
+/** Fallo tipado del plan: `code` se traduce, `detail` es técnico. */
+export interface ArchitectFailure {
+  code: string;
+  detail: string;
+  /** Secciones exigidas que no llegaron (solo con `gemini_incomplete`). */
+  missing: string[];
 }
 
 /**

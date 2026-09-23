@@ -768,30 +768,37 @@ def create_app(
                 detail="No hay clave de Gemini guardada. Se configura en Ajustes.",
             )
 
+        def evento(datos: dict[str, Any]) -> str:
+            return json.dumps(datos, ensure_ascii=False) + "\n"
+
         def cuerpo():
-            # El fallo llega a mitad del texto ya enviado: no se puede
-            # cambiar el codigo de estado, asi que se escribe dentro del
-            # documento, donde quien lo lee lo va a ver.
+            # Una linea JSON por evento (AUD-020): `chunk` con texto, y al
+            # final `done` o `error`. El fallo llega a mitad del texto ya
+            # enviado y no se puede cambiar el codigo de estado; antes se
+            # escribia dentro del documento, que asi se daba por terminado.
             try:
-                yield from gemini_architect.stream_architecture(
+                for trozo in gemini_architect.stream_architecture(
                     request.cluster,
                     api_key=key,
                     model=model,
                     language=request.language,
-                )
+                ):
+                    yield evento({"type": "chunk", "text": trozo})
             except GeminiError as exc:
                 # Ya saneado en la frontera y sin la excepcion del SDK
                 # encadenada: la traza no aportaria nada y podria filtrar.
-                logger.warning("Fallo generando la arquitectura: %s", exc)
-                yield f"\n\n> **Error del motor de arquitectura:** {exc}\n"
+                logger.warning("Fallo generando la arquitectura (%s): %s", exc.code, exc)
+                yield evento({"type": "error", "code": exc.code, "detail": str(exc),
+                              "missing": exc.missing})
+                return
             except Exception as exc:
                 logger.exception("Fallo generando la arquitectura")
-                yield (
-                    "\n\n> **Error del motor de arquitectura:** "
-                    f"{sanitize(str(exc), key)}\n"
-                )
+                yield evento({"type": "error", "code": "internal_error",
+                              "detail": sanitize(str(exc), key), "missing": []})
+                return
+            yield evento({"type": "done"})
 
-        return StreamingResponse(cuerpo(), media_type="text/plain; charset=utf-8")
+        return StreamingResponse(cuerpo(), media_type="application/x-ndjson")
 
     # -- Especificacion de proyecto ------------------------------------
 

@@ -385,3 +385,21 @@ fn get_app_health_devuelve_app_health() {
     assert_eq!(claves(&json["app"]), claves_ts("ComponentHealth"));
     assert_eq!(claves(&json["source"]), claves_ts("SourceStatus"));
 }
+
+#[test]
+fn generate_architecture_emite_architect_chunk_con_su_fallo_tipado() {
+    let json = cumple(
+        &architect::ArchitectChunk {
+            cluster_key: texto(),
+            text: texto(),
+            done: false,
+            error: Some(architect::ArchitectFailure {
+                code: "gemini_incomplete".into(),
+                detail: texto(),
+                missing: vec![texto()],
+            }),
+        },
+        "ArchitectChunk",
+    );
+    assert_eq!(claves(&json["error"]), claves_ts("ArchitectFailure"));
+}

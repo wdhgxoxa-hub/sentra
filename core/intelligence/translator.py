@@ -30,11 +30,21 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from core.intelligence.gemini_client import GeminiError, generate_text
+from core.intelligence.gemini_client import GeminiError, build_config, generate_text
 
 logger = logging.getLogger(__name__)
 
 MODELO_POR_DEFECTO = "gemini-2.5-flash"
+
+#: Una tanda de citas cabe de sobra; el razonamiento de 2.5 cuenta dentro.
+MAX_OUTPUT_TOKENS = 8_192
+
+#: La vista espera la traducción: si tarda más, se usa el modo sin conexión.
+TIMEOUT_MS = 60_000
+
+#: Un reintento como mucho: pasado eso, mejor la traducción sin conexión ya
+#: que hacer esperar a quien lee las citas.
+MAX_RETRIES = 1
 
 IDIOMAS = {"es": "Spanish", "en": "English"}
 
@@ -261,14 +271,15 @@ def _con_modelo(
     model: str,
     client_factory: ClientFactory | None,
 ) -> list[str] | None:
-    from google.genai import types
-
     try:
         bruto = generate_text(
             api_key,
             model=model,
             contents=_prompt(textos, idioma),
-            config=types.GenerateContentConfig(temperature=0.2),
+            config=build_config(
+                timeout_ms=TIMEOUT_MS, max_output_tokens=MAX_OUTPUT_TOKENS, temperature=0.2
+            ),
+            max_retries=MAX_RETRIES,
             client_factory=client_factory,
         )
     except GeminiError as exc:

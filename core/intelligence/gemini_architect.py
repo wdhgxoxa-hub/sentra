@@ -25,7 +25,13 @@ from typing import Any
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
-from core.intelligence.gemini_client import GeminiError, stream_text
+from core.intelligence.gemini_client import (
+    GeminiError,
+    GeminiIncomplete,
+    build_config,
+    ping,
+    stream_text,
+)
 
 MODELO_POR_DEFECTO = "gemini-2.5-pro"
 
@@ -34,6 +40,38 @@ MODELO_POR_DEFECTO = "gemini-2.5-pro"
 MODELOS_DISPONIBLES = ("gemini-2.5-pro", "gemini-2.5-flash")
 
 IDIOMA_POR_DEFECTO = "es"
+
+#: Límite de salida del plan. En la familia 2.5 el razonamiento cuenta dentro
+#: de este límite: con menos, un plan con código se queda a medias.
+MAX_OUTPUT_TOKENS = 65_536
+
+#: Timeout de cada petición del plan (ms). Por debajo de los 600 s del puente
+#: de Rust, para que el corte llegue como error tipado y no como caída.
+TIMEOUT_MS = 540_000
+
+#: La prueba de clave es una llamada mínima: si tarda, algo va mal.
+PROBE_TIMEOUT_MS = 30_000
+PROBE_MAX_OUTPUT_TOKENS = 1_024
+
+#: Secciones que el plan debe traer, en el orden en que las pide el sistema.
+#: Se buscan como títulos Markdown (la línea empieza por #) y por prefijo,
+#: sin distinguir mayúsculas: «# FASE 1: MVP EXPRESS (24-48 h)» cuenta.
+SECCIONES_OBLIGATORIAS = {
+    "es": (
+        "FASE 1", "Lógica central", "Stack mínimo y estructura de carpetas",
+        "Esquema SQL inicial", "Endpoints mínimos", "Código del módulo principal",
+        "FASE 2", "Hoja de ruta", "Monetización", "Infraestructura",
+    ),
+    "en": (
+        "FASE 1", "Core logic", "Minimal stack and folder layout",
+        "Initial SQL schema", "Minimal endpoints", "Main module code",
+        "FASE 2", "Roadmap", "Monetisation", "Infrastructure",
+    ),
+}
+
+#: Cómo se nombra en la lista de ausentes el aviso inicial exigido con datos
+#: de demostración o de procedencia desconocida (AUD-017).
+AVISO_AUSENTE = {"es": "aviso de procedencia", "en": "provenance warning"}
 
 ClientFactory = Callable[[str], Any]
 
@@ -352,9 +390,41 @@ def _cabecera_de_procedencia(
 
 
 def _config(sistema: str) -> Any:
-    from google.genai import types
+    return build_config(
+        timeout_ms=TIMEOUT_MS,
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        system_instruction=sistema,
+    )
 
-    return types.GenerateContentConfig(system_instruction=sistema)
+
+def _normalizar(texto: str) -> str:
+    return " ".join(texto.split()).casefold()
+
+
+def secciones_ausentes(texto: str, language: str, fuente: Any) -> list[str]:
+    """Qué secciones exigidas no aparecen como título en el plan.
+
+    Con datos de demo o sin procedencia, el aviso inicial (AUD-017) también
+    es obligatorio y debe ir antes del primer título.
+    """
+    idioma = "en" if language == "en" else "es"
+    lineas = texto.splitlines()
+    es_titulo = [linea.strip().startswith("#") for linea in lineas]
+    titulos = [
+        _normalizar(linea.strip().lstrip("#"))
+        for linea, titulo in zip(lineas, es_titulo, strict=True) if titulo
+    ]
+    ausentes = [
+        seccion for seccion in SECCIONES_OBLIGATORIAS[idioma]
+        if not any(t.startswith(seccion.casefold()) for t in titulos)
+    ]
+
+    if fuente != "reddit":
+        aviso = (AVISO_DEMO if fuente == "demo" else AVISO_DESCONOCIDA)[idioma]
+        primero = es_titulo.index(True) if True in es_titulo else len(lineas)
+        if _normalizar(aviso) not in _normalizar("\n".join(lineas[:primero])):
+            ausentes.append(AVISO_AUSENTE[idioma])
+    return ausentes
 
 
 def stream_architecture(
@@ -377,13 +447,24 @@ def stream_architecture(
         )
 
     sistema, peticion = build_prompt(cluster, language)
-    yield from stream_text(
+    partes: list[str] = []
+    for texto in stream_text(
         api_key,
         model=model,
         contents=peticion,
         config=_config(sistema),
         client_factory=client_factory,
-    )
+    ):
+        partes.append(texto)
+        yield texto
+
+    # El documento ya se ha visto llegar, pero no se da por terminado sin
+    # la estructura pedida (AUD-020).
+    faltan = secciones_ausentes("".join(partes), language, _campo(cluster, "data_source"))
+    if faltan:
+        raise GeminiIncomplete(
+            f"Faltan secciones exigidas: {', '.join(faltan)}", missing=faltan
+        )
 
 
 def probe_api_key(
@@ -401,14 +482,16 @@ def probe_api_key(
         return False, "No hay clave que probar."
 
     try:
-        # Basta el primer trozo: si llega, la clave y el modelo responden.
-        next(iter(stream_text(
+        ping(
             api_key,
             model=model,
-            contents="ping",
-            config=_config("Responde solo: ok"),
+            config=build_config(
+                timeout_ms=PROBE_TIMEOUT_MS,
+                max_output_tokens=PROBE_MAX_OUTPUT_TOKENS,
+                system_instruction="Responde solo: ok",
+            ),
             client_factory=client_factory,
-        )), None)
+        )
     except GeminiError as exc:
         return False, f"La clave no funciona: {exc}"
 

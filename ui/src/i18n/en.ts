@@ -261,6 +261,22 @@ export const en: Dictionary = {
       "Press it and Gemini drafts a two-phase build plan from this evidence: an MVP for 24-48 h and the full product for when it validates.",
     warning:
       "This is written by a generative model, not by the radar. Review the code and the schema before running them.",
+    incomplete: "Incomplete document: it is not kept for the PDF.",
+    missing: "Missing sections",
+    technicalDetails: "Technical details",
+    failures: {
+      gemini_error: "Gemini rejected the request. Check the key and the model in Settings.",
+      gemini_unavailable: "Gemini is not available right now. It was retried several times; try again in a while.",
+      gemini_rate_limited: "The Gemini quota ran out. Wait a little or check your key's plan.",
+      gemini_timeout: "Gemini took too long to answer. Try gemini-2.5-flash if you do not need deep reasoning.",
+      gemini_blocked: "Gemini blocked the answer with its safety filters.",
+      gemini_empty: "Gemini finished without writing anything.",
+      gemini_truncated: "The document was cut off at the model's length limit.",
+      gemini_incomplete: "The document arrived without all the required sections.",
+      internal_error: "Internal failure of the architecture engine.",
+      architect_protocol: "The engine returned an answer the app does not understand.",
+      architect_interrupted: "The connection to the engine dropped before the document was finished.",
+    },
   },
   blueprint: {
     open: "View project specification (PRD)",

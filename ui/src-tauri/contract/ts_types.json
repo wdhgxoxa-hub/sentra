@@ -315,7 +315,13 @@
     "ArchitectChunk": [
       "clusterKey",
       "done",
+      "error",
       "text"
+    ],
+    "ArchitectFailure": [
+      "code",
+      "detail",
+      "missing"
     ],
     "QuoteTranslation": [
       "approximate",

@@ -8,7 +8,9 @@ no se escape a ningún sitio—, no lo que el modelo responda.
 import unittest
 
 from core.intelligence.gemini_architect import (
+    AVISO_DESCONOCIDA,
     MODELO_POR_DEFECTO,
+    SECCIONES_OBLIGATORIAS,
     GeminiSinConfigurar,
     build_prompt,
     probe_api_key,
@@ -54,10 +56,17 @@ CLUSTER = {
 }
 
 
+#: Un plan con todo lo exigido para CLUSTER, que no registra procedencia:
+#: por eso empieza por el aviso (AUD-017) y trae cada sección (AUD-020).
+PLAN = AVISO_DESCONOCIDA["es"] + "\n\n" + "\n\n".join(
+    f"## {seccion}\n\ncontenido" for seccion in SECCIONES_OBLIGATORIAS["es"]
+)
+
+
 class ClienteFalso:
     """Doble del cliente de Gemini, con la misma forma que usa el módulo."""
 
-    def __init__(self, trozos=("uno ", "dos"), error=None):
+    def __init__(self, trozos=(PLAN[:40], PLAN[40:]), error=None):
         self.trozos = trozos
         self.error = error
         self.llamadas = []
@@ -190,11 +199,11 @@ class TestStreaming(unittest.TestCase):
             list(stream_architecture(CLUSTER, api_key="", client_factory=lambda _k: None))
 
     def test_devuelve_los_trozos_en_orden(self):
-        cliente = ClienteFalso(trozos=("# Fase 1", "\ncontenido"))
+        cliente = ClienteFalso(trozos=(PLAN[:10], PLAN[10:]))
         trozos = list(
             stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
-        self.assertEqual(trozos, ["# Fase 1", "\ncontenido"])
+        self.assertEqual(trozos, [PLAN[:10], PLAN[10:]])
 
     def test_usa_el_modelo_pedido_y_por_defecto_el_pro(self):
         cliente = ClienteFalso()
@@ -225,11 +234,11 @@ class TestStreaming(unittest.TestCase):
         self.assertNotIn(CLAVE, str(llamada["config"].system_instruction))
 
     def test_ignora_los_trozos_vacios(self):
-        cliente = ClienteFalso(trozos=("a", "", None, "b"))
+        cliente = ClienteFalso(trozos=(PLAN[:5], "", None, PLAN[5:]))
         trozos = list(
             stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
-        self.assertEqual(trozos, ["a", "b"])
+        self.assertEqual(trozos, [PLAN[:5], PLAN[5:]])
 
 
 class TestProbe(unittest.TestCase):

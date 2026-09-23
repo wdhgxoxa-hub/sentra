@@ -61,12 +61,75 @@ struct ArchitectBody {
 }
 
 /// Un trozo del documento segun llega.
+///
+/// `done` solo es `true` cuando el motor confirma el plan completo; si algo
+/// falla, el ultimo evento lleva `done: false` y el `error` tipado (AUD-020).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ArchitectChunk {
-    cluster_key: String,
-    text: String,
-    done: bool,
+pub(crate) struct ArchitectChunk {
+    pub(crate) cluster_key: String,
+    pub(crate) text: String,
+    pub(crate) done: bool,
+    pub(crate) error: Option<ArchitectFailure>,
+}
+
+/// Por que el plan no se dio por terminado. `code` es estable y lo traduce
+/// la interfaz; `missing`, las secciones exigidas que no llegaron.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ArchitectFailure {
+    pub(crate) code: String,
+    pub(crate) detail: String,
+    pub(crate) missing: Vec<String>,
+}
+
+/// Lo que manda el sidecar: una linea JSON por evento.
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum EventoDelMotor {
+    Chunk {
+        text: String,
+    },
+    Done,
+    Error {
+        code: String,
+        detail: String,
+        #[serde(default)]
+        missing: Vec<String>,
+    },
+}
+
+/// El sidecar mando algo que no es una linea JSON del protocolo.
+const CODIGO_PROTOCOLO: &str = "architect_protocol";
+
+/// La conexion termino sin `done` ni `error`.
+const CODIGO_INTERRUMPIDO: &str = "architect_interrupted";
+
+/// Añade `nuevo` al buffer y devuelve los eventos de las lineas completas.
+///
+/// Se corta por `\n`, que en UTF-8 nunca forma parte de un caracter
+/// multibyte: una linea completa es siempre texto valido, y lo que queda en
+/// `pendiente` espera al siguiente trozo.
+fn eventos_completos(
+    pendiente: &mut Vec<u8>,
+    nuevo: &[u8],
+) -> Result<Vec<EventoDelMotor>, ArchitectFailure> {
+    pendiente.extend_from_slice(nuevo);
+    let mut eventos = Vec::new();
+    while let Some(fin) = pendiente.iter().position(|&b| b == b'\n') {
+        let linea: Vec<u8> = pendiente.drain(..=fin).collect();
+        let linea = &linea[..fin];
+        if linea.iter().all(u8::is_ascii_whitespace) {
+            continue;
+        }
+        let evento = serde_json::from_slice(linea).map_err(|err| ArchitectFailure {
+            code: CODIGO_PROTOCOLO.into(),
+            detail: format!("Respuesta del motor ilegible: {err}"),
+            missing: vec![],
+        })?;
+        eventos.push(evento);
+    }
+    Ok(eventos)
 }
 
 fn transport_error(err: reqwest::Error) -> RadarError {
@@ -194,53 +257,153 @@ pub async fn generate_architecture(
 
     let mut stream = response.bytes_stream();
     let mut completo = String::new();
-    // Un trozo de red puede cortar un caracter multibyte por la mitad. Los
-    // bytes sueltos se guardan hasta que llegue el resto: convertirlos sin
-    // esperar los pintaria como rombos, y el documento lleva acentos y
-    // cajas de codigo.
+    // Bytes de una linea que todavia no ha terminado de llegar: un trozo de
+    // red puede cortarla, e incluso cortar un caracter multibyte por la mitad.
     let mut pendiente: Vec<u8> = Vec::new();
+    let mut desenlace: Option<Result<(), ArchitectFailure>> = None;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(transport_error)?;
-        pendiente.extend_from_slice(&chunk);
-
-        let texto = match std::str::from_utf8(&pendiente) {
-            Ok(completo) => {
-                let s = completo.to_string();
-                pendiente.clear();
-                s
-            }
-            Err(err) => {
-                let hasta = err.valid_up_to();
-                let s = String::from_utf8_lossy(&pendiente[..hasta]).to_string();
-                pendiente.drain(..hasta);
-                s
+    'lectura: while let Some(trozo) = stream.next().await {
+        let trozo = trozo.map_err(transport_error)?;
+        let eventos = match eventos_completos(&mut pendiente, &trozo) {
+            Ok(eventos) => eventos,
+            Err(fallo) => {
+                desenlace = Some(Err(fallo));
+                break;
             }
         };
-
-        if texto.is_empty() {
-            continue;
+        for evento in eventos {
+            match evento {
+                EventoDelMotor::Chunk { text } => {
+                    completo.push_str(&text);
+                    let _ = app.emit(
+                        ARCHITECT_EVENT_CHANNEL,
+                        ArchitectChunk {
+                            cluster_key: cluster_key.clone(),
+                            text,
+                            done: false,
+                            error: None,
+                        },
+                    );
+                }
+                EventoDelMotor::Done => {
+                    desenlace = Some(Ok(()));
+                    break 'lectura;
+                }
+                EventoDelMotor::Error {
+                    code,
+                    detail,
+                    missing,
+                } => {
+                    desenlace = Some(Err(ArchitectFailure {
+                        code,
+                        detail,
+                        missing,
+                    }));
+                    break 'lectura;
+                }
+            }
         }
-        completo.push_str(&texto);
+    }
 
-        let _ = app.emit(
-            ARCHITECT_EVENT_CHANNEL,
-            ArchitectChunk {
-                cluster_key: cluster_key.clone(),
-                text: texto,
-                done: false,
-            },
+    // Sin `done` ni `error` la conexion se corto a medias: el documento no
+    // esta completo aunque tenga texto.
+    let desenlace = desenlace.unwrap_or_else(|| {
+        Err(ArchitectFailure {
+            code: CODIGO_INTERRUMPIDO.into(),
+            detail: "La respuesta del motor se corto antes de terminar.".into(),
+            missing: vec![],
+        })
+    });
+
+    match desenlace {
+        Ok(()) => {
+            let _ = app.emit(
+                ARCHITECT_EVENT_CHANNEL,
+                ArchitectChunk {
+                    cluster_key: cluster_key.clone(),
+                    text: String::new(),
+                    done: true,
+                    error: None,
+                },
+            );
+            Ok(completo)
+        }
+        Err(fallo) => {
+            let detalle = fallo.detail.clone();
+            let _ = app.emit(
+                ARCHITECT_EVENT_CHANNEL,
+                ArchitectChunk {
+                    cluster_key: cluster_key.clone(),
+                    text: String::new(),
+                    done: false,
+                    error: Some(fallo),
+                },
+            );
+            Err(RadarError::Sidecar(detalle))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fallo(code: &str) -> ArchitectFailure {
+        ArchitectFailure {
+            code: code.into(),
+            detail: String::new(),
+            missing: vec![],
+        }
+    }
+
+    #[test]
+    fn una_linea_partida_entre_trozos_solo_sale_al_completarse() {
+        let mut pendiente = Vec::new();
+        let linea = "{\"type\":\"chunk\",\"text\":\"Lógica\"}\n".as_bytes();
+        // Corte en mitad de la «ó», que ocupa dos bytes.
+        let corte = linea.iter().position(|&b| b == 0xC3).unwrap() + 1;
+        assert_eq!(eventos_completos(&mut pendiente, &linea[..corte]), Ok(vec![]));
+        assert_eq!(
+            eventos_completos(&mut pendiente, &linea[corte..]),
+            Ok(vec![EventoDelMotor::Chunk { text: "Lógica".into() }])
+        );
+        assert!(pendiente.is_empty());
+    }
+
+    #[test]
+    fn varias_lineas_en_un_trozo_salen_en_orden() {
+        let mut pendiente = Vec::new();
+        let trozo = b"{\"type\":\"chunk\",\"text\":\"a\"}\n{\"type\":\"done\"}\n";
+        assert_eq!(
+            eventos_completos(&mut pendiente, trozo),
+            Ok(vec![
+                EventoDelMotor::Chunk { text: "a".into() },
+                EventoDelMotor::Done
+            ])
         );
     }
 
-    let _ = app.emit(
-        ARCHITECT_EVENT_CHANNEL,
-        ArchitectChunk {
-            cluster_key: cluster_key.clone(),
-            text: String::new(),
-            done: true,
-        },
-    );
+    #[test]
+    fn el_error_trae_codigo_detalle_y_secciones_ausentes() {
+        let mut pendiente = Vec::new();
+        let trozo = "{\"type\":\"error\",\"code\":\"gemini_incomplete\",\"detail\":\"Faltan\",\"missing\":[\"Hoja de ruta\"]}\n";
+        assert_eq!(
+            eventos_completos(&mut pendiente, trozo.as_bytes()),
+            Ok(vec![EventoDelMotor::Error {
+                code: "gemini_incomplete".into(),
+                detail: "Faltan".into(),
+                missing: vec!["Hoja de ruta".into()],
+            }])
+        );
+    }
 
-    Ok(completo)
+    #[test]
+    fn una_linea_ilegible_es_un_fallo_de_protocolo() {
+        let mut pendiente = Vec::new();
+        let resultado = eventos_completos(&mut pendiente, b"# FASE 1 en texto plano\n");
+        assert_eq!(
+            resultado.map_err(|f| f.code),
+            Err(fallo(CODIGO_PROTOCOLO).code)
+        );
+    }
 }
