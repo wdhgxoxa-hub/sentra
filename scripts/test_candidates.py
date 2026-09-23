@@ -19,8 +19,8 @@ print("Verificando accesibilidad de repositorios candidatos...")
 for c in candidates:
     url = f"https://github.com/{c}.git"
     try:
-        res = subprocess.run(["git", "ls-remote", "--heads", url], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(["git", "ls-remote", "--heads", url], capture_output=True, text=True, timeout=10, check=False)
         status = "OK" if res.returncode == 0 else f"FAIL: {res.stderr.strip()[:60]}"
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
         status = f"ERROR: {e}"
     print(f"[{status}] {c}")

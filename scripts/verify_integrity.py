@@ -12,6 +12,7 @@ Comprobaciones:
 7. Detección de cualquier necesidad de re-clonado o reparación
 """
 
+import contextlib
 import json
 import os
 import re
@@ -94,31 +95,31 @@ def run_audit():
             try:
                 p_head = subprocess.run(
                     ["git", "-C", str(repo_path), "rev-parse", "--short", "HEAD"],
-                    capture_output=True, text=True, timeout=15
+                    capture_output=True, text=True, timeout=15, check=False
                 )
                 if p_head.returncode == 0:
                     git_head = p_head.stdout.strip()
                 else:
                     error_notes.append(f"Fallo HEAD: {p_head.stderr.strip()}")
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as e:
                 error_notes.append(f"Excepción rev-parse: {e}")
 
             # 3. git remote get-url origin
             try:
                 p_rem = subprocess.run(
                     ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
-                    capture_output=True, text=True, timeout=15
+                    capture_output=True, text=True, timeout=15, check=False
                 )
                 if p_rem.returncode == 0:
                     git_remote = p_rem.stdout.strip()
-            except Exception:
-                pass
+            except (OSError, subprocess.SubprocessError) as e:
+                error_notes.append(f"Excepción remote get-url: {e}")
 
             # 4. git status --porcelain
             try:
                 p_status = subprocess.run(
                     ["git", "-C", str(repo_path), "status", "--porcelain"],
-                    capture_output=True, text=True, timeout=15
+                    capture_output=True, text=True, timeout=15, check=False
                 )
                 if p_status.returncode == 0:
                     git_status_raw = p_status.stdout.strip()
@@ -128,7 +129,7 @@ def run_audit():
                 else:
                     git_clean = False
                     error_notes.append(f"Fallo git status: {p_status.stderr.strip()}")
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as e:
                 git_clean = False
                 error_notes.append(f"Excepción git status: {e}")
 
@@ -136,12 +137,12 @@ def run_audit():
             try:
                 p_fsck = subprocess.run(
                     ["git", "-C", str(repo_path), "fsck", "--connectivity-only"],
-                    capture_output=True, text=True, timeout=30
+                    capture_output=True, text=True, timeout=30, check=False
                 )
                 git_fsck_ok = (p_fsck.returncode == 0)
                 if not git_fsck_ok:
                     error_notes.append(f"Fallo git fsck: {p_fsck.stderr.strip() or p_fsck.stdout.strip()}")
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as e:
                 git_fsck_ok = False
                 error_notes.append(f"Excepción git fsck: {e}")
 
@@ -182,12 +183,12 @@ def run_audit():
             for root, dirs, files in os.walk(repo_path):
                 file_count += len(files)
                 for f_name in files:
-                    try:
-                        fp = Path(root) / f_name
+                    fp = Path(root) / f_name
+                    # Un archivo que desaparece o no se puede leer durante el
+                    # recorrido no suma bytes: la métrica es aproximada.
+                    with contextlib.suppress(OSError):
                         if not fp.is_symlink():
                             total_bytes += fp.stat().st_size
-                    except Exception:
-                        pass
 
         # Determinar si está 100% íntegro
         is_intact = bool(

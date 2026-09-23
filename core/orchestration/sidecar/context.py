@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 from ..graph import RadarDependencies, data_source_of
 from ..pipeline import RadarPipeline
@@ -25,7 +25,6 @@ from ..source_status import SourceTracker
 SERVICE_NAME = "reddit-intelligence-radar-sidecar"
 SERVICE_VERSION = "0.1.0"
 
-T = TypeVar("T")
 
 
 @dataclass
@@ -91,7 +90,7 @@ def synthetic_total() -> int:
     return total_posts()
 
 
-def safe(fn: Callable[[], T], default: T) -> T:
+def safe[T](fn: Callable[[], T], default: T) -> T:
     try:
         return fn()
     # Frontera de /api/health: el informe de salud no puede caerse por el

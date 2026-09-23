@@ -148,9 +148,7 @@ class PainPointFilter:
         clean_author = (author or "").strip().lower()
         if clean_author in BOT_AUTHORS or clean_author.endswith("bot"):
             return True
-        if text and BOT_TEXT_REGEX.search(text):
-            return True
-        return False
+        return bool(text and BOT_TEXT_REGEX.search(text))
 
     def evaluate(
         self,

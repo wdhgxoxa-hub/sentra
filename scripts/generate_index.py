@@ -28,7 +28,6 @@ def generate_index():
     # Estadisticas
     total_repos = len(catalog)
     cloned_ok = [r for r in catalog if r.get("status") == "ready"]
-    failed = [r for r in catalog if r.get("status") != "ready"]
 
     # Identificar Lote 1 vs Lote 2
     batch2_ids = {

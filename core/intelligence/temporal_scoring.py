@@ -16,9 +16,12 @@ Proporciona:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import exp
+from types import MappingProxyType
+from typing import ClassVar
 
 from pydantic import BaseModel
 
@@ -51,21 +54,22 @@ class TemporalScorer:
     Motor matemático de priorización de oportunidades comerciales y decaimiento temporal.
     """
 
-    DEFAULT_WEIGHTS = {
+    # De solo lectura: es de la clase y la comparten todas las instancias.
+    DEFAULT_WEIGHTS: ClassVar[Mapping[str, float]] = MappingProxyType({
         "spread": 0.25,
         "frequency": 0.25,
         "severity": 0.20,
         "recency": 0.15,
         "paid_signal": 0.15,
-    }
+    })
 
     def __init__(
         self,
         half_life_days: float = 180.0,
-        weights: dict[str, float] | None = None,
+        weights: Mapping[str, float] | None = None,
     ) -> None:
         self.half_life_days = half_life_days
-        self.weights = weights or self.DEFAULT_WEIGHTS
+        self.weights: dict[str, float] = dict(weights or self.DEFAULT_WEIGHTS)
 
         # Normalizar pesos para asegurar suma = 1.0
         total_w = sum(self.weights.values())

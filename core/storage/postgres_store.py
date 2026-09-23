@@ -34,7 +34,7 @@ import sys
 import uuid
 from collections.abc import Coroutine, Sequence
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self
 
 from .identity import Candidato, Previo, asignar_identidades
 
@@ -43,10 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
-
-def run_async(coro: Coroutine[Any, Any, T]) -> T:
+def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
     """
     Ejecuta una corrutina con un bucle de eventos compatible con psycopg.
 

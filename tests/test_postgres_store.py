@@ -15,6 +15,7 @@ Dos bloques:
 
 import os
 import unittest
+from typing import Any, ClassVar
 
 from core.storage.postgres_store import (
     DEFAULT_TENANT_ID,
@@ -41,10 +42,12 @@ TEST_DB = "rir_adapter_test"
 def _postgres_available():
     try:
         import psycopg
-
+    except ImportError:
+        return False
+    try:
         with psycopg.connect(ADMIN_DSN, connect_timeout=3):
             return True
-    except Exception:
+    except psycopg.Error:
         return False
 
 
@@ -161,7 +164,7 @@ class TestTimestampConversion(unittest.TestCase):
 
 class TestRowMapping(unittest.TestCase):
 
-    POST = {
+    POST: ClassVar[dict[str, Any]] = {
         "id": "t3_abc",
         "subreddit": "SaaS",
         "title": "Manual invoice exports take hours",
@@ -368,7 +371,7 @@ class TestPostgresIntegration(unittest.TestCase):
         self.assertEqual(summary["signals"], 1)
         self.assertEqual(summary["opportunities"], 1)
 
-        entry = [f for f in feed if f["reddit_id"] == "t3_abc"][0]
+        entry = next(f for f in feed if f["reddit_id"] == "t3_abc")
         self.assertEqual(entry["subreddit_name"], "SaaS")
         self.assertTrue(entry["job_statement"])
         self.assertEqual(entry["post_title"], TestRowMapping.POST["title"])

@@ -40,10 +40,12 @@ REAL_MIGRATIONS = PROJECT_ROOT / "sql" / "migrations"
 def _postgres_available():
     try:
         import psycopg
-
+    except ImportError:
+        return False
+    try:
         with psycopg.connect(ADMIN_DSN, connect_timeout=3):
             return True
-    except Exception:
+    except psycopg.Error:
         return False
 
 
@@ -126,7 +128,7 @@ class TestChecksum(MigrationDirTestCase):
         self.assertNotEqual(compute_checksum("SELECT 1;"), compute_checksum("SELECT 2;"))
 
     def test_migration_exposes_its_checksum(self):
-        path = self.write("001_x.sql", "SELECT 42;")
+        self.write("001_x.sql", "SELECT 42;")
         migration = discover_migrations(self.tmpdir)[0]
         self.assertEqual(migration.checksum, compute_checksum("SELECT 42;"))
 

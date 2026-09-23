@@ -93,7 +93,10 @@ class TopicClusterer:
                 (str(feature_names[i]), round(float(mean_tfidf[i]), 4))
                 for i in top_indices
             ]
-        except Exception as e:
+        except ValueError as e:
+            # TfidfVectorizer señala así un corpus sin vocabulario útil (solo
+            # palabras vacías) o un min_df mayor que el corpus: no hay
+            # tendencias que extraer. Cualquier otro error es un fallo real.
             logger.error(f"Error extrayendo palabras clave emergentes: {e}")
             return []
 

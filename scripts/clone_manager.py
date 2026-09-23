@@ -391,7 +391,7 @@ def run_clone():
         try:
             with open(RESULTS_FILE, "r", encoding="utf-8") as f:
                 results = json.load(f)
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             results = []
 
     already_processed = {r["id"]: r for r in results if r.get("status") in ["success", "already_present"]}
@@ -438,7 +438,8 @@ def run_clone():
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120  # 2 minutos maximo por repositorio
+                timeout=120,  # 2 minutos maximo por repositorio
+                check=False,  # el código de salida se trata abajo
             )
 
             duration = round(time.time() - start_time, 2)
@@ -501,7 +502,7 @@ def run_clone():
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             }
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             duration = round(time.time() - start_time, 2)
             print(f"  [EXCEPCION] {e!s}")
             with open(ERRORS_FILE, "a", encoding="utf-8") as ef:

@@ -159,7 +159,7 @@ def run_clone_batch2():
         cmd = ["git", "clone", "--depth", "1", url, str(target_folder)]
 
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)
             duration = round(time.time() - start_time, 2)
 
             if proc.returncode == 0:
@@ -197,7 +197,7 @@ def run_clone_batch2():
                     "error": err,
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 }
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             duration = round(time.time() - start_time, 2)
             print(f"  [EXCEPCION] {e!s}")
             with open(ERRORS_FILE, "a", encoding="utf-8") as ef:

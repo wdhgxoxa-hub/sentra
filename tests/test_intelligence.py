@@ -12,6 +12,7 @@ Verifica el 100% de los módulos de la Fase 3:
 import math
 import unittest
 from datetime import UTC, datetime
+from unittest import mock
 
 from core.intelligence.clustering import TopicClusterer
 from core.intelligence.engine import IntelligenceEngine
@@ -73,6 +74,13 @@ class TestTemporalScorer(unittest.TestCase):
         old_res = self.scorer.score(old_metrics)
         self.assertLess(old_res.final_score, 30.0)
         self.assertEqual(old_res.urgency_tier, "LOW")
+
+    def test_default_weights_are_not_shared_mutable_state(self):
+        """Los pesos por defecto son de la clase: nadie puede cambiarlos para todos."""
+        with self.assertRaises(TypeError):
+            TemporalScorer.DEFAULT_WEIGHTS["spread"] = 1.0  # type: ignore[index]
+        self.scorer.weights["spread"] = 0.0
+        self.assertEqual(TemporalScorer().weights["spread"], 0.25)
 
 
 class TestJTBDAnalyzer(unittest.TestCase):
@@ -170,6 +178,21 @@ class TestTopicClusterer(unittest.TestCase):
         self.assertGreater(len(kws), 0)
         kw_names = [k[0] for k in kws]
         self.assertTrue(any("postgresql" in k or "connection" in k for k in kw_names))
+
+    def test_a_corpus_without_vocabulary_yields_no_keywords(self):
+        """Solo palabras vacías: TF-IDF no tiene vocabulario y no hay tendencias."""
+        texts = ["this is what they were and we have", "they were there and it is so"]
+        self.assertEqual(self.clusterer.extract_emerging_keywords(texts), [])
+
+    def test_a_bug_in_the_extraction_is_not_hidden(self):
+        """Un error de programación no puede disfrazarse de "sin tendencias"."""
+        from sklearn.feature_extraction.text import TfidfVectorizer
+
+        texts = ["PostgreSQL connection timeout error when scaling up workers"]
+        with mock.patch.object(
+            TfidfVectorizer, "fit_transform", side_effect=TypeError("fallo del código")
+        ), self.assertRaises(TypeError):
+            self.clusterer.extract_emerging_keywords(texts)
 
     def test_clustering_partition(self):
         texts = [

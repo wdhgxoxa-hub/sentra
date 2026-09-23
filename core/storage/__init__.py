@@ -45,24 +45,20 @@ from .lancedb_store import (
 )
 
 __all__ = [
-    # Persistencia
-    "LanceDBStore",
-    "OpportunityRecord",
-    "resolve_db_path",
     "DB_PATH_ENV_VAR",
-    "PROJECT_ROOT",
-    # Recuperación
-    "HybridSearchEngine",
-    "HybridSearchResult",
-    # Embeddings
-    "get_embedder",
-    "TextEmbedder",
-    "FastEmbedEmbedder",
-    "HashEmbedder",
-    "EmbeddingError",
     "DEFAULT_MODEL_NAME",
     "DEFAULT_VECTOR_DIM",
     "HASH_FALLBACK_DIM",
-    # Alias histórico (deprecado): usar HashEmbedder
-    "DefaultTextEmbedder",
+    "PROJECT_ROOT",
+    "DefaultTextEmbedder",  # alias histórico (deprecado): usar HashEmbedder
+    "EmbeddingError",
+    "FastEmbedEmbedder",
+    "HashEmbedder",
+    "HybridSearchEngine",
+    "HybridSearchResult",
+    "LanceDBStore",
+    "OpportunityRecord",
+    "TextEmbedder",
+    "get_embedder",
+    "resolve_db_path",
 ]

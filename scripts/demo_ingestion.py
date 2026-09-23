@@ -22,6 +22,7 @@ from core.ingestion import (
     RedditIngestionClient,
     RedditNormalizer,
 )
+from core.ingestion.errors import RedditAccessError
 
 
 async def run_demo():
@@ -47,7 +48,7 @@ async def run_demo():
             filter_pain_only=False
         )
         print(f"    -> Se recuperaron {len(posts)} publicaciones normalizadas.")
-    except Exception as e:
+    except RedditAccessError as e:
         print(f"    [Error de conexión en vivo]: {e}")
         posts = []
 
@@ -100,8 +101,8 @@ async def run_demo():
     output_dir = BASE_DIR / "logs"
     output_dir.mkdir(parents=True, exist_ok=True)
     scan_path = output_dir / "demo_scan_titles.md"
-    with open(scan_path, "w", encoding="utf-8") as f:
-        f.write(titles_md)
+    # Fuera del bucle de eventos: escribir en disco bloquea.
+    await asyncio.to_thread(scan_path.write_text, titles_md, encoding="utf-8")
     print(f"    -> Tabla de Títulos guardada en: {scan_path}")
 
     deep_md = RedditNormalizer.format_deep_dive_markdown(
@@ -111,8 +112,7 @@ async def run_demo():
         max_comments_per_post=5
     )
     deep_path = output_dir / "demo_deep_dive.md"
-    with open(deep_path, "w", encoding="utf-8") as f:
-        f.write(deep_md)
+    await asyncio.to_thread(deep_path.write_text, deep_md, encoding="utf-8")
     print(f"    -> Deep Dive Markdown guardado en: {deep_path}")
 
     print("\n" + "=" * 70)
