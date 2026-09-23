@@ -137,6 +137,14 @@ CREATE TABLE sources_state (
     CONSTRAINT sources_state_error CHECK (status <> 'error' OR error_code IS NOT NULL)
 );
 
+-- Una ejecución multifuente no es «reddit»: sus datos vienen de las APIs
+-- de varias plataformas. 'real' es el mismo término que evidence_items.
+ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_data_source_check;
+ALTER TABLE pipeline_runs ADD CONSTRAINT pipeline_runs_data_source_check
+    CHECK (data_source IN ('demo', 'reddit', 'real'));
+COMMENT ON COLUMN pipeline_runs.data_source IS
+    'Fuente de los datos: demo (corpus fabricado), reddit (pipeline antigua) o real (escaneo multifuente).';
+
 -- --- Copia de los datos anteriores (D-M5) -----------------------------
 
 INSERT INTO evidence_items (

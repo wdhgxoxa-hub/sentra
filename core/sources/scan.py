@@ -53,8 +53,13 @@ class SourceProgress:
 
 @dataclass
 class MultiScanResult:
+    #: Canónicos: lo que cuenta como evidencia.
     items: list[EvidenceItem] = field(default_factory=list)
     duplicates: list[Duplicate] = field(default_factory=list)
+    #: Todo lo traído, duplicados incluidos: se guarda entero para que cada
+    #: duplicado apunte a filas reales.
+    fetched: list[EvidenceItem] = field(default_factory=list)
+    vectors: Mapping[str, Sequence[float]] = field(default_factory=dict)
     per_source: dict[str, SourceProgress] = field(default_factory=dict)
 
 
@@ -121,4 +126,5 @@ async def run_multisource_scan(
     vectores = embed(todos) if embed is not None and todos else {}
     limpio = deduplicate(todos, vectores)
     resultado.items, resultado.duplicates = limpio.canonical, limpio.duplicates
+    resultado.fetched, resultado.vectors = todos, vectores
     return resultado

@@ -13,7 +13,7 @@ Cada fila lleva el id global y la fuente, y ningún autor (R9).
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -74,12 +74,32 @@ class EvidenceVectorStore:
     def count(self) -> int:
         return self._table.count_rows()
 
-    def upsert(self, items: Sequence[EvidenceItem]) -> int:
-        """Inserta o actualiza por id global. Devuelve cuántos recibió."""
+    @staticmethod
+    def _texto(item: EvidenceItem) -> str:
+        return f"{item.title}\n{item.text}" if item.title else item.text
+
+    def embed(self, items: Sequence[EvidenceItem]) -> dict[str, list[float]]:
+        """Vectores por id global, con el mismo texto que se guarda."""
+        if not items:
+            return {}
+        vectores = self.embedder.embed_batch([self._texto(i) for i in items])
+        return {i.id: list(v) for i, v in zip(items, vectores, strict=True)}
+
+    def upsert(
+        self,
+        items: Sequence[EvidenceItem],
+        vectors: Mapping[str, Sequence[float]] | None = None,
+    ) -> int:
+        """Inserta o actualiza por id global. Devuelve cuántos recibió.
+
+        Los vectores ya calculados (`vectors`, por id) se reutilizan; solo se
+        calculan los que faltan.
+        """
         if not items:
             return 0
-        textos = [f"{i.title}\n{i.text}" if i.title else i.text for i in items]
-        vectores = self.embedder.embed_batch(textos)
+        dados = dict(vectors or {})
+        dados |= self.embed([i for i in items if i.id not in dados])
+        vectores = [dados[i.id] for i in items]
         filas = [
             {
                 "id": item.id,

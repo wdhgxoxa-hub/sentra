@@ -15,6 +15,7 @@ fastembed, o se usa el embebedor por hash.
 import shutil
 import tempfile
 import unittest
+import unittest.mock
 from datetime import UTC, datetime
 
 import numpy as np
@@ -109,6 +110,26 @@ class TestAlmacenDeEvidencia(unittest.TestCase):
     def test_sin_items_no_hace_nada(self):
         self.assertEqual(self.almacen.upsert([]), 0)
         self.assertEqual(self.almacen.count(), 0)
+
+    def test_embed_da_los_vectores_por_id_y_upsert_los_reutiliza(self):
+        # e5-large en CPU es lento: lo que calculó la deduplicación no se repite.
+        items = [item("1", "invoice export pain"), item("2", "garden flowers")]
+        vectores = self.almacen.embed(items)
+        self.assertEqual(set(vectores), {"hackernews:1", "hackernews:2"})
+        with unittest.mock.patch.object(self.almacen.embedder, "embed_batch",
+                                        side_effect=AssertionError("recalculado")):
+            self.almacen.upsert(items, vectors=vectores)
+        guardado = self.almacen.vectors(["hackernews:1"])["hackernews:1"]
+        self.assertTrue(np.allclose(guardado, vectores["hackernews:1"]))
+
+    def test_upsert_calcula_solo_los_que_faltan(self):
+        items = [item("1", "invoice export pain"), item("2", "garden flowers")]
+        vectores = self.almacen.embed(items[:1])
+        with unittest.mock.patch.object(self.almacen.embedder, "embed_batch",
+                                        wraps=self.almacen.embedder.embed_batch) as espia:
+            self.almacen.upsert(items, vectors=vectores)
+        espia.assert_called_once_with(["garden flowers"])
+        self.assertEqual(self.almacen.count(), 2)
 
 
 if __name__ == "__main__":

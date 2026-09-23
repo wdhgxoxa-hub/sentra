@@ -44,6 +44,8 @@ from .identity import Candidato, Previo, asignar_identidades
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
+    from core.sources.dedup import Duplicate
+
 logger = logging.getLogger(__name__)
 
 def _fuente(data_source: str | None) -> str:
@@ -443,6 +445,25 @@ class PostgresStore:
         await self.connection.commit()
         return len(items)
 
+    async def save_duplicates(self, duplicates: Sequence[Duplicate]) -> int:
+        """Anota el crossposting (F2.6). Las dos filas ya deben estar guardadas."""
+        for dup in duplicates:
+            await self.connection.execute(
+                """
+                INSERT INTO evidence_duplicates (tenant_id, duplicate_id, canonical_id,
+                                                 method, similarity)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (tenant_id, duplicate_id) DO UPDATE SET
+                    canonical_id = EXCLUDED.canonical_id,
+                    method = EXCLUDED.method,
+                    similarity = EXCLUDED.similarity
+                """,
+                (self.tenant_id, dup.duplicate_id, dup.canonical_id, dup.method,
+                 dup.similarity),
+            )
+        await self.connection.commit()
+        return len(duplicates)
+
     async def _guardar_evidencia(
         self,
         *,
@@ -626,7 +647,8 @@ class PostgresStore:
         """
         Abre una ejecución y devuelve su identificador.
 
-        `data_source` es "demo" o "reddit"; None si quien persiste no lo sabe.
+        `data_source` es "demo", "reddit" (pipeline antigua) o "real"
+        (escaneo multifuente); None si quien persiste no lo sabe.
         """
         row = await self._fetchone_returning(
             """

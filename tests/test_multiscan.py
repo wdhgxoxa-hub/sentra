@@ -115,6 +115,18 @@ class TestParalelo(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(resultado.items), 1)
         self.assertEqual(len(resultado.duplicates), 1)
 
+    async def test_conserva_todo_lo_traido_para_guardar_los_duplicados(self):
+        # evidence_duplicates apunta a las dos filas: la copia también se guarda.
+        resultado = await run_multisource_scan([fuente(Original), fuente(Copiona)], QUERY)
+        self.assertEqual({i.id for i in resultado.fetched}, {"original:0", "copiona:0"})
+
+    async def test_devuelve_los_vectores_calculados_para_no_repetirlos(self):
+        def embed(items):
+            return {i.id: [1.0, float(n)] for n, i in enumerate(items)}
+
+        resultado = await run_multisource_scan([fuente(Buena)], QUERY, embed=embed)
+        self.assertEqual(set(resultado.vectors), {"buena:0", "buena:1"})
+
     async def test_un_error_inesperado_de_una_fuente_tampoco_detiene_las_demas(self):
         class Explota(Buena):
             id = "explota"

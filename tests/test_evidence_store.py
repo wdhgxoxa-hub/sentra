@@ -124,6 +124,42 @@ class TestUpsertEvidence(unittest.TestCase):
     def test_sin_items_no_hace_nada(self):
         self.assertEqual(self.guardar(), 0)
 
+    def test_guarda_los_duplicados_apuntando_a_filas_reales(self):
+        from core.sources.dedup import Duplicate
+
+        self.guardar(item("20"), item("21"), item("22"))
+
+        async def main():
+            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+                return await store.save_duplicates([
+                    Duplicate("stackexchange:21", "stackexchange:20", "fingerprint", None),
+                    Duplicate("stackexchange:22", "stackexchange:20", "embedding", 0.9712),
+                ])
+
+        self.assertEqual(run_async(main()), 2)
+        import psycopg
+
+        with psycopg.connect(self.dsn) as conn:
+            filas = conn.execute(
+                "SELECT duplicate_id, method, similarity FROM radar.evidence_duplicates "
+                "WHERE canonical_id = 'stackexchange:20' ORDER BY duplicate_id").fetchall()
+        self.assertEqual([(d, m, None if s is None else float(s)) for d, m, s in filas],
+                         [("stackexchange:21", "fingerprint", None),
+                          ("stackexchange:22", "embedding", 0.9712)])
+        # Repetir no duplica.
+        self.assertEqual(run_async(main()), 2)
+
+    def test_una_ejecucion_multifuente_se_marca_real(self):
+        async def main():
+            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+                run_id = await store.start_run("perfil-facturas", trigger_source="multifuente",
+                                               parameters={"keywords": ["invoice"]},
+                                               data_source="real")
+                return await store.get_run(run_id)
+
+        run = run_async(main())
+        self.assertEqual((run["data_source"], run["trigger_source"]), ("real", "multifuente"))
+
 
 if __name__ == "__main__":
     unittest.main()
