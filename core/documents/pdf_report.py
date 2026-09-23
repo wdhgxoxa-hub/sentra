@@ -2,22 +2,17 @@
 Documento entregable en PDF (AUD-008)
 =====================================
 
-Convierte una oportunidad en un PDF A4 listo para enviar: portada, índice
-con números de página y diez secciones fijas. Se genera en el sidecar con
-ReportLab; Rust solo pide los bytes y los guarda donde elija quien lo exporta.
+Pinta en un PDF A4 el `DocumentModel` de una oportunidad (D-H): portada,
+índice con números de página y las diez secciones del modelo, en su orden.
+El contenido no se decide aquí: sale de `core.documents.model`, el mismo
+del que la interfaz pinta el PRD, así que lo que se ve y lo que se exporta
+coinciden. Se genera en el sidecar con ReportLab; Rust solo pide los bytes y
+los guarda donde elija quien lo exporta.
 
-Reglas que sostienen el documento:
+Lo propio del PDF:
 
-- **Nada inventado.** Cada sección sale del problema guardado (cifras,
-  citas, comunidades) o del PRD determinista (`blueprint.build_blueprint`).
-  Lo que no existe se dice: el plan de Gemini «No generado», una cita sin
-  fecha «fecha no registrada».
 - **Datos de demostración, a la vista.** Si la fuente es el corpus
   fabricado, cada página lleva la marca de agua diagonal.
-- **Un solo idioma.** Los rótulos van en el idioma pedido. El enunciado JTBD
-  del motor solo existe en español, así que en el documento inglés no se
-  reproduce (se explica por qué) en lugar de mezclar idiomas. Las citas son
-  evidencia y se dejan tal como se escribieron.
 - **Fuente incrustada.** Bitstream Vera (fonts/, con su licencia): cubre
   tildes, ñ, ¿, ¡, «», — y …, así que el texto se extrae igual que se lee.
   Los bloques de código del plan usan Courier, que solo cubre Latin-1.
@@ -27,7 +22,7 @@ from __future__ import annotations
 
 import io
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -54,7 +49,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from core.intelligence.blueprint import build_blueprint
+from core.documents.model import TEXTOS, Block, build_document
 
 FUENTES = Path(__file__).resolve().parent / "fonts"
 SANS = "SentraSans"
@@ -64,140 +59,6 @@ MONO = "Courier"
 
 MARGEN = 2 * cm
 ESTILO_SECCION = "SentraSeccion"
-
-TEXTOS: dict[str, dict[str, Any]] = {
-    "es": {
-        "doc": "Documento de oportunidad",
-        "index": "Índice",
-        "page": "página {n} de {total}",
-        "watermark": "DATOS DE DEMOSTRACIÓN — NO REALES",
-        "cover_fields": [
-            "Oportunidad", "Puntuación", "Fecha de generación",
-            "Fuente de los datos", "Ejecución (run_id)", "Versión de SENTRA",
-        ],
-        "sources": {"demo": "Demostración (corpus fabricado)", "reddit": "Reddit",
-                    None: "No registrada"},
-        "sections": [
-            "1. Resumen ejecutivo", "2. Problema", "3. Evidencia",
-            "4. Usuario objetivo y JTBD", "5. Solución propuesta",
-            "6. Alcance del MVP", "7. Plan de arquitectura",
-            "8. Riesgos y fallos conocidos", "9. Modelo de negocio",
-            "10. Metadatos y trazabilidad",
-        ],
-        "no_date": "fecha no registrada",
-        "no_link": "sin enlace",
-        "no_quotes": "No hay citas guardadas para este problema.",
-        "target_user": (
-            "Participantes de {comunidades}: las comunidades donde se detectó "
-            "el problema."
-        ),
-        "intent": "Intención dominante detectada: {intencion}.",
-        "jtbd": "Trabajo por hacer, según el motor: «{jtbd}»",
-        "no_jtbd": "No hay enunciado de trabajo por hacer guardado para este problema.",
-        "why_fail": "Por qué fallan las soluciones actuales",
-        "no_architecture": (
-            "No generado: no se pidió el plan de arquitectura a Gemini en esta "
-            "sesión."
-        ),
-        "architecture_note": (
-            "Propuesta redactada por un modelo generativo (Gemini): hay que "
-            "revisarla antes de ejecutarla; no es una medición."
-        ),
-        "risk_flags": "Banderas de riesgo marcadas por el motor: {banderas}.",
-        "no_risk_flags": "El motor no marcó banderas de riesgo para este problema.",
-        "undetermined": (
-            "Gravedad indeterminada en {k} de {n} quejas: el clasificador no "
-            "encontró evidencia suficiente y esas quejas no suman a la gravedad."
-        ),
-        "classifier": (
-            "Las etiquetas de gravedad e intención las asigna un clasificador "
-            "automático; pueden ser indeterminadas y no son una revisión humana."
-        ),
-        "demo_risk": (
-            "Los datos de este documento son de demostración: no proceden de "
-            "Reddit y no sirven para decidir."
-        ),
-        "unknown_source_risk": (
-            "La ejecución no registró la fuente de los datos: no se puede "
-            "afirmar que sean reales."
-        ),
-        "meta_fields": [
-            "Clave del problema", "Ejecución (run_id)", "Fuente de los datos",
-            "Generado", "Versión de SENTRA", "Menciones", "Comunidades",
-            "Puntuación final",
-            ("Factores (difusión / frecuencia / gravedad / novedad / pago)"),
-            "Recuento por palabra",
-        ],
-        "no_count": "sin recuento guardado",
-    },
-    "en": {
-        "doc": "Opportunity document",
-        "index": "Contents",
-        "page": "page {n} of {total}",
-        "watermark": "DEMO DATA — NOT REAL",
-        "cover_fields": [
-            "Opportunity", "Score", "Generated on", "Data source",
-            "Run (run_id)", "SENTRA version",
-        ],
-        "sources": {"demo": "Demo (fabricated corpus)", "reddit": "Reddit",
-                    None: "Not recorded"},
-        "sections": [
-            "1. Executive summary", "2. Problem", "3. Evidence",
-            "4. Target user and JTBD", "5. Proposed solution", "6. MVP scope",
-            "7. Architecture plan", "8. Risks and known failures",
-            "9. Business model", "10. Metadata and traceability",
-        ],
-        "no_date": "date not recorded",
-        "no_link": "no link",
-        "no_quotes": "No quotes stored for this problem.",
-        "target_user": (
-            "Members of {comunidades}: the communities where the problem was "
-            "detected."
-        ),
-        "intent": "Dominant intent detected: {intencion}.",
-        "jtbd": "",
-        "no_jtbd": (
-            "The engine only words the job to be done in Spanish, so it is not "
-            "reproduced in this English document."
-        ),
-        "why_fail": "Why current workarounds fail",
-        "no_architecture": (
-            "Not generated: the architecture plan was not requested from Gemini "
-            "in this session."
-        ),
-        "architecture_note": (
-            "Proposal written by a generative model (Gemini): review it before "
-            "acting on it; it is not a measurement."
-        ),
-        "risk_flags": "Risk flags raised by the engine: {banderas}.",
-        "no_risk_flags": "The engine raised no risk flags for this problem.",
-        "undetermined": (
-            "Severity undetermined in {k} of {n} complaints: the classifier "
-            "found no sufficient evidence and those complaints add nothing to "
-            "severity."
-        ),
-        "classifier": (
-            "Severity and intent labels are assigned by an automatic "
-            "classifier; they may be undetermined and are not a human review."
-        ),
-        "demo_risk": (
-            "The data in this document is demo data: it does not come from "
-            "Reddit and is not fit for decisions."
-        ),
-        "unknown_source_risk": (
-            "The run did not record its data source: the data cannot be "
-            "claimed to be real."
-        ),
-        "meta_fields": [
-            "Problem key", "Run (run_id)", "Data source", "Generated",
-            "SENTRA version", "Mentions", "Communities", "Final score",
-            "Factors (spread / frequency / severity / recency / paid)",
-            "Per-keyword count",
-        ],
-        "no_count": "no count stored",
-    },
-}
-
 
 # --- Fuentes -----------------------------------------------------------------
 
@@ -254,26 +115,6 @@ def _estilos() -> dict[str, ParagraphStyle]:
     # estilo: si no, el índice se listaría a sí mismo.
     estilos["indice"] = ParagraphStyle("SentraIndice", parent=estilos["seccion"])
     return estilos
-
-
-# --- Lectura tolerante del cluster ---------------------------------------------
-
-def _valor(cluster: Mapping[str, Any], *claves: str, defecto: Any = None) -> Any:
-    """Primer valor presente entre varias grafías (camelCase o snake_case),
-    mirando también dentro de `breakdown`."""
-    for fuente in (cluster, cluster.get("breakdown") or {}):
-        if isinstance(fuente, Mapping):
-            for clave in claves:
-                if fuente.get(clave) is not None:
-                    return fuente[clave]
-    return defecto
-
-
-def _fecha(epoch: Any, textos: Mapping[str, Any]) -> str:
-    try:
-        return datetime.fromtimestamp(float(epoch), tz=timezone.utc).strftime("%Y-%m-%d")
-    except (TypeError, ValueError, OverflowError, OSError):
-        return str(textos["no_date"])
 
 
 def _p(texto: str, estilo: ParagraphStyle) -> Paragraph:
@@ -381,32 +222,22 @@ def _markdown(texto: str, estilos: Mapping[str, ParagraphStyle]) -> list[Flowabl
     return salida
 
 
-def _evidencia(
-    cluster: Mapping[str, Any], textos: Mapping[str, Any],
-    estilos: Mapping[str, ParagraphStyle],
-) -> list[Flowable]:
-    vistas: set[str] = set()
-    salida: list[Flowable] = []
-    for cita in cluster.get("evidence") or []:
-        if not isinstance(cita, Mapping):
-            continue
-        texto = str(cita.get("quote", "")).strip()
-        huella = " ".join(texto.lower().split())
-        if not texto or huella in vistas:
-            continue
-        vistas.add(huella)
-        # snake_case si viene de PostgreSQL; camelCase si la reenvía Rust.
-        fecha = cita.get("created_utc", cita.get("createdUtc"))
-        firma = " · ".join(
-            parte for parte in (
-                f"r/{cita.get('subreddit')}" if cita.get("subreddit") else "",
-                str(cita.get("author") or ""),
-                _fecha(fecha, textos) if fecha is not None else str(textos["no_date"]),
-                str(cita.get("url") or "") or str(textos["no_link"]),
-            ) if parte
-        )
-        salida += [_p(f"«{texto}»", estilos["cita"]), _p(firma, estilos["firma"])]
-    return salida or [_p(str(textos["no_quotes"]), estilos["cuerpo"])]
+def _flowables(bloque: Block, estilos: Mapping[str, ParagraphStyle]) -> list[Flowable]:
+    """Un bloque del modelo en elementos de ReportLab."""
+    if bloque.kind == "paragraph":
+        return [_p(bloque.text, estilos["cuerpo"])]
+    if bloque.kind == "note":
+        return [_p(bloque.text, estilos["nota"])]
+    if bloque.kind == "subheading":
+        return [_p(bloque.text, estilos["sub"])]
+    if bloque.kind == "bullets":
+        return [Paragraph(escape(item), estilos["vineta"], bulletText="•")
+                for item in bloque.items]
+    if bloque.kind == "quote":
+        return [_p(bloque.text, estilos["cita"]), _p(bloque.signature, estilos["firma"])]
+    if bloque.kind == "table":
+        return [_tabla(bloque.rows, estilos)]
+    return _markdown(bloque.text, estilos)
 
 
 def _tabla(filas: Sequence[tuple[str, str]], estilos: Mapping[str, ParagraphStyle]) -> Table:
@@ -442,42 +273,16 @@ def build_pdf(
         generated_at: instante de generación (por defecto, ahora en UTC).
     """
     _registrar_fuentes()
-    idioma = language if language in TEXTOS else "es"
-    textos = TEXTOS[idioma]
+    modelo = build_document(cluster, language, architecture=architecture,
+                            version=version, generated_at=generated_at)
+    textos = TEXTOS[modelo.language]
     estilos = _estilos()
-    ahora = generated_at or datetime.now(timezone.utc)
-
-    fuente = _valor(cluster, "dataSource", "data_source")
-    fuente = fuente if fuente in ("demo", "reddit") else None
-    etiqueta = str(_valor(cluster, "label", defecto=""))
-    puntuacion = float(_valor(cluster, "finalScore", "final_score", defecto=0.0))
-    run_id = str(_valor(cluster, "runId", "run_id", defecto="") or "—")
-    menciones = int(_valor(cluster, "mentionCount", "mention_count", defecto=0))
-    comunidades = [f"r/{s}" for s in cluster.get("subreddits") or []]
-    jtbd = str(_valor(cluster, "jobStatement", "job_statement", defecto="")).strip()
-    stats = _valor(cluster, "clusterStats", "cluster_stats", defecto={}) or {}
-
-    # El PRD inglés no debe arrastrar el enunciado JTBD, que solo existe en
-    # español: se genera sin él y la sección 4 explica la ausencia.
-    datos_prd = dict(cluster)
-    if idioma == "en":
-        datos_prd.pop("jobStatement", None)
-        datos_prd.pop("job_statement", None)
-    prd = build_blueprint(datos_prd, idioma)
-    secciones = textos["sections"]
 
     historia: list[Flowable] = []
 
     # Portada
-    historia += [Spacer(1, 4 * cm), _p(etiqueta, estilos["portada"])]
-    historia.append(_tabla(list(zip(textos["cover_fields"], [
-        etiqueta,
-        f"{puntuacion:.0f} / 100",
-        ahora.strftime("%Y-%m-%d %H:%M UTC"),
-        textos["sources"][fuente],
-        run_id,
-        version or "—",
-    ], strict=True)), estilos))
+    historia += [Spacer(1, 4 * cm), _p(modelo.label, estilos["portada"])]
+    historia.append(_tabla(list(modelo.cover), estilos))
     historia.append(PageBreak())
 
     # Índice
@@ -485,106 +290,23 @@ def build_pdf(
     indice.levelStyles = [estilos["toc"]]
     historia += [_p(textos["index"], estilos["indice"]), indice, PageBreak()]
 
-    # 1. Resumen ejecutivo
-    historia += [
-        _p(secciones[0], estilos["seccion"]),
-        _p(prd.source_notice, estilos["nota"]),
-        _p(prd.one_liner, estilos["cuerpo"]),
-        Spacer(1, 6),
-        _p(prd.executive_summary, estilos["cuerpo"]),
-    ]
-    # 2. Problema
-    historia += [_p(secciones[1], estilos["seccion"]), _p(prd.problem, estilos["cuerpo"])]
-    # 3. Evidencia
-    historia += [_p(secciones[2], estilos["seccion"]), *_evidencia(cluster, textos, estilos)]
-    # 4. Usuario objetivo y JTBD
-    historia += [
-        _p(secciones[3], estilos["seccion"]),
-        _p(textos["target_user"].format(comunidades=", ".join(comunidades) or "—"),
-           estilos["cuerpo"]),
-    ]
-    intencion = str(_valor(cluster, "intentType", "intent_type", defecto="")).strip()
-    if intencion:
-        historia.append(_p(textos["intent"].format(intencion=intencion), estilos["cuerpo"]))
-    if idioma == "es" and jtbd:
-        historia.append(_p(textos["jtbd"].format(jtbd=jtbd), estilos["cuerpo"]))
-    else:
-        historia.append(_p(textos["no_jtbd"], estilos["cuerpo"]))
-    # 5. Solución propuesta
-    historia += [
-        _p(secciones[4], estilos["seccion"]),
-        _p(prd.solution, estilos["cuerpo"]),
-        _p(textos["why_fail"], estilos["sub"]),
-        _p(prd.why_existing_fail, estilos["cuerpo"]),
-    ]
-    # 6. Alcance del MVP
-    historia.append(_p(secciones[5], estilos["seccion"]))
-    for fase in prd.mvp:
-        historia.append(_p(fase.name, estilos["sub"]))
-        historia += [
-            Paragraph(escape(item), estilos["vineta"], bulletText="•") for item in fase.items
-        ]
-    # 7. Plan de arquitectura
-    historia.append(_p(secciones[6], estilos["seccion"]))
-    if architecture and architecture.strip():
-        historia += [_p(textos["architecture_note"], estilos["nota"]),
-                     *_markdown(architecture, estilos)]
-    else:
-        historia.append(_p(textos["no_architecture"], estilos["cuerpo"]))
-    # 8. Riesgos y fallos conocidos
-    historia.append(_p(secciones[7], estilos["seccion"]))
-    banderas = [str(b) for b in cluster.get("riskFlags") or cluster.get("risk_flags") or []]
-    historia.append(_p(
-        textos["risk_flags"].format(banderas=", ".join(banderas)) if banderas
-        else textos["no_risk_flags"],
-        estilos["cuerpo"],
-    ))
-    indeterminadas = stats.get("severity_undetermined") if isinstance(stats, Mapping) else None
-    if indeterminadas:
-        historia.append(_p(
-            textos["undetermined"].format(k=int(indeterminadas), n=menciones), estilos["cuerpo"]
-        ))
-    historia.append(_p(textos["classifier"], estilos["cuerpo"]))
-    if fuente == "demo":
-        historia.append(_p(textos["demo_risk"], estilos["nota"]))
-    elif fuente is None:
-        historia.append(_p(textos["unknown_source_risk"], estilos["nota"]))
-    # 9. Modelo de negocio
-    historia += [_p(secciones[8], estilos["seccion"]), _p(prd.monetisation, estilos["cuerpo"])]
-    # 10. Metadatos y trazabilidad
-    factores = " / ".join(
-        f"{float(_valor(cluster, clave, defecto=0.0)):.2f}"
-        for clave in ("spreadFactor", "frequencyFactor", "severityFactor",
-                      "recencyFactor", "paidSignalFactor")
-    )
-    palabras = ", ".join(
-        f"{k.get('keyword')} ({k.get('count')})"
-        for k in (stats.get("keywords") or [] if isinstance(stats, Mapping) else [])
-        if isinstance(k, Mapping)
-    ) or str(textos["no_count"])
-    historia += [
-        _p(secciones[9], estilos["seccion"]),
-        _tabla(list(zip(textos["meta_fields"], [
-            str(_valor(cluster, "clusterKey", "cluster_key", defecto="—")),
-            run_id,
-            textos["sources"][fuente],
-            ahora.isoformat(timespec="seconds"),
-            version or "—",
-            str(menciones),
-            str(int(_valor(cluster, "communityCount", "community_count", defecto=0))),
-            f"{puntuacion:.2f}",
-            factores,
-            palabras,
-        ], strict=True)), estilos),
-    ]
+    # La fuente de los datos va antes que nada (AUD-009).
+    historia.append(_p(modelo.source_notice, estilos["nota"]))
+
+    # Las diez secciones, en el orden del modelo.
+    for seccion in modelo.sections:
+        historia.append(_p(seccion.title, estilos["seccion"]))
+        for bloque in seccion.blocks:
+            historia += _flowables(bloque, estilos)
 
     destino = io.BytesIO()
-    titulo = f"SENTRA · {textos['doc']} · {etiqueta}"
+    titulo = f"SENTRA · {textos['doc']} · {modelo.label}"
     documento = _Documento(destino, titulo)
     documento.multiBuild(
         historia,
         canvasmaker=_canvas_numerado(
-            titulo[:110], textos["page"], textos["watermark"] if fuente == "demo" else None
+            titulo[:110], textos["page"],
+            textos["watermark"] if modelo.data_source == "demo" else None,
         ),
     )
     return destino.getvalue()

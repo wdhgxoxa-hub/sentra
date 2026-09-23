@@ -30,6 +30,27 @@ pub struct BlueprintQuote {
     pub url: String,
 }
 
+/// Un bloque de una seccion del documento (D-H). Siempre lleva todas las
+/// claves; cada tipo usa las suyas.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentBlock {
+    pub kind: String,
+    pub text: String,
+    pub items: Vec<String>,
+    pub signature: String,
+    pub rows: Vec<Vec<String>>,
+}
+
+/// Una de las diez secciones del `DocumentModel`, las mismas del PDF.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentSection {
+    pub id: String,
+    pub title: String,
+    pub blocks: Vec<DocumentBlock>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlueprintDoc {
@@ -51,12 +72,15 @@ pub struct BlueprintDoc {
     pub source_notice: String,
     /// "demo", "reddit" o `None` si la ejecución no lo registró.
     pub data_source: Option<String>,
+    /// Las diez secciones del documento, en su orden (D-H).
+    pub sections: Vec<DocumentSection>,
 }
 
 #[derive(Debug, Serialize)]
 struct BlueprintBody {
     cluster: serde_json::Value,
     language: String,
+    architecture: Option<String>,
 }
 
 /// Sintetiza la especificacion de un cluster.
@@ -65,6 +89,7 @@ pub async fn generate_blueprint(
     state: State<'_, AppState>,
     cluster_key: String,
     language: String,
+    architecture: Option<String>,
 ) -> RadarResult<BlueprintDoc> {
     let cluster = cluster_por_clave(&state.db.pool()?, &cluster_key)
         .await?
@@ -86,6 +111,7 @@ pub async fn generate_blueprint(
             .json(&BlueprintBody {
                 cluster: cluster_json,
                 language,
+                architecture,
             }),
     )
     .send()

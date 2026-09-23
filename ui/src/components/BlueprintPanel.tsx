@@ -1,5 +1,7 @@
 import { Check, Copy, FileDown, FileText, Loader2, Quote as QuoteIcon } from "lucide-react";
 import { useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError, type AppError } from "@/lib/errors";
@@ -7,6 +9,7 @@ import { ipc } from "@/lib/ipc";
 import { useBlueprint } from "@/lib/queries";
 import { useArchitectStore } from "@/stores/architectStore";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
+import type { DocumentBlock } from "@/types/radar";
 
 /**
  * Especificación del proyecto (PRD).
@@ -25,7 +28,9 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
   const [abierto, setAbierto] = useState(false);
   const [copiado, setCopiado] = useState<"si" | "no" | null>(null);
 
-  const doc = useBlueprint(clusterKey, language, abierto);
+  // El plan de Gemini de la sesión entra en la sección 7, como en el PDF.
+  const plan = useArchitectStore((state) => state.plans[clusterKey] ?? null);
+  const doc = useBlueprint(clusterKey, language, abierto, plan);
 
   const copiar = async (markdown: string) => {
     try {
@@ -106,66 +111,16 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
                 </button>
               </header>
 
-              <Apartado titulo={t.blueprint.summary} texto={doc.data.executiveSummary} />
-              <Apartado titulo={t.blueprint.problem} texto={doc.data.problem} />
-              <Apartado titulo={t.blueprint.solution} texto={doc.data.solution} />
-
-              <section>
-                <h4 className="mb-2 text-sm font-semibold">{t.blueprint.mvp}</h4>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {doc.data.mvp.map((fase) => (
-                    <div
-                      key={fase.name}
-                      className="rounded-lg border border-border bg-surface p-3"
-                    >
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                        {fase.name}
-                      </p>
-                      <ul className="flex flex-col gap-1.5">
-                        {fase.items.map((item) => (
-                          <li
-                            key={item}
-                            className="flex gap-2 text-xs leading-relaxed text-ink-soft"
-                          >
-                            <span className="mt-1.5 size-1 shrink-0 rounded-full bg-accent" aria-hidden="true" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+              {/* Las diez secciones del documento, las mismas y en el mismo
+                  orden que el PDF: salen del mismo modelo (D-H). */}
+              {doc.data.sections.map((seccion) => (
+                <section key={seccion.id} className="flex flex-col gap-2">
+                  <h4 className="text-sm font-semibold">{seccion.title}</h4>
+                  {seccion.blocks.map((bloque, indice) => (
+                    <Bloque key={`${seccion.id}-${indice}`} bloque={bloque} />
                   ))}
-                </div>
-              </section>
-
-              <Apartado titulo={t.blueprint.fail} texto={doc.data.whyExistingFail} />
-              <Apartado titulo={t.blueprint.money} texto={doc.data.monetisation} />
-
-              {doc.data.evidence.length > 0 && (
-                <section>
-                  <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <QuoteIcon className="size-3.5 text-ink-soft" aria-hidden="true" />
-                    {t.blueprint.evidence}
-                    <span className="text-xs font-normal text-ink-faint">
-                      ({doc.data.distinctQuotes} {t.blueprint.quotes})
-                    </span>
-                  </h4>
-                  <ul className="flex flex-col gap-2">
-                    {doc.data.evidence.map((cita) => (
-                      <li
-                        key={cita.url + cita.quote.slice(0, 24)}
-                        className="rounded-lg border-l-2 border-accent bg-surface px-3 py-2"
-                      >
-                        <p className="whitespace-pre-line text-xs italic leading-relaxed">
-                          {cita.quote}
-                        </p>
-                        <p className="mt-1 font-mono text-[11px] text-ink-faint">
-                          r/{cita.subreddit} · {cita.author}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
                 </section>
-              )}
+              ))}
 
               <p className="border-t border-border pt-3 text-[11px] leading-relaxed text-ink-faint">
                 {t.blueprint.derived}
@@ -233,11 +188,68 @@ function ExportarPdf({ clusterKey }: { clusterKey: string }) {
   );
 }
 
-function Apartado({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <section>
-      <h4 className="mb-1.5 text-sm font-semibold">{titulo}</h4>
-      <p className="text-sm leading-relaxed text-ink-soft">{texto}</p>
-    </section>
-  );
+/** Un bloque del documento, pintado según su tipo. */
+function Bloque({ bloque }: { bloque: DocumentBlock }) {
+  switch (bloque.kind) {
+    case "note":
+      return (
+        <p className="rounded-lg bg-warn/10 p-2.5 text-xs leading-relaxed text-warn">
+          {bloque.text}
+        </p>
+      );
+    case "subheading":
+      return (
+        <h5 className="mt-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+          {bloque.text}
+        </h5>
+      );
+    case "bullets":
+      return (
+        <ul className="flex flex-col gap-1.5">
+          {bloque.items.map((item) => (
+            <li key={item} className="flex gap-2 text-xs leading-relaxed text-ink-soft">
+              <span className="mt-1.5 size-1 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      );
+    case "quote":
+      return (
+        <blockquote className="rounded-lg border-l-2 border-accent bg-surface px-3 py-2">
+          <p className="flex gap-1.5 whitespace-pre-line text-xs italic leading-relaxed">
+            <QuoteIcon className="mt-0.5 size-3 shrink-0 text-ink-faint" aria-hidden="true" />
+            {bloque.text}
+          </p>
+          <p className="mt-1 font-mono text-[11px] text-ink-faint">{bloque.signature}</p>
+        </blockquote>
+      );
+    case "table":
+      return (
+        <table className="w-full text-xs">
+          <tbody className="divide-y divide-border">
+            {bloque.rows.map(([clave, valor]) => (
+              <tr key={clave}>
+                <th scope="row" className="w-2/5 py-1.5 pr-3 text-left font-medium">
+                  {clave}
+                </th>
+                <td className="py-1.5 font-mono text-ink-soft">{valor}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    case "markdown":
+      return (
+        <div className="markdown text-sm">
+          <Markdown remarkPlugins={[remarkGfm]}>{bloque.text}</Markdown>
+        </div>
+      );
+    default:
+      return (
+        <p className="whitespace-pre-line text-sm leading-relaxed text-ink-soft">
+          {bloque.text}
+        </p>
+      );
+  }
 }

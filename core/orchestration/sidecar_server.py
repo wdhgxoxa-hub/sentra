@@ -138,6 +138,9 @@ class BlueprintRequest(BaseModel):
 
     cluster: dict[str, Any] = Field(default_factory=dict)
     language: str = "es"
+    # Plan de Gemini de la sesión, si lo hay: la sección 7 del documento lo
+    # incluye igual que el PDF (D-H).
+    architecture: str | None = None
 
 
 class GeminiRequest(BaseModel):
@@ -852,12 +855,21 @@ def create_app(
         """
         Sintetiza el PRD de un cluster.
 
-        La sintesis es determinista y no toca disco ni red, asi que responde
-        en el mismo hilo: no hay nada que esperar.
+        Las secciones y el Markdown salen del mismo `DocumentModel` que el PDF
+        (D-H): lo que se ve y lo que se exporta coinciden. La sintesis es
+        determinista y no toca disco ni red, asi que responde en el mismo
+        hilo: no hay nada que esperar.
         """
+        from core.documents.model import build_document
         from core.intelligence.blueprint import build_blueprint
 
-        return build_blueprint(request.cluster, request.language).to_dict()
+        modelo = build_document(request.cluster, request.language,
+                                architecture=request.architecture)
+        return {
+            **build_blueprint(request.cluster, request.language).to_dict(),
+            "sections": [seccion.to_dict() for seccion in modelo.sections],
+            "markdown": modelo.to_markdown(),
+        }
 
     # -- Documento en PDF ----------------------------------------------
 

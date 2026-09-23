@@ -127,8 +127,8 @@ export const ipc = {
   testRedditConnection: () => invoke<ProbeResult>("test_reddit_connection"),
 
   /** [pg + sidecar] Redacta la especificacion de proyecto de un cluster. */
-  generateBlueprint: (clusterKey: string, language: string) =>
-    invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language }),
+  generateBlueprint: (clusterKey: string, language: string, architecture: string | null) =>
+    invoke<BlueprintDoc>("generate_blueprint", { clusterKey, language, architecture }),
 
   /**
    * [pg + sidecar] Genera el documento en PDF y lo guarda donde se elija.

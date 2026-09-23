@@ -320,9 +320,22 @@
       "oneLiner",
       "problem",
       "productName",
+      "sections",
       "solution",
       "sourceNotice",
       "whyExistingFail"
+    ],
+    "DocumentSection": [
+      "blocks",
+      "id",
+      "title"
+    ],
+    "DocumentBlock": [
+      "items",
+      "kind",
+      "rows",
+      "signature",
+      "text"
     ],
     "GeminiSummary": [
       "configured",

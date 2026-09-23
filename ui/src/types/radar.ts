@@ -736,6 +736,24 @@ export interface BlueprintDoc {
   /** Fuente de los datos, en una frase: va arriba del documento (AUD-009). */
   sourceNotice: string;
   dataSource: DataSource | null;
+  /** Las diez secciones del documento, las mismas y en el mismo orden que el PDF (D-H). */
+  sections: DocumentSection[];
+}
+
+/** Una de las diez secciones del `DocumentModel` (core/documents/model.py). */
+export interface DocumentSection {
+  id: string;
+  title: string;
+  blocks: DocumentBlock[];
+}
+
+/** Un bloque de contenido; cada tipo usa sus campos y deja el resto vacío. */
+export interface DocumentBlock {
+  kind: "paragraph" | "note" | "subheading" | "bullets" | "quote" | "table" | "markdown";
+  text: string;
+  items: string[];
+  signature: string;
+  rows: string[][];
 }
 
 /** Canal por el que llega el plan de arquitectura mientras se escribe. */

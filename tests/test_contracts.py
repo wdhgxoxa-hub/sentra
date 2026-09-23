@@ -21,7 +21,6 @@ from fastapi.testclient import TestClient
 
 from core.ingestion.synthetic import SyntheticFetcher
 from core.intelligence import IntelligenceEngine
-from core.intelligence.blueprint import build_blueprint
 from core.intelligence.translator import translate
 from core.orchestration import RadarDependencies
 from core.orchestration.aggregation import build_clusters, cluster_to_dict
@@ -146,9 +145,14 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.assertEqual(set(translate(["hola"], "es")[0].to_dict()), interfaz("QuoteTranslation"))
 
     def test_el_prd_entrega_blueprint_doc(self):
-        doc = build_blueprint({"label": "x", "mention_count": 1}, "es").to_dict()
+        # Lo que viaja es la respuesta del endpoint: PRD + secciones del
+        # DocumentModel (D-H).
+        doc = self.client.post("/api/blueprint", headers=self.cabecera, json={
+            "cluster": {"label": "x", "mention_count": 1}, "language": "es"}).json()
         self.assertEqual(set(doc), interfaz("BlueprintDoc"))
         self.assertEqual(set(doc["mvp"][0]), interfaz("BlueprintPhase"))
+        self.assertEqual(set(doc["sections"][0]), interfaz("DocumentSection"))
+        self.assertEqual(set(doc["sections"][0]["blocks"][0]), interfaz("DocumentBlock"))
 
 
 class TestLoQueViajaPorPostgres(unittest.TestCase):

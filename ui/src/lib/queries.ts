@@ -57,8 +57,8 @@ export const queryKeys = {
   database: ["database"] as const,
   settings: ["radar", "settings"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
-  blueprint: (key: string, language: string) =>
-    ["radar", "blueprint", key, language] as const,
+  blueprint: (key: string, language: string, architecture: string | null) =>
+    ["radar", "blueprint", key, language, architecture] as const,
 } as const;
 
 // --- Lecturas ---------------------------------------------------------
@@ -275,14 +275,19 @@ export function useTestConnection() {
  * documento depende del idioma, que forma parte de la clave, asi que cambiar
  * de idioma lo vuelve a pedir en lugar de servir el anterior.
  */
+/**
+ * Documento de la oportunidad (D-H). `architecture` es el plan de Gemini de
+ * la sesión: la sección 7 lo incluye, igual que el PDF.
+ */
 export function useBlueprint(
   clusterKey: string | null,
   language: string,
   enabled: boolean,
+  architecture: string | null,
 ) {
   return useQuery<BlueprintDoc>({
-    queryKey: queryKeys.blueprint(clusterKey ?? "", language),
-    queryFn: () => ipc.generateBlueprint(clusterKey as string, language),
+    queryKey: queryKeys.blueprint(clusterKey ?? "", language, architecture),
+    queryFn: () => ipc.generateBlueprint(clusterKey as string, language, architecture),
     enabled: enabled && Boolean(clusterKey),
     retry: false,
     staleTime: 5 * 60 * 1000,

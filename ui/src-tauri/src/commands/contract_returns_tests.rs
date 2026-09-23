@@ -15,7 +15,9 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::commands::architect;
-use crate::commands::blueprint::{BlueprintDoc, BlueprintPhase, BlueprintQuote};
+use crate::commands::blueprint::{
+    BlueprintDoc, BlueprintPhase, BlueprintQuote, DocumentBlock, DocumentSection,
+};
 use crate::commands::engine::QuoteTranslation;
 use crate::commands::health::{AppHealth, ComponentHealth, SourceState, SourceStatus};
 use crate::commands::mutations::{CancelResult, ClusterValidation, SubredditRow};
@@ -346,11 +348,24 @@ fn generate_blueprint_devuelve_blueprint_doc() {
             markdown: texto(),
             source_notice: texto(),
             data_source: None,
+            sections: vec![DocumentSection {
+                id: texto(),
+                title: texto(),
+                blocks: vec![DocumentBlock {
+                    kind: texto(),
+                    text: texto(),
+                    items: vec![],
+                    signature: texto(),
+                    rows: vec![],
+                }],
+            }],
         },
         "BlueprintDoc",
     );
     assert_eq!(claves(&json["mvp"][0]), claves_ts("BlueprintPhase"));
     assert_eq!(claves(&json["evidence"][0]), claves_ts("BlueprintQuote"));
+    assert_eq!(claves(&json["sections"][0]), claves_ts("DocumentSection"));
+    assert_eq!(claves(&json["sections"][0]["blocks"][0]), claves_ts("DocumentBlock"));
 }
 
 #[test]
