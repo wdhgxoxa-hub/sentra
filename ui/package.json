@@ -9,6 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "contracts": "node scripts/generate-contract-fixtures.mjs",
+    "contracts:check": "node scripts/generate-contract-fixtures.mjs --check",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -395,12 +395,13 @@ def _evidencia(
         if not texto or huella in vistas:
             continue
         vistas.add(huella)
+        # snake_case si viene de PostgreSQL; camelCase si la reenvía Rust.
+        fecha = cita.get("created_utc", cita.get("createdUtc"))
         firma = " · ".join(
             parte for parte in (
                 f"r/{cita.get('subreddit')}" if cita.get("subreddit") else "",
                 str(cita.get("author") or ""),
-                _fecha(cita.get("created_utc"), textos) if cita.get("created_utc")
-                else str(textos["no_date"]),
+                _fecha(fecha, textos) if fecha is not None else str(textos["no_date"]),
                 str(cita.get("url") or "") or str(textos["no_link"]),
             ) if parte
         )

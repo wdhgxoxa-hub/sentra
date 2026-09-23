@@ -163,6 +163,14 @@ class TestDocumentoPdf(unittest.TestCase):
         self.assertIn("https://reddit.com/r/SaaS/comments/a", texto)
         self.assertIn("fecha no registrada", texto)
 
+    def test_la_fecha_se_lee_tambien_de_la_evidencia_que_entrega_rust(self):
+        # Rust entrega la evidencia en camelCase (AUD-029): `createdUtc`.
+        evidencia = [{"signalId": "t3_a", "subreddit": "SaaS", "author": "u/ana",
+                      "quote": "Otra queja distinta.", "url": None, "score": 1.0,
+                      "createdUtc": 1758000000.0}]
+        texto = "\n".join(paginas(build_pdf(cluster(evidence=evidencia), "es", version="0.1.0")))
+        self.assertIn("2025-09-16", texto)
+
     def test_plan_de_arquitectura_incluido_o_declarado_no_generado(self):
         con = "\n".join(paginas(build_pdf(
             cluster(), "es", architecture="# FASE 1\n\n## Lógica central\n\n- Paso uno",

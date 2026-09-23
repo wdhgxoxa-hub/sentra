@@ -120,21 +120,9 @@ export interface RadarFeedEntry {
   sentiment: SentimentLabel;
   riskFlags: string[];
   qualified: boolean;
-  /** Identificador del registro en LanceDB. */
-  embeddingRef: string | null;
-
-  opportunityId: string | null;
   jobStatement: string | null;
-  currentSolution: string | null;
-  competitorsMentioned: string[];
-  workaroundDetected: boolean;
-  willingnessToPay: WillingnessToPay | null;
-  validationStatus: ValidationStatus | null;
-
   postTitle: string | null;
   postPermalink: string | null;
-  postScore: number | null;
-  numComments: number | null;
 }
 
 // ---------------------------------------------------------------------
@@ -149,6 +137,8 @@ export interface EvidenceQuote {
   quote: string;
   url: string | null;
   score: number;
+  /** Fecha de la queja (epoch UTC); null en lecturas anteriores a AUD-008. */
+  createdUtc: number | null;
 }
 
 /**

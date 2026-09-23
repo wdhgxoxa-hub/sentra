@@ -13,7 +13,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::db::{AppState, RadarResult};
+use crate::db::{AppState, RadarError, RadarResult};
 
 /// Tenant de la instalacion local (ver migracion 001).
 const LOCAL_TENANT: &str = "00000000-0000-0000-0000-000000000001";
@@ -178,7 +178,7 @@ pub struct OpportunityCluster {
     pub breakdown: ScoreBreakdown,
     pub urgency_tier: String,
     pub qualified: bool,
-    pub evidence: serde_json::Value,
+    pub evidence: Vec<EvidenceQuote>,
     pub representative_reddit_id: Option<String>,
     pub representative_content: Option<String>,
     pub run_id: Option<String>,
@@ -196,9 +196,37 @@ pub struct OpportunityCluster {
     pub data_source: Option<String>,
 }
 
-impl From<OpportunityClusterRow> for OpportunityCluster {
-    fn from(row: OpportunityClusterRow) -> Self {
-        Self {
+/// Una cita que sostiene una oportunidad.
+///
+/// PostgreSQL la guarda tal como la escribe Python (`aggregation`, snake_case)
+/// y la interfaz la espera en camelCase: se lee de una forma y se escribe de
+/// la otra. Sin este paso la evidencia viajaba como JSON sin tipar y
+/// `signalId` llegaba `undefined` al frontend (AUD-029, AUD-032).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+pub struct EvidenceQuote {
+    pub signal_id: String,
+    pub subreddit: String,
+    pub author: String,
+    pub quote: String,
+    pub url: Option<String>,
+    pub score: f64,
+    /// Fecha de la queja; las lecturas anteriores a AUD-008 no la tienen.
+    #[serde(default)]
+    pub created_utc: Option<f64>,
+}
+
+impl TryFrom<OpportunityClusterRow> for OpportunityCluster {
+    type Error = RadarError;
+
+    fn try_from(row: OpportunityClusterRow) -> Result<Self, Self::Error> {
+        let evidence: Vec<EvidenceQuote> = serde_json::from_value(row.evidence).map_err(|err| {
+            RadarError::Invalid(format!(
+                "La evidencia guardada de '{}' no tiene la forma esperada: {err}",
+                row.cluster_key
+            ))
+        })?;
+        Ok(Self {
             breakdown: ScoreBreakdown {
                 spread_factor: row.spread_factor,
                 frequency_factor: row.frequency_factor,
@@ -222,7 +250,7 @@ impl From<OpportunityClusterRow> for OpportunityCluster {
             risk_flags: row.risk_flags,
             urgency_tier: row.urgency_tier,
             qualified: row.qualified,
-            evidence: row.evidence,
+            evidence,
             representative_reddit_id: row.representative_reddit_id,
             representative_content: row.representative_content,
             run_id: row.run_id,
@@ -234,7 +262,7 @@ impl From<OpportunityClusterRow> for OpportunityCluster {
             validated_at: row.validated_at,
             cluster_stats: row.cluster_stats,
             data_source: row.data_source,
-        }
+        })
     }
 }
 
@@ -309,7 +337,7 @@ pub async fn get_opportunity_board(
         .fetch_all(&state.pool)
         .await?;
 
-    Ok(rows.into_iter().map(Into::into).collect())
+    rows.into_iter().map(OpportunityCluster::try_from).collect()
 }
 
 /// Ficha de una oportunidad por su clave natural.
@@ -348,7 +376,7 @@ pub async fn cluster_por_clave(
         .fetch_optional(pool)
         .await?;
 
-    Ok(row.map(Into::into))
+    row.map(OpportunityCluster::try_from).transpose()
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

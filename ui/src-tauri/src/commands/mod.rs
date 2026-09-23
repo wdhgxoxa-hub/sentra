@@ -21,4 +21,6 @@ pub mod radar;
 pub mod settings;
 
 #[cfg(test)]
+mod contract_returns_tests;
+#[cfg(test)]
 mod contract_tests;
