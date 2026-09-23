@@ -272,7 +272,7 @@ class LanceDBStore:
         """
         Genera el embedding de la consulta en lenguaje natural y busca en el espacio vectorial.
         """
-        vec = self.embedder.embed_text(query_text)
+        vec = self.embedder.embed_query(query_text)
         return self.search_vector(vec, limit=limit, filter_sql=filter_sql)
 
     def count_records(self) -> int:

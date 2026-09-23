@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 # Modelo por defecto: 384 dimensiones, ~130 MB, inferencia ONNX en CPU.
 DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 DEFAULT_VECTOR_DIM = 384
+
+#: Modelo de la evidencia multifuente (D-M2): multilingüe, ~100 idiomas.
+MULTILINGUAL_MODEL_NAME = "intfloat/multilingual-e5-large"
+MULTILINGUAL_VECTOR_DIM = 1024
+
+#: Prefijos (consulta, documento) que exige cada modelo. e5 se entrenó con
+#: ellos: sin «query: » y «passage: » las búsquedas empeoran sin avisar.
+_PREFIJOS: dict[str, tuple[str, str]] = {
+    MULTILINGUAL_MODEL_NAME: ("query: ", "passage: "),
+}
 
 # Dimension del degradado por hash. Independiente del modelo real.
 HASH_FALLBACK_DIM = 128
@@ -47,6 +57,8 @@ class TextEmbedder(Protocol):
     is_semantic: bool
 
     def embed_text(self, text: str) -> list[float]: ...
+
+    def embed_query(self, text: str) -> list[float]: ...
 
     def embed_batch(self, texts: Sequence[str]) -> list[list[float]]: ...
 
@@ -90,6 +102,10 @@ class HashEmbedder:
 
         return _l2_normalize(vec)
 
+    def embed_query(self, text: str) -> list[float]:
+        """Sin prefijos: el hash no distingue consultas de documentos."""
+        return self.embed_text(text)
+
     def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         return [self.embed_text(t) for t in texts]
 
@@ -104,36 +120,50 @@ class FastEmbedEmbedder:
 
     is_semantic = True
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME) -> None:
-        try:
-            from fastembed import TextEmbedding
-        except ImportError as exc:
-            raise EmbeddingError(
-                "fastembed no esta instalado. Instalalo con 'pip install fastembed' "
-                "o pide explicitamente el degradado con "
-                "get_embedder(allow_hash_fallback=True)."
-            ) from exc
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, _modelo: Any = None) -> None:
+        """`_modelo` sustituye a fastembed en los tests (sin descargar nada)."""
+        if _modelo is not None:
+            self._model = _modelo
+        else:
+            try:
+                from fastembed import TextEmbedding
+            except ImportError as exc:
+                raise EmbeddingError(
+                    "fastembed no esta instalado. Instalalo con 'pip install fastembed' "
+                    "o pide explicitamente el degradado con "
+                    "get_embedder(allow_hash_fallback=True)."
+                ) from exc
 
-        try:
-            self._model = TextEmbedding(model_name=model_name)
-        except Exception as exc:
-            raise EmbeddingError(
-                f"No se pudo inicializar el modelo '{model_name}': {exc}"
-            ) from exc
+            try:
+                self._model = TextEmbedding(model_name=model_name)
+            except Exception as exc:
+                raise EmbeddingError(
+                    f"No se pudo inicializar el modelo '{model_name}': {exc}"
+                ) from exc
 
+        self._prefijo_consulta, self._prefijo_documento = _PREFIJOS.get(model_name, ("", ""))
         self.model_name = model_name
         self.name = f"fastembed:{model_name}"
         self.dim = len(self.embed_text("dimension probe"))
 
     def embed_text(self, text: str) -> list[float]:
+        """Vector de un documento (con el prefijo de documento del modelo)."""
         return self.embed_batch([text])[0]
 
+    def embed_query(self, text: str) -> list[float]:
+        """Vector de una consulta (con el prefijo de consulta del modelo)."""
+        return self._embed([self._prefijo_consulta + text])[0]
+
     def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
+        """Vectores de documentos."""
+        return self._embed([self._prefijo_documento + t for t in texts])
+
+    def _embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         return [
             _l2_normalize(np.asarray(vec, dtype=np.float32))
-            for vec in self._model.embed(list(texts))
+            for vec in self._model.embed(texts)
         ]
 
 
