@@ -46,6 +46,11 @@ pub struct BlueprintDoc {
     /// cuantas menciones hubo.
     pub distinct_quotes: i64,
     pub markdown: String,
+    /// Fuente de los datos, en su propio campo para que la interfaz la
+    /// muestre arriba del documento (AUD-009).
+    pub source_notice: String,
+    /// "demo", "reddit" o `None` si la ejecución no lo registró.
+    pub data_source: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

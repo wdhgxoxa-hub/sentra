@@ -144,6 +144,8 @@ struct OpportunityClusterRow {
     validation_notes: Option<String>,
     validation_assignee: Option<String>,
     validated_at: Option<String>,
+    cluster_stats: serde_json::Value,
+    data_source: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -187,6 +189,11 @@ pub struct OpportunityCluster {
     pub validation_notes: Option<String>,
     pub validation_assignee: Option<String>,
     pub validated_at: Option<String>,
+    /// Cifras exactas por palabra y por texto (AUD-009). Las necesita el PRD
+    /// para no afirmar más de lo que muestran los datos.
+    pub cluster_stats: serde_json::Value,
+    /// "demo" o "reddit": fuente de la ejecución que produjo esta lectura.
+    pub data_source: Option<String>,
 }
 
 impl From<OpportunityClusterRow> for OpportunityCluster {
@@ -225,6 +232,8 @@ impl From<OpportunityClusterRow> for OpportunityCluster {
             validation_notes: row.validation_notes,
             validation_assignee: row.validation_assignee,
             validated_at: row.validated_at,
+            cluster_stats: row.cluster_stats,
+            data_source: row.data_source,
         }
     }
 }
@@ -262,7 +271,9 @@ const BOARD_COLUMNS: &str = r#"
     validation_status::text    AS validation_status,
     validation_notes,
     validation_assignee,
-    validated_at::text         AS validated_at
+    validated_at::text         AS validated_at,
+    cluster_stats,
+    data_source
 "#;
 
 /// Tablero de problemas recurrentes consolidados (migracion 002).
@@ -690,6 +701,28 @@ mod tests {
         .execute(pool)
         .await
         .expect("no se pudo sembrar el cluster");
+    }
+
+    #[tokio::test]
+    async fn la_ficha_trae_las_cifras_y_la_fuente_para_el_prd() {
+        let pool = base_o_saltar!("rir_ficha_cifras_test");
+        let run = sembrar_run(&pool, "completed", 0, Some("datos_insuficientes"), 1).await;
+        sembrar_cluster(&pool, &run, "complaint:manual", 70.0, None).await;
+        sqlx::query(
+            "UPDATE opportunity_clusters SET cluster_stats = $1 WHERE cluster_key = 'complaint:manual'",
+        )
+        .bind(serde_json::json!({"mentions": 5, "keywords": [{"keyword": "manual", "count": 5}]}))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let ficha = cluster_por_clave(&pool, "complaint:manual").await.unwrap().unwrap();
+        assert_eq!(ficha.cluster_stats["mentions"], 5);
+        assert_eq!(ficha.data_source.as_deref(), Some("demo"));
+
+        let json = serde_json::to_value(&ficha).unwrap();
+        assert!(json.get("clusterStats").is_some(), "el puente usa camelCase");
+        assert_eq!(json["dataSource"], "demo");
     }
 
     #[tokio::test]

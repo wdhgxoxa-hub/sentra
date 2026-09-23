@@ -283,7 +283,10 @@ class TestBlueprintEndpoint(ConfigTestCase):
         cuerpo = respuesta.json()
         for clave in ("productName", "oneLiner", "problem", "mvp", "markdown"):
             self.assertIn(clave, cuerpo)
-        self.assertTrue(cuerpo["markdown"].startswith("# "))
+        # La primera linea declara la fuente (AUD-009); el titulo va despues.
+        self.assertTrue(cuerpo["markdown"].startswith("> "))
+        self.assertIn(chr(10) + "# ", cuerpo["markdown"])
+        self.assertIn("sourceNotice", cuerpo)
 
     def test_respeta_el_idioma_pedido(self):
         self.assertIn("Resumen", self._pedir(language="es").json()["markdown"])

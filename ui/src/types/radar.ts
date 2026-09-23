@@ -191,6 +191,25 @@ export interface OpportunityCluster {
   validationNotes: string | null;
   validationAssignee: string | null;
   validatedAt: string | null;
+
+  /** Cifras exactas sobre todas las quejas del problema (AUD-009). */
+  clusterStats: ClusterStats;
+  /** Fuente de la ejecución que produjo esta lectura. */
+  dataSource: DataSource | null;
+}
+
+/**
+ * Cifras de `aggregation.cluster_stats`; vacío en lecturas anteriores.
+ *
+ * Rust lo reenvía como JSON tal cual sale de PostgreSQL, así que las claves
+ * conservan el snake_case de Python.
+ */
+export interface ClusterStats {
+  mentions?: number;
+  distinct_texts?: number;
+  severity_undetermined?: number;
+  keywords?: Array<{ keyword: string; count: number }>;
+  pairs?: Array<{ a: string; b: string; count: number }>;
 }
 
 /** Una lectura histórica de un cluster, para la curva de evolución. */
@@ -692,6 +711,9 @@ export interface BlueprintDoc {
   /** Citas distintas: no es lo mismo que el numero de menciones. */
   distinctQuotes: number;
   markdown: string;
+  /** Fuente de los datos, en una frase: va arriba del documento (AUD-009). */
+  sourceNotice: string;
+  dataSource: DataSource | null;
 }
 
 /** Canal por el que llega el plan de arquitectura mientras se escribe. */

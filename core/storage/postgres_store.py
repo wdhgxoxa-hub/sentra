@@ -291,6 +291,8 @@ def cluster_to_row(cluster: dict[str, Any], qualified: bool = False) -> dict[str
         "signal_ids": list(cluster.get("signal_ids") or []),
         # Posición en el Top N de la ejecución, o None (AUD-007).
         "top_rank": cluster.get("top_rank"),
+        # Cifras exactas por palabra y por texto (AUD-009).
+        "cluster_stats": dict(cluster.get("stats") or {}),
     }
 
 
@@ -725,13 +727,15 @@ class PostgresStore:
                 representative_signal_id, representative_reddit_id, job_statement,
                 current_solutions, risk_flags, spread_factor, frequency_factor,
                 severity_factor, recency_factor, paid_signal_factor, raw_score,
-                final_score, urgency_tier, qualified, evidence, top_rank)
+                final_score, urgency_tier, qualified, evidence, top_rank,
+                cluster_stats)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,%s,%s,%s,%s)
+                    %s,%s,%s,%s,%s,%s)
             ON CONFLICT (tenant_id, run_id, cluster_key) DO UPDATE
                 SET final_score = EXCLUDED.final_score,
                     qualified   = EXCLUDED.qualified,
                     top_rank    = EXCLUDED.top_rank,
+                    cluster_stats = EXCLUDED.cluster_stats,
                     updated_at  = now()
             RETURNING id
             """,
@@ -747,6 +751,7 @@ class PostgresStore:
                 row["urgency_tier"], row["qualified"],
                 json.dumps(row["evidence"], default=str),
                 row["top_rank"],
+                json.dumps(row["cluster_stats"]),
             ),
         )
         cluster_id = str(result["id"])

@@ -47,7 +47,9 @@ distintos".
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from collections.abc import Sequence
+from itertools import combinations
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -104,6 +106,8 @@ class OpportunityCluster(BaseModel):
     metrics: OpportunityMetrics
     score_breakdown: Any
     evidence: list[dict[str, Any]] = Field(default_factory=list)
+    # Cifras exactas sobre TODAS las quejas del problema (ver cluster_stats).
+    stats: dict[str, Any] = Field(default_factory=dict)
 
 
 def signal_keywords(signal: Any, pain_filter: Any) -> list[str]:
@@ -196,6 +200,49 @@ def aggregate_metrics(signals: Sequence[Any]) -> OpportunityMetrics:
     )
 
 
+#: Cuántas palabras clave principales se cruzan entre sí en `pairs`.
+TOP_KEYWORDS_FOR_PAIRS = 3
+
+
+def cluster_stats(
+    members: Sequence[Any], keywords_per_member: Sequence[Sequence[str]]
+) -> dict[str, Any]:
+    """
+    Cifras exactas sobre TODAS las quejas del problema (AUD-009).
+
+    Es lo que permite al PRD decir «aparece en 7 de 9 quejas» en lugar de
+    afirmar que «aparece en todas»: `keywords` es la UNIÓN de términos de un
+    agrupado transitivo, no su intersección. También cuenta los textos
+    distintos (las citas guardadas son solo MAX_EVIDENCE_QUOTES) y cuántas
+    quejas tienen la gravedad indeterminada.
+
+        mentions               quejas del problema
+        distinct_texts         textos distintos entre ellas
+        severity_undetermined  quejas con gravedad "undetermined"
+        keywords               [{keyword, count}], de más a menos frecuente
+                               (empate: alfabético)
+        pairs                  [{a, b, count}] entre las TOP_KEYWORDS_FOR_PAIRS
+                               primeras: en cuántas quejas aparecen juntas
+    """
+    conjuntos = [set(palabras) for palabras in keywords_per_member]
+    recuento = Counter(palabra for conjunto in conjuntos for palabra in conjunto)
+    ordenadas = sorted(recuento.items(), key=lambda par: (-par[1], par[0]))
+    principales = [palabra for palabra, _ in ordenadas[:TOP_KEYWORDS_FOR_PAIRS]]
+
+    return {
+        "mentions": len(members),
+        "distinct_texts": len({" ".join((s.text or "").lower().split()) for s in members}),
+        "severity_undetermined": sum(
+            1 for s in members if s.pain_severity == UNDETERMINED_LABEL
+        ),
+        "keywords": [{"keyword": k, "count": c} for k, c in ordenadas],
+        "pairs": [
+            {"a": a, "b": b, "count": sum(1 for c in conjuntos if a in c and b in c)}
+            for a, b in combinations(principales, 2)
+        ],
+    }
+
+
 def _cluster_label(signals: Sequence[Any], keywords: Sequence[str]) -> str:
     """Etiqueta legible del problema, a partir de sus términos y su foro."""
     if keywords:
@@ -284,6 +331,9 @@ def build_clusters(
                 metrics=metrics,
                 score_breakdown=breakdown,
                 evidence=evidence,
+                stats=cluster_stats(
+                    members, [keywords_by_index[i] for i in group]
+                ),
             )
         )
 
@@ -319,4 +369,5 @@ def cluster_to_dict(cluster: OpportunityCluster) -> dict[str, Any]:
             "final_score": breakdown.final_score,
         },
         "evidence": cluster.evidence,
+        "stats": cluster.stats,
     }

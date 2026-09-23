@@ -61,6 +61,18 @@ export function BlueprintPanel({ clusterKey }: { clusterKey: string }) {
 
           {doc.data && (
             <article className="enter flex flex-col gap-5">
+              {/* La fuente de los datos va antes que nada (AUD-009): un PRD
+                  sobre datos fabricados no puede leerse como uno real. */}
+              <p
+                className={`rounded-lg p-2.5 text-xs font-medium ${
+                  doc.data.dataSource === "reddit"
+                    ? "bg-surface text-ink-soft"
+                    : "bg-warn/15 text-warn"
+                }`}
+              >
+                {doc.data.sourceNotice}
+              </p>
+
               <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-lg font-semibold">{doc.data.productName}</h3>

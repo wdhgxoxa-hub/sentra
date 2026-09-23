@@ -1,6 +1,7 @@
 """Tests del sintetizador de especificaciones de proyecto (PRD)."""
 
 import unittest
+from typing import Any, ClassVar
 
 from core.intelligence.blueprint import build_blueprint
 
@@ -162,7 +163,11 @@ class TestIdioma(unittest.TestCase):
 class TestMarkdown(unittest.TestCase):
     def test_el_markdown_lleva_titulos_y_el_nombre_del_producto(self):
         doc = build_blueprint(cluster_base())
-        self.assertTrue(doc.markdown.startswith("# "))
+        # AUD-009: la primera linea declara la fuente de los datos; el titulo
+        # va justo despues.
+        lineas = doc.markdown.splitlines()
+        self.assertTrue(lineas[0].startswith("> "))
+        self.assertTrue(lineas[2].startswith("# "))
         self.assertIn(doc.product_name, doc.markdown)
         self.assertGreaterEqual(doc.markdown.count("## "), 5)
 
@@ -230,7 +235,7 @@ class TestFormaRealDelPuente(unittest.TestCase):
     peor forma de fallar: parece un dato medido.
     """
 
-    ANIDADO = {
+    ANIDADO: ClassVar[dict[str, Any]] = {
         "clusterKey": "complaint:invoice|manual",
         "label": "invoice + manual",
         "intentType": "complaint",
@@ -290,8 +295,19 @@ class TestNoInflarElCaso(unittest.TestCase):
         self.assertNotIn("no sobre 5", doc.problem)
 
     def test_si_hay_repeticion_si_lo_advierte(self):
+        # AUD-009: la repeticion solo se afirma si las citas cubren TODAS las
+        # menciones (aqui 5 de 5). Con 2 citas de 5 menciones no se sabe nada
+        # de las otras 3 y la version anterior afirmaba algo falso.
+        repetida = {"quote": "igual", "subreddit": "SaaS", "author": "a", "url": "u"}
+        otra = {"quote": "otra", "subreddit": "SaaS", "author": "b", "url": "v"}
+        doc = build_blueprint(
+            cluster_base(mention_count=5, evidence=[dict(repetida)] * 4 + [otra])
+        )
+        self.assertIn("no en 5", doc.problem)
+
+    def test_con_menos_citas_que_menciones_no_afirma_repeticion(self):
         repetida = {"quote": "igual", "subreddit": "SaaS", "author": "a", "url": "u"}
         doc = build_blueprint(
             cluster_base(mention_count=5, evidence=[repetida, dict(repetida)])
         )
-        self.assertIn("no sobre 5", doc.problem)
+        self.assertNotIn("repiten", doc.problem)

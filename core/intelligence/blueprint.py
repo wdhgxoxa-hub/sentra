@@ -17,11 +17,12 @@ la interfaz y a la vez copiarlo a Notion, GitHub o un correo.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
-# Por encima de este factor (0.0-1.0) la gente dice que pagaría con todas las
-# letras; por debajo del bajo, nadie ha hablado de dinero.
+# Por encima de este factor (0.0-1.0) la gente dice de forma explícita que
+# pagaría; por debajo del bajo, nadie ha hablado de dinero.
 PAGO_EXPLICITO = 0.66
 PAGO_IMPLICITO = 0.33
 
@@ -72,6 +73,10 @@ class Blueprint:
     evidence: list[Quote]
     distinct_quotes: int
     markdown: str
+    #: De dónde salen los datos; primera línea del documento (AUD-009).
+    source_notice: str = ""
+    #: "demo", "reddit" o None si la ejecución no lo registró.
+    data_source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Forma camelCase, que es la que cruza el puente hacia la interfaz."""
@@ -87,6 +92,8 @@ class Blueprint:
             "evidence": [cita.to_dict() for cita in self.evidence],
             "distinctQuotes": self.distinct_quotes,
             "markdown": self.markdown,
+            "sourceNotice": self.source_notice,
+            "dataSource": self.data_source,
         }
 
 
@@ -166,6 +173,51 @@ def _citas(cluster: Mapping[str, Any]) -> list[Quote]:
     return salida
 
 
+def _stats(cluster: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Cifras exactas del problema (aggregation.cluster_stats), o vacío."""
+    valor = _campo(cluster, "cluster_stats", {})
+    return valor if isinstance(valor, Mapping) else {}
+
+
+def _recuento_palabras(cluster: Mapping[str, Any]) -> list[tuple[str, int]]:
+    """[(palabra, en cuántas quejas aparece)], de más a menos frecuente."""
+    return [
+        (str(k.get("keyword", "")), int(k.get("count", 0)))
+        for k in _stats(cluster).get("keywords") or []
+        if isinstance(k, Mapping) and k.get("keyword")
+    ]
+
+
+def _juntas(cluster: Mapping[str, Any], a: str, b: str) -> int | None:
+    """En cuántas quejas aparecen `a` y `b` a la vez, si se contó."""
+    for par in _stats(cluster).get("pairs") or []:
+        if isinstance(par, Mapping) and {par.get("a"), par.get("b")} == {a, b}:
+            return int(par.get("count", 0))
+    return None
+
+
+def _de(k: int, n: int, idioma: str) -> str:
+    """«7 de 9 quejas» / «las 9 de 9 quejas»: la cifra, nunca «todas»."""
+    if idioma == "es":
+        return f"las {k} de {n} quejas" if k == n else f"{k} de {n} quejas"
+    return f"{k} of {n} complaints"
+
+
+def _fuente(cluster: Mapping[str, Any]) -> str | None:
+    fuente = _campo(cluster, "data_source")
+    return fuente if fuente in ("demo", "reddit") else None
+
+
+def _aviso_fuente(cluster: Mapping[str, Any], idioma: str) -> str:
+    fuente = _fuente(cluster)
+    textos = TEXTOS[idioma]
+    if fuente == "demo":
+        return textos["source_demo"]
+    if fuente == "reddit":
+        return textos["source_reddit"]
+    return textos["source_unknown"]
+
+
 # --- Textos ------------------------------------------------------------------
 
 TEXTOS: dict[str, dict[str, str]] = {
@@ -183,8 +235,18 @@ TEXTOS: dict[str, dict[str, str]] = {
         "value": "Propuesta de valor",
         "no_evidence": "No hay citas guardadas para este problema.",
         "footer": (
-            "Documento generado a partir de la evidencia recogida por el radar. "
-            "Cada cifra sale de la base de datos; donde no hay dato, se dice."
+            "Menciones, comunidades, puntuación, recuentos por palabra y citas "
+            "salen del problema guardado en la base de datos. Las etiquetas de "
+            "gravedad e intención las asigna un clasificador automático y pueden "
+            "quedar indeterminadas. Donde no hay dato, se dice."
+        ),
+        "source_demo": (
+            "⚠️ DATOS DE DEMOSTRACIÓN: corpus fabricado, no procede de Reddit. "
+            "No sirve para decidir."
+        ),
+        "source_reddit": "Fuente de los datos: Reddit.",
+        "source_unknown": (
+            "Fuente de los datos: no registrada; no se puede afirmar que sean reales."
         ),
     },
     "en": {
@@ -201,8 +263,17 @@ TEXTOS: dict[str, dict[str, str]] = {
         "value": "Value proposition",
         "no_evidence": "No quotes stored for this problem.",
         "footer": (
-            "Generated from the evidence the radar collected. Every number comes "
-            "from the database; where there is no data, it says so."
+            "Mentions, communities, score, per-keyword counts and quotes come "
+            "from the problem stored in the database. Severity and intent labels "
+            "are assigned by an automatic classifier and may be undetermined. "
+            "Where there is no data, it says so."
+        ),
+        "source_demo": (
+            "⚠️ DEMO DATA: fabricated corpus, not from Reddit. Not fit for decisions."
+        ),
+        "source_reddit": "Data source: Reddit.",
+        "source_unknown": (
+            "Data source: not recorded; the data cannot be claimed to be real."
         ),
     },
 }
@@ -273,16 +344,16 @@ def _una_frase(cluster: Mapping[str, Any], idioma: str, citas: int) -> str:
     foros = len(_comunidades(cluster))
 
     if idioma == "es":
-        quien = _segun(citas, "una persona describe", f"{citas} personas describen")
+        quien = _segun(citas, "una cita textual", f"{citas} citas textuales")
         donde = _segun(foros, "una sola comunidad", f"{foros} comunidades distintas")
         return (
-            f"Una herramienta centrada en «{tema}»: el problema que {quien} con "
-            f"sus propias palabras en {donde}."
+            f"Una herramienta centrada en «{tema}»: el problema que recogen "
+            f"{quien} de {donde}."
         )
 
-    quien = _segun(citas, "one person describes", f"{citas} people describe")
+    quien = _segun(citas, "one verbatim quote", f"{citas} verbatim quotes")
     donde = _segun(foros, "a single forum", f"{foros} separate forums")
-    return f"A tool focused on «{tema}»: the problem {quien} in their own words across {donde}."
+    return f"A tool focused on «{tema}»: the problem captured by {quien} from {donde}."
 
 
 def _resumen(cluster: Mapping[str, Any], idioma: str, nombre: str) -> str:
@@ -301,7 +372,7 @@ def _resumen(cluster: Mapping[str, Any], idioma: str, nombre: str) -> str:
             f"{nombre} atiende un problema concreto: «{tema}». El radar lo ha "
             f"visto {veces} en {donde} ({lista}), con una intensidad de "
             f"{puntuacion:.0f} sobre 100 y urgencia {urgencia}. Va dirigido a "
-            f"quien trabaja en esos foros y hoy resuelve esto por su cuenta."
+            f"quien participa en esos foros."
         )
 
     veces = _segun(menciones, "once", f"{menciones} times")
@@ -309,83 +380,102 @@ def _resumen(cluster: Mapping[str, Any], idioma: str, nombre: str) -> str:
     return (
         f"{nombre} tackles one concrete problem: «{tema}». The radar saw it "
         f"{veces} across {donde} ({lista}), scoring {puntuacion:.0f} out of 100 "
-        f"with {urgencia} urgency. It targets the people in those forums who "
-        f"deal with this on their own today."
+        f"with {urgencia} urgency. It targets the people in those forums."
     )
 
 
 def _problema(cluster: Mapping[str, Any], idioma: str, citas: int) -> str:
     """El apartado que sostiene todo lo demás, así que no infla el volumen.
 
-    Cinco menciones del mismo texto copiado no son cinco pruebas, y la
-    diferencia se dice aquí, que es donde alguien decidiría invertir. Cuando
-    no hay repeticion no se menciona: «se sostiene sobre 5 testimonios, no
-    sobre 5» no significa nada y hace dudar del resto de las cifras.
+    Las repeticiones se cuentan sobre TODAS las quejas (`distinct_texts`), no
+    sobre las citas guardadas, que se limitan a unas pocas: confundir el
+    límite con repetición afirmaba algo falso. Una gravedad indeterminada se
+    dice como tal; presentarla como 0 % la haría pasar por medida.
     """
+    stats = _stats(cluster)
     comunidades = _comunidades(cluster)
     foros = len(comunidades)
     menciones = int(_numero(cluster, "mention_count"))
     gravedad = _numero(cluster, "severity_factor") * 100
     novedad = _numero(cluster, "recency_factor") * 100
     lista = _enumerar(comunidades, idioma)
-    hay_repeticion = citas < menciones
+    distintos = stats.get("distinct_texts")
+    indeterminadas = stats.get("severity_undetermined")
+    # Sin cifras guardadas, contar textos sobre las citas solo es exacto si
+    # las citas cubren todas las menciones; si hay más menciones que citas,
+    # de las demás no se sabe nada y no se afirma.
+    guardadas_n = sum(
+        1 for e in _campo(cluster, "evidence", []) or []
+        if isinstance(e, Mapping) and str(e.get("quote", "")).strip()
+    )
+    if distintos is None and guardadas_n and guardadas_n == menciones:
+        distintos = citas
 
     if idioma == "es":
         cuantas = _segun(menciones, "una mención", f"{menciones} menciones")
         donde = _segun(foros, "una sola comunidad", f"{foros} comunidades distintas")
-        cabecera = (
-            f"Se ha detectado {cuantas} en {donde} ({lista}). "
-            if menciones == 1
-            else f"Se han detectado {cuantas} en {donde} ({lista}). "
-        )
+        verbo = "Se ha detectado" if menciones == 1 else "Se han detectado"
+        partes = [f"{verbo} {cuantas} en {donde} ({lista})."]
 
-        if hay_repeticion:
-            textos = _segun(
-                citas, "una es un texto distinto", f"{citas} son textos distintos entre sí"
+        if distintos is None:
+            guardadas = _segun(
+                citas, "Se guardó una cita textual", f"Se guardaron {citas} citas textuales"
             )
-            apoyo = _segun(
-                citas,
-                "un solo testimonio independiente",
-                f"{citas} testimonios independientes",
+            partes.append(
+                f"{guardadas}; no hay recuento de textos distintos para este problema."
             )
-            cuerpo = (
-                f"De esas menciones, {textos}: el resto repite el mismo mensaje, "
-                f"así que el caso se sostiene sobre {apoyo}, no sobre {menciones}. "
+        elif int(distintos) == menciones:
+            partes.append(f"Son {menciones} textos distintos.")
+        else:
+            repetidas = menciones - int(distintos)
+            partes.append(
+                f"Hay {distintos} textos distintos: las otras {repetidas} menciones "
+                f"repiten un texto ya contado, así que el caso se apoya en "
+                f"{distintos} testimonios, no en {menciones}."
+            )
+
+        if indeterminadas is not None and int(indeterminadas) > 0:
+            partes.append(
+                f"El motor dejó la gravedad indeterminada en "
+                f"{_de(int(indeterminadas), menciones, idioma)}, que no suman a la "
+                f"puntuación; el factor de gravedad resultante es del {gravedad:.0f} %."
             )
         else:
-            cuerpo = (
-                f"Cada una es un testimonio distinto, así que el caso se apoya en "
-                f"{_segun(citas, 'una voz', f'{citas} voces')} independientes. "
+            partes.append(
+                f"El factor de gravedad que calcula el motor es del {gravedad:.0f} %."
             )
-
-        return (
-            f"{cabecera}{cuerpo}La gravedad media que mide el motor es del "
-            f"{gravedad:.0f} % y lo reciente de las quejas, del {novedad:.0f} %."
-        )
+        partes.append(f"El factor de novedad de las quejas es del {novedad:.0f} %.")
+        return " ".join(partes)
 
     cuantas = _segun(menciones, "One mention was", f"{menciones} mentions were")
     donde = _segun(foros, "a single forum", f"{foros} separate forums")
-    cabecera = f"{cuantas} detected across {donde} ({lista}). "
+    partes = [f"{cuantas} detected across {donde} ({lista})."]
 
-    if hay_repeticion:
-        textos = _segun(citas, "one is a distinct text", f"{citas} are distinct texts")
-        apoyo = _segun(
-            citas, "a single independent account", f"{citas} independent accounts"
+    if distintos is None:
+        guardadas = _segun(citas, "One verbatim quote was", f"{citas} verbatim quotes were")
+        partes.append(
+            f"{guardadas} stored; there is no count of distinct texts for this problem."
         )
-        cuerpo = (
-            f"Of those, {textos}: the rest repeat the same message, so the case "
-            f"rests on {apoyo}, not on {menciones}. "
+    elif int(distintos) == menciones:
+        partes.append(f"They are {menciones} distinct texts.")
+    else:
+        repetidas = menciones - int(distintos)
+        partes.append(
+            f"There are {distintos} distinct texts: the other {repetidas} mentions "
+            f"repeat a text already counted, so the case rests on {distintos} "
+            f"accounts, not on {menciones}."
+        )
+
+    if indeterminadas is not None and int(indeterminadas) > 0:
+        partes.append(
+            f"The engine left severity undetermined in "
+            f"{_de(int(indeterminadas), menciones, idioma)}, which add nothing to "
+            f"the score; the resulting severity factor is {gravedad:.0f} %."
         )
     else:
-        cuerpo = (
-            f"Each one is a separate account, so the case rests on "
-            f"{_segun(citas, 'one independent voice', f'{citas} independent voices')}. "
-        )
-
-    return (
-        f"{cabecera}{cuerpo}Average severity measured by the engine is "
-        f"{gravedad:.0f} %, and recency is {novedad:.0f} %."
-    )
+        partes.append(f"The severity factor computed by the engine is {gravedad:.0f} %.")
+    partes.append(f"The recency factor of the complaints is {novedad:.0f} %.")
+    return " ".join(partes)
 
 
 def _solucion(cluster: Mapping[str, Any], idioma: str, nombre: str) -> str:
@@ -393,50 +483,74 @@ def _solucion(cluster: Mapping[str, Any], idioma: str, nombre: str) -> str:
     trabajo = str(_campo(cluster, "job_statement", "")).strip()
 
     if idioma == "es":
-        texto = (
-            f"Construir {nombre}: un producto que se ocupe de «{tema}» de punta "
-            f"a punta, en vez de dejarlo repartido entre pasos sueltos que cada "
-            f"cual repite a su manera."
-        )
+        texto = f"Construir {nombre}: un producto que se ocupe de «{tema}» de punta a punta."
         if trabajo:
             texto += f" El motor resume el trabajo por hacer así: «{trabajo}»."
     else:
-        texto = (
-            f"Build {nombre}: a product that owns «{tema}» end to end, instead of "
-            f"leaving it spread across loose steps that everyone repeats their "
-            f"own way."
-        )
+        texto = f"Build {nombre}: a product that owns «{tema}» end to end."
         if trabajo:
             texto += f" The engine words the job to be done like this: «{trabajo}»."
     return texto
 
 
 def _mvp(cluster: Mapping[str, Any], idioma: str, pago: float) -> list[Phase]:
-    claves = _lista(cluster, "keywords")
+    """Alcance del MVP.
+
+    Cada afirmación sobre una palabra lleva su cifra exacta («aparece en 7 de
+    9 quejas»): `keywords` es la unión de términos del problema, no algo que
+    compartan todas sus quejas.
+    """
+    recuento = _recuento_palabras(cluster)
+    menciones = int(_numero(cluster, "mention_count"))
     foros = len(_comunidades(cluster))
     textos = TEXTOS[idioma]
     fase1: list[str] = []
 
-    if claves:
-        principal = claves[0]
+    if recuento:
+        principal, veces = recuento[0]
         if idioma == "es":
             fase1.append(
-                f"Resolver «{principal}» de principio a fin: es la palabra que "
-                f"aparece en todas las quejas del grupo."
+                f"Resolver «{principal}» de principio a fin: «{principal}» aparece en "
+                f"{_de(veces, menciones, idioma)}."
             )
-            fase1 += [
-                f"Cubrir también «{clave}», que acompaña siempre a la anterior."
-                for clave in claves[1:]
-            ]
         else:
             fase1.append(
-                f"Solve «{principal}» end to end: it is the word present in every "
-                f"complaint in this group."
+                f"Solve «{principal}» end to end: «{principal}» appears in "
+                f"{_de(veces, menciones, idioma)}."
             )
-            fase1 += [
-                f"Cover «{clave}» too, since it always travels with it."
-                for clave in claves[1:]
-            ]
+        for clave, cuenta in recuento[1:3]:
+            juntas = _juntas(cluster, principal, clave)
+            if idioma == "es":
+                frase = (
+                    f"Cubrir también «{clave}»: «{clave}» aparece en "
+                    f"{_de(cuenta, menciones, idioma)}"
+                )
+                if juntas is not None:
+                    frase += f" y coincide con «{principal}» en {juntas} de ellas"
+            else:
+                frase = (
+                    f"Also cover «{clave}»: «{clave}» appears in "
+                    f"{_de(cuenta, menciones, idioma)}"
+                )
+                if juntas is not None:
+                    frase += f" and co-occurs with «{principal}» in {juntas} of them"
+            fase1.append(frase + ".")
+    else:
+        claves = _lista(cluster, "keywords")
+        if claves:
+            if idioma == "es":
+                fase1.append(
+                    f"Resolver «{claves[0]}» de principio a fin (no hay recuento por "
+                    f"palabra para este problema, así que no se afirma con qué "
+                    f"frecuencia aparece)."
+                )
+                fase1 += [f"Cubrir también «{clave}»." for clave in claves[1:3]]
+            else:
+                fase1.append(
+                    f"Solve «{claves[0]}» end to end (no per-keyword count is stored "
+                    f"for this problem, so its frequency is not claimed)."
+                )
+                fase1 += [f"Also cover «{clave}»." for clave in claves[1:3]]
 
     if idioma == "es":
         perfil = _segun(
@@ -445,13 +559,11 @@ def _mvp(cluster: Mapping[str, Any], idioma: str, pago: float) -> list[Phase]:
         fase1.append(
             f"Funcionar para el perfil de {perfil}, sin pedir configuración previa."
         )
-        fase1.append(
-            "Avisar cuando el proceso falle, que es justo lo que hoy no ocurre."
-        )
+        fase1.append("Avisar cuando el proceso falle.")
         fase2 = [
             "Informe del tiempo ahorrado, para justificar la suscripción.",
-            "Integraciones con las herramientas que ya se usan en esos foros.",
-            "Ampliar a las comunidades vecinas donde el mismo dolor aparece más flojo.",
+            "Integraciones con las herramientas que se citen en esos foros.",
+            "Ampliar a comunidades vecinas donde aparezca el mismo problema.",
         ]
         if pago >= PAGO_EXPLICITO:
             fase1.append(
@@ -466,13 +578,11 @@ def _mvp(cluster: Mapping[str, Any], idioma: str, pago: float) -> list[Phase]:
         fase1.append(
             f"Work out of the box for the profile of {perfil}, with no setup required."
         )
-        fase1.append(
-            "Warn when the process fails, which is exactly what is missing today."
-        )
+        fase1.append("Warn when the process fails.")
         fase2 = [
             "Time-saved report, to justify the subscription.",
-            "Integrations with the tools those forums already use.",
-            "Expand to neighbouring forums where the same pain shows up weaker.",
+            "Integrations with the tools quoted in those forums.",
+            "Expand to neighbouring forums where the same problem shows up.",
         ]
         if pago >= PAGO_EXPLICITO:
             fase1.append("Charge from day one: willingness to pay is already explicit.")
@@ -539,8 +649,8 @@ def _monetizacion(cluster: Mapping[str, Any], idioma: str) -> str:
     if pago >= PAGO_EXPLICITO:
         if idioma == "es":
             return (
-                "Hay disposición a pagar explícita: en las citas se dice con "
-                "todas las letras. Encaja una suscripción mensual por puesto, con "
+                "Hay disposición a pagar explícita: en las citas se dice de forma "
+                "expresa. Encaja una suscripción mensual por puesto, con "
                 "prueba corta y sin capa gratuita indefinida. La cifra concreta "
                 "sale de preguntar a quien escribió esas frases, no de aquí."
             )
@@ -572,7 +682,7 @@ def _monetizacion(cluster: Mapping[str, Any], idioma: str) -> str:
             "quejó y preguntarlo, antes de escribir una sola línea de código."
         )
     return (
-        "There is no payment signal at all in the evidence collected. Pricing now "
+        "There is no payment signal in the evidence collected. Pricing now "
         "would be making it up. The next step is talking to the people who "
         "complained and asking them, before writing a single line of code."
     )
@@ -614,9 +724,12 @@ def _markdown(
     fallos: str,
     monetizacion: str,
     citas: list[Quote],
+    aviso_fuente: str,
 ) -> str:
     textos = TEXTOS[idioma]
     lineas: list[str] = [
+        f"> {aviso_fuente}",
+        "",
         f"# {nombre}",
         "",
         f"**{textos['value']}:** {frase}",
@@ -686,6 +799,7 @@ def build_blueprint(
     fases = _mvp(cluster, idioma, _numero(cluster, "paid_signal_factor"))
     fallos = _fallos(cluster, idioma)
     monetizacion = _monetizacion(cluster, idioma)
+    aviso = _aviso_fuente(cluster, idioma)
 
     return Blueprint(
         product_name=nombre,
@@ -709,5 +823,8 @@ def build_blueprint(
             fallos,
             monetizacion,
             citas,
+            aviso,
         ),
+        source_notice=aviso,
+        data_source=_fuente(cluster),
     )
