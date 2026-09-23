@@ -20,12 +20,15 @@ from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import (
     DEFAULT_HOST,
     DEFAULT_PORT,
-    TOKEN_HEADER,
     create_app,
 )
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 
 TEST_DIM = 64
+
+#: Tokens con la forma de los de la aplicación: 64 hex (D-B).
+TOKEN_PRUEBA = "5e" * 32
+OTRO_TOKEN = "a1" * 32
 
 PAIN_POST = {
     "id": "t3_pain",
@@ -71,7 +74,8 @@ class SidecarTestCase(unittest.TestCase):
             store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        self.app = create_app(deps=self.deps, token=self.token, persist_default=False)
+        self.app = create_app(deps=self.deps, token=self.token, persist_default=False,
+                              insecure_dev=self.token is None)
         self.client = TestClient(self.app)
 
     def tearDown(self):
@@ -178,7 +182,7 @@ class TestScan(SidecarTestCase):
         original = sidecar._persist
         sidecar._persist = espia
         try:
-            app = create_app(deps=self.deps, persist_default=True)
+            app = create_app(deps=self.deps, persist_default=True, insecure_dev=True)
             body = TestClient(app).post(
                 "/api/scan", json={"subreddit": "smallbusiness"}
             ).json()
@@ -204,7 +208,7 @@ class TestScan(SidecarTestCase):
         original = sidecar._persist
         sidecar._persist = rota
         try:
-            app = create_app(deps=self.deps, persist_default=True)
+            app = create_app(deps=self.deps, persist_default=True, insecure_dev=True)
             body = TestClient(app).post(
                 "/api/scan", json={"subreddit": "smallbusiness"}
             ).json()
@@ -222,6 +226,7 @@ class TestScan(SidecarTestCase):
 
         app = create_app(
             deps=RadarDependencies(fetcher=broken, store=self.store),
+            insecure_dev=True,
             persist_default=False,
         )
         body = TestClient(app).post(
@@ -296,7 +301,7 @@ class TestScanStream(SidecarTestCase):
             raise RuntimeError("el grafo exploto")
 
         deps = RadarDependencies(fetcher=broken, store=self.store)
-        app = create_app(deps=deps, persist_default=False)
+        app = create_app(deps=deps, persist_default=False, insecure_dev=True)
         # Una fuente que no entrega datos es un fallo de la ejecucion, no una
         # cosecha vacia (AUD-003): nada de "run:finished".
         with TestClient(app).stream(
@@ -310,7 +315,7 @@ class TestScanStream(SidecarTestCase):
         self.assertEqual(eventos[-1]["code"], "fetch_failed")
 
     def test_stream_is_protected_by_the_token_too(self):
-        app = create_app(deps=self.deps, token="secreto", persist_default=False)
+        app = create_app(deps=self.deps, token=TOKEN_PRUEBA, persist_default=False)
         response = TestClient(app).post(
             "/api/scan/stream", json={"subreddit": "x"}
         )
@@ -388,7 +393,7 @@ class TestCancellation(SidecarTestCase):
         self.assertEqual(eventos[-1]["type"], "run:finished")
 
     def test_cancel_is_protected_by_the_token(self):
-        app = create_app(deps=self.deps, token="secreto", persist_default=False)
+        app = create_app(deps=self.deps, token=TOKEN_PRUEBA, persist_default=False)
         response = TestClient(app).post("/api/scan/cancel", json={"runId": "x"})
         self.assertEqual(response.status_code, 401)
 
@@ -439,21 +444,26 @@ class TestSearch(SidecarTestCase):
 class TestAuthentication(SidecarTestCase):
     """
     Un servidor HTTP en localhost es alcanzable por cualquier proceso del
-    equipo, y `scan` consume cuota de la API de Reddit. Con token
-    configurado, se exige.
+    equipo, y `scan` consume cuota de la API de Reddit. El token se exige
+    en `Authorization: Bearer` (D-B); tests/test_sidecar_token.py recorre
+    todos los endpoints.
     """
 
-    token = "secreto-de-prueba"
+    token = TOKEN_PRUEBA
 
     def test_request_without_token_is_rejected(self):
         self.assertEqual(self.client.get("/api/health").status_code, 401)
 
     def test_request_with_the_wrong_token_is_rejected(self):
-        response = self.client.get("/api/health", headers={TOKEN_HEADER: "otro"})
+        response = self.client.get(
+            "/api/health", headers={"Authorization": f"Bearer {OTRO_TOKEN}"}
+        )
         self.assertEqual(response.status_code, 401)
 
     def test_request_with_the_right_token_passes(self):
-        response = self.client.get("/api/health", headers={TOKEN_HEADER: self.token})
+        response = self.client.get(
+            "/api/health", headers={"Authorization": f"Bearer {self.token}"}
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_scan_is_protected_too(self):
@@ -462,7 +472,7 @@ class TestAuthentication(SidecarTestCase):
 
 
 class TestWithoutToken(SidecarTestCase):
-    """Sin token configurado, el sidecar es abierto en loopback."""
+    """Con --insecure-dev explícito, el sidecar sirve sin token (desarrollo)."""
 
     token = None
 

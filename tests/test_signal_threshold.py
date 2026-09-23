@@ -70,7 +70,7 @@ class TestCorteDeProduccion(unittest.TestCase):
         self.assertTrue(resultado["qualified"], "el corte por defecto no deja pasar ninguna senal")
 
     def test_el_sidecar_cualifica_senales_con_su_configuracion_real(self):
-        client = TestClient(create_app(deps=self.deps, persist_default=False))
+        client = TestClient(create_app(insecure_dev=True, deps=self.deps, persist_default=False))
         cuerpo = client.post("/api/scan", json={"subreddit": "SaaS"}).json()
         self.assertTrue(cuerpo["qualified"])
 

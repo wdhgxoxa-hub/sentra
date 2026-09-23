@@ -47,7 +47,7 @@ class ConfigTestCase(unittest.TestCase):
             store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        self.app = create_app(
+        self.app = create_app(insecure_dev=True, 
             deps=self.deps, persist_default=False, env_path=str(self.env_path)
         )
         self.client = TestClient(self.app)

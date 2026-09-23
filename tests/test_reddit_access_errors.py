@@ -262,7 +262,7 @@ class EscaneoConRedDoble(ConRedDoble):
             fetcher=fetcher, store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        return TestClient(create_app(deps=deps, env_path=str(self.tmpdir / ".env"),
+        return TestClient(create_app(insecure_dev=True, deps=deps, env_path=str(self.tmpdir / ".env"),
                                      **kwargs))
 
     def _fetcher_autenticado(self):

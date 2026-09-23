@@ -10,10 +10,10 @@
 //! llevarselo por delante.
 
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use crate::commands::engine::{sidecar_health, sidecar_url};
+use crate::commands::engine::{sondear, sidecar_url, Sonda};
 
 const PYTHON_ENV_VAR: &str = "RIR_PYTHON";
 const PROJECT_DIR_ENV_VAR: &str = "RIR_PROJECT_DIR";
@@ -46,6 +46,30 @@ pub fn sidecar_port() -> String {
     std::env::var(PORT_ENV_VAR).unwrap_or_else(|_| DEFAULT_PORT.to_string())
 }
 
+/// Variable por la que el hijo recibe el token (la lee el sidecar).
+const TOKEN_ENV_VAR: &str = "RIR_SIDECAR_TOKEN";
+
+/// Bytes aleatorios del token: 32, que en hexadecimal son 64 caracteres.
+const TOKEN_BYTES: usize = 32;
+
+/// Token nuevo: TOKEN_BYTES del generador del sistema, en hexadecimal.
+fn generar_token() -> String {
+    let mut bytes = [0u8; TOKEN_BYTES];
+    // Sin aleatoriedad del sistema no hay forma segura de seguir: un token
+    // predecible seria peor que no arrancar.
+    getrandom::fill(&mut bytes).expect("el sistema no dio bytes aleatorios para el token");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Token del sidecar para toda la vida de este proceso (D-B).
+///
+/// Se genera al pedirlo por primera vez y no sale nunca de la memoria de
+/// Rust salvo hacia el entorno del hijo: ni disco, ni log, ni WebView.
+pub fn sidecar_token() -> &'static str {
+    static TOKEN: OnceLock<String> = OnceLock::new();
+    TOKEN.get_or_init(generar_token)
+}
+
 /// URL base del sidecar, derivada de `sidecar_port`.
 pub fn sidecar_base_url() -> String {
     format!("http://{SIDECAR_HOST}:{}", sidecar_port())
@@ -62,6 +86,9 @@ pub enum SidecarStatus {
     Unresponsive,
     /// Ni siquiera se pudo lanzar el proceso.
     FailedToSpawn,
+    /// En el puerto contesta un sidecar que rechaza nuestro token: es de
+    /// otro proceso. No se lanza otro encima ni se usa.
+    PortInUse,
 }
 
 pub struct SidecarManager {
@@ -100,6 +127,11 @@ impl SidecarManager {
         }
     }
 
+    /// Variables de entorno del proceso hijo.
+    fn entorno() -> Vec<(&'static str, String)> {
+        vec![(TOKEN_ENV_VAR, sidecar_token().to_string())]
+    }
+
     /// Argumentos del proceso hijo.
     fn argumentos() -> Vec<String> {
         vec!["-m".into(), MODULE.into(), "--port".into(), sidecar_port()]
@@ -112,6 +144,7 @@ impl SidecarManager {
         let mut command = Command::new(python);
         command
             .args(Self::argumentos())
+            .envs(Self::entorno())
             // La salida del sidecar no interesa aqui: el tiene su propio log
             // y heredarla mantendria vivos los descriptores al cerrar.
             .stdout(Stdio::null())
@@ -136,9 +169,19 @@ impl SidecarManager {
     /// Si ya responde, no hace nada. Si no, lo lanza y espera sondeando
     /// `/api/health` hasta que conteste o se agote la paciencia.
     pub async fn ensure_running(&self, client: &reqwest::Client) -> SidecarStatus {
-        if sidecar_health(client).await.is_some() {
-            log::info!("Sidecar ya activo en {}", sidecar_url());
-            return SidecarStatus::AlreadyRunning;
+        match sondear(client).await {
+            Sonda::Responde => {
+                log::info!("Sidecar ya activo en {}", sidecar_url());
+                return SidecarStatus::AlreadyRunning;
+            }
+            Sonda::Rechaza => {
+                log::error!(
+                    "En {} contesta un sidecar que rechaza el token: el puerto es de otro proceso",
+                    sidecar_url()
+                );
+                return SidecarStatus::PortInUse;
+            }
+            Sonda::NoResponde => {}
         }
 
         log::info!("Arrancando el sidecar Python...");
@@ -167,7 +210,7 @@ impl SidecarManager {
                 }
             }
 
-            if sidecar_health(client).await.is_some() {
+            if sondear(client).await == Sonda::Responde {
                 log::info!("Sidecar listo tras {} intentos", intento);
                 return SidecarStatus::Started;
             }
@@ -214,6 +257,7 @@ impl Drop for SidecarManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::engine::sidecar_health;
 
     /// Puerto propio, para no chocar con un sidecar de desarrollo.
     const TEST_PORT: &str = "8799";
@@ -285,6 +329,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn el_token_son_32_bytes_aleatorios_en_hex_y_no_se_repite() {
+        let token = generar_token();
+        assert_eq!(token.len(), 64);
+        assert!(token.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(token, generar_token(), "dos generaciones no pueden coincidir");
+    }
+
+    #[test]
+    fn el_token_del_proceso_es_siempre_el_mismo() {
+        assert_eq!(sidecar_token(), sidecar_token());
+        assert_eq!(sidecar_token().len(), 64);
+    }
+
+    #[test]
+    fn el_hijo_recibe_el_token_del_proceso() {
+        let entorno = SidecarManager::entorno();
+        assert!(entorno.contains(&(TOKEN_ENV_VAR, sidecar_token().to_string())));
+    }
+
+    #[test]
+    fn cada_peticion_lleva_el_token_como_bearer() {
+        let peticion = crate::commands::engine::with_token_pub(
+            reqwest::Client::new().get(sidecar_url()),
+        )
+        .build()
+        .unwrap();
+        let cabecera = peticion.headers()[reqwest::header::AUTHORIZATION]
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(cabecera, format!("Bearer {}", sidecar_token()));
     }
 
     #[test]

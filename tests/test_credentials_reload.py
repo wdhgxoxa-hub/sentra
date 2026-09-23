@@ -66,7 +66,7 @@ class TestCredencialesSinReiniciar(unittest.TestCase):
             search_engine=HybridSearchEngine(store=store),
         )
         self.client = TestClient(
-            create_app(deps=deps, persist_default=False, env_path=self.env_path)
+            create_app(insecure_dev=True, deps=deps, persist_default=False, env_path=self.env_path)
         )
 
     def tearDown(self):

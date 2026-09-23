@@ -199,7 +199,7 @@ class TestEndpoint(unittest.TestCase):
         store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                  search_engine=HybridSearchEngine(store=store))
-        self.client = TestClient(create_app(deps=deps, persist_default=False,
+        self.client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
                                             env_path=str(self.tmpdir / ".env")))
 
     def tearDown(self):

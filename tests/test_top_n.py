@@ -170,7 +170,7 @@ class TestSidecar(ConAlmacen):
             fetcher=SyntheticFetcher(), store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        return TestClient(create_app(deps=deps, env_path=str(self.tmpdir / ".env"), **kwargs))
+        return TestClient(create_app(insecure_dev=True, deps=deps, env_path=str(self.tmpdir / ".env"), **kwargs))
 
     def test_el_evento_final_trae_el_resultado_y_la_fuente(self):
         import json

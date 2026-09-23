@@ -113,9 +113,10 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         self.deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                       search_engine=HybridSearchEngine(store=store))
-        self.client = TestClient(create_app(deps=self.deps, persist_default=False,
+        token = "c0" * 32  # como el de la aplicación: 64 hex (D-B)
+        self.client = TestClient(create_app(deps=self.deps, token=token, persist_default=False,
                                             env_path=str(self.tmp / ".env")))
-        self.cabecera: dict[str, str] = {}
+        self.cabecera = {"Authorization": f"Bearer {token}"}
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)

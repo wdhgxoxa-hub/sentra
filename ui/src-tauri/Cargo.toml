@@ -48,6 +48,11 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 tauri-plugin-dialog = "=2.7.3"
 
+# Token del sidecar (D-B): 32 bytes del generador aleatorio del sistema. La
+# biblioteca estandar no expone un CSPRNG; getrandom es la envoltura que ya
+# compilan rustls y sqlx, fijada a la misma version del Cargo.lock.
+getrandom = "=0.3.4"
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 

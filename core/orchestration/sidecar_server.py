@@ -16,18 +16,22 @@ Dos decisiones de seguridad
 ---------------------------
 1. **Solo loopback.** El servidor escucha en 127.0.0.1. Un sidecar de
    escritorio no tiene ningún motivo para ser alcanzable desde la red.
-2. **Token opcional.** Incluso en loopback, cualquier proceso del equipo
-   puede llamar a `/api/scan`, que consume cuota de la API de Reddit. Si
-   `RIR_SIDECAR_TOKEN` está definido, se exige en cada petición.
+2. **Token obligatorio (D-B).** Incluso en loopback, cualquier proceso del
+   equipo podría llamar a `/api/scan`, que consume cuota de Reddit, o leer
+   la configuración. La aplicación de escritorio genera un token aleatorio
+   en cada arranque y lo pasa en `RIR_SIDECAR_TOKEN`; cada petición lo trae
+   en `Authorization: Bearer`, y se compara en tiempo constante. Sin token
+   el sidecar no arranca, salvo con `--insecure-dev` explícito.
 
-Ejecución:
+Ejecución (la aplicación lo lanza sola; a mano, solo para desarrollo):
 
-    python -m core.orchestration.sidecar_server
-    python -m core.orchestration.sidecar_server --port 9000
+    RIR_SIDECAR_TOKEN=<64 hex> python -m core.orchestration.sidecar_server
+    python -m core.orchestration.sidecar_server --insecure-dev --port 9000
 """
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -53,7 +57,15 @@ DEFAULT_PORT = 8765
 
 PORT_ENV_VAR = "RIR_SIDECAR_PORT"
 TOKEN_ENV_VAR = "RIR_SIDECAR_TOKEN"
-TOKEN_HEADER = "X-Radar-Token"
+
+#: Longitud mínima del token. El de la aplicación son 64 caracteres hex
+#: (32 bytes aleatorios); uno corto se podría adivinar.
+MIN_TOKEN_LENGTH = 32
+
+
+class SidecarSinToken(RuntimeError):
+    """El sidecar no puede servir sin token salvo con `--insecure-dev`."""
+
 
 SERVICE_NAME = "reddit-intelligence-radar-sidecar"
 SERVICE_VERSION = "0.1.0"
@@ -223,6 +235,7 @@ def create_app(
     persist_default: bool = True,
     postgres_dsn: str | None = None,
     env_path: str | None = None,
+    insecure_dev: bool = False,
 ) -> FastAPI:
     """
     Construye la aplicación sobre unas dependencias dadas.
@@ -230,11 +243,21 @@ def create_app(
     Args:
         deps: colaboradores del grafo. Si se omiten, se crean los de
             producción (ingesta real contra Reddit, almacén real).
-        token: si se indica, cada petición debe traerlo en `X-Radar-Token`.
+        token: cada petición debe traerlo en `Authorization: Bearer`.
+            Obligatorio, de al menos MIN_TOKEN_LENGTH caracteres.
+        insecure_dev: permite servir sin token (desarrollo y tests que no
+            prueban la seguridad). Hay que pedirlo explícitamente.
         persist_default: si los escaneos vuelcan a PostgreSQL por defecto.
         postgres_dsn: cadena de conexión para esa persistencia.
         env_path: archivo de configuración que gestiona la vista de ajustes.
     """
+    if token is not None and len(token) < MIN_TOKEN_LENGTH:
+        raise SidecarSinToken(f"El token debe tener al menos {MIN_TOKEN_LENGTH} caracteres.")
+    if token is None and not insecure_dev:
+        raise SidecarSinToken(
+            f"Falta {TOKEN_ENV_VAR}. Solo con --insecure-dev puede servirse sin token."
+        )
+
     started_at = time.monotonic()
     dependencies = deps or create_default_dependencies(env_path=env_path)
     pipeline = RadarPipeline(deps=dependencies)
@@ -276,11 +299,19 @@ def create_app(
         elif int(final_state.get("cycle", 0) or 0) >= 1:
             fuente.record_success()
 
-    def require_token(
-        x_radar_token: str | None = Header(default=None, alias=TOKEN_HEADER),
-    ) -> None:
-        if token and x_radar_token != token:
-            raise HTTPException(status_code=401, detail="Token invalido o ausente")
+    def require_token(authorization: str | None = Header(default=None)) -> None:
+        if token is None:
+            return  # solo con insecure_dev, comprobado al construir la app
+        esquema, _, valor = (authorization or "").partition(" ")
+        # compare_digest tarda lo mismo acierte o falle en el primer
+        # carácter: una comparación normal filtraría el token por tiempos.
+        valido = hmac.compare_digest(valor.encode(), token.encode())
+        if esquema != "Bearer" or not valido:
+            raise HTTPException(
+                status_code=401,
+                detail="Token invalido o ausente",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # -- Salud ---------------------------------------------------------
 
@@ -1035,6 +1066,7 @@ def run(
     port: int | None = None,
     token: str | None = None,
     mode: str = "reddit",
+    insecure_dev: bool = False,
 ) -> None:
     """
     Arranca el servidor con uvicorn.
@@ -1055,13 +1087,19 @@ def run(
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     port = port or int(os.environ.get(PORT_ENV_VAR, DEFAULT_PORT))
-    token = token or os.environ.get(TOKEN_ENV_VAR)
+    token = token or os.environ.get(TOKEN_ENV_VAR) or None
 
     if not token:
+        if not insecure_dev:
+            logger.error(
+                "Sidecar sin token: no arranca. La aplicacion lo lanza con %s; "
+                "a mano, usa --insecure-dev solo para desarrollo.",
+                TOKEN_ENV_VAR,
+            )
+            raise SystemExit(2)
         logger.warning(
-            "Sidecar sin token: cualquier proceso local podra invocar /api/scan. "
-            "Define %s para exigirlo.",
-            TOKEN_ENV_VAR,
+            "Sidecar SIN TOKEN (--insecure-dev): cualquier proceso local puede "
+            "invocarlo. Solo para desarrollo."
         )
 
     deps = None
@@ -1076,7 +1114,10 @@ def run(
         logger.info("Arrancando en modo DEMOSTRACION (corpus sintetico)")
 
     uvicorn.run(
-        create_app(deps=deps, token=token), host=host, port=port, log_level="info"
+        create_app(deps=deps, token=token, insecure_dev=insecure_dev),
+        host=host,
+        port=port,
+        log_level="info",
     )
 
 
@@ -1092,10 +1133,15 @@ def main(argv: list[str] | None = None) -> int:
         default="reddit",
         help="fuente de datos inicial ('synthetic' usa el corpus de demostracion)",
     )
+    parser.add_argument(
+        "--insecure-dev",
+        action="store_true",
+        help="servir sin token (solo desarrollo: cualquier proceso local podra invocarlo)",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run(host=args.host, port=args.port, mode=args.mode)
+    run(host=args.host, port=args.port, mode=args.mode, insecure_dev=args.insecure_dev)
     return 0
 
 

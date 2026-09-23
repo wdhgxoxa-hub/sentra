@@ -18,8 +18,6 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::db::{AppState, RadarError, RadarResult};
 
-const TOKEN_ENV_VAR: &str = "RIR_SIDECAR_TOKEN";
-const TOKEN_HEADER: &str = "X-Radar-Token";
 
 /// Canal por el que viaja el progreso hacia el WebView.
 pub const RADAR_EVENT_CHANNEL: &str = "radar:events";
@@ -44,10 +42,7 @@ pub fn with_token_pub(builder: reqwest::RequestBuilder) -> reqwest::RequestBuild
 }
 
 fn with_token(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-    match std::env::var(TOKEN_ENV_VAR) {
-        Ok(token) if !token.is_empty() => builder.header(TOKEN_HEADER, token),
-        _ => builder,
-    }
+    builder.bearer_auth(crate::sidecar::sidecar_token())
 }
 
 /// Clasifica un fallo de transporte con el motor (D-A).
@@ -212,6 +207,33 @@ fn parse_sse_block(block: &str) -> Option<serde_json::Value> {
         }
     }
     None
+}
+
+/// Lo que contesta el puerto del sidecar a `/api/health`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sonda {
+    /// Nuestro sidecar, que acepta el token.
+    Responde,
+    /// Alguien contesta pero rechaza el token (401): no es nuestro.
+    Rechaza,
+    /// Nadie contesta, o no con algo reconocible.
+    NoResponde,
+}
+
+/// Pregunta al puerto del sidecar quien hay (D-B).
+pub async fn sondear(client: &reqwest::Client) -> Sonda {
+    let respuesta = with_token(
+        client
+            .get(format!("{}/api/health", sidecar_url()))
+            .timeout(HEALTH_TIMEOUT),
+    )
+    .send()
+    .await;
+    match respuesta {
+        Ok(r) if r.status().is_success() => Sonda::Responde,
+        Ok(r) if r.status() == reqwest::StatusCode::UNAUTHORIZED => Sonda::Rechaza,
+        _ => Sonda::NoResponde,
+    }
 }
 
 /// Consulta la salud del sidecar. Devuelve None si no responde.

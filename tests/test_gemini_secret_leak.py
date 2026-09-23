@@ -122,7 +122,7 @@ class TestSidecar(ConLogs):
         store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
                                  search_engine=HybridSearchEngine(store=store))
-        self.client = TestClient(create_app(deps=deps, persist_default=False,
+        self.client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
                                             env_path=str(self.tmp / ".env")))
         self.client.post("/api/gemini", json={"apiKey": CLAVE, "model": "gemini-2.5-flash"})
 
