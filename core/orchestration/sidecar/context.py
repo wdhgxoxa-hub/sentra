@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.envfile import default_env_path
+from core.sources.registry import InMemorySourcesState, SourcesStateRepository
 
 from ..graph import RadarDependencies, data_source_of
 from ..pipeline import RadarPipeline
@@ -58,6 +59,8 @@ class SidecarContext:
     # estas lecturas y escrituras.
     active_runs: set[str] = field(default_factory=set)
     cancelled_runs: set[str] = field(default_factory=set)
+    # Estado verificado de cada fuente (F2.4): PostgreSQL en producción.
+    sources_state: SourcesStateRepository = field(default_factory=InMemorySourcesState)
     # Modelos de Gemini por huella de la clave (nunca la clave): (hora, lista).
     modelos_gemini: dict[str, tuple[float, list[ModelInfo]]] = field(default_factory=dict)
 

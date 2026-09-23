@@ -509,6 +509,11 @@ class TestSurface(SidecarTestCase):
                 "/api/architect/generate",
                 "/api/translate",
                 "/api/document/pdf",
+                "/api/sources",
+                "/api/sources/{source_id}/credentials",
+                "/api/sources/{source_id}/probe",
+                "/api/sources/{source_id}/enabled",
+                "/api/sources/commercial-mode",
             },
         )
 

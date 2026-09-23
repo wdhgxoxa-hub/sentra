@@ -40,9 +40,15 @@ import time
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.routing import APIRoute
 
+from core.sources.registry import (
+    InMemorySourcesState,
+    PostgresSourcesState,
+    SourcesStateRepository,
+)
+
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
-from .sidecar import config, documents, gemini, health, scan, search
+from .sidecar import config, documents, gemini, health, scan, search, sources
 from .sidecar.context import (
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -64,11 +70,20 @@ TOKEN_ENV_VAR = "RIR_SIDECAR_TOKEN"
 MIN_TOKEN_LENGTH = 32
 
 #: Routers montados, en este orden.
-ROUTERS = (health, scan, config, gemini, documents, search)
+ROUTERS = (health, scan, config, gemini, documents, search, sources)
 
 
 class SidecarSinToken(RuntimeError):
     """El sidecar no puede servir sin token salvo con `--insecure-dev`."""
+
+
+def _estado_de_fuentes(persist: bool, postgres_dsn: str | None) -> SourcesStateRepository:
+    """sources_state en PostgreSQL si se persiste; en memoria si no (tests, demo sin base)."""
+    if not persist:
+        return InMemorySourcesState()
+    from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+
+    return PostgresSourcesState(postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN)
 
 
 def create_app(
@@ -108,6 +123,7 @@ def create_app(
         postgres_dsn=postgres_dsn,
         env_path=env_path,
         started_at=time.monotonic(),
+        sources_state=_estado_de_fuentes(persist_default, postgres_dsn),
         mode="reddit" if is_reddit_fetcher(dependencies.fetcher) else "synthetic",
     )
 
