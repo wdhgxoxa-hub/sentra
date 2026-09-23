@@ -15,7 +15,6 @@ from pydantic import BaseModel
 
 from core.evidence.author import load_or_create_salt
 from core.sources import http as fuentes_http
-from core.sources.budget import SourceBudget
 from core.sources.catalog import SOURCES
 from core.sources.persist import persist_multiscan, record_source_outcomes
 from core.sources.profile import ScanProfile
@@ -65,7 +64,9 @@ def _guardar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> st
 
         async def guardar() -> None:
             async with PostgresStore(dsn=ctx.postgres_dsn, author_salt=salt) as store:
-                await persist_multiscan(store, run_id, resultado, vector_store=vectores)
+                await persist_multiscan(
+                    store, run_id, resultado, vector_store=vectores,
+                    retention={c.id: c.retention_days for c in SOURCES if c.retention_days})
 
         run_async(guardar())
         return None
@@ -127,7 +128,7 @@ def router(ctx: SidecarContext) -> APIRouter:
                     vectores = ctx.evidence_vectors() if ctx.evidence_vectors else None
                     async with fuentes_http.new_client() as cliente:
                         adaptadores = [
-                            clase(http=cliente, budget=SourceBudget(source=clase.id),
+                            clase(http=cliente, budget=clase.default_budget(),
                                   credentials=credentials_for(clase, env), author_salt=salt)
                             for clase in activas
                         ]

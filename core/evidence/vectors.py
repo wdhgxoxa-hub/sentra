@@ -121,6 +121,11 @@ class EvidenceVectorStore:
         )
         return len(filas)
 
+    def delete(self, ids: Sequence[str]) -> None:
+        """Borra por id global (purga por retención)."""
+        if ids:
+            self._table.delete(f"id IN ({', '.join(_sql_literal(i) for i in ids)})")
+
     def get(self, evidence_id: str) -> dict[str, Any] | None:
         filas = (
             self._table.search().where(f"id = {_sql_literal(evidence_id)}").limit(1).to_list()

@@ -44,6 +44,10 @@ class AlmacenDoble:
     async def finish_run(self, run_id, stats, errors=(), status="completed", **_):
         self.llamadas.append(("cierre", run_id, dict(stats), list(errors), status))
 
+    async def purge_expired_evidence(self, source, days):
+        self.llamadas.append(("purga", source, days))
+        return [f"{source}:caducado"]
+
 
 class VectoresDoble:
     def __init__(self):
@@ -52,6 +56,9 @@ class VectoresDoble:
     def upsert(self, items, vectors=None):
         self.recibido = ([i.id for i in items], dict(vectors or {}))
         return len(items)
+
+    def delete(self, ids):
+        self.borrados = list(ids)
 
 
 def resultado():
@@ -102,6 +109,20 @@ class TestPersistencia(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resumen["status"], "cancelled")
         # Lo traído hasta la cancelación se guarda igual (AUD-010).
         self.assertEqual(almacen.llamadas[0][1], ["hn:1", "se:9", "hn:2"])
+
+    async def test_purga_lo_caducado_de_las_fuentes_con_retencion(self):
+        # Políticas de YouTube: refrescar o borrar en 30 días; también los vectores.
+        almacen, vectores = AlmacenDoble(), VectoresDoble()
+        resumen = await persist_multiscan(almacen, "run-1", resultado(), vector_store=vectores,
+                                          retention={"youtube": 30})
+        self.assertIn(("purga", "youtube", 30), almacen.llamadas)
+        self.assertEqual(vectores.borrados, ["youtube:caducado"])
+        self.assertEqual(resumen["purged"], 1)
+
+    async def test_sin_retencion_no_se_purga_nada(self):
+        almacen = AlmacenDoble()
+        await persist_multiscan(almacen, "run-1", resultado())
+        self.assertFalse([llamada for llamada in almacen.llamadas if llamada[0] == "purga"])
 
     async def test_los_vectores_son_de_los_canonicos_y_se_reutilizan(self):
         vectores = VectoresDoble()

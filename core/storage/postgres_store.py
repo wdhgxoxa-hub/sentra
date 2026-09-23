@@ -33,7 +33,7 @@ import os
 import sys
 import uuid
 from collections.abc import Coroutine, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Self
 
 from core.evidence.author import AuthorSaltMissing, author_hash, es_autor_identificable
@@ -444,6 +444,27 @@ class PostgresStore:
             )
         await self.connection.commit()
         return len(items)
+
+    async def purge_expired_evidence(
+        self, source: str, days: int, now: datetime | None = None
+    ) -> list[str]:
+        """Borra la evidencia de `source` no refrescada en `days` días.
+
+        Lo exigen los términos de algunas plataformas (YouTube: refrescar o
+        borrar en 30 días). Los duplicados que la apuntan caen en cascada.
+        Devuelve los ids borrados, para purgar también sus vectores.
+        """
+        limite = (now or datetime.now(UTC)) - timedelta(days=days)
+        filas = await self._fetchall(
+            """
+            DELETE FROM evidence_items
+             WHERE tenant_id = %s AND source = %s AND fetched_at < %s
+            RETURNING id
+            """,
+            (self.tenant_id, source, limite),
+        )
+        await self.connection.commit()
+        return sorted(str(f["id"]) for f in filas)
 
     async def save_duplicates(self, duplicates: Sequence[Duplicate]) -> int:
         """Anota el crossposting (F2.6). Las dos filas ya deben estar guardadas."""

@@ -149,6 +149,24 @@ class TestUpsertEvidence(unittest.TestCase):
         # Repetir no duplica.
         self.assertEqual(run_async(main()), 2)
 
+    def test_purga_la_evidencia_de_una_fuente_mas_vieja_que_su_retencion(self):
+        # Políticas de la API de YouTube: refrescar o borrar en 30 días.
+        from datetime import timedelta
+
+        viejo = AHORA - timedelta(days=31)
+        self.guardar(item("40", source="youtube", id="youtube:v40", fetched_at=viejo),
+                     item("41", source="youtube", id="youtube:v41", fetched_at=AHORA),
+                     item("42", fetched_at=viejo))
+
+        async def main():
+            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+                return await store.purge_expired_evidence("youtube", days=30, now=AHORA)
+
+        self.assertEqual(run_async(main()), ["youtube:v40"])
+        self.assertIsNone(self.fila("youtube:v40"))
+        self.assertIsNotNone(self.fila("youtube:v41"), "refrescada dentro del plazo")
+        self.assertIsNotNone(self.fila("stackexchange:42"), "otra fuente no se toca")
+
     def test_una_ejecucion_multifuente_se_marca_real(self):
         async def main():
             async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:

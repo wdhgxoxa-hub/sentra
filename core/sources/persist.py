@@ -37,12 +37,16 @@ class EvidenceStore(Protocol):
         status: str = "completed",
     ) -> None: ...
 
+    async def purge_expired_evidence(self, source: str, days: int) -> list[str]: ...
+
 
 class VectorStore(Protocol):
     def upsert(
         self, items: Sequence[EvidenceItem],
         vectors: Mapping[str, Sequence[float]] | None = None,
     ) -> int: ...
+
+    def delete(self, ids: Sequence[str]) -> None: ...
 
 
 def _error_de(progreso: SourceProgress) -> str:
@@ -56,12 +60,22 @@ async def persist_multiscan(
     result: MultiScanResult,
     *,
     vector_store: VectorStore | None = None,
+    retention: Mapping[str, int] | None = None,
 ) -> dict[str, Any]:
-    """Guarda el escaneo y cierra su ejecución. Devuelve el resumen guardado."""
+    """Guarda el escaneo y cierra su ejecución. Devuelve el resumen guardado.
+
+    `retention` (fuente -> días) purga lo que esos términos no dejan guardar
+    más tiempo sin refrescar (YouTube: 30 días), en la base y en los vectores.
+    """
     await store.upsert_evidence(result.fetched, run_id=run_id)
     await store.save_duplicates(result.duplicates)
     if vector_store is not None:
         vector_store.upsert(result.items, vectors=result.vectors)
+    purgados: list[str] = []
+    for fuente, dias in (retention or {}).items():
+        purgados += await store.purge_expired_evidence(fuente, dias)
+    if purgados and vector_store is not None:
+        vector_store.delete(purgados)
 
     fallidas = [p for p in result.per_source.values() if p.status == "failed"]
     errores = [_error_de(p) for p in fallidas]
@@ -77,7 +91,7 @@ async def persist_multiscan(
     await store.finish_run(run_id, stats, errores, status=estado)
     return {"runId": run_id, "status": estado, "stored": len(result.fetched),
             "canonical": len(result.items), "duplicates": len(result.duplicates),
-            "errors": errores}
+            "errors": errores, "purged": len(purgados)}
 
 
 def record_source_outcomes(

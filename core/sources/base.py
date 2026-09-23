@@ -122,6 +122,13 @@ class SourceAdapter(ABC):
     #: Motivo por el que la fuente aún no puede hacer llamadas reales (R7); None = puede.
     #: Con motivo: nunca entra en un escaneo y «Probar» no sale a la red.
     pending_approval: ClassVar[str | None] = None
+    #: Días que los términos dejan guardar la evidencia sin refrescarla; None = sin límite.
+    retention_days: ClassVar[int | None] = None
+
+    @classmethod
+    def default_budget(cls) -> SourceBudget:
+        """Presupuesto de un escaneo (D-M4); las fuentes con cuota propia lo cambian."""
+        return SourceBudget(source=cls.id)
 
     #: Espera máxima que se acepta dentro del escaneo; más larga, error con su valor.
     MAX_WAIT_S: ClassVar[float] = 30.0

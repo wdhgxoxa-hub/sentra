@@ -111,6 +111,13 @@ class TestAlmacenDeEvidencia(unittest.TestCase):
         self.assertEqual(self.almacen.upsert([]), 0)
         self.assertEqual(self.almacen.count(), 0)
 
+    def test_delete_borra_por_id_global(self):
+        self.almacen.upsert([item("1", "uno"), item("2", "dos")])
+        self.almacen.delete(["hackernews:1", "no:existe"])
+        self.assertEqual(self.almacen.count(), 1)
+        self.assertIsNone(self.almacen.get("hackernews:1"))
+        self.almacen.delete([])
+
     def test_embed_da_los_vectores_por_id_y_upsert_los_reutiliza(self):
         # e5-large en CPU es lento: lo que calculó la deduplicación no se repite.
         items = [item("1", "invoice export pain"), item("2", "garden flowers")]

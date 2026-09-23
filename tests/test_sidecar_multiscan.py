@@ -130,6 +130,28 @@ class TestEscaneoMultifuente(ConfigTestCase):
                 mock.patch.object(multiscan, "_nuevo_id", return_value="scan-fijo"):
             self.assertFalse(self.escanear(persist=False)[-1]["cancelled"])
 
+    def test_cada_fuente_escanea_con_su_presupuesto_propio(self):
+        # D-M4: el presupuesto es de cada fuente (YouTube cuenta unidades).
+        from core.orchestration.sidecar import multiscan
+        from core.sources.budget import SourceBudget
+        from core.sources.hackernews import HackerNewsSource
+
+        class HNCorta(HackerNewsSource):
+            @classmethod
+            def default_budget(cls):
+                return SourceBudget(source=cls.id, max_requests=1)
+
+        peticiones = []
+
+        def manejador(peticion):
+            peticiones.append(peticion)
+            return hn_con_una_queja(peticion)
+
+        with con_transporte(manejador), mock.patch.object(multiscan, "SOURCES", (HNCorta,)):
+            final = self.escanear(persist=False)[-1]
+        self.assertEqual(len(peticiones), 1)
+        self.assertEqual(final["perSource"]["hackernews"]["requests"], 1)
+
     def test_si_no_se_puede_abrir_la_ejecucion_se_dice_y_no_se_guarda(self):
         from core.orchestration.sidecar import multiscan
 
