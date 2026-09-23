@@ -31,13 +31,13 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
-from .base import LLMError
+from .base import LLMError, LLMModelUnavailable, ModelInfo
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
 KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{35}")
@@ -315,3 +315,99 @@ def ping(
             except GeminiTruncated:
                 pass  # agotar el límite de la prueba no dice nada de la clave
             break
+
+
+# --- Modelos en vivo (F1.2, F1.3) ---------------------------------------------
+
+#: Familia de modelos admitida. La 2.5 está en retirada: no se elige nunca por
+#: defecto (el usuario puede guardar cualquiera de la lista si lo prefiere).
+FAMILIA = 3
+
+#: Nombre de un modelo de texto de Gemini: «gemini-3.6-flash»,
+#: «gemini-3.1-pro-preview», «gemini-3-flash-preview-09-2026»...
+_NOMBRE = re.compile(r"^gemini-(?P<mayor>\d+)(?:\.(?P<menor>\d+))?-(?P<tipo>flash|pro)(?P<resto>.*)$")
+
+#: Sufijo de un modelo estable: ninguno, o una versión fijada («-001»).
+_ESTABLE = re.compile(r"^(-\d{3})?$")
+
+#: Sufijo de una vista previa del modelo base (con fecha o sin ella). Las
+#: variantes (lite, image, tts, live, customtools...) no encajan en ninguno.
+_PREVIA = re.compile(r"^-preview(-\d{2}-\d{4})?$")
+
+UsoDeModelo = Literal["defecto", "documentos"]
+
+
+def _candidato(modelo: ModelInfo, tipo: str, admite_previa: bool) -> tuple[int, int, int] | None:
+    """Clave de orden si el modelo sirve para ese uso; None si no."""
+    partes = _NOMBRE.match(modelo.id)
+    if partes is None or partes["tipo"] != tipo or int(partes["mayor"]) != FAMILIA:
+        return None
+    resto = partes["resto"]
+    if _ESTABLE.match(resto):
+        estable = 1
+    elif admite_previa and _PREVIA.match(resto):
+        estable = 0
+    else:
+        return None
+    return int(partes["menor"] or 0), estable, len(resto)
+
+
+def elegir_modelo(
+    modelos: Sequence[ModelInfo],
+    uso: UsoDeModelo,
+    guardado: str | None = None,
+) -> ModelInfo:
+    """El modelo que se usa, elegido entre los que la clave puede usar.
+
+    - Si hay uno guardado y sigue en la lista, ese: la elección del usuario manda.
+      Si ya no está, error tipado que pide elegir otro, nunca un cambio silencioso.
+    - Por defecto: el Flash ESTABLE de la familia 3.x con la versión más alta.
+    - Para documentos: el Pro más reciente de la familia 3.x, estable o en vista
+      previa; a igual versión gana el estable.
+    """
+    if guardado:
+        for modelo in modelos:
+            if modelo.id == guardado:
+                return modelo
+        raise LLMModelUnavailable(
+            f"El modelo guardado {guardado} ya no está disponible para esta clave; "
+            "elige otro en Ajustes."
+        )
+
+    tipo, admite_previa = ("flash", False) if uso == "defecto" else ("pro", True)
+    puntuados = [
+        (clave, modelo)
+        for modelo in modelos
+        if (clave := _candidato(modelo, tipo, admite_previa)) is not None
+    ]
+    if not puntuados:
+        estabilidad = "estable " if not admite_previa else ""
+        raise LLMModelUnavailable(
+            f"La clave no tiene ningún Gemini {FAMILIA}.x {tipo} {estabilidad}disponible; "
+            "elige un modelo en Ajustes."
+        )
+    return max(puntuados, key=lambda par: par[0])[1]
+
+
+class GeminiProvider:
+    """Implementación de `LLMProvider` sobre el SDK de Gemini."""
+
+    def __init__(self, api_key: str, client_factory: ClientFactory | None = None) -> None:
+        self._api_key = api_key
+        self._fabrica = client_factory or _cliente_real
+
+    def list_models(self) -> list[ModelInfo]:
+        """Modelos que la clave puede usar para generar texto (`models.list`)."""
+        with frontera(self._api_key):
+            cliente = self._fabrica(self._api_key)  # vivo durante la petición (AUD-031)
+            modelos = [
+                ModelInfo(
+                    id=str(m.name).removeprefix("models/"),
+                    display_name=str(getattr(m, "display_name", None) or m.name),
+                    input_token_limit=getattr(m, "input_token_limit", None),
+                    output_token_limit=getattr(m, "output_token_limit", None),
+                )
+                for m in cliente.models.list()
+                if "generateContent" in (getattr(m, "supported_actions", None) or [])
+            ]
+        return modelos
