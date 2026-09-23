@@ -49,6 +49,15 @@ class TestConfiguracionDeCalidad(unittest.TestCase):
         self.assertEqual(len(core), 1, overrides)
         self.assertTrue(core[0]["disallow_untyped_defs"])
 
+    def test_los_scripts_se_revisan_aunque_no_esten_anotados(self):
+        """Sin esto mypy no mira el cuerpo de las funciones sin anotar, y un
+        script que llamaba al cliente con un argumento que ya no existe
+        pasaba limpio (AUD-014)."""
+        overrides = self.config["mypy"]["overrides"]
+        scripts = [o for o in overrides if o.get("module") == "scripts.*"]
+        self.assertEqual(len(scripts), 1, overrides)
+        self.assertTrue(scripts[0]["check_untyped_defs"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -388,11 +388,11 @@ class PostgresStore:
         await self.connect()
         return self
 
-    async def __aexit__(self, *exc_info) -> None:
+    async def __aexit__(self, *exc_info: object) -> None:
         await self.aclose()
 
     @property
-    def connection(self):
+    def connection(self) -> AsyncConnection[dict[str, Any]]:
         if self._conn is None:
             raise RuntimeError("PostgresStore no está conectado: usa 'async with'.")
         return self._conn

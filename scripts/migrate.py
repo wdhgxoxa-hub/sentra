@@ -42,6 +42,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -210,11 +211,26 @@ def apply_migration(conn, migration: Migration) -> int:
         raise MigrationError(f"Fallo aplicando {migration}: {exc}") from exc
 
 
+class AppliedMigration(TypedDict):
+    migration: str
+    ms: int
+
+
+class MigrationReport(TypedDict):
+    """Lo que devuelven `migrate` y `status`."""
+
+    dsn: str
+    total: int
+    already_applied: list[int]
+    pending: list[str]
+    applied: list[AppliedMigration]
+
+
 def migrate(
     dsn: str | None = None,
     directory: str | Path | None = None,
     dry_run: bool = False,
-) -> dict[str, object]:
+) -> MigrationReport:
     """
     Aplica todas las migraciones pendientes.
 
@@ -231,7 +247,7 @@ def migrate(
         already = applied_migrations(conn)
         pending = pending_migrations(migrations, already)
 
-        report: dict[str, object] = {
+        report: MigrationReport = {
             "dsn": _redact(dsn),
             "total": len(migrations),
             "already_applied": sorted(already),
@@ -259,7 +275,7 @@ def migrate(
 def status(
     dsn: str | None = None,
     directory: str | Path | None = None,
-) -> dict[str, object]:
+) -> MigrationReport:
     """Informe de situación, sin aplicar nada."""
     return migrate(dsn=dsn, directory=directory, dry_run=True)
 

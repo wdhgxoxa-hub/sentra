@@ -119,7 +119,7 @@ class JTBDAnalyzer:
         if not scores:
             return "general", 0.3
 
-        best_intent = max(scores, key=scores.get)
+        best_intent = max(scores, key=lambda intent: scores[intent])
         confidence = min(0.4 + (scores[best_intent] * 0.2), 1.0)
         return best_intent, round(confidence, 2)
 

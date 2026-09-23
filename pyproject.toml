@@ -27,3 +27,10 @@ warn_unused_ignores = true
 # mypy deja de revisar.
 module = "core.*"
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# Los scripts no están anotados del todo, pero se revisa el cuerpo de sus
+# funciones: sin esto mypy no vio que demo_ingestion llamaba al cliente
+# con un argumento que ya no existía.
+module = "scripts.*"
+check_untyped_defs = true

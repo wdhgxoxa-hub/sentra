@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from core.ingestion import PainPointFilter
 from core.ingestion.errors import RedditAccessError
@@ -465,7 +466,7 @@ def build_graph(
     max_cycles: int = DEFAULT_MAX_CYCLES,
     min_score: float = MIN_SIGNAL_SCORE,
     cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
-):
+) -> CompiledStateGraph[RadarState]:
     """
     Compila la máquina de estados.
 

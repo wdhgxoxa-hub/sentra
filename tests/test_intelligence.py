@@ -78,7 +78,7 @@ class TestTemporalScorer(unittest.TestCase):
     def test_default_weights_are_not_shared_mutable_state(self):
         """Los pesos por defecto son de la clase: nadie puede cambiarlos para todos."""
         with self.assertRaises(TypeError):
-            TemporalScorer.DEFAULT_WEIGHTS["spread"] = 1.0  # type: ignore[index]
+            TemporalScorer.DEFAULT_WEIGHTS["spread"] = 1.0
         self.scorer.weights["spread"] = 0.0
         self.assertEqual(TemporalScorer().weights["spread"], 0.25)
 

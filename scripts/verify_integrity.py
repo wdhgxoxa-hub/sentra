@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
 REPOS_DIR = BASE_DIR / "repos"
@@ -233,7 +234,7 @@ def run_audit():
     total_intact = [r for r in results if r["is_fully_intact"]]
     issues = [r for r in results if not r["is_fully_intact"]]
 
-    audit_summary = {
+    audit_summary: dict[str, Any] = {
         "audit_timestamp": "2026-09-18T11:10:00Z",
         "total_repositories": len(results),
         "total_fully_intact": len(total_intact),

@@ -22,11 +22,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
 from .state import MIN_SIGNAL_SCORE
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +124,7 @@ def build_tools(
 def create_server(
     deps: RadarDependencies | None = None,
     gate_min_score: float = MIN_SIGNAL_SCORE,
-):
+) -> FastMCP:
     """Crea el servidor MCP con las tres herramientas registradas."""
     from mcp.server.fastmcp import FastMCP
 

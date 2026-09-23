@@ -13,7 +13,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import Any, cast
 
 from core.storage import LanceDBStore
 
@@ -147,6 +147,18 @@ def create_default_dependencies(
     )
 
 
+def _como_estado(valores: Any) -> RadarState:
+    """
+    Lo que devuelve el grafo, como el estado que es.
+
+    LangGraph tipa el resultado de `invoke`, `ainvoke` y del modo `values`
+    de `astream` como un diccionario genérico, pero es el estado del
+    esquema con el que se compiló el grafo: `StateGraph(RadarState)` en
+    `build_graph`. Aquí, en la frontera con la librería, se dice una vez.
+    """
+    return cast(RadarState, valores)
+
+
 class RadarPipeline:
     """
     Punto de entrada único para ejecutar el radar de extremo a extremo.
@@ -191,8 +203,8 @@ class RadarPipeline:
         interesa a quien consulta, pero descarta `signals` y
         `filtered_items`, que son justo lo que hay que escribir en la base.
         """
-        return self._graph.invoke(
-            new_state(subreddit=subreddit, limit=limit, sort=sort)
+        return _como_estado(
+            self._graph.invoke(new_state(subreddit=subreddit, limit=limit, sort=sort))
         )
 
     async def arun_state(
@@ -202,8 +214,8 @@ class RadarPipeline:
         sort: str = "hot",
     ) -> RadarState:
         """Gemelo asíncrono de `run_state`."""
-        return await self._graph.ainvoke(
-            new_state(subreddit=subreddit, limit=limit, sort=sort)
+        return _como_estado(
+            await self._graph.ainvoke(new_state(subreddit=subreddit, limit=limit, sort=sort))
         )
 
     async def astream_state(
@@ -239,7 +251,7 @@ class RadarPipeline:
                 pending_node = next(iter(chunk), None)
                 continue
 
-            last_state = chunk
+            last_state = _como_estado(chunk)
             if pending_node:
                 yield ("node", {"node": pending_node, "state": chunk})
                 pending_node = None

@@ -14,6 +14,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
+from typing import TypedDict
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
 REPOS_DIR = BASE_DIR / "repos"
@@ -21,7 +22,17 @@ LOGS_DIR = BASE_DIR / "logs"
 RESULTS_FILE = LOGS_DIR / "clone_results.json"
 ERRORS_FILE = LOGS_DIR / "errors.log"
 
-NEW_REPOSITORIES = [
+class Repositorio(TypedDict):
+    id: str
+    owner: str
+    repo: str
+    category: str
+    tag: str
+    reason: str
+    preferred_files: list[str]
+
+
+NEW_REPOSITORIES: list[Repositorio] = [
     {
         "id": "reddit-find",
         "owner": "LeadGrowGTM",

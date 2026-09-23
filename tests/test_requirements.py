@@ -18,6 +18,7 @@ import functools
 import re
 import sys
 import unittest
+from collections.abc import Mapping
 from importlib import metadata
 from pathlib import Path
 
@@ -76,7 +77,7 @@ def normalizar(nombre: str) -> str:
 
 
 @functools.cache
-def _distribuciones() -> dict[str, list[str]]:
+def _distribuciones() -> Mapping[str, list[str]]:
     # Recorre todo lo instalado: lento, así que una sola vez.
     return metadata.packages_distributions()
 

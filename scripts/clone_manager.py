@@ -9,6 +9,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 BASE_DIR = Path(r"F:\reddit_intelligence_radar")
 REPOS_DIR = BASE_DIR / "repos"
@@ -413,7 +414,7 @@ def run_clone():
         # Verificar si ya fue clonado exitosamente
         if target_folder.exists() and (target_folder / ".git").exists():
             print(f"  [OK] El repositorio ya existe en {target_folder}. Omitiendo descarga.")
-            status_entry = {
+            status_entry: dict[str, Any] = {
                 "id": repo_id,
                 "owner": owner,
                 "repo": repo,
