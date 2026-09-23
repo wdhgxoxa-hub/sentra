@@ -19,7 +19,6 @@ def hit_to_camel(hit: Any) -> dict[str, Any]:
         "id": hit.id,
         "text": hit.text,
         "subreddit": hit.subreddit,
-        "author": hit.author,
         "opportunityScore": hit.opportunity_score,
         "urgencyTier": hit.urgency_tier,
         "jobStatement": hit.job_statement,

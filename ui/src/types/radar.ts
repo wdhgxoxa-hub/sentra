@@ -230,7 +230,6 @@ export interface HybridSearchHit {
   id: string;
   text: string;
   subreddit: string;
-  author: string;
   opportunityScore: number;
   urgencyTier: UrgencyTier;
   jobStatement: string;

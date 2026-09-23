@@ -206,7 +206,6 @@ def signal_to_record(
         id=signal.id,
         text=signal.text,
         subreddit=signal.subreddit,
-        author=signal.author,
         score=int(raw_score),
         created_utc=float(signal.created_utc),
         buying_intent=signal.buying_intent,

@@ -32,7 +32,6 @@ class HybridSearchResult(BaseModel):
     id: str
     text: str
     subreddit: str = ""
-    author: str = ""
     score: int = 0
     opportunity_score: float = 0.0
     urgency_tier: str = "LOW"
@@ -219,7 +218,6 @@ class HybridSearchEngine:
                     id=doc_id,
                     text=doc_data.get("text", ""),
                     subreddit=doc_data.get("subreddit", ""),
-                    author=doc_data.get("author", "[deleted]"),
                     score=int(doc_data.get("score", 0)),
                     opportunity_score=float(doc_data.get("opportunity_score", 0.0)),
                     urgency_tier=doc_data.get("urgency_tier", "LOW"),

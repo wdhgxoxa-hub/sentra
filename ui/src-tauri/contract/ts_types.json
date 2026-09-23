@@ -88,7 +88,6 @@
       "urgencyTier"
     ],
     "HybridSearchHit": [
-      "author",
       "bm25Rank",
       "bm25Score",
       "currentSolution",

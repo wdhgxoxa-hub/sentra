@@ -129,7 +129,6 @@ class TestInsertion(StoreTestCase):
                 "a1",
                 "pierdo horas con la conciliacion bancaria",
                 subreddit="smallbusiness",
-                author="u/contable",
                 score=42,
                 urgency_tier="HIGH",
                 opportunity_score=0.87,
@@ -144,6 +143,44 @@ class TestInsertion(StoreTestCase):
         self.assertEqual(stored["urgency_tier"], "HIGH")
         self.assertAlmostEqual(stored["opportunity_score"], 0.87, places=6)
         self.assertTrue(stored["workaround_detected"])
+
+
+class TestSinAutor(StoreTestCase):
+    """R9: el nombre de usuario no se guarda en el almacén vectorial."""
+
+    def test_el_registro_no_tiene_autor(self):
+        self.assertNotIn("author", OpportunityRecord.model_fields)
+
+    def test_la_tabla_no_tiene_columna_de_autor(self):
+        self.assertNotIn("author", self.store._table.schema.names)
+
+    def test_una_tabla_antigua_pierde_la_columna_y_conserva_las_filas(self):
+        import lancedb
+        import pyarrow as pa
+
+        antiguo = tempfile.mkdtemp(prefix="rir_test_")
+        self.addCleanup(shutil.rmtree, antiguo, True)
+        esquema = pa.schema([
+            pa.field("id", pa.string()), pa.field("text", pa.string()),
+            pa.field("author", pa.string()),
+            pa.field("vector", pa.list_(pa.float32(), TEST_DIM)),
+        ])
+        tabla = lancedb.connect(antiguo).create_table(LanceDBStore.TABLE_NAME, schema=esquema)
+        tabla.add([{"id": "t3_viejo", "text": "texto antiguo", "author": "u/nombre_real",
+                    "vector": [0.1] * TEST_DIM}])
+
+        reabierto = LanceDBStore(db_path=antiguo, embedder=self.embedder)
+        self.assertNotIn("author", reabierto._table.schema.names)
+        filas = reabierto._table.to_arrow().to_pylist()
+        self.assertEqual([f["id"] for f in filas], ["t3_viejo"])
+        self.assertNotIn("nombre_real", str(filas))
+
+    def test_la_busqueda_no_devuelve_autor(self):
+        self.store.insert_opportunities([_record("a1", "conciliacion bancaria a mano")])
+        motor = HybridSearchEngine(store=self.store)
+        resultados = motor.search("conciliacion", limit=1)
+        self.assertTrue(resultados)
+        self.assertFalse(hasattr(resultados[0], "author"))
 
 
 class TestReopening(StoreTestCase):

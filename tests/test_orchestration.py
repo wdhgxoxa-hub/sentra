@@ -192,7 +192,8 @@ class TestSignalToRecord(unittest.TestCase):
         record = signal_to_record(self.signal)
         self.assertEqual(record.id, PAIN_POST["id"])
         self.assertEqual(record.subreddit, PAIN_POST["subreddit"])
-        self.assertEqual(record.author, PAIN_POST["author"])
+        # R9: el autor no pasa al almacén vectorial.
+        self.assertFalse(hasattr(record, "author"))
 
     def test_opportunity_score_comes_from_the_score_breakdown(self):
         record = signal_to_record(self.signal)

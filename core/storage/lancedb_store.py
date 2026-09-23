@@ -87,7 +87,7 @@ class OpportunityRecord(BaseModel):
     id: str
     text: str
     subreddit: str = ""
-    author: str = "[deleted]"
+    # Sin autor: el nombre de usuario no se guarda en ningún almacén (R9).
     score: int = 0
     created_utc: float = 0.0
     buying_intent: str = "none"
@@ -158,7 +158,6 @@ class LanceDBStore:
             pa.field("id", pa.string()),
             pa.field("text", pa.string()),
             pa.field("subreddit", pa.string()),
-            pa.field("author", pa.string()),
             pa.field("score", pa.int64()),
             pa.field("created_utc", pa.float64()),
             pa.field("buying_intent", pa.string()),
@@ -195,8 +194,15 @@ class LanceDBStore:
         if self.TABLE_NAME in self._existing_tables():
             table = self._db.open_table(self.TABLE_NAME)
             self._ensure_data_source_column(table)
+            self._drop_author_column(table)
             return table
         return self._db.create_table(self.TABLE_NAME, schema=self._get_schema())
+
+    @staticmethod
+    def _drop_author_column(table: Table) -> None:
+        """Quita el autor en claro de una tabla escrita antes de R9."""
+        if "author" in table.schema.names:
+            table.drop_columns(["author"])
 
     @staticmethod
     def _ensure_data_source_column(table: Table) -> None:
@@ -226,7 +232,6 @@ class LanceDBStore:
                 "id": r.id,
                 "text": r.text,
                 "subreddit": r.subreddit or "",
-                "author": r.author or "[deleted]",
                 "score": int(r.score),
                 "created_utc": float(r.created_utc),
                 "buying_intent": r.buying_intent or "none",

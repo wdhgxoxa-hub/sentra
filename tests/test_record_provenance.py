@@ -82,7 +82,9 @@ class TestLanceDB(unittest.TestCase):
         # Una tabla escrita antes de D-J: sin columna data_source.
         db = lancedb.connect(str(self.tmp / "vieja"))
         esquema = almacen(self.tmp / "molde")._get_schema()
-        antiguo = pa.schema([c for c in esquema if c.name != "data_source"])
+        # Como era de verdad: sin data_source y con el autor en claro (antes de R9).
+        antiguo = pa.schema([c for c in esquema if c.name != "data_source"]
+                            + [pa.field("author", pa.string())])
         db.create_table(LanceDBStore.TABLE_NAME, data=[{
             "id": "t3_viejo", "text": "old", "subreddit": "", "author": "",
             "score": 0, "created_utc": 0.0, "buying_intent": "none",
