@@ -23,7 +23,13 @@ export default function App() {
   useEffect(() => {
     const unlisten = onRadarEvent((event) => {
       applyProgress(event);
-      if (event.type === "run:finished" || event.type === "run:error") {
+      // Un escaneo cancelado también deja datos: lo cosechado hasta ese
+      // momento se guarda, así que la caché queda igual de vieja (AUD-010).
+      if (
+        event.type === "run:finished" ||
+        event.type === "run:cancelled" ||
+        event.type === "run:error"
+      ) {
         queryClient.invalidateQueries({ queryKey: queryKeys.radar });
       }
     });

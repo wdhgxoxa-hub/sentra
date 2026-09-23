@@ -355,6 +355,19 @@ export const NODE_LABELS: Record<PipelineNode, string> = {
   aggregate: "Agregación",
 };
 
+/** Campos del cierre de un escaneo, terminado o cancelado. */
+export interface RunClosedFields {
+  runId: string;
+  persistedRunId: string | null;
+  persistError: string | null;
+  qualified: number;
+  clusters: number;
+  stats: RunStats;
+  errors: string[];
+  dataSource: DataSource;
+  top: RunTopOutcome | null;
+}
+
 /**
  * Progreso de un escaneo, empujado por Rust.
  *
@@ -370,18 +383,12 @@ export type RadarEvent =
       cycle: number;
       stats: RunStats;
     }
-  | {
-      type: "run:finished";
-      runId: string;
-      persistedRunId: string | null;
-      persistError: string | null;
-      qualified: number;
-      clusters: number;
-      stats: RunStats;
-      errors: string[];
-      dataSource: DataSource;
-      top: RunTopOutcome | null;
-    }
+  | ({ type: "run:finished" } & RunClosedFields)
+  /**
+   * Trae lo mismo que `run:finished`: lo cosechado hasta la cancelación se
+   * guarda marcado como tal. No es un error (AUD-010).
+   */
+  | ({ type: "run:cancelled" } & RunClosedFields)
   | {
       type: "run:error";
       runId: string;

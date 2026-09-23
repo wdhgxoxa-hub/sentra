@@ -37,7 +37,7 @@ SIDECAR = RAIZ / "core" / "orchestration" / "sidecar_server.py"
 #: Discrepancias conocidas y ya registradas como hallazgo. Debe quedar vacío
 #: cuando se corrigen: el test falla si aparece otra, o si una desaparece
 #: sin quitarla de aquí.
-EVENTOS_PENDIENTES = {"run:cancelled"}  # AUD-010
+EVENTOS_PENDIENTES: set[str] = set()
 
 
 def interfaz(nombre: str) -> set[str]:

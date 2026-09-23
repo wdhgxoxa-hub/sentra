@@ -25,7 +25,8 @@ export interface ScanProgress {
   currentNode: PipelineNode | null;
   cycle: number;
   stats: RunStats;
-  status: "running" | "finished" | "error";
+  /** `cancelled` no es un fallo: lo pidió quien miraba (AUD-010). */
+  status: "running" | "finished" | "cancelled" | "error";
   message: string | null;
   /** Motivo del fallo, si lo hubo. Se muestra traducido, nunca en crudo. */
   errorCode: ScanErrorCode | null;
@@ -104,13 +105,15 @@ export const useProgressStore = create<ProgressState>((set) => ({
         };
       }
 
-      if (event.type === "run:finished") {
+      // Un escaneo cancelado trae lo mismo que uno terminado: lo cosechado
+      // hasta entonces. Solo cambia el estado, que no es de error (AUD-010).
+      if (event.type === "run:finished" || event.type === "run:cancelled") {
         return {
           runs: {
             ...state.runs,
             [event.runId]: {
               ...previous,
-              status: "finished",
+              status: event.type === "run:cancelled" ? "cancelled" : "finished",
               currentNode: null,
               stats: { ...previous.stats, ...event.stats },
               qualified: event.qualified,
@@ -123,19 +126,26 @@ export const useProgressStore = create<ProgressState>((set) => ({
         };
       }
 
-      return {
-        runs: {
-          ...state.runs,
-          [event.runId]: {
-            ...previous,
-            status: "error",
-            currentNode: null,
-            message: null,
-            errorCode: event.code,
-            retryAfterSeconds: event.retryAfterSeconds,
+      if (event.type === "run:error") {
+        return {
+          runs: {
+            ...state.runs,
+            [event.runId]: {
+              ...previous,
+              status: "error",
+              currentNode: null,
+              message: null,
+              errorCode: event.code,
+              retryAfterSeconds: event.retryAfterSeconds,
+            },
           },
-        },
-      };
+        };
+      }
+
+      // Si aparece un evento nuevo en la unión, TypeScript obliga a tratarlo
+      // aquí: antes, uno sin rama caía en la de error (AUD-010).
+      const sinTratar: never = event;
+      return sinTratar;
     }),
 
   clear: (runId) =>

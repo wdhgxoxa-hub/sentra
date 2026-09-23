@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+import { AlertCircle, Ban, CheckCircle2, Loader2, X } from "lucide-react";
 
 import { PipelineGraph } from "@/components/PipelineGraph";
 import type { Dictionary } from "@/i18n/es";
@@ -48,14 +48,23 @@ export function ScanProgressBar({
 
   const running = progress.status === "running";
   const failed = progress.status === "error";
+  const cancelled = progress.status === "cancelled";
 
   const barColor = failed
     ? "bg-danger"
-    : running
-      ? "bg-accent"
-      : "bg-ok";
+    : cancelled
+      ? "bg-ink-faint"
+      : running
+        ? "bg-accent"
+        : "bg-ok";
 
-  const StatusIcon = failed ? AlertCircle : running ? Loader2 : CheckCircle2;
+  const StatusIcon = failed
+    ? AlertCircle
+    : cancelled
+      ? Ban
+      : running
+        ? Loader2
+        : CheckCircle2;
 
   return (
     <div className="enter rounded-card border border-border bg-surface p-3 shadow-[var(--shadow-card)]">
@@ -65,13 +74,20 @@ export function ScanProgressBar({
             className={`size-4 shrink-0 ${
               failed
                 ? "text-danger"
-                : running
-                  ? "animate-spin text-accent"
-                  : "text-ok"
+                : cancelled
+                  ? "text-ink-faint"
+                  : running
+                    ? "animate-spin text-accent"
+                    : "text-ok"
             }`}
             aria-hidden="true"
           />
           <span className="truncate font-mono text-sm">r/{progress.subreddit}</span>
+          {cancelled && (
+            <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-soft">
+              {t.pipeline.cancelled}
+            </span>
+          )}
           <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-soft">
             {t.pipeline.cycle} {progress.cycle}
           </span>

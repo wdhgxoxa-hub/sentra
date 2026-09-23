@@ -53,10 +53,26 @@ for (const nodo of fuente.statements) {
   if (ts.isTypeAliasDeclaration(nodo) && ts.isUnionTypeNode(nodo.type)) {
     const variantes = {};
     for (const miembro of nodo.type.types) {
-      if (!ts.isTypeLiteralNode(miembro)) continue;
-      const tipo = miembro.members.find((m) => nombreDe(m) === "type");
+      // Una variante es un literal de objeto, o su intersección con una
+      // interfaz del mismo archivo que aporta los campos comunes:
+      // `({ type: "run:cancelled" } & RunClosedFields)`.
+      const partes = ts.isIntersectionTypeNode(miembro)
+        ? miembro.types
+        : ts.isParenthesizedTypeNode(miembro) && ts.isIntersectionTypeNode(miembro.type)
+          ? miembro.type.types
+          : [miembro];
+      const literal = partes.find(ts.isTypeLiteralNode);
+      if (!literal) continue;
+      const tipo = literal.members.find((m) => nombreDe(m) === "type");
       if (!tipo?.type || !ts.isLiteralTypeNode(tipo.type)) continue;
-      variantes[tipo.type.literal.text] = clavesDe(miembro.members);
+      const claves = new Set(clavesDe(literal.members));
+      for (const parte of partes) {
+        if (!ts.isTypeReferenceNode(parte)) continue;
+        const comunes = interfaces[parte.typeName.getText(fuente)];
+        if (!comunes) throw new Error(`Interfaz no declarada antes de la unión: ${parte.typeName.getText(fuente)}`);
+        for (const clave of comunes) claves.add(clave);
+      }
+      variantes[tipo.type.literal.text] = [...claves].sort();
     }
     if (Object.keys(variantes).length > 0) uniones[nodo.name.text] = variantes;
   }

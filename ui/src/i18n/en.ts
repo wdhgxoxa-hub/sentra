@@ -153,6 +153,7 @@ export const en: Dictionary = {
     running: "Scans in progress",
     clearFinished: "Clear finished",
     cancel: "Cancel",
+    cancelled: "Cancelled",
     watched: "Watched communities",
     addPlaceholder: "r/SaaS",
     tagsPlaceholder: "vertical, priority",

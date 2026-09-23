@@ -171,6 +171,17 @@
       "rejected",
       "stored"
     ],
+    "RunClosedFields": [
+      "clusters",
+      "dataSource",
+      "errors",
+      "persistError",
+      "persistedRunId",
+      "qualified",
+      "runId",
+      "stats",
+      "top"
+    ],
     "RunTopOutcome": [
       "complete",
       "found",
@@ -344,6 +355,18 @@
         "type"
       ],
       "run:finished": [
+        "clusters",
+        "dataSource",
+        "errors",
+        "persistError",
+        "persistedRunId",
+        "qualified",
+        "runId",
+        "stats",
+        "top",
+        "type"
+      ],
+      "run:cancelled": [
         "clusters",
         "dataSource",
         "errors",

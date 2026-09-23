@@ -152,6 +152,7 @@ export const es = {
     running: "Escaneos en curso",
     clearFinished: "Limpiar terminados",
     cancel: "Cancelar",
+    cancelled: "Cancelado",
     watched: "Comunidades vigiladas",
     addPlaceholder: "r/SaaS",
     tagsPlaceholder: "vertical, prioritario",
