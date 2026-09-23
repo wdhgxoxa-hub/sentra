@@ -497,6 +497,8 @@ export const en: Dictionary = {
     personalOnly: "Personal use only",
     excludedByCommercial: "Excluded by commercial mode",
     public: "Public, no credentials",
+    publicOptional: "Public; an optional key raises the quota",
+    optionalSaved: "Optional key saved: raised quota",
     lastVerified: "Last real response: {when}",
     neverVerified: "Never verified with a real response",
     terms: "Terms",

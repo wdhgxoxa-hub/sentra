@@ -502,6 +502,8 @@ export const es = {
     personalOnly: "Solo uso personal",
     excludedByCommercial: "Excluida por el modo comercial",
     public: "Pública, sin credenciales",
+    publicOptional: "Pública; una clave opcional sube la cuota",
+    optionalSaved: "Clave opcional guardada: cuota ampliada",
     lastVerified: "Última respuesta real: {when}",
     neverVerified: "Nunca verificada con una respuesta real",
     terms: "Términos",

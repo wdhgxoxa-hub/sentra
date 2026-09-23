@@ -15,6 +15,19 @@ const PUNTO: Record<SourceStatusName, string> = {
   deshabilitada_por_usuario: "bg-ink-faint",
 };
 
+type Acceso = "public" | "publicOptional" | "optionalSaved" | null;
+
+/**
+ * Qué decir del acceso de una fuente que no exige credenciales. «Pública, sin
+ * credenciales» solo si no admite ninguna: si tiene una opcional guardada,
+ * decir lo contrario sería mentir (la interfaz nunca miente).
+ */
+export function acceso(card: SourceCard): Acceso {
+  if (card.requiresCredentials) return null;
+  if (card.credentialFields.length === 0) return "public";
+  return card.credentialFields.some((c) => c.configured) ? "optionalSaved" : "publicOptional";
+}
+
 /** Fecha y hora locales de una marca ISO 8601: la verificación puede ser de otro día. */
 function fechaLocal(iso: string): string {
   return new Date(iso).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
@@ -50,6 +63,7 @@ export function SourceCardView({ card }: { card: SourceCard }) {
   };
 
   const resultado = probar.data;
+  const textoAcceso = acceso(card);
 
   return (
     <article className="rounded-card border border-border bg-surface p-4">
@@ -90,7 +104,7 @@ export function SourceCardView({ card }: { card: SourceCard }) {
           {/* Texto seleccionable: la ventana no abre enlaces externos. */}
           <dd className="inline select-all break-all">{card.termsUrl}</dd>
         </div>
-        {!card.requiresCredentials && <div>{t.sources.public}</div>}
+        {textoAcceso && <div>{t.sources[textoAcceso]}</div>}
       </dl>
 
       {/* Sin configurar con motivo (p. ej. pendiente de aprobación, R7): se dice por qué. */}
