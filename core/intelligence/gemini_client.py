@@ -244,7 +244,11 @@ def stream_text(
         entregado = False
         try:
             with frontera(api_key):
-                respuesta = fabrica(api_key).models.generate_content_stream(
+                # El cliente se guarda en una variable a propósito: al destruirse
+                # cierra su transporte HTTP, y como temporal CPython lo destruía
+                # antes de enviar nada. Tiene que vivir hasta agotar el stream.
+                cliente = fabrica(api_key)
+                respuesta = cliente.models.generate_content_stream(
                     model=model, contents=contents, config=config
                 )
                 for trozo in respuesta:
@@ -277,7 +281,8 @@ def generate_text(
     for intento in range(max_retries + 1):
         try:
             with frontera(api_key):
-                respuesta = fabrica(api_key).models.generate_content(
+                cliente = fabrica(api_key)  # vivo durante la petición (ver stream_text)
+                respuesta = cliente.models.generate_content(
                     model=model, contents=contents, config=config
                 )
                 _revisar(respuesta)
@@ -305,7 +310,8 @@ def ping(
     """
     fabrica = client_factory or _cliente_real
     with frontera(api_key):
-        respuesta = fabrica(api_key).models.generate_content_stream(
+        cliente = fabrica(api_key)  # vivo durante la petición (ver stream_text)
+        respuesta = cliente.models.generate_content_stream(
             model=model, contents="ping", config=config
         )
         for trozo in respuesta:

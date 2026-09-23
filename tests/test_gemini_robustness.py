@@ -281,5 +281,67 @@ class TestCodigosTraducidos(unittest.TestCase):
             self.assertEqual(codigos - traducidos, set(), idioma)
 
 
+class ClienteComoElSdk:
+    """Como google.genai.Client: al destruirse cierra el transporte HTTP que
+    comparte con `models`, y una petición sobre un transporte cerrado falla.
+
+    Los demás dobles no lo imitan, y por eso pasaba en verde un código que
+    creaba el cliente como temporal (`fabrica(clave).models...`): CPython lo
+    destruía nada más leer `.models` y ninguna petición real llegaba a salir.
+    """
+
+    def __init__(self, respuesta):
+        self.transporte = {"cerrado": False}
+        self.models = ModelosComoElSdk(self.transporte, respuesta)
+
+    def __del__(self):
+        self.transporte["cerrado"] = True
+
+
+class ModelosComoElSdk:
+    def __init__(self, transporte, respuesta):
+        self.transporte = transporte
+        self.respuesta = respuesta
+
+    def _enviar(self):
+        if self.transporte["cerrado"]:
+            raise RuntimeError("Cannot send a request, as the client has been closed.")
+
+    def generate_content(self, **_kwargs):
+        self._enviar()
+        return self.respuesta
+
+    def generate_content_stream(self, **_kwargs):
+        self._enviar()
+
+        def stream():
+            self._enviar()  # el SDK pide cada trozo por el mismo transporte
+            yield self.respuesta
+
+        return stream()
+
+
+class TestCicloDeVidaDelCliente(ConEsperaFalsa):
+    """El cliente del SDK tiene que vivir mientras dure la petición."""
+
+    def fabrica(self, _clave):
+        return ClienteComoElSdk(trozo("hola", "STOP"))
+
+    def test_stream_text_llega_a_enviar(self):
+        textos = list(gemini_client.stream_text(
+            "clave", model="m", contents="x", config=None, client_factory=self.fabrica,
+        ))
+        self.assertEqual(textos, ["hola"])
+
+    def test_generate_text_llega_a_enviar(self):
+        texto = gemini_client.generate_text(
+            "clave", model="m", contents="x", client_factory=self.fabrica,
+        )
+        self.assertEqual(texto, "hola")
+
+    def test_ping_llega_a_enviar(self):
+        gemini_client.ping("clave", model="m", config=None, client_factory=self.fabrica)
+
+
 if __name__ == "__main__":
     unittest.main()
