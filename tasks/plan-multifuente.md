@@ -22,14 +22,14 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 
 ## Fase 1 — Motor de IA
 
-- [ ] T1.1 Protocolo `LLMProvider`, errores tipados y `UsageRecord` (tokens de entrada, salida y razonamiento, modelo y duración). Test: ningún módulo fuera de `core/llm/` importa `google.genai` (test AST).
-- [ ] T1.2 `GeminiProvider.list_models()` y la elección del modelo por defecto, con criterio documentado. Test: selección con listas simuladas (3.x flash/pro, preview frente a estable, familia 2.5 ausente).
-- [ ] T1.3 `generate_text`, `stream_text` y `ping` movidos detrás del proveedor, sin perder AUD-020 ni AUD-031. Los tests existentes siguen verdes.
-- [ ] T1.4 `generate_json(schema)`: salida estructurada nativa, validación Pydantic, un reintento con el error y, si vuelve a fallar, `LLMInvalidJson`.
-- [ ] T1.5 Presupuesto LLM por escaneo (D-M4). Al agotarse, `LLMBudgetExhausted`, que el escaneo detiene con un motivo tipado.
-- [ ] T1.6 Sidecar y UI: la configuración lista los modelos en vivo; el modelo guardado que desaparece da error traducido; se retira el `gemini-2.5-*` fijo.
-- [ ] T1.7 Verificación real: 2 llamadas (probar la clave y un `generate_json` corto).
-- **Checkpoint F1**: suites y herramientas a 0, e informe.
+- [x] T1.1 Protocolo `LLMProvider`, errores tipados y `UsageRecord` (tokens de entrada, salida y razonamiento, modelo y duración). Test: ningún módulo fuera de `core/llm/` importa `google.genai` (test AST).
+- [x] T1.2 `GeminiProvider.list_models()` y la elección del modelo por defecto, con criterio documentado. Test: selección con listas simuladas (3.x flash/pro, preview frente a estable, familia 2.5 ausente).
+- [x] T1.3 `generate_text`, `stream_text` y `ping` movidos detrás del proveedor, sin perder AUD-020 ni AUD-031. Los tests existentes siguen verdes.
+- [x] T1.4 `generate_json(schema)`: salida estructurada nativa, validación Pydantic, un reintento con el error y, si vuelve a fallar, `LLMInvalidJson`.
+- [x] T1.5 Presupuesto LLM por escaneo (D-M4). Al agotarse, `LLMBudgetExhausted`, que el escaneo detiene con un motivo tipado. *(El corte del escaneo se engancha en T3.3, donde el escaneo empieza a llamar al LLM.)*
+- [x] T1.6 Sidecar y UI: la configuración lista los modelos en vivo; el modelo guardado que desaparece da error traducido; se retira el `gemini-2.5-*` fijo.
+- [x] T1.7 Verificación real: 2 llamadas (probar la clave y un `generate_json` corto).
+- **Checkpoint F1** ✅ 2026-09-23: 2 llamadas reales (models.list y generate_json con gemini-3.8-flash).
 
 ## Fase 2 — Núcleo multifuente
 
