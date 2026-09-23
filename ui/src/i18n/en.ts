@@ -418,6 +418,7 @@ export const en: Dictionary = {
   errors: {
     unknown: "An unexpected error occurred.",
     database: "The database could not be read or written. Check that PostgreSQL is running.",
+    database_unavailable: "No connection to PostgreSQL: the server did not answer or rejected the credentials.",
     sidecar: "The analysis engine answered with a failure.",
     sidecar_unreachable: "The analysis engine is not running. Restart the application.",
     sidecar_timeout: "The analysis engine took too long to answer.",
@@ -437,6 +438,12 @@ export const en: Dictionary = {
     internal_error: "Internal engine failure.",
     architect_protocol: "The engine returned an answer the app does not understand.",
     architect_interrupted: "The connection to the engine dropped before the document was finished.",
+  },
+
+  database: {
+    title: "No database",
+    hint: "Start PostgreSQL (or check RIR_PG_URL and pgpass.conf) and press Retry. Settings are still available in the menu.",
+    retrying: "Connecting…",
   },
 
   common: {

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::engine::{sidecar_health, sidecar_url};
-use crate::db::{AppState, RadarResult};
+use crate::db::{connect_options, AppState, DatabaseStatus, RadarResult};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,13 +73,19 @@ pub async fn get_app_health(state: State<'_, AppState>) -> RadarResult<AppHealth
         detail: format!("Tauri {}", env!("CARGO_PKG_VERSION")),
     };
 
-    let postgres = match sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.pool)
-        .await
-    {
-        Ok(_) => ComponentHealth {
-            ok: true,
-            detail: "conectado".into(),
+    let postgres = match state.db.pool() {
+        Ok(pool) => match sqlx::query_scalar::<_, i32>("SELECT 1")
+            .fetch_one(&pool)
+            .await
+        {
+            Ok(_) => ComponentHealth {
+                ok: true,
+                detail: "conectado".into(),
+            },
+            Err(err) => ComponentHealth {
+                ok: false,
+                detail: format!("sin conexion: {err}"),
+            },
         },
         Err(err) => ComponentHealth {
             ok: false,
@@ -180,4 +186,16 @@ mod tests {
     fn sin_bloque_de_fuente_no_hay_estado() {
         assert!(source_from_sidecar(&json!({ "status": "ok" })).is_none());
     }
+}
+
+/// Si hay conexion con PostgreSQL y, si no, por que (D-F).
+#[tauri::command]
+pub fn get_database_status(state: State<'_, AppState>) -> DatabaseStatus {
+    state.db.status()
+}
+
+/// Vuelve a intentar la conexion con PostgreSQL (boton «Reintentar»).
+#[tauri::command]
+pub async fn retry_database(state: State<'_, AppState>) -> RadarResult<DatabaseStatus> {
+    Ok(state.db.reintentar(connect_options()).await)
 }

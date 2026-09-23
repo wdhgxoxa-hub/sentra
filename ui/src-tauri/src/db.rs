@@ -5,6 +5,9 @@
 //! hacer un SELECT. El sidecar Python queda para lo que solo el sabe hacer
 //! (ejecutar el grafo, generar embeddings, busqueda hibrida sobre LanceDB).
 
+use std::sync::{PoisonError, RwLock};
+use std::time::Duration;
+
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 
 /// DSN por defecto, alineado con `core/storage/postgres_store.py`.
@@ -19,7 +22,7 @@ const DSN_ENV_VAR: &str = "RIR_PG_URL";
 /// propio pool de conexiones, y construir uno por peticion desperdiciaria
 /// el handshake con el sidecar.
 pub struct AppState {
-    pub pool: PgPool,
+    pub db: Database,
     pub http: reqwest::Client,
 }
 
@@ -30,6 +33,11 @@ pub struct AppState {
 pub enum RadarError {
     #[error("error de base de datos: {0}")]
     Database(#[from] sqlx::Error),
+
+    /// No hay conexion con PostgreSQL: no respondio al arrancar ni en el
+    /// ultimo reintento (D-F). Se guarda el motivo para enseñarlo.
+    #[error("{0}")]
+    DatabaseUnavailable(String),
 
     /// El motor Python respondio con un fallo sin codigo propio.
     #[error("{0}")]
@@ -65,6 +73,7 @@ impl RadarError {
     pub fn code(&self) -> &str {
         match self {
             RadarError::Database(_) => "database",
+            RadarError::DatabaseUnavailable(_) => "database_unavailable",
             RadarError::Sidecar(_) => "sidecar",
             RadarError::SidecarUnreachable(_) => "sidecar_unreachable",
             RadarError::SidecarTimeout(_) => "sidecar_timeout",
@@ -158,13 +167,87 @@ pub fn options_from_pgpass(database: &str) -> Option<PgConnectOptions> {
     None
 }
 
+/// Cuanto se espera a PostgreSQL al conectar. Sin limite, sqlx insiste 30 s
+/// antes de rendirse, y la ventana tardaria eso en aparecer.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Estado de la conexion tal como lo ve la interfaz (D-F).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseStatus {
+    pub connected: bool,
+    /// Codigo traducible del fallo; `None` si hay conexion.
+    pub code: Option<String>,
+    /// Detalle tecnico del fallo, para «Detalles tecnicos».
+    pub detail: Option<String>,
+}
+
+/// La base de datos de la aplicacion, que puede no estar disponible.
+///
+/// Antes el arranque hacia `expect` sobre el pool: sin PostgreSQL la app se
+/// cerraba sin llegar a abrir ventana. Ahora arranca igual, cada comando que
+/// necesita la base recibe `database_unavailable` y la interfaz enseña una
+/// pantalla de estado con «Reintentar».
+pub struct Database {
+    estado: RwLock<Result<PgPool, String>>,
+}
+
+impl Database {
+    /// Intenta conectar. Nunca falla: un fallo queda guardado como estado.
+    pub async fn conectar(opciones: PgConnectOptions) -> Self {
+        Self {
+            estado: RwLock::new(Self::abrir(opciones).await),
+        }
+    }
+
+    async fn abrir(opciones: PgConnectOptions) -> Result<PgPool, String> {
+        create_pool_with(opciones).await.map_err(|err| {
+            log::warn!("PostgreSQL no disponible: {err}");
+            err.to_string()
+        })
+    }
+
+    /// El pool, o `database_unavailable` si no hay conexion.
+    pub fn pool(&self) -> RadarResult<PgPool> {
+        match &*self.estado.read().unwrap_or_else(PoisonError::into_inner) {
+            Ok(pool) => Ok(pool.clone()),
+            Err(detalle) => Err(RadarError::DatabaseUnavailable(detalle.clone())),
+        }
+    }
+
+    pub fn status(&self) -> DatabaseStatus {
+        match self.pool() {
+            Ok(_) => DatabaseStatus {
+                connected: true,
+                code: None,
+                detail: None,
+            },
+            Err(error) => DatabaseStatus {
+                connected: false,
+                code: Some(error.code().to_string()),
+                detail: Some(error.to_string()),
+            },
+        }
+    }
+
+    /// Vuelve a intentar la conexion si no la hay. Con conexion no hace nada.
+    pub async fn reintentar(&self, opciones: PgConnectOptions) -> DatabaseStatus {
+        if self.pool().is_err() {
+            let nuevo = Self::abrir(opciones).await;
+            *self.estado.write().unwrap_or_else(PoisonError::into_inner) = nuevo;
+        }
+        self.status()
+    }
+}
+
 /// Abre el pool de conexiones.
 ///
 /// `search_path` se fija en la propia conexion para que las consultas no
 /// tengan que cualificar cada tabla con el esquema.
-pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
+async fn create_pool_with(opciones: PgConnectOptions) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
         .max_connections(5)
+        .acquire_timeout(CONNECT_TIMEOUT)
         .after_connect(|conn, _meta| {
             Box::pin(async move {
                 sqlx::query("SET search_path = radar, public")
@@ -173,7 +256,7 @@ pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
                 Ok(())
             })
         })
-        .connect_with(connect_options())
+        .connect_with(opciones)
         .await
 }
 
@@ -191,6 +274,7 @@ mod tests {
         // tests/test_gemini_robustness.py contra el mismo bloque.
         let todos = vec![
             RadarError::Database(sqlx::Error::PoolClosed),
+            RadarError::DatabaseUnavailable("x".into()),
             RadarError::Sidecar("x".into()),
             RadarError::SidecarUnreachable("x".into()),
             RadarError::SidecarTimeout("x".into()),
@@ -200,6 +284,7 @@ mod tests {
         for error in &todos {
             match error {
                 RadarError::Database(_)
+                | RadarError::DatabaseUnavailable(_)
                 | RadarError::Sidecar(_)
                 | RadarError::SidecarUnreachable(_)
                 | RadarError::SidecarTimeout(_)
@@ -230,6 +315,29 @@ mod tests {
                     .then(|| clave.to_string())
             })
             .collect()
+    }
+
+    /// Nada escucha en el puerto 1: la conexion se rechaza al momento.
+    const URL_SIN_BASE: &str = "postgres://nadie@127.0.0.1:1/nada";
+
+    #[tokio::test]
+    async fn sin_base_la_app_queda_sin_base_con_codigo_y_sin_panic() {
+        let base = Database::conectar(URL_SIN_BASE.parse().unwrap()).await;
+        let error = base.pool().expect_err("sin base no puede haber pool");
+        assert_eq!(error.code(), "database_unavailable");
+
+        let estado = base.status();
+        assert!(!estado.connected);
+        assert_eq!(estado.code.as_deref(), Some("database_unavailable"));
+        assert!(estado.detail.is_some_and(|d| !d.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn reintentar_sin_base_sigue_sin_base_y_sin_panic() {
+        let base = Database::conectar(URL_SIN_BASE.parse().unwrap()).await;
+        let estado = base.reintentar(URL_SIN_BASE.parse().unwrap()).await;
+        assert!(!estado.connected);
+        assert_eq!(estado.code.as_deref(), Some("database_unavailable"));
     }
 
     #[test]

@@ -23,18 +23,17 @@ use std::sync::Arc;
 
 use tauri::{Manager, RunEvent};
 
-use db::AppState;
+use db::{AppState, Database};
 use sidecar::SidecarManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = tokio::runtime::Runtime::new().expect("no se pudo crear el runtime");
 
-    // El pool se abre antes de arrancar la ventana: si la base no responde,
-    // conviene enterarse ahora y no en la primera consulta del usuario.
-    let pool = runtime
-        .block_on(db::create_pool())
-        .expect("no se pudo conectar a PostgreSQL: revisa RIR_PG_URL");
+    // La base se abre antes de arrancar la ventana, pero su fallo ya no
+    // cierra la aplicacion (D-F): queda como estado, la interfaz enseña por
+    // que y deja reintentar.
+    let db = runtime.block_on(Database::conectar(db::connect_options()));
 
     // Un unico cliente HTTP para todo el proceso: reqwest mantiene su
     // propio pool de conexiones hacia el sidecar.
@@ -50,7 +49,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(AppState {
-            pool,
+            db,
             http: http.clone(),
         })
         .manage(manager.clone())
@@ -101,6 +100,8 @@ pub fn run() {
             commands::architect::generate_architecture,
             // Estado agregado
             commands::health::get_app_health,
+            commands::health::get_database_status,
+            commands::health::retry_database,
         ])
         .build(tauri::generate_context!())
         .expect("fallo al construir la aplicacion")

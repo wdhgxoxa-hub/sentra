@@ -403,3 +403,15 @@ fn generate_architecture_emite_architect_chunk_con_su_fallo_tipado() {
     );
     assert_eq!(claves(&json["error"]), claves_ts("ArchitectFailure"));
 }
+
+#[test]
+fn get_database_status_devuelve_database_status() {
+    cumple(
+        &crate::db::DatabaseStatus {
+            connected: false,
+            code: Some("database_unavailable".into()),
+            detail: Some(texto()),
+        },
+        "DatabaseStatus",
+    );
+}

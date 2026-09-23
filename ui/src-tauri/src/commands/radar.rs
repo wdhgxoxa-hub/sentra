@@ -103,7 +103,7 @@ pub async fn get_radar_feed(
     .bind(params.min_score.unwrap_or(0.0))
     .bind(params.subreddit)
     .bind(params.limit.unwrap_or(50))
-    .fetch_all(&state.pool)
+    .fetch_all(&state.db.pool()?)
     .await?;
 
     Ok(rows)
@@ -337,7 +337,7 @@ pub async fn get_opportunity_board(
         .bind(params.min_score.unwrap_or(0.0))
         .bind(params.qualified_only.unwrap_or(false))
         .bind(params.limit.unwrap_or(20))
-        .fetch_all(&state.pool)
+        .fetch_all(&state.db.pool()?)
         .await?;
 
     rows.into_iter().map(OpportunityCluster::try_from).collect()
@@ -352,7 +352,7 @@ pub async fn get_opportunity_detail(
     state: State<'_, AppState>,
     cluster_key: String,
 ) -> RadarResult<Option<OpportunityCluster>> {
-    cluster_por_clave(&state.pool, &cluster_key).await
+    cluster_por_clave(&state.db.pool()?, &cluster_key).await
 }
 
 /// La misma lectura, sin pasar por el comando.
@@ -427,7 +427,7 @@ pub async fn get_cluster_history(
     )
     .bind(LOCAL_TENANT)
     .bind(cluster_key)
-    .fetch_all(&state.pool)
+    .fetch_all(&state.db.pool()?)
     .await?;
 
     Ok(rows)
@@ -491,7 +491,7 @@ pub async fn get_subreddits(
         "#,
     )
     .bind(LOCAL_TENANT)
-    .fetch_all(&state.pool)
+    .fetch_all(&state.db.pool()?)
     .await?;
 
     Ok(rows)
@@ -556,7 +556,7 @@ pub async fn get_pipeline_runs(
     )
     .bind(LOCAL_TENANT)
     .bind(limit.unwrap_or(50))
-    .fetch_all(&state.pool)
+    .fetch_all(&state.db.pool()?)
     .await?;
 
     Ok(rows)
@@ -678,7 +678,7 @@ pub async fn top_de_la_ultima_ejecucion(
 pub async fn get_top_opportunities(
     state: State<'_, AppState>,
 ) -> RadarResult<Option<TopOpportunities>> {
-    top_de_la_ultima_ejecucion(&state.pool).await
+    top_de_la_ultima_ejecucion(&state.db.pool()?).await
 }
 
 #[cfg(test)]

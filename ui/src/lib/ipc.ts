@@ -25,6 +25,7 @@ import {
   type GeminiSummary,
   type QuoteTranslation,
   type AppHealth,
+  type DatabaseStatus,
   type BoardParams,
   type ClusterHistoryPoint,
   type FeedParams,
@@ -155,6 +156,12 @@ export const ipc = {
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),
+
+  /** [pg] Si hay conexión con PostgreSQL y, si no, por qué (D-F). */
+  getDatabaseStatus: () => invoke<DatabaseStatus>("get_database_status"),
+
+  /** [pg] Vuelve a intentar la conexión con PostgreSQL. */
+  retryDatabase: () => invoke<DatabaseStatus>("retry_database"),
 } as const;
 
 /**

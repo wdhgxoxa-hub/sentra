@@ -52,6 +52,9 @@ export const queryKeys = {
   runs: (limit: number) => ["radar", "runs", limit] as const,
   top: ["radar", "top"] as const,
   health: ["radar", "health"] as const,
+  // Fuera de ["radar"] a propósito: invalidar los datos no debe volver a
+  // preguntar por la conexión, que solo cambia al reintentar.
+  database: ["database"] as const,
   settings: ["radar", "settings"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
   blueprint: (key: string, language: string) =>
@@ -123,6 +126,27 @@ export function useTopOpportunities() {
  * Se refresca sola cada 30 s: que el sidecar se haya caido es justo lo que
  * hay que saber sin tener que recargar la ventana.
  */
+/** Conexión con PostgreSQL (D-F). */
+export function useDatabaseStatus() {
+  return useQuery({
+    queryKey: queryKeys.database,
+    queryFn: () => ipc.getDatabaseStatus(),
+    staleTime: Infinity,
+  });
+}
+
+/** Reintenta la conexión; si vuelve, todo lo leído antes queda viejo. */
+export function useRetryDatabase() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => ipc.retryDatabase(),
+    onSuccess: (status) => {
+      client.setQueryData(queryKeys.database, status);
+      if (status.connected) void client.invalidateQueries({ queryKey: queryKeys.radar });
+    },
+  });
+}
+
 export function useAppHealth() {
   return useQuery({
     queryKey: queryKeys.health,

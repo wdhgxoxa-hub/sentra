@@ -50,7 +50,7 @@ pub async fn update_opportunity_status(
     notes: Option<String>,
     assigned_to: Option<String>,
 ) -> RadarResult<ClusterValidation> {
-    set_validation(&state.pool, &cluster_key, &status, notes, assigned_to).await
+    set_validation(&state.db.pool()?, &cluster_key, &status, notes, assigned_to).await
 }
 
 /// Logica de la validacion, separada del comando para poder probarla sin
@@ -155,7 +155,7 @@ pub async fn upsert_subreddit(
     state: State<'_, AppState>,
     params: UpsertSubredditParams,
 ) -> RadarResult<SubredditRow> {
-    save_subreddit(&state.pool, params).await
+    save_subreddit(&state.db.pool()?, params).await
 }
 
 /// Logica del alta/edicion, separada del comando para poder probarla.
@@ -285,22 +285,27 @@ pub async fn cancel_scan(
         _ => false,
     };
 
-    let marked = sqlx::query(
-        r#"
-        UPDATE pipeline_runs
-           SET status      = 'cancelled',
-               finished_at = COALESCE(finished_at, now())
-         WHERE tenant_id = $1::uuid
-           AND id::text = $2
-           AND status = 'running'
-        "#,
-    )
-    .bind(LOCAL_TENANT)
-    .bind(&run_id)
-    .execute(&state.pool)
-    .await
-    .map(|result| result.rows_affected() > 0)
-    .unwrap_or(false);
+    // Sin base (D-F) la cancelacion en el motor sigue valiendo: solo no
+    // queda marcada, igual que si el UPDATE fallara.
+    let marked = match state.db.pool() {
+        Ok(pool) => sqlx::query(
+            r#"
+            UPDATE pipeline_runs
+               SET status      = 'cancelled',
+                   finished_at = COALESCE(finished_at, now())
+             WHERE tenant_id = $1::uuid
+               AND id::text = $2
+               AND status = 'running'
+            "#,
+        )
+        .bind(LOCAL_TENANT)
+        .bind(&run_id)
+        .execute(&pool)
+        .await
+        .map(|result| result.rows_affected() > 0)
+        .unwrap_or(false),
+        Err(_) => false,
+    };
 
     Ok(CancelResult {
         run_id,

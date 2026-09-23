@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 
+import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
 import { onRadarEvent } from "@/lib/ipc";
-import { queryClient, queryKeys } from "@/lib/queries";
+import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
 import { useProgressStore } from "@/stores/progressStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -17,6 +18,8 @@ export default function App() {
   const t = useT();
   const view = useUiStore((state) => state.view);
   const applyProgress = useProgressStore((state) => state.apply);
+  const baseDeDatos = useDatabaseStatus();
+  const sinBase = baseDeDatos.data !== undefined && !baseDeDatos.data.connected;
 
   // Un único suscriptor para todo el progreso: alimenta el store y, cuando
   // el escaneo termina, invalida la caché en lugar de sondear.
@@ -54,11 +57,19 @@ export default function App() {
               lateral sigue respondiendo y basta con cambiar de sección, que
               además rearma el limite. */}
           <ErrorBoundary textos={t.error} resetKey={view}>
-            {view === "radar" && <RadarViewPage />}
-            {view === "opportunity" && <OpportunityDetail />}
-            {view === "search" && <SearchConsole />}
-            {view === "pipeline" && <PipelineControl />}
-            {view === "settings" && <SettingsView />}
+            {/* Sin PostgreSQL no hay vista que pueda leer nada, salvo los
+                ajustes, que viven en el motor (D-F). */}
+            {sinBase && baseDeDatos.data && view !== "settings" ? (
+              <DatabaseStatusScreen status={baseDeDatos.data} />
+            ) : (
+              <>
+                {view === "radar" && <RadarViewPage />}
+                {view === "opportunity" && <OpportunityDetail />}
+                {view === "search" && <SearchConsole />}
+                {view === "pipeline" && <PipelineControl />}
+                {view === "settings" && <SettingsView />}
+              </>
+            )}
           </ErrorBoundary>
         </div>
       </main>

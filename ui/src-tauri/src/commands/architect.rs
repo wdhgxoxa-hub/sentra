@@ -203,7 +203,7 @@ pub async fn generate_architecture(
     cluster_key: String,
     language: String,
 ) -> RadarResult<String> {
-    let cluster = cluster_por_clave(&state.pool, &cluster_key)
+    let cluster = cluster_por_clave(&state.db.pool()?, &cluster_key)
         .await?
         .ok_or_else(|| {
             RadarError::Invalid(format!(

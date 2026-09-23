@@ -749,6 +749,15 @@ export interface ArchitectChunk {
   error: ArchitectFailure | null;
 }
 
+/** Conexión con PostgreSQL (D-F): sin ella la app arranca y lo dice. */
+export interface DatabaseStatus {
+  connected: boolean;
+  /** Código traducible del fallo; null si hay conexión. */
+  code: string | null;
+  /** Detalle técnico, para «Detalles técnicos». */
+  detail: string | null;
+}
+
 /** Fallo tipado del plan: `code` se traduce, `detail` es técnico. */
 export interface ArchitectFailure {
   code: string;

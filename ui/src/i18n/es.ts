@@ -423,6 +423,7 @@ export const es = {
   errors: {
     unknown: "Ocurrió un error inesperado.",
     database: "No se pudo leer o escribir en la base de datos. Comprueba que PostgreSQL está en marcha.",
+    database_unavailable: "No hay conexión con PostgreSQL: el servidor no respondió o rechazó las credenciales.",
     sidecar: "El motor de análisis respondió con un fallo.",
     sidecar_unreachable: "El motor de análisis no está en marcha. Reinicia la aplicación.",
     sidecar_timeout: "El motor de análisis tardó demasiado en responder.",
@@ -442,6 +443,12 @@ export const es = {
     internal_error: "Fallo interno del motor.",
     architect_protocol: "El motor devolvió una respuesta que la aplicación no entiende.",
     architect_interrupted: "La conexión con el motor se cortó antes de terminar el documento.",
+  },
+
+  database: {
+    title: "Sin base de datos",
+    hint: "Arranca PostgreSQL (o revisa RIR_PG_URL y pgpass.conf) y pulsa Reintentar. Los ajustes siguen disponibles en el menú.",
+    retrying: "Conectando…",
   },
 
   common: {
