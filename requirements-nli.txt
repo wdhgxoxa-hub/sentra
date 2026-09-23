@@ -1,0 +1,14 @@
+# Reddit Intelligence Radar - NLI zero-shot real (OPCIONAL)
+#
+# Sin estos paquetes, ZeroShotNLIClassifier opera SIEMPRE en su modo
+# heurístico de reserva y lo declara (classifier_engine = "heuristic").
+# Habilitarlos supone ~2,5 GB de PyTorch más ~1,6 GB de modelo.
+#
+# NO VERIFICADO en el entorno de referencia: no están instalados, así que no
+# se fijan versiones que nadie ha probado. Las cotas son las que exige el
+# pipeline "zero-shot-classification" que usa core/intelligence/zeroshot_nli.py.
+# Al instalarlos, fija aquí las versiones exactas con las que pase la suite.
+#
+#   scripts/setup_env.ps1 -Nli
+transformers>=4.44,<5
+torch>=2.4

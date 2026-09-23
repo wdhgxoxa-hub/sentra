@@ -3,3 +3,8 @@
 
 # Lee los PDF generados para comprobar su texto real (tests/test_pdf_export.py).
 pypdf==6.19.0
+
+# Linter y comprobador de tipos: su configuración está en pyproject.toml y
+# el código propio se mantiene a cero avisos con ellos (AUD-023, AUD-024).
+ruff==0.16.6
+mypy==2.3.1

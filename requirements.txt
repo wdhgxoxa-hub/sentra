@@ -1,13 +1,25 @@
 # Reddit Intelligence Radar - dependencias de ejecución
 # Versiones fijadas a las verificadas en el entorno (Python 3.12.10, Windows).
+# tests/test_requirements.py exige que todo lo que importan core/ y scripts/
+# esté aquí con versión exacta, y que no sobre nada (salvo lo marcado
+# «# implícita», que se usa sin importarse por nombre).
+#
+# Instalación: scripts/setup_env.ps1 (crea .venv e instala esto).
 
 # --- Fase 2: ingesta ---
 httpx==0.28.1
-requests==2.34.2
+# Cliente HTTP de la ingesta de Reddit y del flujo OAuth (AUD-014 revisa si
+# sigue haciendo falta).
+curl_cffi==0.16.3
 
 # --- Fase 3: inteligencia ---
 scikit-learn==1.9.1
 numpy==2.5.2
+# Configuración de pesos del motor (core/intelligence/engine.py).
+toml==0.10.2
+
+# Motor de arquitectura y traducción (Google Gemini, core/intelligence).
+google-genai==2.19.0
 
 # --- Fase 4: almacenamiento y recuperación ---
 lancedb==0.38.0
@@ -19,7 +31,7 @@ rank-bm25==0.2.2
 # Sin este paquete, core.storage.get_embedder() falla de forma explícita en
 # lugar de degradar en silencio al generador por hash, que NO es semántico.
 fastembed==0.8.0
-onnxruntime==1.30.0
+onnxruntime==1.30.0  # implícita: motor de inferencia de fastembed, fijado al verificado
 
 # --- Fase 5: orquestación y exposición ---
 langgraph==1.2.11
@@ -40,8 +52,6 @@ reportlab==5.0.1
 # core.storage.postgres_store.
 psycopg[binary]==3.3.5
 
-# --- Opcional: NLI zero-shot real (Fase 3) ---
-# Sin estos paquetes, ZeroShotNLIClassifier opera SIEMPRE en su modo heurístico
-# de reserva. Habilitarlos supone ~2,5 GB de PyTorch más ~1,6 GB de modelo.
-# transformers>=4.44
-# torch>=2.4
+# --- Opcional: NLI zero-shot real ---
+# Va aparte, en requirements-nli.txt: sin esos paquetes el clasificador opera
+# en su modo heurístico de reserva y lo declara.
