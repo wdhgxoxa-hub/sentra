@@ -683,6 +683,8 @@ export interface SourceCard {
   detail: string | null;
   disabled: boolean;
   excludedByCommercialMode: boolean;
+  /** Entra en el escaneo (misma regla que el sidecar, no se recalcula aquí). */
+  active: boolean;
   costUnit: SourceCostUnit;
   costNote: string;
 }

@@ -474,6 +474,7 @@ fn las_fuentes_devuelven_sources_overview_source_card_y_probe() {
         detail: None,
         disabled: false,
         excluded_by_commercial_mode: false,
+        active: true,
         cost_unit: "request".into(),
         cost_note: texto(),
     };

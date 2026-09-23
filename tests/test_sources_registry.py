@@ -123,6 +123,19 @@ class TestActivas(unittest.TestCase):
         self.assertTrue(estado.excluded_by_commercial_mode)
         self.assertFalse(source_status(SoloPersonal, {}, None, False).excluded_by_commercial_mode)
 
+    def test_el_estado_dice_si_entra_en_el_escaneo_con_la_misma_regla(self):
+        # La interfaz cuenta «X de N fuentes activas» con este campo: no
+        # repite la regla por su cuenta.
+        guardado = InMemorySourcesState()
+        guardado.set_disabled("personal", True)
+        for comercial in (False, True):
+            activas = {f.id for f in active_sources(FUENTES, {}, guardado, comercial)}
+            marcadas = {f.id for f in FUENTES
+                        if source_status(f, {}, guardado.get(f.id), comercial).active}
+            self.assertEqual(marcadas, activas)
+        self.assertFalse(source_status(ConClave, {}, None, False).active)
+        self.assertTrue(source_status(Publica, {}, None, False).active)
+
 
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"

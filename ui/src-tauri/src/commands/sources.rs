@@ -46,6 +46,7 @@ pub struct SourceCard {
     pub detail: Option<String>,
     pub disabled: bool,
     pub excluded_by_commercial_mode: bool,
+    pub active: bool,
     pub cost_unit: String,
     pub cost_note: String,
 }

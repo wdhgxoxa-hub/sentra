@@ -166,6 +166,8 @@ class SourceStatus(BaseModel):
     detail: str | None
     disabled: bool
     excluded_by_commercial_mode: bool
+    #: Entra en el escaneo: conectada, encendida y permitida por el modo comercial.
+    active: bool
     cost_unit: str
     cost_note: str
 
@@ -202,6 +204,7 @@ def source_status(
     else:
         estado = guardado.status
 
+    excluida = commercial_mode and not fuente.commercial_use_allowed
     return SourceStatus(
         source=fuente.id,
         display_name=fuente.display_name,
@@ -214,7 +217,8 @@ def source_status(
         error_code=guardado.error_code if estado == "error" else None,
         detail=guardado.detail,
         disabled=guardado.disabled,
-        excluded_by_commercial_mode=commercial_mode and not fuente.commercial_use_allowed,
+        excluded_by_commercial_mode=excluida,
+        active=estado not in ("no_configurada", "deshabilitada_por_usuario") and not excluida,
         cost_unit=fuente.cost_model.unit,
         cost_note=fuente.cost_model.note,
     )
@@ -227,12 +231,5 @@ def active_sources(
     commercial_mode: bool,
 ) -> list[type[SourceAdapter]]:
     """Las fuentes que entran en un escaneo: conectadas, encendidas y permitidas."""
-    activas = []
-    for fuente in fuentes:
-        estado = source_status(fuente, env, repo.get(fuente.id), commercial_mode)
-        if estado.status in ("no_configurada", "deshabilitada_por_usuario"):
-            continue
-        if estado.excluded_by_commercial_mode:
-            continue
-        activas.append(fuente)
-    return activas
+    return [f for f in fuentes
+            if source_status(f, env, repo.get(f.id), commercial_mode).active]
