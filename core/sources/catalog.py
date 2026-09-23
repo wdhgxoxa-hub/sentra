@@ -16,9 +16,11 @@ from .github import GitHubSource
 from .hackernews import HackerNewsSource
 from .reddit import RedditSource
 from .stackexchange import StackExchangeSource
+from .youtube import YouTubeSource
 
 SOURCES: tuple[type[SourceAdapter], ...] = (
     HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource, BlueskySource,
+    YouTubeSource,
 )
 
 
