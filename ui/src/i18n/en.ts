@@ -110,6 +110,26 @@ export const en: Dictionary = {
     },
   },
 
+  topSix: {
+    title: "Top {target} opportunities",
+    titleGeneric: "Top opportunities",
+    loading: "Loading the top opportunities…",
+    error: "Could not read the result of the last run.",
+    noRuns: "No run has finished yet. Start a scan from Pipeline.",
+    complete: "Complete ({found}/{target})",
+    partial: "Incomplete ({found}/{target})",
+    incomplete: "Only {found} of {target} opportunities pass the cut.",
+    open: "Open details",
+    sourceDemo: "Demo data",
+    sourceReddit: "Reddit data",
+    sourceUnknown: "Source not recorded",
+    reasons: {
+      fuentes_agotadas: "Everything available was reviewed and the remaining problems do not reach the minimum score.",
+      limite_ciclos: "The scan hit its cycle limit with content still left to review.",
+      sin_acceso_reddit: "The data source could not be read.",
+      datos_insuficientes: "Not enough data: the source ran out before gathering that many distinct problems.",
+    },
+  },
   scanErrors: {
     reddit_credentials_missing: "Reddit credentials are missing. Save them in Settings.",
     reddit_auth_failed: "Reddit rejected the credentials. Check the Client ID and Client Secret.",

@@ -19,7 +19,6 @@ from core.storage import LanceDBStore
 
 from .graph import (
     DEFAULT_MAX_CYCLES,
-    DEFAULT_TARGET_QUALIFIED,
     RadarDependencies,
     build_graph,
 )
@@ -141,7 +140,6 @@ class RadarPipeline:
     def __init__(
         self,
         deps: RadarDependencies | None = None,
-        target_qualified: int = DEFAULT_TARGET_QUALIFIED,
         max_cycles: int = DEFAULT_MAX_CYCLES,
         min_score: float = MIN_SIGNAL_SCORE,
         cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
@@ -152,13 +150,11 @@ class RadarPipeline:
             cluster_threshold: corte del problema CONSOLIDADO (oportunidad).
         """
         self.deps = deps or create_default_dependencies()
-        self.target_qualified = target_qualified
         self.max_cycles = max_cycles
         self.min_score = min_score
         self.cluster_threshold = cluster_threshold
         self._graph = build_graph(
             self.deps,
-            target_qualified=target_qualified,
             max_cycles=max_cycles,
             min_score=min_score,
             cluster_threshold=cluster_threshold,

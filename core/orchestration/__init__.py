@@ -31,7 +31,6 @@ from .aggregation import (
 )
 from .graph import (
     DEFAULT_MAX_CYCLES,
-    DEFAULT_TARGET_QUALIFIED,
     Fetcher,
     RadarDependencies,
     aggregation_node,
@@ -61,7 +60,6 @@ from .state import (
 __all__ = [
     "BLOCKING_RISK_FLAGS",
     "DEFAULT_MAX_CYCLES",
-    "DEFAULT_TARGET_QUALIFIED",
     "MIN_OPPORTUNITY_SCORE",
     "MIN_SIGNAL_SCORE",
     "OPPORTUNITY_CLUSTER_THRESHOLD",

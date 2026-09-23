@@ -16,6 +16,9 @@ pub mod commands;
 pub mod db;
 pub mod sidecar;
 
+#[cfg(test)]
+mod test_support;
+
 use std::sync::Arc;
 
 use tauri::{Manager, RunEvent};
@@ -73,6 +76,7 @@ pub fn run() {
             commands::radar::get_cluster_history,
             commands::radar::get_subreddits,
             commands::radar::get_pipeline_runs,
+            commands::radar::get_top_opportunities,
             // Motor Python
             commands::engine::search_hybrid,
             commands::engine::trigger_scan,

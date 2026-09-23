@@ -140,6 +140,10 @@ class RadarState(TypedDict, total=False):
     # FALLADO: no es una cosecha vacía.
     failure: dict[str, Any] | None
 
+    # Resultado explícito de la ejecución (AUD-007):
+    # `{"target", "found", "complete", "reason"}`, ver top_n.run_outcome.
+    top: dict[str, Any] | None
+
 
 def new_state(
     subreddit: str,
@@ -165,6 +169,7 @@ def new_state(
         clusters=[],
         qualified_clusters=[],
         failure=None,
+        top=None,
     )
 
 

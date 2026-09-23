@@ -451,7 +451,7 @@ class TestGraphCycle(OrchestrationTestCase):
             search_engine=HybridSearchEngine(store=self.store),
         )
         graph = build_graph(
-            deps, target_qualified=1, max_cycles=5, min_score=REACHABLE_CUT
+            deps, max_cycles=5, min_score=REACHABLE_CUT
         )
         final = graph.invoke(new_state(subreddit="smallbusiness"))
 
@@ -461,7 +461,7 @@ class TestGraphCycle(OrchestrationTestCase):
     def test_cycle_stops_at_max_cycles(self):
         fetcher = FakeFetcher([[NOISE_POST]] * 50)
         deps = RadarDependencies(fetcher=fetcher, store=self.store)
-        graph = build_graph(deps, target_qualified=99, max_cycles=3)
+        graph = build_graph(deps, max_cycles=3)
         final = graph.invoke(new_state(subreddit="smallbusiness"))
 
         self.assertLessEqual(final["cycle"], 3)
@@ -492,7 +492,7 @@ class TestGraphCycle(OrchestrationTestCase):
             search_engine=search_engine,
         )
         graph = build_graph(
-            deps, target_qualified=99, max_cycles=2, min_score=REACHABLE_CUT
+            deps, max_cycles=2, min_score=REACHABLE_CUT
         )
         final = graph.invoke(new_state(subreddit="smallbusiness"))
 
@@ -516,7 +516,7 @@ class TestGraphCycle(OrchestrationTestCase):
             store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        graph = build_graph(deps, target_qualified=99, max_cycles=2,
+        graph = build_graph(deps, max_cycles=2,
                             min_score=REACHABLE_CUT)
         final = graph.invoke(new_state(subreddit="smallbusiness"))
 
@@ -534,7 +534,7 @@ class TestGraphCycle(OrchestrationTestCase):
     def test_cycle_stops_when_the_source_is_exhausted(self):
         fetcher = FakeFetcher([[NOISE_POST]])
         deps = RadarDependencies(fetcher=fetcher, store=self.store)
-        graph = build_graph(deps, target_qualified=99, max_cycles=10)
+        graph = build_graph(deps, max_cycles=10)
         graph.invoke(new_state(subreddit="smallbusiness"))
         self.assertEqual(len(fetcher.calls), 1, "sin cursor no hay que reintentar")
 
@@ -1083,7 +1083,7 @@ class TestTwoTierGraph(OrchestrationTestCase):
             store=self.store,
             search_engine=HybridSearchEngine(store=self.store),
         )
-        graph = build_graph(deps, target_qualified=99, max_cycles=2)
+        graph = build_graph(deps, max_cycles=2)
         final = graph.invoke(new_state(subreddit="smallbusiness"))
         self.assertEqual(len(final["all_signals"]), 2,
                          "la agregacion necesita la cosecha completa")

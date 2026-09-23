@@ -41,6 +41,7 @@ from .state import (
     RadarState,
     signal_to_record,
 )
+from .top_n import rank_top, run_outcome, stop_reason
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,6 @@ logger = logging.getLogger(__name__)
 #   (subreddit, limit, sort, cursor) -> (items, next_cursor)
 Fetcher = Callable[..., tuple[Sequence[dict[str, Any]], str | None]]
 
-DEFAULT_TARGET_QUALIFIED = 10
 DEFAULT_MAX_CYCLES = 5
 
 
@@ -319,23 +319,49 @@ def quality_gate_node(
     }
 
 
+def _con_ranking(
+    state: RadarState,
+    clusters: list[dict[str, Any]],
+    qualified: list[dict[str, Any]],
+    max_cycles: int,
+) -> dict[str, Any]:
+    """
+    Marca el Top N y calcula el resultado explícito de la ejecución (AUD-007).
+
+    `top_rank` (1..TOP_N) solo lo llevan las cualificadas que entran en el
+    ranking; el resto queda en None. El resultado se calcula con el mismo
+    criterio de parada que usa el grafo, así que el de la última vuelta es
+    el de la ejecución.
+    """
+    posiciones = {c["key"]: i for i, c in enumerate(rank_top(qualified), start=1)}
+    for cluster in [*clusters, *qualified]:
+        cluster["top_rank"] = posiciones.get(cluster["key"])
+    motivo = stop_reason({**state, "qualified_clusters": qualified}, max_cycles)
+    return {
+        "clusters": clusters,
+        "qualified_clusters": qualified,
+        "top": run_outcome(qualified, len(clusters), motivo),
+    }
+
+
 def aggregation_node(
     state: RadarState,
     deps: RadarDependencies,
     cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
+    max_cycles: int = DEFAULT_MAX_CYCLES,
 ) -> dict[str, Any]:
     """
     Consolida la cosecha completa en problemas recurrentes y los cualifica.
 
     Aquí es donde el corte de 60 puntos tiene sentido: sobre un cluster,
     `spread` y `frequency` reflejan difusión y recurrencia reales, que es
-    lo que la fórmula de scoring presupone.
+    lo que la fórmula de scoring presupone. También fija el Top N y el
+    resultado de la ejecución.
     """
     signals = state.get("all_signals") or []
     if not signals:
         return {
-            "clusters": [],
-            "qualified_clusters": [],
+            **_con_ranking(state, [], [], max_cycles),
             "stats": {"clusters": 0, "qualified_clusters": 0},
         }
 
@@ -349,8 +375,7 @@ def aggregation_node(
     except Exception as exc:  # noqa: BLE001
         logger.error("AggregationNode: %s", exc)
         return {
-            "clusters": [],
-            "qualified_clusters": [],
+            **_con_ranking(state, [], [], max_cycles),
             "errors": [f"aggregation: {exc}"],
             "stats": {"aggregation_errors": 1},
         }
@@ -363,8 +388,12 @@ def aggregation_node(
     ]
 
     return {
-        "clusters": [cluster_to_dict(c) for c in clusters],
-        "qualified_clusters": [cluster_to_dict(c) for c in qualified],
+        **_con_ranking(
+            state,
+            [cluster_to_dict(c) for c in clusters],
+            [cluster_to_dict(c) for c in qualified],
+            max_cycles,
+        ),
         "stats": {
             "clusters": len(clusters),
             "qualified_clusters": len(qualified),
@@ -378,7 +407,6 @@ def aggregation_node(
 
 def build_graph(
     deps: RadarDependencies,
-    target_qualified: int = DEFAULT_TARGET_QUALIFIED,
     max_cycles: int = DEFAULT_MAX_CYCLES,
     min_score: float = MIN_SIGNAL_SCORE,
     cluster_threshold: float = MIN_OPPORTUNITY_SCORE,
@@ -386,9 +414,12 @@ def build_graph(
     """
     Compila la máquina de estados.
 
+    Se detiene al reunir TOP_N problemas cualificados, al agotarse la fuente,
+    al fallar el acceso o al llegar a `max_cycles` (ver `top_n.stop_reason`);
+    nunca por número de señales.
+
     Args:
         deps: colaboradores inyectados.
-        target_qualified: cuántas señales cualificadas bastan para parar.
         max_cycles: tope duro de vueltas. Es la garantía de terminación: sin
             él, una fuente inagotable de ruido mantendría el grafo girando.
         min_score: corte de higiene sobre la señal individual (0-100).
@@ -404,7 +435,8 @@ def build_graph(
         "quality_gate", lambda state: quality_gate_node(state, deps, min_score)
     )
     graph.add_node(
-        "aggregate", lambda state: aggregation_node(state, deps, cluster_threshold)
+        "aggregate",
+        lambda state: aggregation_node(state, deps, cluster_threshold, max_cycles),
     )
 
     graph.add_edge(START, "fetch")
@@ -416,15 +448,7 @@ def build_graph(
 
     def route(state: RadarState) -> str:
         """Decide si hay que dar otra vuelta o cerrar la ejecución."""
-        if state.get("failure"):
-            return END
-        if len(state.get("qualified") or []) >= target_qualified:
-            return END
-        if state.get("cursor") is None:
-            return END
-        if int(state.get("cycle", 0)) >= max_cycles:
-            return END
-        return "fetch"
+        return END if stop_reason(state, max_cycles) is not None else "fetch"
 
     graph.add_conditional_edges("aggregate", route, {"fetch": "fetch", END: END})
 

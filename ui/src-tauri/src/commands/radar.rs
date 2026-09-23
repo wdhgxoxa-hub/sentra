@@ -509,3 +509,222 @@ pub async fn get_pipeline_runs(
 
     Ok(rows)
 }
+
+// ---------------------------------------------------------------------
+// Top N de la última ejecución (AUD-007)
+// ---------------------------------------------------------------------
+
+/// Una oportunidad del Top N, con la posición que le dio el motor.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct TopItem {
+    pub position: i16,
+    pub cluster_key: String,
+    pub label: String,
+    pub final_score: f64,
+    pub mention_count: i32,
+    pub community_count: i32,
+}
+
+/// Resultado de la última ejecución terminada.
+///
+/// `target` sale de la base (lo escribió el motor desde `TOP_N`): la interfaz
+/// no repite el número. `items` son solo las cualificadas que entraron en el
+/// ranking; nunca se rellena.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TopOpportunities {
+    pub run_id: String,
+    pub status: String,
+    /// "demo" o "reddit"; `None` si la ejecución no lo registró.
+    pub data_source: Option<String>,
+    pub target: i16,
+    pub found: i16,
+    pub complete: bool,
+    /// Motivo de un resultado incompleto; `None` si se alcanzó el objetivo.
+    pub reason: Option<String>,
+    pub finished_at: Option<String>,
+    pub items: Vec<TopItem>,
+}
+
+#[derive(sqlx::FromRow)]
+struct TopRunRow {
+    run_id: String,
+    status: String,
+    data_source: Option<String>,
+    target: i16,
+    found: i16,
+    reason: Option<String>,
+    finished_at: Option<String>,
+}
+
+/// La consulta, separada del comando para poder probarla sin Tauri.
+pub async fn top_de_la_ultima_ejecucion(
+    pool: &sqlx::PgPool,
+) -> RadarResult<Option<TopOpportunities>> {
+    let Some(run) = sqlx::query_as::<_, TopRunRow>(
+        r#"
+        SELECT
+            id::text              AS run_id,
+            status::text          AS status,
+            data_source,
+            top_n_target          AS target,
+            top_n_found           AS found,
+            top_n_reason::text    AS reason,
+            finished_at::text     AS finished_at
+        FROM pipeline_runs
+        WHERE tenant_id = $1::uuid
+          AND top_n_target IS NOT NULL
+          AND status IN ('completed', 'failed')
+        ORDER BY started_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(LOCAL_TENANT)
+    .fetch_optional(pool)
+    .await?
+    else {
+        return Ok(None);
+    };
+
+    let items = sqlx::query_as::<_, TopItem>(
+        r#"
+        SELECT
+            top_rank            AS position,
+            cluster_key,
+            label,
+            final_score::float8 AS final_score,
+            mention_count,
+            community_count
+        FROM opportunity_clusters
+        WHERE tenant_id = $1::uuid
+          AND run_id = $2::uuid
+          AND top_rank IS NOT NULL
+        ORDER BY top_rank
+        "#,
+    )
+    .bind(LOCAL_TENANT)
+    .bind(&run.run_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(Some(TopOpportunities {
+        complete: run.found >= run.target,
+        run_id: run.run_id,
+        status: run.status,
+        data_source: run.data_source,
+        target: run.target,
+        found: run.found,
+        reason: run.reason,
+        finished_at: run.finished_at,
+        items,
+    }))
+}
+
+/// Top N de la última ejecución terminada, o `None` si aún no hay ninguna.
+#[tauri::command]
+pub async fn get_top_opportunities(
+    state: State<'_, AppState>,
+) -> RadarResult<Option<TopOpportunities>> {
+    top_de_la_ultima_ejecucion(&state.pool).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::base_de_pruebas;
+
+    /// Obtiene la base o salta el test si no hay PostgreSQL configurado.
+    macro_rules! base_o_saltar {
+        ($nombre:expr) => {
+            match base_de_pruebas($nombre).await {
+                Some(pool) => pool,
+                None => {
+                    eprintln!("omitido: sin PostgreSQL local configurado");
+                    return;
+                }
+            }
+        };
+    }
+
+    async fn sembrar_run(
+        pool: &sqlx::PgPool,
+        status: &str,
+        found: i16,
+        reason: Option<&str>,
+        hace_minutos: i32,
+    ) -> String {
+        sqlx::query_scalar::<_, String>(
+            r#"
+            INSERT INTO pipeline_runs (tenant_id, subreddit_name, status, started_at,
+                                       top_n_target, top_n_found, top_n_reason, data_source)
+            VALUES ($1::uuid, 'SaaS', $2::run_status, now() - make_interval(mins => $3),
+                    6, $4, $5::top_n_reason, 'demo')
+            RETURNING id::text
+            "#,
+        )
+        .bind(LOCAL_TENANT)
+        .bind(status)
+        .bind(hace_minutos)
+        .bind(found)
+        .bind(reason)
+        .fetch_one(pool)
+        .await
+        .expect("no se pudo sembrar la ejecucion")
+    }
+
+    async fn sembrar_cluster(pool: &sqlx::PgPool, run: &str, clave: &str, puntos: f64, rank: Option<i16>) {
+        sqlx::query(
+            r#"
+            INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label,
+                mention_count, community_count, final_score, qualified, top_rank)
+            VALUES ($1::uuid, $2::uuid, $3, $3, 5, 3, $4, $5, $6)
+            "#,
+        )
+        .bind(LOCAL_TENANT)
+        .bind(run)
+        .bind(clave)
+        .bind(puntos)
+        .bind(rank.is_some())
+        .bind(rank)
+        .execute(pool)
+        .await
+        .expect("no se pudo sembrar el cluster");
+    }
+
+    #[tokio::test]
+    async fn sin_ejecuciones_no_hay_top() {
+        let pool = base_o_saltar!("rir_top_vacio_test");
+        assert!(top_de_la_ultima_ejecucion(&pool).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn solo_las_rankeadas_y_en_su_orden() {
+        let pool = base_o_saltar!("rir_top_orden_test");
+        let run = sembrar_run(&pool, "completed", 2, Some("datos_insuficientes"), 1).await;
+        sembrar_cluster(&pool, &run, "segunda", 70.0, Some(2)).await;
+        sembrar_cluster(&pool, &run, "primera", 80.0, Some(1)).await;
+        sembrar_cluster(&pool, &run, "fuera", 90.0, None).await;
+
+        let top = top_de_la_ultima_ejecucion(&pool).await.unwrap().expect("sin top");
+        let claves: Vec<_> = top.items.iter().map(|i| i.cluster_key.as_str()).collect();
+        assert_eq!(claves, ["primera", "segunda"], "no se rellena con las no rankeadas");
+        assert_eq!(top.items[0].position, 1);
+        assert_eq!((top.target, top.found, top.complete), (6, 2, false));
+        assert_eq!(top.reason.as_deref(), Some("datos_insuficientes"));
+        assert_eq!(top.data_source.as_deref(), Some("demo"));
+    }
+
+    #[tokio::test]
+    async fn se_usa_la_ultima_ejecucion_terminada() {
+        let pool = base_o_saltar!("rir_top_ultima_test");
+        let vieja = sembrar_run(&pool, "completed", 0, Some("fuentes_agotadas"), 30).await;
+        let nueva = sembrar_run(&pool, "failed", 0, Some("sin_acceso_reddit"), 10).await;
+        let _en_curso = sembrar_run(&pool, "running", 0, Some("limite_ciclos"), 1).await;
+
+        let top = top_de_la_ultima_ejecucion(&pool).await.unwrap().expect("sin top");
+        assert_eq!(top.run_id, nueva);
+        assert_ne!(top.run_id, vieja);
+        assert_eq!(top.reason.as_deref(), Some("sin_acceso_reddit"));
+    }
+}

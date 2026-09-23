@@ -50,6 +50,7 @@ export const queryKeys = {
   opportunity: (redditId: string) => ["radar", "opportunity", redditId] as const,
   subreddits: ["radar", "subreddits"] as const,
   runs: (limit: number) => ["radar", "runs", limit] as const,
+  top: ["radar", "top"] as const,
   health: ["radar", "health"] as const,
   settings: ["radar", "settings"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
@@ -100,6 +101,19 @@ export function useRuns(limit = 50) {
   return useQuery({
     queryKey: queryKeys.runs(limit),
     queryFn: () => ipc.getPipelineRuns(limit),
+  });
+}
+
+/**
+ * Top N de la última ejecución terminada (AUD-007).
+ *
+ * Cuelga del árbol `radar`, así que se refresca solo cuando un escaneo
+ * termina (App.tsx invalida `["radar"]` con `run:finished` y `run:error`).
+ */
+export function useTopOpportunities() {
+  return useQuery({
+    queryKey: queryKeys.top,
+    queryFn: () => ipc.getTopOpportunities(),
   });
 }
 

@@ -50,8 +50,7 @@ class ConCorpus(unittest.TestCase):
             fetcher=SyntheticFetcher(pages), store=store,
             search_engine=HybridSearchEngine(store=store),
         )
-        # Sin tope de cualificadas: que se recorran todas las paginas.
-        return RadarPipeline(deps=deps, target_qualified=10_000).run_state("SaaS", limit=25)
+        return RadarPipeline(deps=deps).run_state("SaaS", limit=25)
 
 
 class TestCosechaAcumulada(ConCorpus):

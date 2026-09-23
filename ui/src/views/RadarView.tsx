@@ -2,6 +2,7 @@ import { Radar as RadarIcon } from "lucide-react";
 
 import { Explain } from "@/components/Explain";
 import { OpportunityCard } from "@/components/OpportunityCard";
+import { TopSix } from "@/components/TopSix";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { useOpportunityBoard, useRadarFeed } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
@@ -35,6 +36,10 @@ export function RadarViewPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Lo primero que se ve: las mejores oportunidades de la última
+          ejecución, o por qué no hay tantas (AUD-007). */}
+      <TopSix />
+
       <section aria-labelledby="oportunidades">
         <header className="mb-3">
           <h2

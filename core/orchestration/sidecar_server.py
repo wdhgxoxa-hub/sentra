@@ -190,6 +190,9 @@ class ScanResponse(BaseModel):
     status: str = "completed"
     failureCode: str | None = None
     retryAfterSeconds: int | None = None
+    # "demo" o "reddit", y el resultado Top N de la ejecucion (AUD-007).
+    dataSource: str = "demo"
+    top: dict[str, Any] | None = None
 
 
 class SearchResponse(BaseModel):
@@ -346,9 +349,11 @@ def create_app(
         status = "failed" if failure else "completed"
         _registrar_escaneo(es_reddit, final_state)
 
+        fuente_datos = "reddit" if es_reddit else "demo"
         if should_persist:
             run_id, persisted, persist_error = await _persist(
-                final_state, dependencies, postgres_dsn, status=status
+                final_state, dependencies, postgres_dsn, status=status,
+                data_source=fuente_datos,
             )
 
         result = pipeline.summarize(final_state)
@@ -367,6 +372,8 @@ def create_app(
             status=status,
             failureCode=failure["code"] if failure else None,
             retryAfterSeconds=failure.get("retryAfterSeconds") if failure else None,
+            dataSource=fuente_datos,
+            top=final_state.get("top"),
         )
 
 
@@ -628,6 +635,7 @@ def create_app(
                     dependencies,
                     postgres_dsn,
                     status=status,
+                    data_source="reddit" if es_reddit else "demo",
                 )
 
             result = pipeline.summarize(final_state)
@@ -654,6 +662,8 @@ def create_app(
                 "clusters": len(result.get("qualified_clusters") or []),
                 "stats": dict(result.get("stats") or {}),
                 "errors": list(result.get("errors") or []),
+                "dataSource": "reddit" if es_reddit else "demo",
+                "top": final_state.get("top"),
             })
 
         return StreamingResponse(
@@ -920,6 +930,7 @@ async def _persist(
     deps: RadarDependencies,
     postgres_dsn: str | None,
     status: str = "completed",
+    data_source: str | None = None,
 ) -> tuple[str | None, bool, str | None]:
     """
     Vuelca el estado final en PostgreSQL.
@@ -952,6 +963,7 @@ async def _persist(
                         trigger_source="sidecar",
                         embedding_model=getattr(embedder, "name", None),
                         status=status,
+                        data_source=data_source,
                     )
 
             summary = run_async(_inner())

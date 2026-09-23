@@ -109,6 +109,26 @@ export const es = {
     },
   },
 
+  topSix: {
+    title: "Top {target} oportunidades",
+    titleGeneric: "Mejores oportunidades",
+    loading: "Cargando las mejores oportunidades…",
+    error: "No se pudo leer el resultado de la última ejecución.",
+    noRuns: "Todavía no hay ninguna ejecución terminada. Lanza un escaneo desde Pipeline.",
+    complete: "Completo ({found}/{target})",
+    partial: "Incompleto ({found}/{target})",
+    incomplete: "Solo {found} de {target} oportunidades superan el corte.",
+    open: "Abrir ficha",
+    sourceDemo: "Datos de demostración",
+    sourceReddit: "Datos de Reddit",
+    sourceUnknown: "Fuente no registrada",
+    reasons: {
+      fuentes_agotadas: "Se revisó todo lo disponible y el resto de problemas no alcanza la puntuación mínima.",
+      limite_ciclos: "Se alcanzó el límite de ciclos del escaneo con contenido todavía por revisar.",
+      sin_acceso_reddit: "No se pudo leer la fuente de datos.",
+      datos_insuficientes: "No hay datos suficientes: la fuente se agotó antes de reunir tantos problemas distintos.",
+    },
+  },
   scanErrors: {
     reddit_credentials_missing: "Faltan las credenciales de Reddit. Guárdalas en Configuración.",
     reddit_auth_failed: "Reddit rechazó las credenciales. Revisa el Client ID y el Client Secret.",

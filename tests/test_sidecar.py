@@ -171,7 +171,7 @@ class TestScan(SidecarTestCase):
 
         recibido = {}
 
-        async def espia(state, deps, dsn, status="completed"):
+        async def espia(state, deps, dsn, status="completed", data_source=None):
             recibido.update(state)
             return "run-falso", True, None
 
@@ -198,7 +198,7 @@ class TestScan(SidecarTestCase):
         """
         import core.orchestration.sidecar_server as sidecar
 
-        async def rota(state, deps, dsn, status="completed"):
+        async def rota(state, deps, dsn, status="completed", data_source=None):
             return None, False, "OperationalError: no hay conexion"
 
         original = sidecar._persist

@@ -37,6 +37,7 @@ import {
   type SearchParams,
   type SubredditHealth,
   type SubredditRow,
+  type TopOpportunities,
   type ClusterValidation,
   type CancelResult,
   type UpsertSubredditParams,
@@ -67,6 +68,10 @@ export const ipc = {
 
   /** [pg] Subreddits vigilados con el resultado de su ultimo escaneo. */
   getSubreddits: () => invoke<SubredditHealth[]>("get_subreddits"),
+
+  /** [pg] Top N de la ultima ejecucion terminada; null si aun no hay. */
+  getTopOpportunities: () =>
+    invoke<TopOpportunities | null>("get_top_opportunities"),
 
   /** [pg] Telemetria de las ultimas ejecuciones del grafo. */
   getPipelineRuns: (limit = 50) =>

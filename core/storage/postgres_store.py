@@ -289,6 +289,8 @@ def cluster_to_row(cluster: dict[str, Any], qualified: bool = False) -> dict[str
         "qualified": bool(qualified),
         "evidence": list(cluster.get("evidence") or []),
         "signal_ids": list(cluster.get("signal_ids") or []),
+        # Posición en el Top N de la ejecución, o None (AUD-007).
+        "top_rank": cluster.get("top_rank"),
     }
 
 
@@ -465,13 +467,19 @@ class PostgresStore:
         subreddit_id: str | None = None,
         trigger_source: str = "manual",
         parameters: dict[str, Any] | None = None,
+        data_source: str | None = None,
     ) -> str:
-        """Abre una ejecución y devuelve su identificador."""
+        """
+        Abre una ejecución y devuelve su identificador.
+
+        `data_source` es "demo" o "reddit"; None si quien persiste no lo sabe.
+        """
         row = await self._fetchone_returning(
             """
             INSERT INTO pipeline_runs (tenant_id, subreddit_id, subreddit_name,
-                                       trigger_source, parameters, status)
-            VALUES (%s, %s, %s, %s, %s, 'running')
+                                       trigger_source, parameters, status,
+                                       data_source)
+            VALUES (%s, %s, %s, %s, %s, 'running', %s)
             RETURNING id
             """,
             (
@@ -480,6 +488,7 @@ class PostgresStore:
                 subreddit_name,
                 trigger_source,
                 json.dumps(parameters or {}),
+                data_source,
             ),
         )
         await self.connection.commit()
@@ -493,9 +502,16 @@ class PostgresStore:
         status: str = "completed",
         cycles: int = 0,
         last_cursor: str | None = None,
+        top: dict[str, Any] | None = None,
     ) -> None:
-        """Cierra la ejecución volcando los contadores que emitió el grafo."""
+        """
+        Cierra la ejecución volcando los contadores que emitió el grafo.
+
+        `top` es el resultado Top N del grafo (`top_n.run_outcome`); sin él
+        las columnas quedan en NULL, que significa «no se calculó».
+        """
         errors = list(errors or [])
+        top = top or {}
         await self.connection.execute(
             """
             UPDATE pipeline_runs SET
@@ -512,7 +528,10 @@ class PostgresStore:
                 rejected     = %s,
                 errors       = %s,
                 error_count  = %s,
-                last_cursor  = %s
+                last_cursor  = %s,
+                top_n_target = %s,
+                top_n_found  = %s,
+                top_n_reason = %s
             WHERE id = %s AND tenant_id = %s
             """,
             (
@@ -528,6 +547,9 @@ class PostgresStore:
                 json.dumps(errors),
                 len(errors),
                 last_cursor,
+                top.get("target"),
+                top.get("found"),
+                top.get("reason"),
                 run_id,
                 self.tenant_id,
             ),
@@ -703,12 +725,13 @@ class PostgresStore:
                 representative_signal_id, representative_reddit_id, job_statement,
                 current_solutions, risk_flags, spread_factor, frequency_factor,
                 severity_factor, recency_factor, paid_signal_factor, raw_score,
-                final_score, urgency_tier, qualified, evidence)
+                final_score, urgency_tier, qualified, evidence, top_rank)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,%s,%s,%s)
+                    %s,%s,%s,%s,%s)
             ON CONFLICT (tenant_id, run_id, cluster_key) DO UPDATE
                 SET final_score = EXCLUDED.final_score,
                     qualified   = EXCLUDED.qualified,
+                    top_rank    = EXCLUDED.top_rank,
                     updated_at  = now()
             RETURNING id
             """,
@@ -723,6 +746,7 @@ class PostgresStore:
                 row["paid_signal_factor"], row["raw_score"], row["final_score"],
                 row["urgency_tier"], row["qualified"],
                 json.dumps(row["evidence"], default=str),
+                row["top_rank"],
             ),
         )
         cluster_id = str(result["id"])
@@ -757,9 +781,13 @@ class PostgresStore:
         classifier_engine: str | None = None,
         embedding_model: str | None = None,
         status: str = "completed",
+        data_source: str | None = None,
     ) -> dict[str, Any]:
         """
         Vuelca el estado final del grafo en una única transacción.
+
+        `data_source` ("demo" o "reddit") y el resultado Top N (`state["top"]`)
+        quedan en la ejecución (AUD-007).
 
         Escribe, en orden: subreddit, ejecución, posts crudos, señales
         analizadas y síntesis JTBD. Si algo falla, no queda media cosecha
@@ -774,6 +802,7 @@ class PostgresStore:
             subreddit_id=subreddit_id,
             trigger_source=trigger_source,
             parameters={"limit": state.get("limit"), "sort": state.get("sort")},
+            data_source=data_source,
         )
 
         try:
@@ -835,6 +864,7 @@ class PostgresStore:
             status=status,
             cycles=int(state.get("cycle", 0)),
             last_cursor=state.get("cursor"),
+            top=state.get("top"),
         )
 
         return {

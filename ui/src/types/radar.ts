@@ -358,6 +358,8 @@ export type RadarEvent =
       clusters: number;
       stats: RunStats;
       errors: string[];
+      dataSource: DataSource;
+      top: RunTopOutcome | null;
     }
   | {
       type: "run:error";
@@ -370,6 +372,51 @@ export type RadarEvent =
       persistedRunId: string | null;
       persistError: string | null;
     };
+
+// ---------------------------------------------------------------------
+// Top N de cada ejecución (AUD-007)
+// ---------------------------------------------------------------------
+
+/** De dónde salen los datos de una ejecución. */
+export type DataSource = "demo" | "reddit";
+
+/** Por qué una ejecución no llegó a su objetivo (ENUM `top_n_reason`). */
+export type TopReason =
+  | "fuentes_agotadas"
+  | "limite_ciclos"
+  | "sin_acceso_reddit"
+  | "datos_insuficientes";
+
+/** Resultado que emite el motor al terminar (`top_n.run_outcome`). */
+export interface RunTopOutcome {
+  target: number;
+  found: number;
+  complete: boolean;
+  reason: TopReason | null;
+}
+
+/** Una oportunidad del Top N, con la posición que le dio el motor. */
+export interface TopItem {
+  position: number;
+  clusterKey: string;
+  label: string;
+  finalScore: number;
+  mentionCount: number;
+  communityCount: number;
+}
+
+/** Top N de la última ejecución terminada (comando `get_top_opportunities`). */
+export interface TopOpportunities {
+  runId: string;
+  status: RunStatus;
+  dataSource: DataSource | null;
+  target: number;
+  found: number;
+  complete: boolean;
+  reason: TopReason | null;
+  finishedAt: string | null;
+  items: TopItem[];
+}
 
 /**
  * Motivos por los que un escaneo falla (AUD-003). Espejo de los `code` de
