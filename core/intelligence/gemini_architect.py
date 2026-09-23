@@ -192,8 +192,9 @@ Rules:
   says which one): they are hints, not measurements.
 """
 
-#: Línea que el documento debe llevar al principio cuando los datos no son de
-#: Reddit (AUD-017). Se pide literal para poder comprobarla después.
+#: Línea con la que empieza el documento cuando los datos no son de Reddit
+#: (AUD-017). La escribe la aplicación, no el modelo: se le pedía copiarla
+#: letra a letra y, con Gemini real, no lo hizo y el plan se rechazó.
 AVISO_DEMO = {
     "es": "> **AVISO: datos de demostración.** Este plan no se apoya en quejas "
           "de usuarios.",
@@ -212,11 +213,11 @@ _PROCEDENCIA_REDDIT = {
     "en": "\nThe dossier holds real evidence: public Reddit posts.\n",
 }
 
-_EXIGE_AVISO = {
-    "es": "\n{motivo} Advierte al inicio del documento, antes de «# FASE 1», "
-          "con esta línea exacta:\n\n{aviso}\n",
-    "en": "\n{motivo} Warn at the very top of the document, before \"# FASE 1\", "
-          "with this exact line:\n\n{aviso}\n",
+_AVISO_YA_PUESTO = {
+    "es": "\n{motivo} La aplicación encabeza el documento con un aviso de "
+          "procedencia: no lo repitas y empieza directamente por «# FASE 1».\n",
+    "en": "\n{motivo} The app heads the document with a provenance warning: "
+          "do not repeat it and start directly with \"# FASE 1\".\n",
 }
 
 _MOTIVO_DEMO = {
@@ -328,17 +329,23 @@ def _clausula_de_procedencia(fuente: Any, idioma: str) -> str:
     """Qué se le dice al modelo sobre el origen de los datos.
 
     Solo con datos de Reddit se afirma que la evidencia es real. Con demo, o
-    sin procedencia registrada, se declara y se exige un aviso literal al
-    principio del documento: un plan bien escrito sobre datos inventados es
-    justo lo que alguien confundiría con una oportunidad de verdad.
+    sin procedencia registrada, se declara y se le dice que el documento ya
+    lleva el aviso (lo antepone `stream_architecture`): un plan bien escrito
+    sobre datos inventados es justo lo que alguien confundiría con una
+    oportunidad de verdad.
     """
     if fuente == "reddit":
         return _PROCEDENCIA_REDDIT[idioma]
-    if fuente == "demo":
-        motivo, aviso = _MOTIVO_DEMO[idioma], AVISO_DEMO[idioma]
-    else:
-        motivo, aviso = _MOTIVO_DESCONOCIDA[idioma], AVISO_DESCONOCIDA[idioma]
-    return _EXIGE_AVISO[idioma].format(motivo=motivo, aviso=aviso)
+    motivo = (_MOTIVO_DEMO if fuente == "demo" else _MOTIVO_DESCONOCIDA)[idioma]
+    return _AVISO_YA_PUESTO[idioma].format(motivo=motivo)
+
+
+def aviso_de_procedencia(fuente: Any, language: str) -> str | None:
+    """El aviso con el que empieza el documento, o None con datos de Reddit."""
+    if fuente == "reddit":
+        return None
+    idioma = "en" if language == "en" else "es"
+    return (AVISO_DEMO if fuente == "demo" else AVISO_DESCONOCIDA)[idioma]
 
 
 def _cabecera_de_procedencia(
@@ -449,6 +456,10 @@ def stream_architecture(
         )
 
     sistema, peticion = build_prompt(cluster, language)
+    fuente = _campo(cluster, "data_source")
+    # El aviso de procedencia lo pone el código, justo antes del primer texto
+    # del modelo: si el modelo falla sin escribir nada, no queda un aviso suelto.
+    aviso = aviso_de_procedencia(fuente, language)
     partes: list[str] = []
     for texto in stream_text(
         api_key,
@@ -457,12 +468,15 @@ def stream_architecture(
         config=_config(sistema),
         client_factory=client_factory,
     ):
+        if aviso is not None and not partes:
+            partes.append(aviso + "\n\n")
+            yield partes[0]
         partes.append(texto)
         yield texto
 
     # El documento ya se ha visto llegar, pero no se da por terminado sin
-    # la estructura pedida (AUD-020).
-    faltan = secciones_ausentes("".join(partes), language, _campo(cluster, "data_source"))
+    # la estructura pedida (AUD-020). Se comprueba lo que recibe quien lo lee.
+    faltan = secciones_ausentes("".join(partes), language, fuente)
     if faltan:
         raise GeminiIncomplete(
             f"Faltan secciones exigidas: {', '.join(faltan)}", missing=faltan

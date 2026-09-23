@@ -8,6 +8,7 @@ no se escape a ningún sitio—, no lo que el modelo responda.
 import unittest
 
 from core.intelligence.gemini_architect import (
+    AVISO_DEMO,
     AVISO_DESCONOCIDA,
     MODELO_POR_DEFECTO,
     SECCIONES_OBLIGATORIAS,
@@ -56,11 +57,13 @@ CLUSTER = {
 }
 
 
-#: Un plan con todo lo exigido para CLUSTER, que no registra procedencia:
-#: por eso empieza por el aviso (AUD-017) y trae cada sección (AUD-020).
-PLAN = AVISO_DESCONOCIDA["es"] + "\n\n" + "\n\n".join(
+#: Lo que escribe el modelo para CLUSTER: cada sección exigida (AUD-020).
+#: El aviso de procedencia no: CLUSTER no registra procedencia y el aviso lo
+#: antepone la aplicación (AVISO_INICIAL), no el modelo.
+PLAN = "\n\n".join(
     f"## {seccion}\n\ncontenido" for seccion in SECCIONES_OBLIGATORIAS["es"]
 )
+AVISO_INICIAL = AVISO_DESCONOCIDA["es"] + "\n\n"
 
 
 class ClienteFalso:
@@ -141,19 +144,23 @@ class TestProcedencia(unittest.TestCase):
             for frase in AFIRMA_REAL:
                 self.assertNotIn(frase, texto, idioma)
 
-    def test_con_datos_de_demo_se_declara_y_se_exige_advertirlo_al_inicio(self):
+    def test_con_datos_de_demo_se_declara_y_el_aviso_no_se_le_pide_al_modelo(self):
+        """El aviso lo pone la aplicación: pedirle al modelo que lo copiara
+        letra a letra falló con Gemini real (lo parafraseó o lo movió)."""
         sistema, peticion = build_prompt(con_fuente("demo"))
         self.assertIn("Procedencia: DEMOSTRACIÓN", peticion)
-        self.assertIn("al inicio del documento", sistema)
+        self.assertIn("no lo repitas", sistema)
+        self.assertNotIn(AVISO_DEMO["es"], sistema)
         sistema, peticion = build_prompt(con_fuente("demo"), language="en")
         self.assertIn("Provenance: DEMONSTRATION", peticion)
-        self.assertIn("at the very top of the document", sistema)
+        self.assertIn("do not repeat it", sistema)
+        self.assertNotIn(AVISO_DEMO["en"], sistema)
 
     def test_sin_procedencia_tampoco_se_afirma_y_se_advierte(self):
         for cluster in (con_fuente(None), CLUSTER):
             sistema, peticion = build_prompt(cluster)
             self.assertIn("Procedencia: desconocida", peticion)
-            self.assertIn("al inicio del documento", sistema)
+            self.assertIn("no lo repitas", sistema)
             for frase in AFIRMA_REAL:
                 self.assertNotIn(frase, (sistema + peticion).lower())
 
@@ -203,7 +210,7 @@ class TestStreaming(unittest.TestCase):
         trozos = list(
             stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
-        self.assertEqual(trozos, [PLAN[:10], PLAN[10:]])
+        self.assertEqual(trozos, [AVISO_INICIAL, PLAN[:10], PLAN[10:]])
 
     def test_usa_el_modelo_pedido_y_por_defecto_el_pro(self):
         cliente = ClienteFalso()
@@ -238,7 +245,7 @@ class TestStreaming(unittest.TestCase):
         trozos = list(
             stream_architecture(CLUSTER, api_key=CLAVE, client_factory=lambda _k: cliente)
         )
-        self.assertEqual(trozos, [PLAN[:5], PLAN[5:]])
+        self.assertEqual(trozos, [AVISO_INICIAL, PLAN[:5], PLAN[5:]])
 
 
 class TestProbe(unittest.TestCase):

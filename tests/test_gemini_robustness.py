@@ -26,6 +26,7 @@ from google.genai import errors, types
 from core.intelligence import gemini_architect, gemini_client
 from core.intelligence.gemini_architect import (
     AVISO_DEMO,
+    AVISO_DESCONOCIDA,
     SECCIONES_OBLIGATORIAS,
     secciones_ausentes,
     stream_architecture,
@@ -228,13 +229,41 @@ class TestEstructura(ConEsperaFalsa):
         texto = plan_completo().replace("## Hoja de ruta", "Hoja de ruta")
         self.assertEqual(secciones_ausentes(texto, "es", "reddit"), ["Hoja de ruta"])
 
-    def test_con_demo_el_aviso_inicial_es_obligatorio(self):
+    def test_con_demo_el_aviso_inicial_lo_pone_la_aplicacion(self):
+        """Con Gemini real, el modelo no copió el aviso letra a letra y el
+        plan (43 s, 10/10 secciones) se rechazó. El aviso no puede depender
+        de que el modelo obedezca: lo escribe el código."""
         demo = dict(CLUSTER, dataSource="demo")
-        with self.assertRaises(gemini_client.GeminiIncomplete) as ctx:
-            generar(Guion([trozo(plan_completo(), "STOP")]), cluster=demo)
-        self.assertEqual(ctx.exception.missing, ["aviso de procedencia"])
-        con_aviso = AVISO_DEMO["es"] + "\n\n" + plan_completo()
-        self.assertIn("FASE 2", generar(Guion([trozo(con_aviso, "STOP")]), cluster=demo))
+        for idioma in ("es", "en"):
+            texto = generar(Guion([trozo(plan_completo(idioma), "STOP")]), demo, idioma)
+            self.assertTrue(texto.startswith(AVISO_DEMO[idioma] + "\n\n"), idioma)
+            self.assertEqual(texto.count(AVISO_DEMO[idioma]), 1, idioma)
+            self.assertEqual(secciones_ausentes(texto, idioma, "demo"), [], idioma)
+
+    def test_aunque_el_modelo_abra_con_un_titulo_el_aviso_va_delante(self):
+        demo = dict(CLUSTER, dataSource="demo")
+        con_titulo = "# Plan de arquitectura\n\n" + plan_completo()
+        texto = generar(Guion([trozo(con_titulo, "STOP")]), cluster=demo)
+        self.assertTrue(texto.startswith(AVISO_DEMO["es"]))
+
+    def test_sin_procedencia_el_aviso_es_el_de_origen_desconocido(self):
+        sin_fuente = {k: v for k, v in CLUSTER.items() if k != "dataSource"}
+        texto = generar(Guion([trozo(plan_completo(), "STOP")]), cluster=sin_fuente)
+        self.assertTrue(texto.startswith(AVISO_DESCONOCIDA["es"] + "\n\n"))
+
+    def test_con_datos_de_reddit_no_hay_aviso(self):
+        texto = generar(Guion([trozo(plan_completo(), "STOP")]))
+        self.assertEqual(texto, plan_completo())
+
+    def test_si_el_modelo_falla_antes_de_escribir_no_sale_el_aviso_suelto(self):
+        demo = dict(CLUSTER, dataSource="demo")
+        emitido = []
+        with self.assertRaises(gemini_client.GeminiError):
+            # extend conserva lo recibido antes de la excepción.
+            emitido.extend(stream_architecture(
+                demo, api_key=CLAVE, client_factory=Guion(cliente(400)),
+            ))
+        self.assertEqual(emitido, [])
 
     def test_las_secciones_exigidas_son_las_que_pide_el_sistema(self):
         for idioma in ("es", "en"):
