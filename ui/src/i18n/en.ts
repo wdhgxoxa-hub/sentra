@@ -434,6 +434,8 @@ export const en: Dictionary = {
     source_rate_limited: "The source asks to wait: its quota ran out. The other sources carry on.",
     source_budget_exhausted: "This source's budget for the scan ran out.",
     no_active_sources: "No source is active: turn one on or set one up in the Sources section.",
+    migrations_pending:
+      "The database is behind the app: migrations are missing. Apply them with scripts/migrate.py (the details say which).",
     unknown: "An unexpected error occurred.",
     database: "The database could not be read or written. Check that PostgreSQL is running.",
     database_unavailable: "No connection to PostgreSQL: the server did not answer or rejected the credentials.",

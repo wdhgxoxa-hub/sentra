@@ -8,6 +8,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
+import psycopg
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ from core.sources.registry import active_sources, credentials_for
 from core.sources.scan import MultiScanResult, SourceProgress, run_multisource_scan
 
 from .context import SidecarContext, load_dotenv
+from .migrations import pending_detail
 from .scan import _sse
 from .sources import commercial_mode
 
@@ -94,8 +96,13 @@ def router(ctx: SidecarContext) -> APIRouter:
 
         async def emitir() -> AsyncIterator[str]:
             env = dict(load_dotenv(ctx.env_path, env={}))
-            activas = await asyncio.to_thread(
-                active_sources, SOURCES, env, ctx.sources_state, commercial_mode(env))
+            try:
+                activas = await asyncio.to_thread(
+                    active_sources, SOURCES, env, ctx.sources_state, commercial_mode(env))
+            except psycopg.errors.UndefinedTable:
+                detalle = await asyncio.to_thread(pending_detail, ctx)
+                yield _sse({"type": "error", "code": "migrations_pending", "message": detalle})
+                return
             if not activas:
                 yield _sse({"type": "error", "code": "no_active_sources",
                             "message": "No hay ninguna fuente activa."})

@@ -180,7 +180,7 @@ pub async fn save_reddit_credentials(
 }
 
 /// `{"detail": {"code", "detail"}}` de FastAPI como error del motor.
-fn rechazo_con_codigo(cuerpo: &str) -> Option<RadarError> {
+pub(crate) fn rechazo_con_codigo(cuerpo: &str) -> Option<RadarError> {
     let valor: serde_json::Value = serde_json::from_str(cuerpo).ok()?;
     let detalle = valor.get("detail")?;
     Some(RadarError::Motor {

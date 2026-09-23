@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::commands::engine::{relay_sse, sidecar_url, transport_error, with_token_pub, SCAN_TIMEOUT};
+use crate::commands::settings::rechazo_con_codigo;
 use crate::db::{AppState, RadarError, RadarResult};
 
 /// Canal por el que llega el progreso del escaneo multifuente.
@@ -115,6 +116,14 @@ fn fuente_valida(source: &str) -> RadarResult<&str> {
     }
 }
 
+/// Un rechazo del motor con código (`{"detail": {"code", "detail"}}`, p. ej.
+/// migrations_pending) llega con ese código para que la interfaz lo traduzca;
+/// sin código, como fallo genérico del motor.
+fn rechazo(que: &str, status: &str, cuerpo: &str) -> RadarError {
+    rechazo_con_codigo(cuerpo)
+        .unwrap_or_else(|| RadarError::Sidecar(format!("{que} ({status}): {cuerpo}")))
+}
+
 async fn como_json<T: serde::de::DeserializeOwned>(
     response: reqwest::Response,
     que: &str,
@@ -122,7 +131,7 @@ async fn como_json<T: serde::de::DeserializeOwned>(
     let status = response.status();
     if !status.is_success() {
         let detail = response.text().await.unwrap_or_default();
-        return Err(RadarError::Sidecar(format!("{que} ({status}): {detail}")));
+        return Err(rechazo(que, &status.to_string(), &detail));
     }
     response.json().await.map_err(transport_error)
 }
@@ -263,6 +272,21 @@ fn cuerpo_del_escaneo(profile: &ScanProfileParams) -> MultiScanBody<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn un_rechazo_con_codigo_del_motor_conserva_el_codigo() {
+        let cuerpo = r#"{"detail": {"code": "migrations_pending", "detail": "Faltan migraciones: 009_evidence_items"}}"#;
+        let error = rechazo("No se pudieron leer las fuentes", "503 Service Unavailable", cuerpo);
+        assert_eq!(error.code(), "migrations_pending");
+        assert!(error.to_string().contains("009_evidence_items"));
+    }
+
+    #[test]
+    fn un_rechazo_sin_codigo_sigue_siendo_del_sidecar() {
+        let error = rechazo("No se pudo probar la fuente", "500", "Internal Server Error");
+        assert_eq!(error.code(), "sidecar");
+        assert!(error.to_string().contains("Internal Server Error"));
+    }
 
     #[test]
     fn el_id_de_la_fuente_no_puede_salirse_de_la_ruta() {

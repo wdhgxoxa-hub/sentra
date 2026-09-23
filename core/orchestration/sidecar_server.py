@@ -51,7 +51,17 @@ from core.sources.registry import (
 
 from .graph import RadarDependencies
 from .pipeline import RadarPipeline, create_default_dependencies
-from .sidecar import config, documents, gemini, health, multiscan, scan, search, sources
+from .sidecar import (
+    config,
+    documents,
+    gemini,
+    health,
+    migrations,
+    multiscan,
+    scan,
+    search,
+    sources,
+)
 from .sidecar.context import (
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -167,6 +177,7 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
     )
+    migrations.install(app, ctx)
     for modulo in ROUTERS:
         # Se copian las rutas en lugar de `include_router`: desde FastAPI
         # 0.141 un router incluido queda como un nodo perezoso y `app.routes`

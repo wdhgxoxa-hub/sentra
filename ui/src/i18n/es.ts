@@ -439,6 +439,8 @@ export const es = {
     source_rate_limited: "La fuente pide esperar: se agotó su cuota. El resto de fuentes sigue.",
     source_budget_exhausted: "Se agotó el presupuesto de esta fuente para el escaneo.",
     no_active_sources: "No hay ninguna fuente activa: enciende o configura alguna en la sección Fuentes.",
+    migrations_pending:
+      "La base de datos va por detrás de la aplicación: faltan migraciones. Aplícalas con scripts/migrate.py (el detalle dice cuáles).",
     unknown: "Ocurrió un error inesperado.",
     database: "No se pudo leer o escribir en la base de datos. Comprueba que PostgreSQL está en marcha.",
     database_unavailable: "No hay conexión con PostgreSQL: el servidor no respondió o rechazó las credenciales.",
