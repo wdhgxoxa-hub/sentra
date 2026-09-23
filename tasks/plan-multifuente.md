@@ -77,3 +77,9 @@ fast-forward a `main`.
 | Cambios en la autenticación de Stack Exchange (junio de 2025) | Medio | Leer la documentación oficial antes de implementar; sin clave, se usa la cuota anónima |
 | La migración 009 rompe vistas o consultas de Rust | Alto | Probarla en una base desechable; los tests de Rust ya se ejecutan de verdad (R-F) |
 | El cupo de Gemini (10 llamadas) | Medio | Presupuesto: F1 = 2; concordancia = lotes que cubren 20 ítems; se reserva margen |
+
+## Incidente 2026-09-23: la base iba por detrás de la rama
+
+- Síntoma: «el motor no arranca». Causas en sidecar.log: (1) a las 15:56 no existía .venv (NoInterpreter), creado a las 15:57; (2) GET /api/sources → 500 «no existe la relación sources_state»: la base real estaba en la migración 8.
+- Código (7e65b0f): tabla inexistente → 503 `migrations_pending` con la lista de lo que falta; el escaneo lo emite como evento; Rust conserva el código.
+- Base (autorizado por el usuario): respaldo F:ackupseddit_intelligence_radar_2026-09-23_1606_pre009.dump; 009 aplicada (30 ms); verificación en solo lectura: 18 evidence_items legacy (21 raw_posts, 18 ids distintos), 0 autores en claro, /api/sources 200. El paso 3 del cierre repetirá respaldo y verificación con las migraciones que falten entonces.
