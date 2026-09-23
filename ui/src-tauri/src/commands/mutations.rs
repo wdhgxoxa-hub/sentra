@@ -342,135 +342,17 @@ pub async fn cancel_scan(
 mod tests {
     use super::*;
 
+    use crate::test_support::base_de_pruebas;
+
     const TEST_DB: &str = "rir_mutations_test";
 
-    /// Credenciales de la base de pruebas.
-    ///
-    /// Reutiliza el lector de pgpass de produccion: probar con un camino de
-    /// conexion distinto al real dejaria sin cubrir justo el que importa.
-    fn local_options(database: &str) -> Option<sqlx::postgres::PgConnectOptions> {
-        use sqlx::postgres::PgConnectOptions;
-
-        if let Ok(url) = std::env::var("RIR_PG_TEST_URL") {
-            return url
-                .parse::<PgConnectOptions>()
-                .ok()
-                .map(|options| options.database(database));
-        }
-        crate::db::options_from_pgpass(database)
-    }
-
-    /// La BASE se crea una sola vez; el POOL, uno por test.
-    ///
-    /// Dos restricciones que chocan: cargo ejecuta los tests en paralelo, asi
-    /// que no pueden hacer DROP/CREATE de la misma base a la vez; y cada
-    /// `#[tokio::test]` levanta y destruye su propio runtime, asi que un pool
-    /// compartido entre ellos acaba con conexiones de un runtime ya muerto
-    /// ("A Tokio 1.x context was found, but it is being shutdown").
-    ///
-    /// La base se prepara en su propio runtime, bajo un `OnceLock`; cada test
-    /// abre luego su pool y usa claves propias para no pisar a los demas.
-    static DB_READY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-
-    fn ensure_database() -> bool {
-        *DB_READY.get_or_init(|| {
-            // En un hilo aparte: crear un runtime dentro del runtime del
-            // test provoca "Cannot start a runtime from within a runtime".
-            std::thread::spawn(|| {
-                tokio::runtime::Runtime::new()
-                    .map(|runtime| runtime.block_on(build_database()))
-                    .unwrap_or(false)
-            })
-            .join()
-            .unwrap_or(false)
-        })
-    }
-
-    async fn shared_pool() -> Option<sqlx::PgPool> {
-        if !ensure_database() {
-            return None;
-        }
-        connect_pool().await
-    }
-
-    /// Abre un pool nuevo sobre la base ya preparada.
-    ///
-    /// El search_path se fija en la conexion, igual que en produccion
-    /// (ver db.rs): sin eso cada conexion busca las tablas en `public` y no
-    /// las encuentra, porque viven en el esquema `radar`.
-    async fn connect_pool() -> Option<sqlx::PgPool> {
-        sqlx::postgres::PgPoolOptions::new()
-            .max_connections(4)
-            .after_connect(|conn, _| {
-                Box::pin(async move {
-                    sqlx::query("SET search_path = radar, public")
-                        .execute(conn)
-                        .await?;
-                    Ok(())
-                })
-            })
-            .connect_with(local_options(TEST_DB)?)
-            .await
-            .ok()
-    }
-
-    /// Crea la base y aplica las migraciones reales.
-    ///
-    /// Se leen los .sql del repositorio en lugar de replicar el esquema:
-    /// un test contra un esquema inventado no prueba nada del de verdad.
-    async fn build_database() -> bool {
-        use sqlx::{Connection, Executor, PgConnection};
-
-        let Some(admin_options) = local_options("postgres") else {
-            return false;
-        };
-        let Ok(mut admin) = PgConnection::connect_with(&admin_options).await else {
-            return false;
-        };
-
-        let _ = admin
-            .execute(format!(r#"DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)"#).as_str())
-            .await;
-        admin
-            .execute(format!(r#"CREATE DATABASE "{TEST_DB}""#).as_str())
-            .await
-            .expect("no se pudo crear la base de pruebas");
-
-        let Some(pool) = connect_pool().await else {
-            return false;
-        };
-
-        let Some(root) = crate::sidecar::project_root_for_tests() else {
-            return false;
-        };
-        let dir = root.join("sql").join("migrations");
-        let mut files: Vec<_> = std::fs::read_dir(&dir)
-            .expect("sin migraciones")
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().map(|e| e == "sql").unwrap_or(false))
-            .collect();
-        files.sort();
-
-        for file in files {
-            let sql = std::fs::read_to_string(&file).expect("migracion ilegible");
-            pool.execute(sql.as_str())
-                .await
-                .unwrap_or_else(|e| panic!("fallo aplicando {file:?}: {e}"));
-        }
-
-        pool.close().await;
-        true
-    }
-
-    /// Obtiene el pool o salta el test si no hay PostgreSQL configurado.
+    /// Obtiene el pool o salta el test si no hay PostgreSQL (ver test_support:
+    /// si lo hay y la base no se puede preparar, el test falla con el motivo).
     macro_rules! pool_or_skip {
         () => {
-            match shared_pool().await {
+            match base_de_pruebas(TEST_DB).await {
                 Some(pool) => pool,
-                None => {
-                    eprintln!("omitido: sin PostgreSQL local configurado");
-                    return;
-                }
+                None => return,
             }
         };
     }
