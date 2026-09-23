@@ -97,6 +97,7 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
         SELECT v.id::text AS id, v.opportunity_id::text AS opportunity_id, v.cluster_key,
                v.keywords, v.verdict, v.rule, v.score::float8 AS score, v.weights_version,
                v.missing, v.gates, v.dimensions, v.advocate, v.member_count,
+               v.labeler_version, v.clustering_version,
                COALESCE(array_agg(ce.evidence_id ORDER BY ce.evidence_id)
                         FILTER (WHERE ce.evidence_id IS NOT NULL), '{}') AS member_ids
           FROM niche_verdicts v
@@ -117,7 +118,17 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
         motivo = (f"Solo {construir} de {TOP_TARGET} nichos pasan todas las compuertas "
                   "y el abogado del diablo; el resto no se rellena.")
     return {"run_id": run_id, "target": TOP_TARGET, "build_count": construir,
-            "reason": motivo, "verdicts": veredictos}
+            "reason": motivo, "verdicts": veredictos, "current_versions": current_versions()}
+
+
+def current_versions() -> dict[str, str]:
+    """Versiones con las que juzga el código actual (B4): lo distinto es antiguo."""
+    from .clustering import CLUSTERING_VERSION
+    from .dimensions import WEIGHTS_VERSION
+    from .labels import LABELER_VERSION
+
+    return {"labeler": LABELER_VERSION, "clustering": CLUSTERING_VERSION,
+            "weights": WEIGHTS_VERSION}
 
 
 async def _con_evidencia(store: PostgresStore, veredictos: list[dict[str, Any]]) -> None:

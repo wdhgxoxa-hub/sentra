@@ -22,9 +22,9 @@ from core.llm.base import LLMProvider
 from core.storage.identity import Previo
 
 from .advocate import run_advocate
-from .clustering import cluster_evidence
+from .clustering import CLUSTERING_VERSION, cluster_evidence
 from .gates import judge_cluster
-from .labels import BATCH_SIZE, LabelCache, VerifiedLabel, label_items
+from .labels import BATCH_SIZE, LABELER_VERSION, LabelCache, VerifiedLabel, label_items
 from .quality import filter_quality
 
 
@@ -65,6 +65,8 @@ def run_judge(
             "rule": juicio.rule,
             "score": juicio.score.score,
             "weights_version": juicio.score.weights_version,
+            "labeler_version": f"{LABELER_VERSION}/{model}" if model else LABELER_VERSION,
+            "clustering_version": CLUSTERING_VERSION,
             "missing": juicio.missing,
             "gates": [asdict(g) for g in juicio.gates],
             "dimensions": [asdict(d) for d in juicio.score.dimensions],

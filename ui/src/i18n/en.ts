@@ -603,6 +603,8 @@ export const en: Dictionary = {
       menor: "Minor",
     },
     evidence: "Evidence",
+    oldVersions: "Verdict from older versions ({versions}): scan again to judge it with the current ones.",
+    unknownLabeler: "unknown labeler",
     judging: "Judging the evidence…",
     judgeFailed: "The judge failed after the scan; the scan itself was saved.",
     judgeSummary: "{kept} of {items} items pass the filter · {labeled} labeled · {clusters} groups",

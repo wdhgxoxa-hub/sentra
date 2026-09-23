@@ -6,7 +6,7 @@ import { comoError } from "@/lib/errors";
 import { useJudgeTop } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
-import type { JudgeVerdict, NicheVerdict, SourceCard } from "@/types/radar";
+import type { JudgeVerdict, JudgeVersions, NicheVerdict, SourceCard } from "@/types/radar";
 
 const COLOR: Record<NicheVerdict, string> = {
   CONSTRUIR: "border-ok text-ok",
@@ -20,8 +20,29 @@ function cifra(valor: number): string {
   return Number.isInteger(valor) ? String(valor) : valor.toFixed(2);
 }
 
-function VerdictCard({ v, t, nombre }: { v: JudgeVerdict; t: T; nombre: (id: string) => string }) {
+/** B4: las versiones con las que se produjo el veredicto que no son las actuales. */
+export function versionesAntiguas(v: JudgeVerdict, actuales: JudgeVersions, t: T): string[] {
+  const antiguas: string[] = [];
+  const etiquetador = v.labelerVersion?.split("/")[0] ?? null;
+  if (etiquetador !== actuales.labeler) antiguas.push(etiquetador ?? t.judge.unknownLabeler);
+  if (v.clusteringVersion !== actuales.clustering) antiguas.push(v.clusteringVersion);
+  if (v.weightsVersion !== actuales.weights) antiguas.push(v.weightsVersion);
+  return antiguas;
+}
+
+function VerdictCard({
+  v,
+  t,
+  nombre,
+  actuales,
+}: {
+  v: JudgeVerdict;
+  t: T;
+  nombre: (id: string) => string;
+  actuales: JudgeVersions;
+}) {
   const abogado = v.advocate;
+  const antiguas = versionesAntiguas(v, actuales, t);
   return (
     <article className="rounded-card border border-border bg-surface p-4">
       <header className="flex flex-wrap items-center gap-3">
@@ -33,6 +54,11 @@ function VerdictCard({ v, t, nombre }: { v: JudgeVerdict; t: T; nombre: (id: str
           {t.judge.score.replace("{score}", v.score.toFixed(1))}
         </span>
       </header>
+      {antiguas.length > 0 && (
+        <p className="mt-1 text-[11px] text-warn">
+          {t.judge.oldVersions.replace("{versions}", antiguas.join(", "))}
+        </p>
+      )}
       <p className="mt-1 text-[11px] text-ink-faint">
         {t.judge.rule.replace("{rule}", v.rule)}
         {v.missing.length > 0 && ` · ${t.judge.missing.replace("{gates}", v.missing.join(", "))}`}
@@ -188,7 +214,7 @@ export function JudgePanel({ cards }: { cards: SourceCard[] }) {
             {top.data.reason && <span className="block text-ink-faint">{top.data.reason}</span>}
           </p>
           {top.data.verdicts.map((v) => (
-            <VerdictCard key={v.id} v={v} t={t} nombre={nombre} />
+            <VerdictCard key={v.id} v={v} t={t} nombre={nombre} actuales={top.data.currentVersions} />
           ))}
         </>
       )}

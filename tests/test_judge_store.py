@@ -47,6 +47,7 @@ def veredicto(clave, verdict, score, miembros):
     return {"opportunity_id": None, "cluster_key": clave, "keywords": ["facturas"],
             "verdict": verdict, "rule": "7: pasan todas", "score": score,
             "weights_version": "judge-weights-v1", "missing": [],
+            "labeler_version": "labels-v2/m", "clustering_version": "clustering-v2",
             "gates": [{"gate": f"G{n}", "passed": True, "value": 2, "threshold": 2,
                        "evidence_ids": miembros} for n in range(1, 9)],
             "dimensions": [{"name": "frecuencia", "value": 3, "normalized": 0.1,
@@ -116,6 +117,16 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(top["verdicts"][0]["member_ids"], ["hackernews:4", "hackernews:5", "hackernews:6"])
         self.assertEqual(top["verdicts"][0]["gates"][0]["gate"], "G1")
         self.assertIn("1 de 6", top["reason"])
+        # B4: versiones de cada veredicto y las actuales, para marcar lo antiguo.
+        self.assertEqual((top["verdicts"][0]["labeler_version"], top["verdicts"][0]["clustering_version"]),
+                         ("labels-v2/m", "clustering-v2"))
+        from core.judge.clustering import CLUSTERING_VERSION
+        from core.judge.dimensions import WEIGHTS_VERSION
+        from core.judge.labels import LABELER_VERSION
+
+        self.assertEqual(top["current_versions"], {"labeler": LABELER_VERSION,
+                                                   "clustering": CLUSTERING_VERSION,
+                                                   "weights": WEIGHTS_VERSION})
         # Mapa de corroboración y evidencia con atribución obligatoria (D-SE3).
         primero = top["verdicts"][0]
         self.assertEqual(primero["corroboration"], {"hackernews": 3})

@@ -215,6 +215,7 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         with mock.patch.object(judge, "_leer_top", return_value=LEIDO):
             cuerpo = self.client.get("/api/judge/top", headers=self.cabecera).json()
         self.assertEqual(set(cuerpo), interfaz("JudgeTop"))
+        self.assertEqual(set(cuerpo["currentVersions"]), interfaz("JudgeVersions"))
         veredicto = cuerpo["verdicts"][0]
         self.assertEqual(set(veredicto), interfaz("JudgeVerdict"))
         self.assertEqual(set(veredicto["gates"][0]), interfaz("JudgeGate"))

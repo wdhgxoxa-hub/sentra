@@ -608,6 +608,9 @@ export const es = {
       menor: "Menor",
     },
     evidence: "Evidencia",
+    oldVersions:
+      "Veredicto de versiones antiguas ({versions}): vuelve a escanear para juzgarlo con las actuales.",
+    unknownLabeler: "etiquetador desconocido",
     judging: "Juzgando la evidencia…",
     judgeFailed: "El juez falló tras el escaneo; el escaneo sí se guardó.",
     judgeSummary: "{kept} de {items} ítems pasan el filtro · {labeled} etiquetados · {clusters} grupos",

@@ -458,13 +458,15 @@ class PostgresStore:
                 """
                 INSERT INTO niche_verdicts (tenant_id, run_id, opportunity_id, cluster_key,
                     keywords, verdict, rule, score, weights_version, missing, gates,
-                    dimensions, advocate, member_count)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    dimensions, advocate, member_count, labeler_version, clustering_version)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (run_id, cluster_key) DO UPDATE SET
                     verdict = EXCLUDED.verdict, rule = EXCLUDED.rule, score = EXCLUDED.score,
                     missing = EXCLUDED.missing, gates = EXCLUDED.gates,
                     dimensions = EXCLUDED.dimensions, advocate = EXCLUDED.advocate,
-                    member_count = EXCLUDED.member_count
+                    member_count = EXCLUDED.member_count,
+                    labeler_version = EXCLUDED.labeler_version,
+                    clustering_version = EXCLUDED.clustering_version
                 RETURNING id
                 """,
                 (
@@ -473,6 +475,7 @@ class PostgresStore:
                     round(float(v["score"]), 2), v["weights_version"], list(v.get("missing") or []),
                     json.dumps(v["gates"], default=str), json.dumps(v["dimensions"], default=str),
                     json.dumps(v.get("advocate") or {}, default=str), len(v["member_ids"]),
+                    v.get("labeler_version"), v["clustering_version"],
                 ),
             )
             verdict_id = str(fila["id"])

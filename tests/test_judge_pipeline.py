@@ -82,6 +82,14 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertFalse(veredicto["advocate"]["downgraded"])
         self.assertEqual(llm.llamadas, {"etiquetas": 1, "abogado": 1})
         self.assertEqual(resultado.summary["verdicts"], {"CONSTRUIR": 1})
+        # B4: cada veredicto sabe con qué versiones se produjo.
+        from core.judge.clustering import CLUSTERING_VERSION
+        from core.judge.dimensions import WEIGHTS_VERSION
+        from core.judge.labels import LABELER_VERSION
+
+        self.assertEqual((veredicto["labeler_version"], veredicto["clustering_version"],
+                          veredicto["weights_version"]),
+                         (f"{LABELER_VERSION}/m", CLUSTERING_VERSION, WEIGHTS_VERSION))
 
     def test_el_tamano_de_lote_del_etiquetado_se_puede_fijar(self):
         # El cupo de llamadas manda: lotes mayores, menos llamadas.

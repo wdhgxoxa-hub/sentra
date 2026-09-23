@@ -402,12 +402,14 @@
     "JudgeVerdict": [
       "advocate",
       "clusterKey",
+      "clusteringVersion",
       "corroboration",
       "dimensions",
       "evidence",
       "gates",
       "id",
       "keywords",
+      "labelerVersion",
       "memberCount",
       "memberIds",
       "missing",
@@ -417,8 +419,14 @@
       "verdict",
       "weightsVersion"
     ],
+    "JudgeVersions": [
+      "clustering",
+      "labeler",
+      "weights"
+    ],
     "JudgeTop": [
       "buildCount",
+      "currentVersions",
       "reason",
       "runId",
       "target",

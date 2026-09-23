@@ -20,6 +20,7 @@ LEIDO = {
         "id": "v1", "opportunity_id": "o1", "cluster_key": "invoices-export#hackernews:1",
         "keywords": ["invoices"], "verdict": "CONSTRUIR", "rule": "7: pasan todas", "score": 61.5,
         "weights_version": "judge-weights-v1", "missing": [], "member_count": 3,
+        "labeler_version": None, "clustering_version": "clustering-v1",
         "member_ids": ["hackernews:1"],
         "gates": [{"gate": f"G{n}", "passed": True, "value": 3, "threshold": 2,
                    "evidence_ids": ["hackernews:1"]} for n in range(1, 9)],
@@ -35,6 +36,8 @@ LEIDO = {
                       "attribution": {"badge": "Hacker News", "site": "Ask HN",
                                       "url": "https://example.com/1"}}],
     }],
+    "current_versions": {"labeler": "labels-v2", "clustering": "clustering-v2",
+                         "weights": "judge-weights-v1"},
 }
 
 

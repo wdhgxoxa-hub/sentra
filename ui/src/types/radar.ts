@@ -843,6 +843,9 @@ export interface JudgeVerdict {
   rule: string;
   score: number;
   weightsVersion: string;
+  /** Etiquetador (versión/modelo); null = desconocido (veredicto anterior a la 011). */
+  labelerVersion: string | null;
+  clusteringVersion: string;
   /** Compuertas que fallan. */
   missing: string[];
   memberCount: number;
@@ -856,12 +859,20 @@ export interface JudgeVerdict {
 }
 
 /** Top 6 (AUD-007): CONSTRUIR primero; sin rellenar si no hay 6. */
+/** Versiones con las que juzga el código actual: lo distinto es antiguo (B4). */
+export interface JudgeVersions {
+  labeler: string;
+  clustering: string;
+  weights: string;
+}
+
 export interface JudgeTop {
   runId: string | null;
   target: number;
   buildCount: number;
   reason: string | null;
   verdicts: JudgeVerdict[];
+  currentVersions: JudgeVersions;
 }
 
 // ---------------------------------------------------------------------
