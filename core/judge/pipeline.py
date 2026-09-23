@@ -24,7 +24,7 @@ from core.storage.identity import Previo
 from .advocate import run_advocate
 from .clustering import cluster_evidence
 from .gates import judge_cluster
-from .labels import LabelCache, VerifiedLabel, label_items
+from .labels import BATCH_SIZE, LabelCache, VerifiedLabel, label_items
 from .quality import filter_quality
 
 
@@ -44,9 +44,11 @@ def run_judge(
     cache: LabelCache,
     now: datetime,
     previous: Sequence[Previo] = (),
+    label_batch_size: int = BATCH_SIZE,
 ) -> JudgeResult:
     calidad = filter_quality(items)
-    etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache)
+    etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache,
+                            batch_size=label_batch_size)
     grupos = cluster_evidence(calidad.kept, vectors, previous=previous)
     por_id = {i.id: i for i in calidad.kept}
 

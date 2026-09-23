@@ -82,6 +82,14 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual(llm.llamadas, {"etiquetas": 1, "abogado": 1})
         self.assertEqual(resultado.summary["verdicts"], {"CONSTRUIR": 1})
 
+    def test_el_tamano_de_lote_del_etiquetado_se_puede_fijar(self):
+        # El cupo de llamadas manda: lotes mayores, menos llamadas.
+        items, vectores = escenario()
+        llm = LLMDoble()
+        run_judge(items, vectores, provider=llm, model="m", cache=InMemoryLabelCache(),
+                  now=AHORA, label_batch_size=4)
+        self.assertEqual(llm.llamadas["etiquetas"], 3, "10 ítems en lotes de 4")
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, provider=LLMDoble(), model="m",
