@@ -171,9 +171,9 @@ export function SettingsView() {
         <p className="text-sm text-ink-faint">{t.settings.loading}</p>
       )}
       {settings.isError && (
-        <p className="rounded-card border border-danger/30 bg-surface p-3 text-xs leading-relaxed text-danger">
-          {t.settings.unreachable}
-        </p>
+        <div className="rounded-card border border-danger/30 bg-surface p-3">
+          <ErrorNotice {...comoError(settings.error)} title={t.settings.unreachable} />
+        </div>
       )}
 
       {/* --- Fuente de datos --- */}
@@ -222,6 +222,11 @@ export function SettingsView() {
             );
           })}
         </div>
+        {setMode.isError && (
+          <div className="mt-2">
+            <ErrorNotice {...comoError(setMode.error)} title={t.settings.modeFailed} />
+          </div>
+        )}
       </section>
 
       {/* --- Credenciales --- */}
@@ -479,6 +484,15 @@ export function SettingsView() {
           </div>
 
           {guardarGemini.isError && <ErrorNotice {...comoError(guardarGemini.error)} />}
+          {guardarGemini.isSuccess && !guardarGemini.isPending && (
+            <p className="flex items-center gap-1 text-xs text-ok">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t.settings.keySaved}
+            </p>
+          )}
+          {probarGemini.isError && (
+            <ErrorNotice {...comoError(probarGemini.error)} title={t.settings.probeFailed} />
+          )}
 
           {probarGemini.data && (
             <p

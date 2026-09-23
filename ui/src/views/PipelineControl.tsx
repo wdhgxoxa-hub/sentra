@@ -1,6 +1,7 @@
 import { Pause, Play, Plus, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { PipelineGraph } from "@/components/PipelineGraph";
 import { ScanProgressBar } from "@/components/ScanProgressBar";
 import { SourceBadge } from "@/components/SourceBadge";
@@ -11,6 +12,7 @@ import {
   useTriggerScan,
   useUpsertSubreddit,
 } from "@/lib/queries";
+import { comoError } from "@/lib/errors";
 import { useProgressStore } from "@/stores/progressStore";
 import { useT } from "@/stores/settingsStore";
 import type { ListingSort } from "@/types/radar";
@@ -100,6 +102,11 @@ export function PipelineControl() {
               {t.pipeline.clearFinished}
             </button>
           </div>
+          {cancelar.isError && (
+            <div className="mb-2">
+              <ErrorNotice {...comoError(cancelar.error)} title={t.pipeline.cancelFailed} />
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             {activos.map((progreso) => (
               <ScanProgressBar
@@ -171,6 +178,25 @@ export function PipelineControl() {
             {guardar.isPending ? t.pipeline.saving : t.pipeline.watch}
           </button>
         </form>
+
+        {guardar.isError && (
+          <div className="mb-3">
+            <ErrorNotice {...comoError(guardar.error)} title={t.pipeline.saveFailed} />
+          </div>
+        )}
+        {scan.isError && (
+          <div className="mb-3">
+            <ErrorNotice {...comoError(scan.error)} title={t.pipeline.scanFailed} />
+          </div>
+        )}
+
+        {subreddits.isPending && <p className="text-sm text-ink-faint">{t.common.loading}</p>}
+        {subreddits.isError && (
+          <ErrorNotice {...comoError(subreddits.error)} title={t.pipeline.subredditsError} />
+        )}
+        {subreddits.data?.length === 0 && (
+          <p className="text-sm text-ink-soft">{t.pipeline.noSubreddits}</p>
+        )}
 
         <ul className="flex flex-col gap-2">
           {subreddits.data?.map((item) => (
@@ -246,58 +272,63 @@ export function PipelineControl() {
         <h3 id="historial" className="mb-2 text-sm font-semibold">
           {t.pipeline.history}
         </h3>
-        <div className="overflow-hidden rounded-card border border-border bg-surface">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
-              <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
-                  {t.pipeline.subreddit}
-                </th>
-                <th scope="col" className="px-3 py-2.5 font-medium">
-                  {t.pipeline.colStatus}
-                </th>
-                <th scope="col" className="px-3 py-2.5 font-medium">
-                  {t.pipeline.colRead}
-                </th>
-                <th scope="col" className="px-3 py-2.5 font-medium">
-                  {t.pipeline.colQualified}
-                </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
-                  {t.pipeline.colErrors}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {runs.data?.map((run) => (
-                <tr key={run.id} className="hover:bg-surface-2">
-                  <td className="px-4 py-2.5 font-mono text-xs">
-                    r/{run.subredditName}
-                  </td>
-                  <td
-                    className={`px-3 py-2.5 text-xs ${
-                      RUN_STATUS_STYLES[run.status] ?? ""
-                    }`}
-                  >
-                    {run.status}
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
-                    {run.fetched}
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
-                    {run.qualified}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs tabular-nums">
-                    {run.errorCount > 0 ? (
-                      <span className="text-warn">{run.errorCount}</span>
-                    ) : (
-                      run.errorCount
-                    )}
-                  </td>
+        {runs.isPending && <p className="text-sm text-ink-faint">{t.common.loading}</p>}
+        {runs.isError && <ErrorNotice {...comoError(runs.error)} title={t.pipeline.runsError} />}
+        {runs.data?.length === 0 && <p className="text-sm text-ink-soft">{t.pipeline.noRuns}</p>}
+        {runs.data && runs.data.length > 0 && (
+          <div className="overflow-hidden rounded-card border border-border bg-surface">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
+                <tr>
+                  <th scope="col" className="px-4 py-2.5 font-medium">
+                    {t.pipeline.subreddit}
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">
+                    {t.pipeline.colStatus}
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">
+                    {t.pipeline.colRead}
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">
+                    {t.pipeline.colQualified}
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">
+                    {t.pipeline.colErrors}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {runs.data?.map((run) => (
+                  <tr key={run.id} className="hover:bg-surface-2">
+                    <td className="px-4 py-2.5 font-mono text-xs">
+                      r/{run.subredditName}
+                    </td>
+                    <td
+                      className={`px-3 py-2.5 text-xs ${
+                        RUN_STATUS_STYLES[run.status] ?? ""
+                      }`}
+                    >
+                      {run.status}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
+                      {run.fetched}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
+                      {run.qualified}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-xs tabular-nums">
+                      {run.errorCount > 0 ? (
+                        <span className="text-warn">{run.errorCount}</span>
+                      ) : (
+                        run.errorCount
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

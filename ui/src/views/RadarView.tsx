@@ -3,8 +3,10 @@ import { Radar as RadarIcon } from "lucide-react";
 import { Explain } from "@/components/Explain";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { TopSix } from "@/components/TopSix";
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
+import { comoError } from "@/lib/errors";
 import { useOpportunityBoard, useRadarFeed } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -62,9 +64,7 @@ export function RadarViewPage() {
         {board.isPending && (
           <p className="text-sm text-ink-faint">{t.radar.loading}</p>
         )}
-        {board.isError && (
-          <p className="text-sm text-danger">{t.radar.error}</p>
-        )}
+        {board.isError && <ErrorNotice {...comoError(board.error)} title={t.radar.error} />}
 
         {board.data?.length === 0 && (
           <div className="rounded-card border border-dashed border-border p-8 text-center">
@@ -96,29 +96,39 @@ export function RadarViewPage() {
           </p>
         </header>
 
-        <ul className="divide-y divide-border rounded-card border border-border bg-surface">
-          {feed.data?.map((entry) => (
-            <li
-              key={entry.signalId}
-              className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
-            >
-              <UrgencyBadge tier={entry.urgencyTier} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm">
-                  {entry.postTitle ?? entry.content}
-                </p>
-                <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
-                  <span className="font-mono">r/{entry.subredditName}</span>
-                  <span aria-hidden="true">·</span>
-                  <span className="font-mono tabular-nums">
-                    {entry.finalScore.toFixed(1)} {t.radar.points}
-                  </span>
-                  <SourceBadge source={entry.dataSource} />
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {feed.isPending && <p className="text-sm text-ink-faint">{t.radar.loading}</p>}
+        {feed.isError && <ErrorNotice {...comoError(feed.error)} title={t.radar.feedError} />}
+        {feed.data?.length === 0 && (
+          <p className="rounded-card border border-dashed border-border p-6 text-center text-sm text-ink-soft">
+            {t.radar.feedEmpty}
+          </p>
+        )}
+
+        {feed.data && feed.data.length > 0 && (
+          <ul className="divide-y divide-border rounded-card border border-border bg-surface">
+            {feed.data.map((entry) => (
+              <li
+                key={entry.signalId}
+                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
+              >
+                <UrgencyBadge tier={entry.urgencyTier} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">
+                    {entry.postTitle ?? entry.content}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
+                    <span className="font-mono">r/{entry.subredditName}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums">
+                      {entry.finalScore.toFixed(1)} {t.radar.points}
+                    </span>
+                    <SourceBadge source={entry.dataSource} />
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

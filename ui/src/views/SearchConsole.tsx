@@ -1,8 +1,10 @@
 import { Search as SearchIcon, Sparkles, Type } from "lucide-react";
 
 import { Explain } from "@/components/Explain";
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { SourceBadge } from "@/components/SourceBadge";
 import { UrgencyBadge } from "@/components/UrgencyBadge";
+import { comoError } from "@/lib/errors";
 import { useHybridSearch } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -74,6 +76,10 @@ export function SearchConsole() {
           </button>
         ))}
       </div>
+
+      {results.isError && !results.isFetching && (
+        <ErrorNotice {...comoError(results.error)} title={t.search.error} />
+      )}
 
       {results.isFetching && (
         <p className="text-sm text-ink-faint">{t.search.searching}</p>
