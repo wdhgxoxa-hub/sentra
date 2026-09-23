@@ -22,10 +22,18 @@ from httpx import AsyncClient, TransportError
 from .auth import OAUTH_DOMAIN, RedditOAuth
 from .errors import RedditCredentialsMissing, RedditUnavailable, error_for_status
 from .filters import FilterResult, PainPointFilter
-from .normalizer import CleanComment, CleanPost, RedditNormalizer, UnifiedTimelineItem
+from .normalizer import CleanComment, CleanPost, RedditNormalizer
 from .pagination import RedditPaginator
 
 logger = logging.getLogger(__name__)
+
+#: Comentarios que se guardan por post como máximo: los de mayor puntuación
+#: (D-I). Más allá de eso, el hilo repite lo ya dicho o se va del tema.
+MAX_COMMENTS_PER_POST = 20
+
+#: Profundidad máxima: 0 responde al post, 1 a un comentario, 2 a una
+#: respuesta. Más abajo la conversación ya no habla del problema original.
+MAX_COMMENT_DEPTH = 2
 
 
 class RedditIngestionClient:
@@ -101,7 +109,7 @@ class RedditIngestionClient:
 
         Solo existe la vía autenticada: `oauth.reddit.com/r/<sub>/<listing>`
         con el token bearer. Sin credenciales se falla aquí, antes de hacer
-        ninguna petición. Ya no hay caída al endpoint público `.json` con
+        ninguna petición. Ya no hay caída al endpoint público anónimo con
         cabeceras de navegador: Reddit lo tiene cerrado, y fingir un
         navegador convertía esa negativa en un «0 resultados» silencioso.
         """
@@ -299,20 +307,51 @@ class RedditIngestionClient:
 
         return self.normalizer.deduplicate_posts(collected_posts)
 
+    @staticmethod
+    def _recorrer_hilo(
+        hijos: list[Any], max_depth: int, nivel: int = 0
+    ) -> list[tuple[dict[str, Any], int]]:
+        """Comentarios (`t1`) del árbol hasta `max_depth`, con su profundidad.
+
+        Las respuestas vienen anidadas en `replies`; los nodos «more» (hilos
+        sin desplegar) se ignoran: pedirlos costaría más peticiones por post.
+        """
+        encontrados: list[tuple[dict[str, Any], int]] = []
+        for hijo in hijos:
+            if not isinstance(hijo, dict) or hijo.get("kind") != "t1":
+                continue
+            datos = hijo.get("data") or {}
+            profundidad = int(datos.get("depth", nivel) or 0)
+            if profundidad > max_depth:
+                continue
+            encontrados.append((datos, profundidad))
+            respuestas = datos.get("replies")
+            if isinstance(respuestas, dict):
+                encontrados += RedditIngestionClient._recorrer_hilo(
+                    (respuestas.get("data") or {}).get("children") or [],
+                    max_depth,
+                    nivel + 1,
+                )
+        return encontrados
+
     async def fetch_thread_comments(
         self,
         subreddit: str,
         post_id: str,
-        limit: int = 50,
+        limit: int = MAX_COMMENTS_PER_POST,
+        max_depth: int = MAX_COMMENT_DEPTH,
         filter_pain_only: bool = False
     ) -> list[CleanComment]:
         """
-        Extrae comentarios de un hilo específico ordenados por puntuación ('top').
+        Comentarios de un hilo por la API OAuth (D-I): como máximo `limit`,
+        los de mayor puntuación, con profundidad ≤ `max_depth`.
         """
         clean_sub = subreddit.strip().removeprefix("r/").removeprefix("/")
         clean_id = self.normalizer.normalize_id(post_id)
         url, headers = await self._thread_endpoint_and_headers(clean_sub, clean_id)
-        params = {"limit": limit, "sort": "top"}
+        # `depth` en la API cuenta niveles (1 = solo primer nivel): max_depth
+        # es índice (0 = primer nivel), de ahí el +1.
+        params = {"sort": "top", "depth": max_depth + 1}
 
         data = await self._execute_request(url, params=params, headers=headers)
         if not data or not isinstance(data, list) or len(data) < 2:
@@ -322,10 +361,7 @@ class RedditIngestionClient:
         comments_data = data[1].get("data", {}).get("children", [])
         collected_comments: list[CleanComment] = []
 
-        for child in comments_data:
-            if child.get("kind") != "t1":
-                continue
-            c_data = child.get("data", {})
+        for c_data, profundidad in self._recorrer_hilo(comments_data, max_depth):
             body = self.normalizer.clean_text_body(c_data.get("body"))
             if not body:
                 continue
@@ -348,12 +384,14 @@ class RedditIngestionClient:
                 created_utc=float(c_data.get("created_utc", 0.0)),
                 permalink=f"https://reddit.com{c_data.get('permalink', '')}" if c_data.get("permalink") else "",
                 parent_id=c_data.get("parent_id"),
+                depth=profundidad,
                 is_pain_signal=filter_res.is_pain_signal,
                 matched_keywords=filter_res.matched_keywords
             )
             collected_comments.append(clean_comment)
 
-        return sorted(collected_comments, key=lambda c: c.score, reverse=True)
+        collected_comments.sort(key=lambda c: c.score, reverse=True)
+        return collected_comments[:limit]
 
     async def fetch_full_thread(
         self,
@@ -435,24 +473,3 @@ class RedditIngestionClient:
         )
 
         return clean_post
-
-    async def get_unified_timeline(
-        self,
-        subreddit: str,
-        post_limit: int = 25,
-        max_comments_per_post: int = 5
-    ) -> list[UnifiedTimelineItem]:
-        """
-        Aplica el algoritmo de snscrape para generar una cronología unificada e interfoliada
-        de publicaciones y comentarios del subreddit en orden temporal descendente.
-        """
-        posts = await self.fetch_subreddit_posts(subreddit, listing="new", limit_per_page=post_limit, max_pages=1)
-        all_comments: list[CleanComment] = []
-
-        # Extraer comentarios de los primeros posts
-        for p in posts[:5]:
-            comments = await self.fetch_thread_comments(subreddit, p.id, limit=max_comments_per_post)
-            all_comments.extend(comments)
-
-        timeline = list(self.normalizer.interleave_chronological(posts, all_comments))
-        return timeline

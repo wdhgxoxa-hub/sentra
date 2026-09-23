@@ -115,6 +115,9 @@ class RadarState(TypedDict, total=False):
     # --- Material en curso (se reemplaza en cada ciclo) ---
     raw_items: list[dict[str, Any]]
     filtered_items: list[dict[str, Any]]
+    # Comentarios de los posts filtrados que pasaron el filtro (D-I): se
+    # analizan, pero no son posts y no se persisten como raw_posts.
+    comment_items: list[dict[str, Any]]
     signals: list[AnalyzedSignal]
 
     # --- Cosecha acumulada de toda la ejecución ---
@@ -129,6 +132,8 @@ class RadarState(TypedDict, total=False):
     # Ítems que pasaron el filtro en TODOS los ciclos: es lo que se persiste
     # como raw_posts (AUD-006). `filtered_items` es solo la página en curso.
     all_items: Annotated[list[dict[str, Any]], _merge_by_id]
+    # Todos los comentarios traídos, pasen o no el filtro: van a raw_comments.
+    all_comments: Annotated[list[dict[str, Any]], _merge_by_id]
 
     # Se recalculan enteros en cada vuelta sobre `all_signals`, así que se
     # reemplazan en lugar de acumularse.
@@ -159,6 +164,7 @@ def new_state(
         cycle=0,
         raw_items=[],
         filtered_items=[],
+        comment_items=[],
         signals=[],
         stored_ids=[],
         qualified=[],
@@ -166,6 +172,7 @@ def new_state(
         stats={},
         all_signals=[],
         all_items=[],
+        all_comments=[],
         clusters=[],
         qualified_clusters=[],
         failure=None,

@@ -338,6 +338,7 @@ export interface RunStats {
 export const PIPELINE_NODES = [
   "fetch",
   "filter",
+  "comments",
   "intelligence",
   "storage",
   "quality_gate",
@@ -349,6 +350,7 @@ export type PipelineNode = (typeof PIPELINE_NODES)[number];
 export const NODE_LABELS: Record<PipelineNode, string> = {
   fetch: "Descarga",
   filter: "Filtrado",
+  comments: "Comentarios",
   intelligence: "Análisis",
   storage: "Persistencia",
   quality_gate: "Corte de calidad",

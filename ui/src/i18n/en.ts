@@ -194,6 +194,7 @@ export const en: Dictionary = {
     nodes: {
       fetch: "Fetch",
       filter: "Filter",
+      comments: "Comments",
       intelligence: "Analysis",
       storage: "Storage",
       quality_gate: "Gate",
@@ -202,6 +203,7 @@ export const en: Dictionary = {
     nodeHints: {
       fetch: "Pulls posts from the chosen community.",
       filter: "Drops the noise: greetings, spam and covert promotion.",
+      comments: "Fetches the top-voted comments of the complaints that passed the filter.",
       intelligence: "Reads each complaint and scores how much it hurts.",
       storage: "Saves everything so it can be searched later.",
       quality_gate: "Sets aside complaints that are too weak.",

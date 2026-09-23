@@ -187,9 +187,51 @@ def filter_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     }
 
 
+def comments_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
+    """Trae los comentarios de los posts que pasaron el filtro (D-I).
+
+    Solo si la fuente sabe hacerlo (`fetch_comments`); el corpus de
+    demostración no tiene comentarios. Los límites (cuántos por post, qué
+    profundidad) los aplica la fuente. Cada comentario pasa el mismo filtro
+    que los posts: todos se guardan como crudos, solo los que lo superan se
+    analizan. Un hilo que falla no tumba la ejecución: los posts ya están.
+    """
+    traer = getattr(deps.fetcher, "fetch_comments", None)
+    if not callable(traer):
+        return {"comment_items": [], "all_comments": []}
+
+    pain_filter = deps.get_filter()
+    subreddit = state["subreddit"]
+    traidos: list[dict[str, Any]] = []
+    kept: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for post in state.get("filtered_items") or []:
+        try:
+            comentarios = list(traer(subreddit, str(post.get("id", ""))))
+        except RedditAccessError as exc:
+            logger.warning("CommentsNode (%s): %s", post.get("id"), exc)
+            errors.append(f"comments[{post.get('id')}]: {exc.code}")
+            continue
+        for comentario in comentarios:
+            traidos.append(comentario)
+            verdict = pain_filter.evaluate(
+                text=_item_text(comentario), author=str(comentario.get("author", ""))
+            )
+            if verdict.passed:
+                kept.append({**comentario, "matched_keywords": verdict.matched_keywords})
+
+    return {
+        "comment_items": kept,
+        "all_comments": traidos,
+        "errors": errors,
+        "stats": {"comments_fetched": len(traidos), "comments_kept": len(kept)},
+    }
+
+
 def intelligence_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     """Analiza cada ítem superviviente: NLI, JTBD y scoring temporal."""
-    items = state.get("filtered_items") or []
+    items = [*(state.get("filtered_items") or []), *(state.get("comment_items") or [])]
     if not items:
         return {"signals": [], "stats": {"analyzed": 0}}
 
@@ -241,7 +283,7 @@ def storage_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     # Los votos de Reddit no sobreviven al análisis: se recuperan del ítem crudo.
     upvotes = {
         str(item.get("id", "")): int(item.get("score", 0) or 0)
-        for item in (state.get("filtered_items") or [])
+        for item in [*(state.get("filtered_items") or []), *(state.get("comment_items") or [])]
     }
 
     try:
@@ -442,6 +484,7 @@ def build_graph(
 
     graph.add_node("fetch", lambda state: fetch_node(state, deps))
     graph.add_node("filter", lambda state: filter_node(state, deps))
+    graph.add_node("comments", lambda state: comments_node(state, deps))
     graph.add_node("intelligence", lambda state: intelligence_node(state, deps))
     graph.add_node("storage", lambda state: storage_node(state, deps))
     graph.add_node(
@@ -454,7 +497,8 @@ def build_graph(
 
     graph.add_edge(START, "fetch")
     graph.add_edge("fetch", "filter")
-    graph.add_edge("filter", "intelligence")
+    graph.add_edge("filter", "comments")
+    graph.add_edge("comments", "intelligence")
     graph.add_edge("intelligence", "storage")
     graph.add_edge("storage", "quality_gate")
     graph.add_edge("quality_gate", "aggregate")

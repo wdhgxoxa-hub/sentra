@@ -6,6 +6,7 @@ import {
   Database,
   Scale,
   Layers,
+  MessageSquare,
 } from "lucide-react";
 
 import { Explain } from "@/components/Explain";
@@ -15,6 +16,7 @@ import { PIPELINE_NODES, type PipelineNode } from "@/types/radar";
 const ICONS: Record<PipelineNode, typeof Download> = {
   fetch: Download,
   filter: Filter,
+  comments: MessageSquare,
   intelligence: Brain,
   storage: Database,
   quality_gate: Scale,

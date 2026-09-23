@@ -193,6 +193,7 @@ export const es = {
     nodes: {
       fetch: "Descarga",
       filter: "Filtrado",
+      comments: "Comentarios",
       intelligence: "Análisis",
       storage: "Guardado",
       quality_gate: "Corte",
@@ -201,6 +202,7 @@ export const es = {
     nodeHints: {
       fetch: "Trae publicaciones de la comunidad elegida.",
       filter: "Descarta el ruido: saludos, spam y publicidad encubierta.",
+      comments: "Trae los comentarios más votados de las quejas que pasaron el filtro.",
       intelligence: "Lee cada queja y puntúa cuánto duele.",
       storage: "Guarda todo para poder buscarlo después.",
       quality_gate: "Aparta las quejas demasiado flojas.",

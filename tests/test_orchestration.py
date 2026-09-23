@@ -567,7 +567,8 @@ class TestPipeline(OrchestrationTestCase):
         nodos = [payload["node"] for kind, payload in eventos if kind == "node"]
         self.assertEqual(
             nodos,
-            ["fetch", "filter", "intelligence", "storage", "quality_gate", "aggregate"],
+            ["fetch", "filter", "comments", "intelligence", "storage", "quality_gate",
+             "aggregate"],
         )
 
     def test_astream_state_closes_with_the_final_state(self):

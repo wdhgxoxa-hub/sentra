@@ -270,7 +270,8 @@ class TestScanStream(SidecarTestCase):
         nodos = [e["node"] for e in eventos if e["type"] == "run:progress"]
         self.assertEqual(
             nodos,
-            ["fetch", "filter", "intelligence", "storage", "quality_gate", "aggregate"],
+            ["fetch", "filter", "comments", "intelligence", "storage", "quality_gate",
+             "aggregate"],
         )
 
     def test_progress_carries_the_accumulated_statistics(self):

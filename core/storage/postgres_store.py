@@ -624,6 +624,56 @@ class PostgresStore:
 
         return saved
 
+    async def save_raw_comments(
+        self,
+        comments: Sequence[dict[str, Any]],
+        post_uuids: dict[str, str],
+        run_id: str | None = None,
+        data_source: str | None = None,
+    ) -> dict[str, str]:
+        """
+        Inserta comentarios crudos (D-I) y devuelve el mapa `reddit_id -> uuid`.
+
+        Cada uno cuelga de su post, que tiene que estar ya guardado: un
+        comentario sin post no significa nada (y la tabla lo exige).
+        """
+        saved: dict[str, str] = {}
+        for comment in comments:
+            reddit_id = str(comment.get("id") or "")
+            post_uuid = post_uuids.get(str(comment.get("post_id") or ""))
+            created = to_timestamptz(comment.get("created_utc"))
+            if not reddit_id or post_uuid is None or created is None:
+                logger.warning("Comentario sin post guardado o sin fecha, se omite: %s", reddit_id)
+                continue
+            body = str(comment.get("body") or "")
+            result = await self._fetchone_returning(
+                """
+                INSERT INTO raw_comments (tenant_id, post_id, run_id, reddit_id,
+                    parent_reddit_id, author, body, score, created_utc, permalink,
+                    depth, is_pain_signal, matched_keywords, raw_payload, content_hash,
+                    data_source)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (tenant_id, reddit_id, content_hash) DO UPDATE
+                    SET run_id = COALESCE(EXCLUDED.run_id, raw_comments.run_id),
+                        data_source = COALESCE(raw_comments.data_source,
+                                               EXCLUDED.data_source)
+                RETURNING id
+                """,
+                (
+                    self.tenant_id, post_uuid, run_id, reddit_id,
+                    comment.get("parent_id"),
+                    str(comment.get("author") or "[deleted]"), body,
+                    int(comment.get("score") or 0), created, comment.get("permalink"),
+                    int(comment.get("depth") or 0),
+                    bool(comment.get("is_pain_signal", False)),
+                    list(comment.get("matched_keywords") or []),
+                    json.dumps(dict(comment), default=str),
+                    compute_content_hash("", body), data_source,
+                ),
+            )
+            saved[reddit_id] = str(result["id"])
+        return saved
+
     async def save_signal(
         self,
         signal: Any,
@@ -634,23 +684,31 @@ class PostgresStore:
         embedding_ref: str | None = None,
         embedding_model: str | None = None,
         data_source: str | None = None,
+        comment_uuid: str | None = None,
     ) -> str | None:
-        """Inserta el veredicto del motor y devuelve el id de la señal."""
+        """Inserta el veredicto del motor y devuelve el id de la señal.
+
+        Con `comment_uuid` la señal es de un comentario (source_kind
+        'comment') y va sin `post_uuid`: su post se alcanza por raw_comments
+        (la tabla exige una sola fuente por señal).
+        """
         row = signal_to_row(
-            signal, run_id=run_id, post_uuid=post_uuid, qualified=qualified,
+            signal, run_id=run_id, post_uuid=post_uuid, comment_uuid=comment_uuid,
+            qualified=qualified,
             classifier_engine=classifier_engine,
             embedding_ref=embedding_ref or signal.id,
             embedding_model=embedding_model,
             data_source=data_source,
         )
-        if row["created_utc"] is None or post_uuid is None:
-            logger.warning("Señal sin post asociado o sin fecha: %s", row["reddit_id"])
+        if row["created_utc"] is None or (post_uuid is None and comment_uuid is None):
+            logger.warning("Señal sin post ni comentario asociado, o sin fecha: %s",
+                           row["reddit_id"])
             return None
 
         result = await self._fetchone_returning(
             """
             INSERT INTO analyzed_signals (tenant_id, run_id, source_kind, post_id,
-                reddit_id, subreddit_name, author, content, created_utc,
+                comment_id, reddit_id, subreddit_name, author, content, created_utc,
                 buying_intent, intent_confidence, pain_severity, pain_confidence,
                 sentiment, classifier_engine, risk_flags, spread_factor,
                 frequency_factor, severity_factor, recency_factor,
@@ -659,7 +717,7 @@ class PostgresStore:
                 average_paid_signal, newest_age_days, embedding_ref,
                 embedding_model, qualified, metadata, data_source)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (tenant_id, run_id, reddit_id) DO UPDATE
                 SET final_score = EXCLUDED.final_score,
                     qualified   = EXCLUDED.qualified
@@ -667,7 +725,7 @@ class PostgresStore:
             """,
             (
                 self.tenant_id, row["run_id"], row["source_kind"], row["post_id"],
-                row["reddit_id"], row["subreddit_name"], row["author"],
+                row["comment_id"], row["reddit_id"], row["subreddit_name"], row["author"],
                 row["content"], row["created_utc"], row["buying_intent"],
                 row["intent_confidence"], row["pain_severity"],
                 row["pain_confidence"], row["sentiment"], row["classifier_engine"],
@@ -834,15 +892,23 @@ class PostgresStore:
                 data_source=data_source,
             )
 
+            # Comentarios (D-I): todos los traídos, colgando de su post.
+            comentarios = list(state.get("all_comments") or [])
+            comment_uuids = await self.save_raw_comments(
+                comentarios, posts, run_id=run_id, data_source=data_source
+            )
+
             signals_saved = 0
             opportunities_saved = 0
             signal_uuids: dict[str, str] = {}
 
             for signal in _cosecha(state, "all_signals", "signals"):
+                es_comentario = signal.id in comment_uuids
                 signal_uuid = await self.save_signal(
                     signal,
                     run_id=run_id,
-                    post_uuid=posts.get(signal.id),
+                    post_uuid=None if es_comentario else posts.get(signal.id),
+                    comment_uuid=comment_uuids.get(signal.id),
                     qualified=signal.id in qualified_ids,
                     classifier_engine=classifier_engine,
                     embedding_model=embedding_model,
@@ -893,6 +959,7 @@ class PostgresStore:
             "run_id": run_id,
             "subreddit_id": subreddit_id,
             "posts": len(posts),
+            "comments": len(comment_uuids),
             "signals": signals_saved,
             "opportunities": opportunities_saved,
             "clusters": clusters_saved,

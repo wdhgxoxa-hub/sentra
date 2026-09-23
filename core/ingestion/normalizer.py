@@ -26,6 +26,8 @@ class CleanComment(BaseModel):
     created_utc: float = 0.0
     permalink: str = ""
     parent_id: Optional[str] = None
+    #: Nivel en el árbol del hilo: 0 responde al post, 1 a un comentario...
+    depth: int = 0
     is_pain_signal: bool = False
     matched_keywords: List[str] = Field(default_factory=list)
 

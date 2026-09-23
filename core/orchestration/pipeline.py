@@ -116,6 +116,24 @@ class RedditFetcher:
         items = [post.model_dump() for post in posts]
         return items, next_cursor
 
+    def fetch_comments(self, subreddit: str, post_id: str) -> list[dict[str, Any]]:
+        """Comentarios de un post por la API OAuth, con los límites de D-I.
+
+        El id lleva el prefijo `t1_` de Reddit: los de posts y comentarios
+        son espacios distintos y, sin prefijo, podrían coincidir.
+        """
+        client = self._get_client()
+        comentarios = _run_coroutine(client.fetch_thread_comments(subreddit, post_id))
+        return [
+            {
+                **comentario.model_dump(),
+                "id": f"t1_{comentario.id}",
+                "kind": "comment",
+                "subreddit": subreddit,
+            }
+            for comentario in comentarios
+        ]
+
 
 def create_default_dependencies(
     db_path: str | None = None,
