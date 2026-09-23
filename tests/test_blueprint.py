@@ -183,6 +183,15 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestAutorAnonimo(unittest.TestCase):
+    def test_el_plan_no_firma_las_citas_con_el_autor(self):
+        huella = "9f" * 32
+        cita = {"quote": "algo roto", "subreddit": "SaaS", "author": huella, "url": "u"}
+        doc = build_blueprint(cluster_base(evidence=[cita]))
+        self.assertNotIn(huella, doc.markdown)
+        self.assertIn("r/SaaS", doc.markdown)
+
+
 class TestRedaccion(unittest.TestCase):
     """El documento lo lee una persona: la concordancia no es un detalle."""
 

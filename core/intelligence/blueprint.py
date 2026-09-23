@@ -700,16 +700,9 @@ def _bloque_cita(cita: Quote) -> list[str]:
     el documento.
     """
     lineas = [f"> {linea}" if linea.strip() else ">" for linea in cita.quote.splitlines()]
-    firma = ", ".join(
-        parte
-        for parte in (
-            f"r/{cita.subreddit}" if cita.subreddit else "",
-            cita.author if cita.author else "",
-        )
-        if parte
-    )
-    if firma:
-        lineas += [">", f"> — {firma}"]
+    # Sin autor (R9): se guarda como hash, que no se muestra a nadie.
+    if cita.subreddit:
+        lineas += [">", f"> — r/{cita.subreddit}"]
     return lineas
 
 

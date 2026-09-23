@@ -271,10 +271,10 @@ def _evidencia(cluster: Mapping[str, Any], textos: Mapping[str, Any]) -> tuple[B
         vistas.add(huella)
         # snake_case si viene de PostgreSQL; camelCase si la reenvía Rust.
         cuando = cita.get("created_utc", cita.get("createdUtc"))
+        # Sin autor (R9): se guarda como hash, que no se muestra a nadie.
         firma = " · ".join(
             parte for parte in (
                 f"r/{cita.get('subreddit')}" if cita.get("subreddit") else "",
-                str(cita.get("author") or ""),
                 fecha(cuando, textos) if cuando is not None else str(textos["no_date"]),
                 str(cita.get("url") or "") or str(textos["no_link"]),
             ) if parte
