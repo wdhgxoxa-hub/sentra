@@ -101,7 +101,7 @@ class TestPersistenciaMulticiclo(ConCorpus):
         from core.storage.postgres_store import PostgresStore, run_async
 
         async def escribir():
-            async with PostgresStore(dsn=self.dsn) as store:
+            async with PostgresStore(dsn=self.dsn, author_salt="6d" * 32) as store:
                 return await store.persist_state(estado)
 
         return run_async(escribir())

@@ -141,7 +141,7 @@ class TestPostgres(unittest.TestCase):
         from core.storage.postgres_store import PostgresStore, run_async
 
         async def escribir():
-            async with PostgresStore(dsn=self.dsn) as pg:
+            async with PostgresStore(dsn=self.dsn, author_salt="6d" * 32) as pg:
                 return await pg.persist_state(est, data_source="demo")
 
         return run_async(escribir())

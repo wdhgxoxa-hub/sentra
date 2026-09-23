@@ -12,6 +12,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from core.evidence.author import load_or_create_salt
+
 from ..graph import RadarDependencies
 from ..state import RadarState
 from .context import SidecarContext, is_reddit_fetcher
@@ -31,9 +33,13 @@ async def _persist(
     postgres_dsn: str | None,
     status: str = "completed",
     data_source: str | None = None,
+    author_salt: str | None = None,
 ) -> tuple[str | None, bool, str | None]:
     """
     Vuelca el estado final en PostgreSQL.
+
+    `author_salt` es la sal de autores de la instalación (R9): sin ella no se
+    guarda ningún autor.
 
     Corre en un hilo aparte a propósito. uvicorn impone un
     `ProactorEventLoop` en Windows y psycopg se niega a funcionar sobre él;
@@ -56,7 +62,7 @@ async def _persist(
             embedder = getattr(deps.store, "embedder", None)
 
             async def _inner() -> dict[str, Any]:
-                async with PostgresStore(dsn=postgres_dsn) as store:
+                async with PostgresStore(dsn=postgres_dsn, author_salt=author_salt) as store:
                     return await store.persist_state(
                         dict(state),
                         trigger_source="sidecar",
@@ -114,7 +120,7 @@ def router(ctx: SidecarContext) -> APIRouter:
         if should_persist:
             run_id, persisted, persist_error = await _persist(
                 final_state, ctx.deps, ctx.postgres_dsn, status=status,
-                data_source=fuente_datos,
+                data_source=fuente_datos, author_salt=load_or_create_salt(ctx.env_path),
             )
 
         result = ctx.pipeline.summarize(final_state)
@@ -243,6 +249,7 @@ def router(ctx: SidecarContext) -> APIRouter:
                     ctx.postgres_dsn,
                     status=status,
                     data_source="reddit" if es_reddit else "demo",
+                    author_salt=load_or_create_salt(ctx.env_path),
                 )
 
             result = ctx.pipeline.summarize(final_state)

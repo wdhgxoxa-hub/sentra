@@ -212,7 +212,7 @@ class TestPersistencia(ConGrafo):
             migrate(dsn, RAIZ / "sql" / "migrations")
 
             async def escribir():
-                async with PostgresStore(dsn=dsn) as pg:
+                async with PostgresStore(dsn=dsn, author_salt="6d" * 32) as pg:
                     return await pg.persist_state(self.estado, data_source="reddit")
 
             resultado = run_async(escribir())

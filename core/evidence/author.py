@@ -22,16 +22,35 @@ from core.envfile import default_env_path, update_dotenv
 
 AUTHOR_SALT_ENV = "RIR_AUTHOR_SALT"
 
+
+class AuthorSaltMissing(RuntimeError):
+    """Hay un autor que guardar y no hay sal: no se guarda en claro ni con una sal inventada.
+
+    Una sal inventada por proceso cambiaría en cada ejecución y rompería, sin
+    avisar, el recuento de autores distintos (G2).
+    """
+
 #: Marcas de autor borrado: no son una persona y no cuentan como autor.
 _SIN_AUTOR = frozenset({"", "[deleted]", "[removed]", "deleted", "ghost"})
 
 
+def _normalizado(username: str | None) -> str:
+    # lower() y no casefold(): la migración 009 calcula el mismo hash en SQL
+    # con lower(), y los dos tienen que coincidir.
+    return (username or "").strip().lower()
+
+
+def es_autor_identificable(username: str | None) -> bool:
+    """False para vacíos y marcas de borrado: no son una persona."""
+    return _normalizado(username) not in _SIN_AUTOR
+
+
 def author_hash(source: str, username: str | None, salt: str) -> str | None:
     """Hash del autor en su fuente; None si no hay autor identificable."""
-    nombre = (username or "").strip().casefold()
-    if nombre in _SIN_AUTOR:
+    if not es_autor_identificable(username):
         return None
-    return hmac.new(salt.encode(), f"{source}:{nombre}".encode(), hashlib.sha256).hexdigest()
+    mensaje = f"{source}:{_normalizado(username)}".encode()
+    return hmac.new(salt.encode(), mensaje, hashlib.sha256).hexdigest()
 
 
 def load_or_create_salt(env_path: str | None = None) -> str:

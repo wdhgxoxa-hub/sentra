@@ -308,6 +308,7 @@ export const en: Dictionary = {
       "Derived from the stored evidence, with nothing made up: where there is no data, it says so.",
   },
   quotes: {
+    anonymousAuthor: "anonymous author",
     title: "What they said",
     count: "quotes",
     translate: "Translate to English",

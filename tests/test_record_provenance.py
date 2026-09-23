@@ -182,7 +182,7 @@ class TestPostgres(unittest.TestCase):
         )).run_state("SaaS")
 
         async def escribir():
-            async with PostgresStore(dsn=self.dsn) as pg:
+            async with PostgresStore(dsn=self.dsn, author_salt="6d" * 32) as pg:
                 return await pg.persist_state(estado, data_source="demo")
 
         run_async(escribir())

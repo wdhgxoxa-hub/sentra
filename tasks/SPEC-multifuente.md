@@ -67,6 +67,18 @@ cierre. La UI de cada pieza va en el mismo commit que la pieza.
   - YouTube: 2.000 unidades.
   - X: deshabilitada; necesita un tope en USD por escaneo y por mes.
 
+- **D-M5 · Datos antiguos sin procedencia (2026-09-23).** Las filas
+  anteriores a D-J (procedencia NULL) pasan a `evidence_items` con
+  `source='legacy'` y `data_source` NULL (desconocida). No se infiere nada,
+  aunque sus ids tengan forma de corpus sintético; nunca cuentan como reales
+  (G8) ni aparecen con la insignia de Reddit.
+- **D-M6 · Sal de autores en la migración (técnica, derivada de R9 y D-M1).**
+  La migración 009 hashea en SQL con `pgcrypto` (hmac-sha256, igual que
+  `core/evidence/author.py`). La sal no está en ningún archivo:
+  `scripts/migrate.py` la pone en la sesión (`rir.author_salt`) y solo hace
+  falta si hay autores antiguos que hashear. También se limpian las claves de
+  autor de `raw_payload` y del JSON de evidencia de los clusters.
+
 ## Stack
 
 - Python 3.12, FastAPI (sidecar), LangGraph, PostgreSQL 18, LanceDB.

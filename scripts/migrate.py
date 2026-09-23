@@ -235,13 +235,23 @@ class MigrationReport(TypedDict):
     applied: list[AppliedMigration]
 
 
+#: Parámetro de sesión con la sal de autores (R9). Lo lee la migración 009
+#: para hashear los autores antiguos igual que core.evidence.author.
+AUTHOR_SALT_SETTING = "rir.author_salt"
+
+
 def migrate(
     dsn: str | None = None,
     directory: str | Path | None = None,
     dry_run: bool = False,
+    author_salt: str | None = None,
 ) -> MigrationReport:
     """
     Aplica todas las migraciones pendientes.
+
+    `author_salt` solo hace falta si hay autores antiguos que hashear: una
+    base nueva migra sin ella. No se imprime ni se guarda en la base; vive
+    en la sesión mientras dura la migración.
 
     Returns:
         Un informe con lo aplicado, lo pendiente y lo que ya estaba.
@@ -252,6 +262,8 @@ def migrate(
     migrations = discover_migrations(directory)
 
     with psycopg.connect(dsn) as conn:
+        if author_salt:
+            conn.execute("SELECT set_config(%s, %s, false)", (AUTHOR_SALT_SETTING, author_salt))
         ensure_migrations_table(conn)
         already = applied_migrations(conn)
         pending = pending_migrations(migrations, already)
@@ -295,6 +307,15 @@ def _default_dsn() -> str:
     return os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
 
 
+def _author_salt() -> str:
+    # Ejecutado como `python scripts/migrate.py`, la raíz no está en la ruta.
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    from core.evidence.author import load_or_create_salt
+
+    return load_or_create_salt()
+
+
 def _redact(dsn: str) -> str:
     """Oculta la contraseña del DSN antes de imprimirlo."""
     return re.sub(r"password=\S+", "password=***", dsn)
@@ -316,10 +337,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     try:
+        solo_mirar = args.dry_run or args.command == "status"
         report = migrate(
             dsn=args.dsn,
             directory=args.directory,
-            dry_run=args.dry_run or args.command == "status",
+            dry_run=solo_mirar,
+            # La sal de esta instalación (se crea la primera vez); solo al aplicar.
+            author_salt=None if solo_mirar else _author_salt(),
         )
     except MigrationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

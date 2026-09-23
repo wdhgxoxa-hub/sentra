@@ -197,7 +197,7 @@ class TestSidecar(ConAlmacen):
 
         recibido = {}
 
-        async def espia(state, deps, dsn, status="completed", data_source=None):
+        async def espia(state, deps, dsn, status="completed", data_source=None, author_salt=None):
             recibido["data_source"] = data_source
             return "run", True, None
 
@@ -284,7 +284,7 @@ class TestResultadoPersistido(ConAlmacen):
         from core.storage.postgres_store import PostgresStore, run_async
 
         async def escribir():
-            async with PostgresStore(dsn=self.dsn) as store:
+            async with PostgresStore(dsn=self.dsn, author_salt="6d" * 32) as store:
                 return await store.persist_state(estado, data_source=data_source)
 
         return run_async(escribir())["run_id"]

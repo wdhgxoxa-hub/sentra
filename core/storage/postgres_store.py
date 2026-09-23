@@ -36,12 +36,32 @@ from collections.abc import Coroutine, Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Self
 
+from core.evidence.author import AuthorSaltMissing, author_hash, es_autor_identificable
+
 from .identity import Candidato, Previo, asignar_identidades
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
 logger = logging.getLogger(__name__)
+
+def _fuente(data_source: str | None) -> str:
+    """Fuente de un registro de la pipeline de Reddit según su procedencia (D-M5)."""
+    return {"reddit": "reddit", "demo": "demo"}.get(data_source or "", "legacy")
+
+
+def _procedencia(data_source: str | None) -> str | None:
+    """'reddit' es dato real; 'demo', de demostración; lo demás, desconocido."""
+    return {"reddit": "real", "demo": "demo"}.get(data_source or "")
+
+
+#: Claves de la carga cruda de la API que llevan el nombre del autor (R9).
+_CLAVES_DE_AUTOR = ("author", "author_fullname")
+
+
+def _sin_autor(carga: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in carga.items() if k not in _CLAVES_DE_AUTOR}
+
 
 def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
     """
@@ -354,10 +374,93 @@ class PostgresStore:
         self,
         dsn: str | None = None,
         tenant_id: str = DEFAULT_TENANT_ID,
+        author_salt: str | None = None,
     ) -> None:
         self.dsn = dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
         self.tenant_id = tenant_id
+        # R9: sin sal no se guarda ningún autor (ver AuthorSaltMissing).
+        self._author_salt = author_salt
         self._conn: AsyncConnection[dict[str, Any]] | None = None
+
+    # -- Autores y evidencia (R9, D-M1) ------------------------------------
+
+    def _hash_autor(self, fuente: str, nombre: Any) -> str | None:
+        """Hash salado del autor, o None si no hay autor identificable."""
+        if not es_autor_identificable(str(nombre or "")):
+            return None
+        if not self._author_salt:
+            raise AuthorSaltMissing(
+                "Hay autores que guardar y PostgresStore no tiene sal (author_salt)."
+            )
+        return author_hash(fuente, str(nombre), self._author_salt)
+
+    def _autor(self, fuente: str, nombre: Any) -> str:
+        """El autor tal como se guarda en las tablas antiguas: hash o '[deleted]'."""
+        return self._hash_autor(fuente, nombre) or "[deleted]"
+
+    async def _guardar_evidencia(
+        self,
+        *,
+        fuente: str,
+        nativo: str,
+        community: str,
+        kind: str,
+        title: str | None,
+        content: str,
+        url: Any,
+        author: Any,
+        created: datetime,
+        run_id: str | None,
+        data_source: str | None,
+        content_hash: str,
+        thread_id: str,
+        score: int,
+        replies: int | None,
+        legacy_post_id: str | None = None,
+        legacy_comment_id: str | None = None,
+    ) -> None:
+        """Upsert de la pieza en evidence_items (la tabla común de F2).
+
+        La pipeline de Reddit sigue escribiendo sus tablas antiguas mientras
+        el escaneo multifuente no la sustituya; esta copia es la que leen
+        las vistas.
+        """
+        enlace = str(url) if isinstance(url, str) and url.startswith("https://") else None
+        if enlace is None and fuente == "reddit":
+            # URL canónica oficial de Reddit para un post o comentario por id.
+            enlace = f"https://www.reddit.com/comments/{nativo.removeprefix('t3_')}"
+        if enlace is None and fuente != "legacy":
+            logger.warning("Evidencia sin enlace atribuible, no se guarda: %s:%s", fuente, nativo)
+            return
+        texto = content.strip() or (title or "").strip() or "(sin texto)"
+        await self.connection.execute(
+            """
+            INSERT INTO evidence_items (id, tenant_id, source, community, kind, title,
+                content, url, author_hash, created_at, fetched_at, thread_id, score,
+                replies, data_source, run_id, content_hash, legacy_post_id,
+                legacy_comment_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (tenant_id, id) DO UPDATE SET
+                title = EXCLUDED.title,
+                content = EXCLUDED.content,
+                content_hash = EXCLUDED.content_hash,
+                score = EXCLUDED.score,
+                replies = EXCLUDED.replies,
+                fetched_at = EXCLUDED.fetched_at,
+                run_id = COALESCE(EXCLUDED.run_id, evidence_items.run_id),
+                data_source = COALESCE(evidence_items.data_source, EXCLUDED.data_source),
+                legacy_post_id = COALESCE(EXCLUDED.legacy_post_id, evidence_items.legacy_post_id),
+                legacy_comment_id = COALESCE(EXCLUDED.legacy_comment_id,
+                                             evidence_items.legacy_comment_id)
+            """,
+            (
+                f"{fuente}:{nativo}", self.tenant_id, fuente, community, kind,
+                title or None, texto, enlace,
+                self._hash_autor(fuente, author),
+                created, thread_id, score, replies, _procedencia(data_source), run_id,
+                content_hash, legacy_post_id, legacy_comment_id,
+            ),
+        )
 
     @classmethod
     def from_env(cls) -> PostgresStore:
@@ -592,6 +695,10 @@ class PostgresStore:
             if not row["reddit_id"] or row["created_utc"] is None:
                 logger.warning("Post sin id o sin fecha, se omite: %s", row["reddit_id"])
                 continue
+            fuente = _fuente(data_source)
+            nombre = row["author"]
+            row["author"] = self._autor(fuente, nombre)
+            row["raw_payload"] = _sin_autor(row["raw_payload"])
 
             result = await self._fetchone_returning(
                 """
@@ -621,6 +728,14 @@ class PostgresStore:
                 ),
             )
             saved[row["reddit_id"]] = str(result["id"])
+            await self._guardar_evidencia(
+                fuente=fuente, nativo=row["reddit_id"], community=f"r/{row['subreddit_name']}",
+                kind="post", title=row["title"], content=row["selftext"],
+                url=row["permalink"], author=nombre, created=row["created_utc"],
+                run_id=run_id, data_source=data_source, content_hash=row["content_hash"],
+                thread_id=f"{fuente}:{row['reddit_id']}", score=row["score"],
+                replies=row["num_comments"], legacy_post_id=saved[row["reddit_id"]],
+            )
 
         return saved
 
@@ -646,6 +761,8 @@ class PostgresStore:
                 logger.warning("Comentario sin post guardado o sin fecha, se omite: %s", reddit_id)
                 continue
             body = str(comment.get("body") or "")
+            fuente = _fuente(data_source)
+            nombre = comment.get("author")
             result = await self._fetchone_returning(
                 """
                 INSERT INTO raw_comments (tenant_id, post_id, run_id, reddit_id,
@@ -662,16 +779,26 @@ class PostgresStore:
                 (
                     self.tenant_id, post_uuid, run_id, reddit_id,
                     comment.get("parent_id"),
-                    str(comment.get("author") or "[deleted]"), body,
+                    self._autor(fuente, nombre), body,
                     int(comment.get("score") or 0), created, comment.get("permalink"),
                     int(comment.get("depth") or 0),
                     bool(comment.get("is_pain_signal", False)),
                     list(comment.get("matched_keywords") or []),
-                    json.dumps(dict(comment), default=str),
+                    json.dumps(_sin_autor(dict(comment)), default=str),
                     compute_content_hash("", body), data_source,
                 ),
             )
             saved[reddit_id] = str(result["id"])
+            post_id = str(comment.get("post_id") or "")
+            await self._guardar_evidencia(
+                fuente=fuente, nativo=reddit_id,
+                community=f"r/{comment.get('subreddit') or ''}".rstrip("/") or "r/",
+                kind="comment", title=None, content=body, url=comment.get("permalink"),
+                author=nombre, created=created, run_id=run_id, data_source=data_source,
+                content_hash=compute_content_hash("", body),
+                thread_id=f"{fuente}:{post_id}", score=int(comment.get("score") or 0),
+                replies=None, legacy_comment_id=saved[reddit_id],
+            )
         return saved
 
     async def save_signal(
@@ -704,6 +831,7 @@ class PostgresStore:
             logger.warning("Señal sin post ni comentario asociado, o sin fecha: %s",
                            row["reddit_id"])
             return None
+        row["author"] = self._autor(_fuente(data_source), row["author"])
 
         result = await self._fetchone_returning(
             """
@@ -814,6 +942,7 @@ class PostgresStore:
         signal_uuids: dict[str, str],
         qualified: bool = False,
         opportunity_id: str | None = None,
+        data_source: str | None = None,
     ) -> str | None:
         """
         Inserta un cluster y lo enlaza con las señales que lo sostienen.
@@ -830,6 +959,11 @@ class PostgresStore:
         if not row["cluster_key"]:
             logger.warning("Cluster sin clave, se omite")
             return None
+        fuente = _fuente(data_source)
+        row["evidence"] = [
+            {**cita, "author": self._autor(fuente, cita["author"])} if "author" in cita else cita
+            for cita in row["evidence"]
+        ]
 
         representative_uuid = signal_uuids.get(row["representative_reddit_id"] or "")
 
@@ -979,6 +1113,7 @@ class PostgresStore:
                     signal_uuids=signal_uuids,
                     qualified=cluster.get("key") in qualified_keys,
                     opportunity_id=identidades.get(str(cluster.get("key") or "")),
+                    data_source=data_source,
                 )
                 if saved:
                     clusters_saved += 1

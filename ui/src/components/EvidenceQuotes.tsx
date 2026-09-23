@@ -133,7 +133,9 @@ export function EvidenceQuotes({ quotes }: { quotes: EvidenceQuote[] }) {
               <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">
                 <span className="font-mono">r/{cita.subreddit}</span>
                 <span aria-hidden="true">·</span>
-                <span>{cita.author}</span>
+                {/* R9: el autor se guarda solo como hash, que sirve para contar
+                    autores distintos, no para mostrarlo. */}
+                <span>{t.quotes.anonymousAuthor}</span>
                 {traducido && traduccion?.approximate && (
                   <>
                     <span aria-hidden="true">·</span>

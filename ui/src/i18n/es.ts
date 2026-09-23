@@ -307,6 +307,7 @@ export const es = {
       "Documento derivado de la evidencia guardada, sin inventar nada: donde no hay dato, lo dice.",
   },
   quotes: {
+    anonymousAuthor: "autor anónimo",
     title: "Lo que dijeron",
     count: "citas",
     translate: "Traducir al español",

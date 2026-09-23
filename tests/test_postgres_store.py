@@ -33,6 +33,9 @@ from core.storage.postgres_store import (
     to_timestamptz,
 )
 
+#: Sal de autores de los tests (R9): nunca la del .env real.
+SAL = "3c" * 32
+
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
 )
@@ -294,7 +297,7 @@ class TestPostgresIntegration(unittest.TestCase):
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
 
     def _store(self):
-        return PostgresStore(dsn=self.dsn)
+        return PostgresStore(dsn=self.dsn, author_salt=SAL)
 
     def _run(self, coro_factory):
         async def main():
@@ -376,6 +379,44 @@ class TestPostgresIntegration(unittest.TestCase):
         self.assertTrue(entry["job_statement"])
         self.assertEqual(entry["post_title"], TestRowMapping.POST["title"])
 
+    def test_ningun_autor_en_claro_tras_persistir(self):
+        """R9: el nombre de usuario no llega a ninguna tabla ni a ningún JSON."""
+        import psycopg
+
+        from core.evidence.author import author_hash
+
+        post = dict(TestRowMapping.POST, id="t3_r9", author="usuario_real_x",
+                    author_fullname="t2_usuario_real_x")
+        state = {"subreddit": "SaaS", "filtered_items": [post], "signals": [],
+                 "stats": {}, "errors": [], "cycle": 1}
+        self._run(lambda store: store.persist_state(state, data_source="demo"))
+
+        with psycopg.connect(self.dsn) as conn:
+            conn.execute("SET search_path = radar, public")
+            volcado = " ".join(
+                str(f) for tabla in ("raw_posts", "raw_comments", "analyzed_signals",
+                                     "opportunity_clusters", "evidence_items")
+                for f in conn.execute(f"SELECT row_to_json(t)::text FROM {tabla} t").fetchall()
+            )
+            hash_guardado = conn.execute(
+                "SELECT author_hash, data_source, source FROM evidence_items "
+                "WHERE id = 'demo:t3_r9'").fetchone()
+        self.assertNotIn("usuario_real_x", volcado)
+        self.assertEqual(hash_guardado, (author_hash("demo", "usuario_real_x", SAL), "demo", "demo"))
+
+    def test_sin_sal_no_se_persisten_autores(self):
+        from core.evidence.author import AuthorSaltMissing
+
+        state = {"subreddit": "SaaS", "filtered_items": [dict(TestRowMapping.POST, id="t3_ns")],
+                 "signals": [], "stats": {}, "errors": [], "cycle": 1}
+
+        async def sin_sal():
+            async with PostgresStore(dsn=self.dsn) as store:
+                return await store.persist_state(state, data_source="demo")
+
+        with self.assertRaises(AuthorSaltMissing):
+            run_async(sin_sal())
+
     def test_persist_state_is_idempotent_for_identical_content(self):
         state = {
             "subreddit": "SaaS",
@@ -390,7 +431,10 @@ class TestPostgresIntegration(unittest.TestCase):
         async def twice(store):
             await store.persist_state(state)
             await store.persist_state(state)
-            return await store.count_posts()
+            # Solo las filas de ESTE post: la base es compartida por la clase.
+            filas = await store.connection.execute(
+                "SELECT count(*) AS n FROM raw_posts WHERE reddit_id = 't3_abc'")
+            return (await filas.fetchone())["n"]
 
         # El mismo post con el mismo contenido no debe multiplicarse.
         self.assertEqual(self._run(twice), 1)
@@ -539,7 +583,7 @@ class TestClusterPersistence(unittest.TestCase):
             )
 
     def _store(self):
-        return PostgresStore(dsn=self.dsn)
+        return PostgresStore(dsn=self.dsn, author_salt=SAL)
 
     def _run(self, coro_factory):
         async def main():
