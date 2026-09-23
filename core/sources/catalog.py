@@ -11,13 +11,14 @@ entran nunca; Google Trends, tampoco mientras su API siga en alfa cerrada.
 from __future__ import annotations
 
 from .base import SourceAdapter
+from .bluesky import BlueskySource
 from .github import GitHubSource
 from .hackernews import HackerNewsSource
 from .reddit import RedditSource
 from .stackexchange import StackExchangeSource
 
 SOURCES: tuple[type[SourceAdapter], ...] = (
-    HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource,
+    HackerNewsSource, StackExchangeSource, GitHubSource, RedditSource, BlueskySource,
 )
 
 

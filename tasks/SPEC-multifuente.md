@@ -78,6 +78,14 @@ cierre. La UI de cada pieza va en el mismo commit que la pieza.
   `scripts/migrate.py` la pone en la sesión (`rir.author_salt`) y solo hace
   falta si hay autores antiguos que hashear. También se limpian las claves de
   autor de `raw_payload` y del JSON de evidencia de los clusters.
+- **D-M7 · URL del original sin @handle (R5 frente a R9; decisión del usuario, 2026-09-23).**
+  Donde la URL de la plataforma lleva al autor (Bluesky, Mastodon), se guarda
+  la variante por identificador técnico: Bluesky `bsky.app/profile/<DID>/post/<rkey>`;
+  Mastodon, la URL por id de estado sin `@usuario`. Nunca se guarda el @handle;
+  el autor sigue solo como hash.
+- **D-SE1..D-SE5 · Stack Exchange (usuario, 2026-09-23).** Clave opcional
+  `RIR_STACKEXCHANGE_KEY` solo desde la tarjeta; sin OAuth; solo uso personal;
+  atribución visible (insignia, sitio, URL en texto plano) en UI, documento y PDF.
 
 ## Stack
 
