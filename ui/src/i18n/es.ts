@@ -289,6 +289,7 @@ export const es = {
     seeking_alternative: "Busca alternativa",
     comparing_products: "Comparando productos",
     casual_discussion: "Conversación casual",
+    undetermined: "Indeterminada: sin evidencia suficiente",
     none: "Sin intención",
   },
 
@@ -297,6 +298,7 @@ export const es = {
     time_consuming_friction: "Fricción costosa",
     minor_inconvenience: "Molestia menor",
     no_problem: "Sin problema",
+    undetermined: "Indeterminada: sin evidencia suficiente",
     none: "Sin clasificar",
   },
 

@@ -290,6 +290,7 @@ export const en: Dictionary = {
     seeking_alternative: "Seeking alternative",
     comparing_products: "Comparing products",
     casual_discussion: "Casual discussion",
+    undetermined: "Undetermined: not enough evidence",
     none: "No intent",
   },
 
@@ -298,6 +299,7 @@ export const en: Dictionary = {
     time_consuming_friction: "Costly friction",
     minor_inconvenience: "Minor inconvenience",
     no_problem: "No problem",
+    undetermined: "Undetermined: not enough evidence",
     none: "Unclassified",
   },
 

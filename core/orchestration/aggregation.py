@@ -47,11 +47,13 @@ distintos".
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.intelligence import OpportunityMetrics, TemporalScorer
+from core.intelligence.zeroshot_nli import UNDETERMINED_LABEL
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +61,17 @@ logger = logging.getLogger(__name__)
 # aquí en forma de constante, y un test comprueba que agregar una señal
 # sola reproduce su puntuación individual: si el motor cambiara su escala
 # sin avisar, esa prueba falla.
-SEVERITY_SCALE: Dict[str, float] = {
+SEVERITY_SCALE: dict[str, float] = {
     "severe blocker": 5.0,
     "time consuming friction": 3.5,
     "minor inconvenience": 2.0,
     "no problem": 1.0,
+    # Sin evidencia la severidad aporta cero al cluster (AUD-005).
+    UNDETERMINED_LABEL: 1.0,
 }
 DEFAULT_SEVERITY = 2.5
 
-PAID_SIGNAL_SCALE: Dict[str, float] = {
+PAID_SIGNAL_SCALE: dict[str, float] = {
     "explicit": 3.0,
     "implicit": 1.5,
     "none": 0.0,
@@ -85,36 +89,38 @@ class OpportunityCluster(BaseModel):
     key: str
     label: str
     intent_type: str
-    keywords: List[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
 
-    signal_ids: List[str] = Field(default_factory=list)
-    subreddits: List[str] = Field(default_factory=list)
+    signal_ids: list[str] = Field(default_factory=list)
+    subreddits: list[str] = Field(default_factory=list)
     mention_count: int = 0
     community_count: int = 0
 
     representative_id: str = ""
     job_statement: str = ""
-    current_solutions: List[str] = Field(default_factory=list)
-    risk_flags: List[str] = Field(default_factory=list)
+    current_solutions: list[str] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list)
 
     metrics: OpportunityMetrics
     score_breakdown: Any
-    evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
 
 
-def signal_keywords(signal: Any, pain_filter: Any) -> List[str]:
+def signal_keywords(signal: Any, pain_filter: Any) -> list[str]:
     """Términos de dolor del vocabulario de dominio presentes en la señal."""
     try:
         return sorted(set(pain_filter.match_keywords(signal.text or "")))
-    except Exception as exc:
+    # `pain_filter` y `signal` llegan por duck typing: lo esperable es un
+    # objeto sin la forma debida, no un fallo del regex.
+    except (AttributeError, TypeError) as exc:
         logger.warning("No se pudieron extraer keywords de %s: %s", signal.id, exc)
         return []
 
 
 def _group_indices(
     signals: Sequence[Any],
-    keywords_by_index: Dict[int, List[str]],
-) -> List[List[int]]:
+    keywords_by_index: dict[int, list[str]],
+) -> list[list[int]]:
     """
     Agrupa por componentes conexas: misma intención más algún término común.
 
@@ -146,7 +152,7 @@ def _group_indices(
             if same_intent and shares_term:
                 union(i, j)
 
-    groups: Dict[int, List[int]] = {}
+    groups: dict[int, list[int]] = {}
     for index in range(len(signals)):
         groups.setdefault(find(index), []).append(index)
     return list(groups.values())
@@ -199,9 +205,9 @@ def _cluster_label(signals: Sequence[Any], keywords: Sequence[str]) -> str:
 
 def build_clusters(
     signals: Sequence[Any],
-    scorer: Optional[TemporalScorer] = None,
-    pain_filter: Optional[Any] = None,
-) -> List[OpportunityCluster]:
+    scorer: TemporalScorer | None = None,
+    pain_filter: Any | None = None,
+) -> list[OpportunityCluster]:
     """
     Consolida señales en oportunidades y las puntúa con métricas agregadas.
 
@@ -222,7 +228,7 @@ def build_clusters(
         i: signal_keywords(s, pain_filter) for i, s in enumerate(signals)
     }
 
-    clusters: List[OpportunityCluster] = []
+    clusters: list[OpportunityCluster] = []
 
     for group in _group_indices(signals, keywords_by_index):
         members = [signals[i] for i in group]
@@ -285,7 +291,7 @@ def build_clusters(
     return clusters
 
 
-def cluster_to_dict(cluster: OpportunityCluster) -> Dict[str, Any]:
+def cluster_to_dict(cluster: OpportunityCluster) -> dict[str, Any]:
     """Aplana un cluster a estructuras serializables, para el estado y la API."""
     breakdown = cluster.score_breakdown
     return {

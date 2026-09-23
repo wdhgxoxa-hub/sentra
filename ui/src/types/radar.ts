@@ -24,6 +24,7 @@ export type BuyingIntent =
   | "seeking_alternative"
   | "comparing_products"
   | "casual_discussion"
+  | "undetermined"
   | "none";
 
 export type PainSeverity =
@@ -31,12 +32,14 @@ export type PainSeverity =
   | "time_consuming_friction"
   | "minor_inconvenience"
   | "no_problem"
+  | "undetermined"
   | "none";
 
 export type SentimentLabel =
   | "negative_frustration"
   | "neutral_inquiry"
   | "positive_praise"
+  | "undetermined"
   | "unknown";
 
 export type WillingnessToPay = "explicit" | "implicit" | "none";
@@ -575,6 +578,7 @@ export const INTENT_LABELS: Record<BuyingIntent, string> = {
   seeking_alternative: "Busca alternativa",
   comparing_products: "Comparando productos",
   casual_discussion: "Conversación casual",
+  undetermined: "Indeterminada",
   none: "Sin intención",
 };
 
@@ -583,6 +587,7 @@ export const PAIN_LABELS: Record<PainSeverity, string> = {
   time_consuming_friction: "Fricción costosa",
   minor_inconvenience: "Molestia menor",
   no_problem: "Sin problema",
+  undetermined: "Indeterminada",
   none: "Sin clasificar",
 };
 

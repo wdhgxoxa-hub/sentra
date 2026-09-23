@@ -32,6 +32,7 @@ from core.orchestration.graph import (
 )
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 
+
 def setUpModule():
     """
     Silencia el logging durante la suite.
@@ -420,7 +421,7 @@ class TestQualityGateNode(OrchestrationTestCase):
         state = self.run_all_nodes(
             new_state(subreddit="smallbusiness"), min_score=REACHABLE_CUT
         )
-        entry = [q for q in state["qualified"] if q["id"] == "t3_pain"][0]
+        entry = next(q for q in state["qualified"] if q["id"] == "t3_pain")
         self.assertIn("opportunity_score", entry)
         self.assertIn("job_statement", entry)
 
@@ -660,8 +661,8 @@ class TestRedditFetcherAdapter(unittest.TestCase):
         self.assertEqual(client.calls[0]["limit"], 7)
 
     def test_adapter_serializes_posts_into_plain_dicts(self):
-        from core.orchestration import RedditFetcher
         from core.ingestion import CleanPost
+        from core.orchestration import RedditFetcher
 
         post = CleanPost(id="t3_x", subreddit="saas", title="t", selftext="b")
         client = self.FakeClient([([post], None)])
@@ -951,8 +952,13 @@ class TestClusterScoring(AggregationTestCase):
         """
         from core.orchestration.aggregation import build_clusters
 
+        # La severidad tiene que ser REAL: el texto lo dice con la etiqueta
+        # ("severe blocker"). Antes se llegaba a 60 porque una severidad sin
+        # evidencia salia "severe blocker" por empate (AUD-005).
         signal = self.signal("t3_perfect", "smallbusiness",
-                             "Manual invoice export is broken", body=PAIN_BODY)
+                             "Manual invoice export is broken",
+                             body=PAIN_BODY + " It is a severe blocker for my team.")
+        self.assertEqual(signal.pain_severity, "severe blocker")
         cluster = build_clusters([signal])[0]
         self.assertAlmostEqual(cluster.score_breakdown.final_score, 60.0, places=1)
         self.assertAlmostEqual(cluster.score_breakdown.spread_factor, 0.2)

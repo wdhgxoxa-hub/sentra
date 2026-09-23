@@ -12,15 +12,17 @@ Construido sobre:
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any
+
 import toml
 from pydantic import BaseModel, Field
 
 from .clustering import ClusteringResult, TopicClusterer
 from .jtbd_analyzer import JTBDAnalyzer, JTBDRequirement
 from .temporal_scoring import OpportunityMetrics, TemporalScoreBreakdown, TemporalScorer
-from .zeroshot_nli import ZeroShotNLIClassifier, ZeroShotResult
+from .zeroshot_nli import UNDETERMINED_LABEL, ZeroShotNLIClassifier, ZeroShotResult
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,10 @@ class AnalyzedSignal(BaseModel):
     # Puntuación temporal
     temporal_metrics: OpportunityMetrics
     score_breakdown: TemporalScoreBreakdown
+    # Motor que produjo realmente las etiquetas: "transformers" solo si las
+    # tres clasificaciones las hizo el modelo; si alguna cayó al heurístico,
+    # "heuristic".
+    classifier_engine: str = "heuristic"
 
 
 class ComprehensiveIntelligenceReport(BaseModel):
@@ -52,10 +58,10 @@ class ComprehensiveIntelligenceReport(BaseModel):
     topic_or_subreddit: str
     total_signals_evaluated: int
     critical_opportunities_count: int
-    signals: List[AnalyzedSignal] = Field(default_factory=list)
+    signals: list[AnalyzedSignal] = Field(default_factory=list)
     clusters: ClusteringResult
-    emerging_keywords: List[Tuple[str, float]] = Field(default_factory=list)
-    top_jtbd_statements: List[str] = Field(default_factory=list)
+    emerging_keywords: list[tuple[str, float]] = Field(default_factory=list)
+    top_jtbd_statements: list[str] = Field(default_factory=list)
 
 
 class IntelligenceEngine:
@@ -67,7 +73,7 @@ class IntelligenceEngine:
 
     def __init__(
         self,
-        config_path: Optional[Path] = None,
+        config_path: Path | None = None,
         half_life_days: float = 180.0,
         model_name: str = "facebook/bart-large-mnli",
         use_transformers_if_available: bool = True
@@ -84,13 +90,13 @@ class IntelligenceEngine:
         )
         self.clusterer = TopicClusterer()
 
-    def _load_prompts(self) -> Dict[str, Any]:
+    def _load_prompts(self) -> dict[str, Any]:
         """Carga las plantillas maestras en TOML o inicializa fallbacks internos."""
         if self.config_path.exists():
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     return toml.load(f)
-            except Exception as e:
+            except (OSError, toml.TomlDecodeError) as e:
                 logger.warning(f"Error cargando {self.config_path}: {e}")
         return {}
 
@@ -102,7 +108,7 @@ class IntelligenceEngine:
         author: str,
         subreddit: str,
         created_utc: float,
-        url: Optional[str] = None,
+        url: str | None = None,
         community_count: int = 1
     ) -> AnalyzedSignal:
         """
@@ -131,7 +137,10 @@ class IntelligenceEngine:
             "severe blocker": 5.0,
             "time consuming friction": 3.5,
             "minor inconvenience": 2.0,
-            "no problem": 1.0
+            "no problem": 1.0,
+            # Sin evidencia la severidad aporta CERO: 1.0 es el mínimo de la
+            # escala y `calculate_severity` lo convierte en factor 0 (AUD-005).
+            UNDETERMINED_LABEL: 1.0,
         }
         num_severity = sev_map.get(pain_res.predicted_label, 2.5)
 
@@ -166,6 +175,11 @@ class IntelligenceEngine:
             pain_severity=pain_res.predicted_label,
             pain_confidence=pain_res.confidence,
             sentiment=sent_res.predicted_label,
+            classifier_engine=(
+                "transformers"
+                if {intent_res.engine, pain_res.engine, sent_res.engine} == {"transformers"}
+                else "heuristic"
+            ),
             jtbd=jtbd_req,
             temporal_metrics=metrics,
             score_breakdown=score_breakdown
@@ -173,9 +187,9 @@ class IntelligenceEngine:
 
     def analyze_batch(
         self,
-        items: Sequence[Dict[str, Any]],
+        items: Sequence[dict[str, Any]],
         topic_or_subreddit: str = "General",
-        n_clusters: Optional[int] = None
+        n_clusters: int | None = None
     ) -> ComprehensiveIntelligenceReport:
         """
         Analiza un lote de publicaciones y comentarios:
@@ -184,8 +198,8 @@ class IntelligenceEngine:
         - Extrae palabras clave emergentes (TF-IDF).
         - Sintetiza los requerimientos JTBD de mayor urgencia.
         """
-        analyzed_signals: List[AnalyzedSignal] = []
-        all_texts: List[str] = []
+        analyzed_signals: list[AnalyzedSignal] = []
+        all_texts: list[str] = []
 
         # Contar comunidades únicas para el factor de dispersión
         unique_communities = {item.get("subreddit", topic_or_subreddit) for item in items}

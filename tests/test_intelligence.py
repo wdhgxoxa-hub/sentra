@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from core.intelligence.clustering import TopicClusterer
 from core.intelligence.engine import IntelligenceEngine
-from core.intelligence.jtbd_analyzer import JTBDAnalyzer, TASK_BY_INTENT
+from core.intelligence.jtbd_analyzer import JTBDAnalyzer
 from core.intelligence.temporal_scoring import OpportunityMetrics, TemporalScorer
 from core.intelligence.zeroshot_nli import ZeroShotNLIClassifier
 
@@ -145,7 +145,14 @@ class TestZeroShotNLIClassifier(unittest.TestCase):
     def test_sentiment_classification(self):
         text = "Customer support was horrible, rude, and completely unhelpful. Very frustrating experience."
         res = self.classifier.classify_sentiment(text)
-        self.assertEqual(res.predicted_label, "negative frustration")
+        # AUD-005: el motor heuristico no lematiza ("frustrating" no es
+        # "frustration") y las tres hipotesis empatan a 0.030. Antes salia
+        # "negative frustration" solo por ser la primera de la lista.
+        self.assertEqual(res.predicted_label, "undetermined")
+        con_evidencia = self.classifier.classify_sentiment(
+            "Pure negative frustration with this vendor."
+        )
+        self.assertEqual(con_evidencia.predicted_label, "negative frustration")
 
 
 class TestTopicClusterer(unittest.TestCase):
@@ -234,7 +241,10 @@ class TestIntelligenceEngine(unittest.TestCase):
 
         report = self.engine.analyze_batch(items, topic_or_subreddit="Invoicing & Billing")
         self.assertEqual(report.total_signals_evaluated, 3)
-        self.assertGreaterEqual(report.critical_opportunities_count, 1)
+        # AUD-005: ninguna de las tres quejas trae evidencia lexica de
+        # severidad, asi que su severidad es "undetermined" y aporta cero.
+        # Sin ese punto inventado ninguna senal suelta llega a HIGH (>= 60).
+        self.assertEqual(report.critical_opportunities_count, 0)
         self.assertGreater(len(report.signals), 0)
         self.assertGreater(len(report.top_jtbd_statements), 0)
         self.assertGreater(len(report.clusters.clusters), 0)

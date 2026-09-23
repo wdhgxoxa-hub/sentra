@@ -31,15 +31,19 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Coroutine, Sequence
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Dict, List, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
+
+if TYPE_CHECKING:
+    from psycopg import AsyncConnection
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-def run_async(coro: Awaitable[T]) -> T:
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
     """
     Ejecuta una corrutina con un bucle de eventos compatible con psycopg.
 
@@ -79,6 +83,7 @@ _INTENT_SLUGS = {
     "seeking alternative": "seeking_alternative",
     "comparing products": "comparing_products",
     "casual discussion": "casual_discussion",
+    "undetermined": "undetermined",
 }
 
 _PAIN_SLUGS = {
@@ -86,23 +91,25 @@ _PAIN_SLUGS = {
     "time consuming friction": "time_consuming_friction",
     "minor inconvenience": "minor_inconvenience",
     "no problem": "no_problem",
+    "undetermined": "undetermined",
 }
 
 _SENTIMENT_SLUGS = {
     "negative frustration": "negative_frustration",
     "neutral inquiry": "neutral_inquiry",
     "positive praise": "positive_praise",
+    "undetermined": "undetermined",
 }
 
 _WTP_VALUES = {"explicit", "implicit", "none"}
 _URGENCY_LEVELS = {"critical", "high", "medium", "low"}
 
 
-def _slugify(value: Optional[str]) -> str:
+def _slugify(value: str | None) -> str:
     return (value or "").strip().lower().replace(" ", "_")
 
 
-def _normalize(value: Optional[str], table: Dict[str, str], fallback: str) -> str:
+def _normalize(value: str | None, table: dict[str, str], fallback: str) -> str:
     """Traduce una etiqueta a su slug, aceptando que ya venga en forma de slug."""
     if not value:
         return fallback
@@ -113,24 +120,24 @@ def _normalize(value: Optional[str], table: Dict[str, str], fallback: str) -> st
     return slug if slug in table.values() else fallback
 
 
-def normalize_buying_intent(value: Optional[str]) -> str:
+def normalize_buying_intent(value: str | None) -> str:
     return _normalize(value, _INTENT_SLUGS, "none")
 
 
-def normalize_pain_severity(value: Optional[str]) -> str:
+def normalize_pain_severity(value: str | None) -> str:
     return _normalize(value, _PAIN_SLUGS, "none")
 
 
-def normalize_sentiment(value: Optional[str]) -> str:
+def normalize_sentiment(value: str | None) -> str:
     return _normalize(value, _SENTIMENT_SLUGS, "unknown")
 
 
-def normalize_willingness_to_pay(value: Optional[str]) -> str:
+def normalize_willingness_to_pay(value: str | None) -> str:
     slug = _slugify(value)
     return slug if slug in _WTP_VALUES else "none"
 
 
-def normalize_urgency_level(value: Optional[str]) -> str:
+def normalize_urgency_level(value: str | None) -> str:
     slug = _slugify(value)
     return slug if slug in _URGENCY_LEVELS else "medium"
 
@@ -145,11 +152,11 @@ def compute_content_hash(title: str, body: str) -> str:
 
     El separador nulo evita que ('ab', '') y ('a', 'b') colisionen.
     """
-    payload = f"{title or ''}\x00{body or ''}".encode("utf-8")
+    payload = f"{title or ''}\x00{body or ''}".encode()
     return hashlib.sha256(payload).hexdigest()
 
 
-def to_timestamptz(epoch: Optional[float]) -> Optional[datetime]:
+def to_timestamptz(epoch: float | None) -> datetime | None:
     """
     Convierte un `created_utc` de Reddit en datetime con zona.
 
@@ -162,11 +169,11 @@ def to_timestamptz(epoch: Optional[float]) -> Optional[datetime]:
 
 
 def post_to_row(
-    item: Dict[str, Any],
+    item: dict[str, Any],
     subreddit_name: str,
-    run_id: Optional[str] = None,
-    subreddit_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    run_id: str | None = None,
+    subreddit_id: str | None = None,
+) -> dict[str, Any]:
     """Traduce un post normalizado de la Fase 2 a una fila de `raw_posts`."""
     title = str(item.get("title") or "")
     selftext = str(item.get("selftext") or item.get("body") or "")
@@ -195,15 +202,20 @@ def post_to_row(
 
 def signal_to_row(
     signal: Any,
-    run_id: Optional[str] = None,
-    post_uuid: Optional[str] = None,
-    comment_uuid: Optional[str] = None,
+    run_id: str | None = None,
+    post_uuid: str | None = None,
+    comment_uuid: str | None = None,
     qualified: bool = False,
-    classifier_engine: str = "heuristic",
-    embedding_ref: Optional[str] = None,
-    embedding_model: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Traduce un `AnalyzedSignal` a una fila de `analyzed_signals`."""
+    classifier_engine: str | None = None,
+    embedding_ref: str | None = None,
+    embedding_model: str | None = None,
+) -> dict[str, Any]:
+    """
+    Traduce un `AnalyzedSignal` a una fila de `analyzed_signals`.
+
+    `classifier_engine` sale por defecto de la propia señal, que sabe qué
+    motor la clasificó de verdad (AUD-005).
+    """
     breakdown = signal.score_breakdown
     metrics = signal.temporal_metrics
 
@@ -222,7 +234,7 @@ def signal_to_row(
         "pain_severity": normalize_pain_severity(signal.pain_severity),
         "pain_confidence": float(signal.pain_confidence or 0.0),
         "sentiment": normalize_sentiment(signal.sentiment),
-        "classifier_engine": classifier_engine,
+        "classifier_engine": classifier_engine or signal.classifier_engine,
         "risk_flags": list(signal.jtbd.risk_flags or []),
         "spread_factor": breakdown.spread_factor,
         "frequency_factor": breakdown.frequency_factor,
@@ -244,7 +256,7 @@ def signal_to_row(
     }
 
 
-def cluster_to_row(cluster: Dict[str, Any], qualified: bool = False) -> Dict[str, Any]:
+def cluster_to_row(cluster: dict[str, Any], qualified: bool = False) -> dict[str, Any]:
     """
     Traduce un cluster agregado a una fila de `opportunity_clusters`.
 
@@ -280,7 +292,7 @@ def cluster_to_row(cluster: Dict[str, Any], qualified: bool = False) -> Dict[str
     }
 
 
-def opportunity_to_row(signal: Any, signal_uuid: str) -> Dict[str, Any]:
+def opportunity_to_row(signal: Any, signal_uuid: str) -> dict[str, Any]:
     """Traduce la parte JTBD de una señal a una fila de `jtbd_opportunities`."""
     jtbd = signal.jtbd
     competitors = [jtbd.current_solution] if jtbd.current_solution else []
@@ -319,15 +331,15 @@ class PostgresStore:
 
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         tenant_id: str = DEFAULT_TENANT_ID,
     ) -> None:
         self.dsn = dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
         self.tenant_id = tenant_id
-        self._conn = None
+        self._conn: AsyncConnection[dict[str, Any]] | None = None
 
     @classmethod
-    def from_env(cls) -> "PostgresStore":
+    def from_env(cls) -> PostgresStore:
         return cls(dsn=os.environ.get(DSN_ENV_VAR))
 
     # -- Ciclo de vida -----------------------------------------------------
@@ -351,7 +363,7 @@ class PostgresStore:
             await self._conn.close()
             self._conn = None
 
-    async def __aenter__(self) -> "PostgresStore":
+    async def __aenter__(self) -> Self:
         await self.connect()
         return self
 
@@ -372,12 +384,26 @@ class PostgresStore:
 
     # -- Primitivas --------------------------------------------------------
 
-    async def _fetchone(self, sql: str, params: Sequence[Any] = ()) -> Optional[Dict]:
+    async def _fetchone_returning(
+        self, sql: str, params: Sequence[Any] = ()
+    ) -> dict[str, Any]:
+        """
+        Fila de un `INSERT ... RETURNING`, que siempre debe existir.
+
+        Si no llega, algo va mal en el SQL o en la base: se falla aquí con un
+        mensaje claro en lugar de indexar un `None` más adelante.
+        """
+        row = await self._fetchone(sql, params)
+        if row is None:
+            raise RuntimeError("La sentencia RETURNING no devolvió ninguna fila")
+        return row
+
+    async def _fetchone(self, sql: str, params: Sequence[Any] = ()) -> dict | None:
         async with self.connection.cursor() as cur:
             await cur.execute(sql, params)
             return await cur.fetchone()
 
-    async def _fetchall(self, sql: str, params: Sequence[Any] = ()) -> List[Dict]:
+    async def _fetchall(self, sql: str, params: Sequence[Any] = ()) -> list[dict]:
         async with self.connection.cursor() as cur:
             await cur.execute(sql, params)
             return await cur.fetchall()
@@ -399,7 +425,7 @@ class PostgresStore:
         if row:
             return str(row["id"])
 
-        row = await self._fetchone(
+        row = await self._fetchone_returning(
             """
             INSERT INTO subreddits (tenant_id, name, listing, limit_per_page,
                                     min_opportunity_score, config)
@@ -423,12 +449,12 @@ class PostgresStore:
     async def start_run(
         self,
         subreddit_name: str,
-        subreddit_id: Optional[str] = None,
+        subreddit_id: str | None = None,
         trigger_source: str = "manual",
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
     ) -> str:
         """Abre una ejecución y devuelve su identificador."""
-        row = await self._fetchone(
+        row = await self._fetchone_returning(
             """
             INSERT INTO pipeline_runs (tenant_id, subreddit_id, subreddit_name,
                                        trigger_source, parameters, status)
@@ -449,11 +475,11 @@ class PostgresStore:
     async def finish_run(
         self,
         run_id: str,
-        stats: Dict[str, int],
+        stats: dict[str, int],
         errors: Sequence[str] = (),
         status: str = "completed",
         cycles: int = 0,
-        last_cursor: Optional[str] = None,
+        last_cursor: str | None = None,
     ) -> None:
         """Cierra la ejecución volcando los contadores que emitió el grafo."""
         errors = list(errors or [])
@@ -495,7 +521,7 @@ class PostgresStore:
         )
         await self.connection.commit()
 
-    async def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    async def get_run(self, run_id: str) -> dict[str, Any] | None:
         return await self._fetchone(
             "SELECT * FROM pipeline_runs WHERE id = %s AND tenant_id = %s",
             (run_id, self.tenant_id),
@@ -505,18 +531,18 @@ class PostgresStore:
 
     async def save_raw_posts(
         self,
-        items: Sequence[Dict[str, Any]],
+        items: Sequence[dict[str, Any]],
         subreddit_name: str,
-        subreddit_id: Optional[str] = None,
-        run_id: Optional[str] = None,
-    ) -> Dict[str, str]:
+        subreddit_id: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, str]:
         """
         Inserta posts crudos y devuelve el mapa `reddit_id -> uuid`.
 
         Un post ya visto con el mismo contenido no se reinserta; si cambió,
         entra como versión nueva (la clave incluye el hash del contenido).
         """
-        saved: Dict[str, str] = {}
+        saved: dict[str, str] = {}
 
         for item in items:
             row = post_to_row(item, subreddit_name, run_id=run_id,
@@ -525,7 +551,7 @@ class PostgresStore:
                 logger.warning("Post sin id o sin fecha, se omite: %s", row["reddit_id"])
                 continue
 
-            result = await self._fetchone(
+            result = await self._fetchone_returning(
                 """
                 INSERT INTO raw_posts (tenant_id, subreddit_id, run_id, reddit_id,
                     subreddit_name, title, selftext, author, score, upvote_ratio,
@@ -553,13 +579,13 @@ class PostgresStore:
     async def save_signal(
         self,
         signal: Any,
-        run_id: Optional[str] = None,
-        post_uuid: Optional[str] = None,
+        run_id: str | None = None,
+        post_uuid: str | None = None,
         qualified: bool = False,
-        classifier_engine: str = "heuristic",
-        embedding_ref: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-    ) -> Optional[str]:
+        classifier_engine: str | None = None,
+        embedding_ref: str | None = None,
+        embedding_model: str | None = None,
+    ) -> str | None:
         """Inserta el veredicto del motor y devuelve el id de la señal."""
         row = signal_to_row(
             signal, run_id=run_id, post_uuid=post_uuid, qualified=qualified,
@@ -571,7 +597,7 @@ class PostgresStore:
             logger.warning("Señal sin post asociado o sin fecha: %s", row["reddit_id"])
             return None
 
-        result = await self._fetchone(
+        result = await self._fetchone_returning(
             """
             INSERT INTO analyzed_signals (tenant_id, run_id, source_kind, post_id,
                 reddit_id, subreddit_name, author, content, created_utc,
@@ -610,7 +636,7 @@ class PostgresStore:
     async def save_opportunity(self, signal: Any, signal_uuid: str) -> str:
         """Inserta o actualiza la síntesis JTBD de una señal."""
         row = opportunity_to_row(signal, signal_uuid)
-        result = await self._fetchone(
+        result = await self._fetchone_returning(
             """
             INSERT INTO jtbd_opportunities (tenant_id, signal_id, job_statement,
                 intent_type, target_task, friction_barrier, current_solution,
@@ -637,11 +663,11 @@ class PostgresStore:
 
     async def save_cluster(
         self,
-        cluster: Dict[str, Any],
-        run_id: Optional[str],
-        signal_uuids: Dict[str, str],
+        cluster: dict[str, Any],
+        run_id: str | None,
+        signal_uuids: dict[str, str],
         qualified: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Inserta un cluster y lo enlaza con las señales que lo sostienen.
 
@@ -657,7 +683,7 @@ class PostgresStore:
 
         representative_uuid = signal_uuids.get(row["representative_reddit_id"] or "")
 
-        result = await self._fetchone(
+        result = await self._fetchone_returning(
             """
             INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label,
                 intent_type, keywords, subreddits, mention_count, community_count,
@@ -713,12 +739,12 @@ class PostgresStore:
 
     async def persist_state(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         trigger_source: str = "graph",
-        classifier_engine: str = "heuristic",
-        embedding_model: Optional[str] = None,
+        classifier_engine: str | None = None,
+        embedding_model: str | None = None,
         status: str = "completed",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Vuelca el estado final del grafo en una única transacción.
 
@@ -747,7 +773,7 @@ class PostgresStore:
 
             signals_saved = 0
             opportunities_saved = 0
-            signal_uuids: Dict[str, str] = {}
+            signal_uuids: dict[str, str] = {}
 
             for signal in state.get("signals") or []:
                 signal_uuid = await self.save_signal(
@@ -812,11 +838,11 @@ class PostgresStore:
         limit: int = 50,
         min_score: float = 0.0,
         qualified_only: bool = False,
-        urgency_tiers: Optional[Sequence[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        urgency_tiers: Sequence[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Alimenta el tablero de oportunidades consolidadas del frontend."""
         clauses = ["tenant_id = %s", "final_score >= %s"]
-        params: List[Any] = [self.tenant_id, min_score]
+        params: list[Any] = [self.tenant_id, min_score]
 
         if qualified_only:
             clauses.append("qualified")
@@ -839,7 +865,7 @@ class PostgresStore:
         self,
         cluster_key: str,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Lecturas sucesivas de un mismo problema, de la más reciente atrás.
 
@@ -864,12 +890,12 @@ class PostgresStore:
         self,
         limit: int = 50,
         min_score: float = 0.0,
-        urgency_tiers: Optional[Sequence[str]] = None,
-        subreddit_name: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        urgency_tiers: Sequence[str] | None = None,
+        subreddit_name: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Alimenta el Radar View: señales con su síntesis y su post original."""
         clauses = ["tenant_id = %s", "final_score >= %s"]
-        params: List[Any] = [self.tenant_id, min_score]
+        params: list[Any] = [self.tenant_id, min_score]
 
         if urgency_tiers:
             clauses.append("urgency_tier = ANY(%s)")
@@ -889,7 +915,7 @@ class PostgresStore:
             params,
         )
 
-    async def search_posts(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def search_posts(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Búsqueda full-text sobre el contenido crudo, ordenada por relevancia."""
         return await self._fetchall(
             """
@@ -904,7 +930,7 @@ class PostgresStore:
             (query, self.tenant_id, query, limit),
         )
 
-    async def get_opportunity_detail(self, reddit_id: str) -> Optional[Dict[str, Any]]:
+    async def get_opportunity_detail(self, reddit_id: str) -> dict[str, Any] | None:
         """Ficha completa para el Deep-Dive del frontend."""
         return await self._fetchone(
             """
