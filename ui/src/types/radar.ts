@@ -694,6 +694,17 @@ export interface SourcesOverview {
   sources: SourceCard[];
 }
 
+/**
+ * Atribución obligatoria de cada pieza de evidencia (R5; términos de Stack
+ * Exchange): insignia de la plataforma, sitio y URL del original en texto
+ * plano. La calcula el motor (core/sources/attribution.py).
+ */
+export interface EvidenceAttribution {
+  badge: string;
+  site: string;
+  url: string;
+}
+
 /** Resultado del botón «Probar». `checkedAt` null = no llegó a llamar. */
 export interface SourceProbeResult {
   ok: boolean;

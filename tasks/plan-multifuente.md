@@ -43,6 +43,9 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 - [x] T2.8 Deduplicación: huella normalizada más similitud de embeddings con un umbral con nombre.
 - [x] T2.9 UI: sección «Fuentes», resumen en la barra lateral, progreso por fuente y perfil de escaneo.
 - [ ] T2.10–T2.19 Un adaptador por commit, en el orden de la especificación. Cada uno lleva sus dobles oficiales, su tarjeta con «Probar» y su prueba real acotada según R7.
+  - [x] Stack Exchange: API v2.3, clave opcional RIR_STACKEXCHANGE_KEY (D-SE1), solo uso personal, backoff, ritmo < 30/s, sin peticiones idénticas antes de 60 s, cuota diaria. Prueba real sin clave: 2 peticiones (más 3 páginas de documentación). Con clave: NO VERIFICADO hasta que el usuario la introduzca en la tarjeta.
+  - [x] GitHub: búsqueda de issues. Prueba real: NO VERIFICADO (sin token en .env).
+  - [ ] **Obligación para F3 (D-SE3, términos de Stack Exchange):** el panel del juez, el mapa de corroboración y cualquier documento o PDF que incluya evidencia multifuente la atribuyen con core/sources/attribution.py (EvidenceAttributionLine en la UI, attribution_line en documentos), con un test que lo exija en cada salida.
 - **Checkpoint F2**: informe.
 
 ## Fase 3 — Juez

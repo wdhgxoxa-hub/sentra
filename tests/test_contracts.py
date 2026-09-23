@@ -193,6 +193,19 @@ class TestRespuestasDelSidecar(unittest.TestCase):
                                       checked_at="2026-09-01T00:00:00Z").model_dump(mode="json"))
         self.assertEqual(set(forma), interfaz("SourceProbeResult"))
 
+    def test_la_atribucion_entrega_evidence_attribution(self):
+        from datetime import UTC, datetime
+
+        from core.evidence.model import EvidenceItem
+        from core.sources.attribution import attribution
+
+        ahora = datetime(2026, 9, 1, tzinfo=UTC)
+        pieza = EvidenceItem(id="stackexchange:1", source="stackexchange", community="Stack Overflow",
+                             kind="question", text="x", url="https://stackoverflow.com/q/1",
+                             author_hash=None, created_at=ahora, fetched_at=ahora,
+                             data_source="real")
+        self.assertEqual(set(attribution(pieza)), interfaz("EvidenceAttribution"))
+
     def test_el_resultado_top_n_entrega_run_top_outcome(self):
         self.assertEqual(set(run_outcome([], 0, "exhausted")), interfaz("RunTopOutcome"))
 

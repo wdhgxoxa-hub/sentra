@@ -326,6 +326,11 @@
       "commercialMode",
       "sources"
     ],
+    "EvidenceAttribution": [
+      "badge",
+      "site",
+      "url"
+    ],
     "SourceProbeResult": [
       "checkedAt",
       "code",
