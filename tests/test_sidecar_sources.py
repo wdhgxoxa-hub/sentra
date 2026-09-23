@@ -87,6 +87,14 @@ class TestSinRed(unittest.TestCase):
         with self.assertRaises(AssertionError):
             http.new_client()
 
+    def test_la_guardia_impide_que_el_juez_toque_la_base_real(self):
+        from core.orchestration.sidecar import multiscan
+        from tests._sin_red import prohibir_red_real
+
+        prohibir_red_real(self)
+        with self.assertRaises(AssertionError):
+            multiscan._juzgar(None, "run", None)
+
 
 if __name__ == "__main__":
     unittest.main()

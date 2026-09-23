@@ -75,6 +75,51 @@ def _guardar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> st
         return f"{type(exc).__name__}: {exc}"
 
 
+def _proveedor_del_juez(ctx: SidecarContext) -> tuple[Any, str | None, str | None]:
+    """(proveedor, modelo, motivo). Sin Gemini, el juez corre sin proveedor:
+    todo queda undetermined y nada sale CONSTRUIR."""
+    try:
+        from core.llm.budget import LLMBudget
+        from core.llm.gemini import GeminiProvider
+
+        clave, modelo = ctx.resolver_modelo("defecto")
+        return GeminiProvider(clave, budget=LLMBudget()), modelo, None
+    except Exception as exc:  # noqa: BLE001 - sin Gemini el juez sigue, sin etiquetas
+        return None, None, getattr(exc, "code", type(exc).__name__)
+
+
+def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> dict[str, Any]:
+    """Juez completo sobre lo guardado; devuelve su resumen. En un hilo aparte."""
+    import os
+    from datetime import UTC, datetime
+
+    from core.judge.pipeline import run_judge
+    from core.judge.store import PostgresLabelCache, previous_identities
+    from core.storage.postgres_store import (
+        DEFAULT_DSN,
+        DSN_ENV_VAR,
+        PostgresStore,
+        run_async,
+    )
+
+    dsn = ctx.postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    proveedor, modelo, motivo = _proveedor_del_juez(ctx)
+
+    async def juzgar() -> dict[str, Any]:
+        async with PostgresStore(dsn=dsn) as store:
+            previos = await previous_identities(store)
+            juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
+                               cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
+                               previous=previos)
+            await store.save_verdicts(run_id, juicio.verdicts)
+            return juicio.summary
+
+    resumen = run_async(juzgar())
+    resumen["llm"] = {"model": modelo, "unavailable": motivo,
+                      "calls": len(getattr(proveedor, "usage", []) or [])}
+    return resumen
+
+
 def _nuevo_id() -> str:
     """Id de un escaneo que no se guarda (sin ejecución en PostgreSQL)."""
     return uuid.uuid4().hex
@@ -151,6 +196,19 @@ def router(ctx: SidecarContext) -> APIRouter:
                         "perSource": {s: _resumen_fuente(p)
                                       for s, p in resultado.per_source.items()},
                     })
+                    # El juez necesita lo guardado: sin persistencia no hay veredictos.
+                    if guardado and run_id is not None:
+                        cola.put_nowait({"type": "judge:started", "runId": run_id})
+                        try:
+                            resumen = await asyncio.to_thread(_juzgar, ctx, run_id, resultado)
+                            cola.put_nowait({"type": "judge:done", "runId": run_id,
+                                             "summary": resumen})
+                        # El escaneo ya está guardado: un fallo del juez se cuenta, no lo tumba.
+                        except Exception as exc:
+                            logger.exception("Fallo del juez tras el escaneo")
+                            cola.put_nowait({"type": "judge:error", "runId": run_id,
+                                             "code": "internal_error",
+                                             "message": type(exc).__name__})
                 # Frontera de la tarea: un fallo aquí debe llegar a la interfaz
                 # como evento, no perderse en una tarea que nadie espera.
                 except Exception as exc:

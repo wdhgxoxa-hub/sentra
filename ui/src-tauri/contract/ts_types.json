@@ -354,6 +354,17 @@
       "units",
       "usd"
     ],
+    "JudgeSummary": [
+      "clusters",
+      "competition",
+      "discarded",
+      "items",
+      "kept",
+      "labeled",
+      "llm",
+      "undetermined",
+      "verdicts"
+    ],
     "BlueprintPhase": [
       "items",
       "name"
@@ -517,6 +528,21 @@
         "perSource",
         "persistError",
         "persisted",
+        "runId",
+        "type"
+      ],
+      "judge:started": [
+        "runId",
+        "type"
+      ],
+      "judge:done": [
+        "runId",
+        "summary",
+        "type"
+      ],
+      "judge:error": [
+        "code",
+        "message",
         "runId",
         "type"
       ],

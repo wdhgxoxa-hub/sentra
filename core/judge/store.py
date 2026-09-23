@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 import psycopg
 from psycopg.rows import dict_row
 
+from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
 
 from .labels import VerifiedLabel
@@ -54,6 +55,24 @@ class PostgresLabelCache:
                 ON CONFLICT (tenant_id, content_hash, labeler) DO UPDATE SET label = EXCLUDED.label
                 """,
                 (self.tenant_id, label.content_hash, label.labeler, json.dumps(label.model_dump())))
+
+
+async def previous_identities(store: PostgresStore) -> list[Previo]:
+    """Última lectura de cada oportunidad juzgada (identidad estable D-G)."""
+    filas = await store._fetchall(
+        """
+        SELECT DISTINCT ON (v.opportunity_id) v.opportunity_id::text AS opportunity_id,
+               v.keywords, array_agg(ce.evidence_id) AS member_ids
+          FROM niche_verdicts v
+          JOIN cluster_evidence ce ON ce.verdict_id = v.id
+         WHERE v.tenant_id = %s AND v.opportunity_id IS NOT NULL
+         GROUP BY v.id
+         ORDER BY v.opportunity_id, v.created_at DESC
+        """,
+        (store.tenant_id,),
+    )
+    return [Previo(f["opportunity_id"], set(f["member_ids"]), set(f["keywords"] or []))
+            for f in filas]
 
 
 async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:

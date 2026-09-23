@@ -30,6 +30,13 @@ def _http_prohibido() -> NoReturn:
     )
 
 
+def _juez_prohibido(*_args: object) -> NoReturn:
+    raise AssertionError(
+        "Base real prohibida en los tests: el juez del sidecar escribiría en PostgreSQL. "
+        "Sustituye core.orchestration.sidecar.multiscan._juzgar por un doble."
+    )
+
+
 def prohibir_red_real(caso: unittest.TestCase) -> None:
     """Durante el test no se pueden crear ni el cliente del SDK de Gemini ni el
     cliente HTTP de las fuentes."""
@@ -39,3 +46,6 @@ def prohibir_red_real(caso: unittest.TestCase) -> None:
     fuentes = mock.patch("core.sources.http.new_client", _http_prohibido)
     fuentes.start()
     caso.addCleanup(fuentes.stop)
+    juez = mock.patch("core.orchestration.sidecar.multiscan._juzgar", _juez_prohibido)
+    juez.start()
+    caso.addCleanup(juez.stop)

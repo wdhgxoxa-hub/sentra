@@ -10,7 +10,7 @@
 
 import { create } from "zustand";
 
-import type { MultiScanEvent, SourceScanSummary } from "@/types/radar";
+import type { JudgeSummary, MultiScanEvent, SourceScanSummary } from "@/types/radar";
 
 export interface MultiScanState {
   status: "idle" | "running" | "done" | "error";
@@ -24,6 +24,12 @@ export interface MultiScanState {
   final: Extract<MultiScanEvent, { type: "scan:done" }> | null;
   /** Fallo que impidió escanear (p. ej. no_active_sources). */
   error: { code: string; detail: string } | null;
+  /** El juez corre tras un escaneo guardado; «idle» si no hubo juez. */
+  judge: {
+    status: "idle" | "running" | "done" | "error";
+    summary: JudgeSummary | null;
+    error: { code: string; detail: string } | null;
+  };
 }
 
 export const ESCANEO_VACIO: MultiScanState = {
@@ -34,6 +40,7 @@ export const ESCANEO_VACIO: MultiScanState = {
   perSource: {},
   final: null,
   error: null,
+  judge: { status: "idle", summary: null, error: null },
 };
 
 function enMarcha(): SourceScanSummary {
@@ -91,6 +98,15 @@ export function reducirEscaneo(estado: MultiScanState, evento: MultiScanEvent): 
     case "scan:done":
       // El resumen final manda: trae peticiones, unidades y USD de cada una.
       return { ...estado, status: "done", runId: evento.runId, perSource: evento.perSource, final: evento };
+    case "judge:started":
+      return { ...estado, judge: { status: "running", summary: null, error: null } };
+    case "judge:done":
+      return { ...estado, judge: { status: "done", summary: evento.summary, error: null } };
+    case "judge:error":
+      return {
+        ...estado,
+        judge: { status: "error", summary: null, error: { code: evento.code, detail: evento.message } },
+      };
     case "error":
       return { ...estado, status: "error", error: { code: evento.code, detail: evento.message } };
   }

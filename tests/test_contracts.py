@@ -118,7 +118,7 @@ class TestEventosMultifuente(unittest.TestCase):
 
     def emitidos(self):
         return eventos_emitidos(
-            MULTIFUENTE, lambda t: t.startswith(("source:", "scan:")) or t == "error")
+            MULTIFUENTE, lambda t: t.startswith(("source:", "scan:", "judge:")) or t == "error")
 
     def test_cada_evento_emitido_existe_en_la_union_y_viceversa(self):
         self.assertEqual(set(self.emitidos()), set(TIPOS["uniones"]["MultiScanEvent"]))

@@ -33,6 +33,10 @@ def hn_con_una_queja(_peticion):
     return httpx.Response(200, json={"hits": [hit], "nbHits": 1, "page": 0, "nbPages": 1})
 
 
+def fin_del_escaneo(recibidos):
+    return next(e for e in recibidos if e["type"] == "scan:done")
+
+
 def eventos(respuesta):
     return [json.loads(linea[len("data: "):]) for linea in respuesta.text.splitlines()
             if linea.startswith("data: ")]
@@ -94,8 +98,9 @@ class TestEscaneoMultifuente(ConfigTestCase):
 
         with con_transporte(hn_con_una_queja), \
                 mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-1", None)), \
-                mock.patch.object(multiscan, "_guardar", return_value=None) as guardar:
-            final = self.escanear(persist=True)[-1]
+                mock.patch.object(multiscan, "_guardar", return_value=None) as guardar, \
+                mock.patch.object(multiscan, "_juzgar", return_value={}):
+            final = fin_del_escaneo(self.escanear(persist=True))
         self.assertEqual((final["runId"], final["persisted"], final["persistError"]),
                          ("run-1", True, None))
         run_id, resultado = guardar.call_args.args[1:3]
@@ -110,7 +115,8 @@ class TestEscaneoMultifuente(ConfigTestCase):
         self.assertTrue(inicio["scanId"])
         with con_transporte(hn_con_una_queja), \
                 mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-9", None)), \
-                mock.patch.object(multiscan, "_guardar", return_value=None):
+                mock.patch.object(multiscan, "_guardar", return_value=None), \
+                mock.patch.object(multiscan, "_juzgar", return_value={}):
             inicio = self.escanear(persist=True)[0]
         self.assertEqual(inicio["scanId"], "run-9")
 
@@ -151,6 +157,40 @@ class TestEscaneoMultifuente(ConfigTestCase):
             final = self.escanear(persist=False)[-1]
         self.assertEqual(len(peticiones), 1)
         self.assertEqual(final["perSource"]["hackernews"]["requests"], 1)
+
+    def test_tras_guardar_corre_el_juez_y_emite_su_resumen(self):
+        from core.orchestration.sidecar import multiscan
+
+        resumen = {"items": 1, "kept": 1, "clusters": 0, "verdicts": {}}
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-7", None)), \
+                mock.patch.object(multiscan, "_guardar", return_value=None), \
+                mock.patch.object(multiscan, "_juzgar", return_value=resumen) as juzgar:
+            recibidos = self.escanear(persist=True)
+        tipos = [e["type"] for e in recibidos]
+        self.assertEqual(tipos[-3:], ["scan:done", "judge:started", "judge:done"])
+        self.assertEqual((recibidos[-1]["runId"], recibidos[-1]["summary"]), ("run-7", resumen))
+        run_id, resultado = juzgar.call_args.args[1:3]
+        self.assertEqual((run_id, [i.id for i in resultado.items]), ("run-7", ["hackernews:900001"]))
+
+    def test_un_fallo_del_juez_no_tumba_el_escaneo(self):
+        from core.orchestration.sidecar import multiscan
+
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-8", None)), \
+                mock.patch.object(multiscan, "_guardar", return_value=None), \
+                mock.patch.object(multiscan, "_juzgar", side_effect=RuntimeError("inventado")):
+            recibidos = self.escanear(persist=True)
+        self.assertIn("scan:done", [e["type"] for e in recibidos])
+        self.assertEqual((recibidos[-1]["type"], recibidos[-1]["code"]), ("judge:error", "internal_error"))
+
+    def test_sin_guardar_no_hay_juez_y_se_dice(self):
+        from core.orchestration.sidecar import multiscan
+
+        with con_transporte(hn_con_una_queja), mock.patch.object(multiscan, "_juzgar") as juzgar:
+            recibidos = self.escanear(persist=False)
+        juzgar.assert_not_called()
+        self.assertEqual(recibidos[-1]["type"], "scan:done")
 
     def test_si_no_se_puede_abrir_la_ejecucion_se_dice_y_no_se_guarda(self):
         from core.orchestration.sidecar import multiscan

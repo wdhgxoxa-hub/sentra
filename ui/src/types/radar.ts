@@ -759,7 +759,26 @@ export type MultiScanEvent =
       duplicates: number;
       perSource: Record<string, SourceScanSummary>;
     }
+  | { type: "judge:started"; runId: string }
+  | { type: "judge:done"; runId: string; summary: JudgeSummary }
+  | { type: "judge:error"; runId: string; code: string; message: string }
   | { type: "error"; code: string; message: string };
+
+/** Resumen del juez tras un escaneo guardado (core/judge/pipeline.py). */
+export interface JudgeSummary {
+  items: number;
+  kept: number;
+  /** Descartes del filtro de calidad, por motivo. */
+  discarded: Record<string, number>;
+  /** Autopromoción conservada como señal de competencia. */
+  competition: number;
+  labeled: number;
+  /** Ítems sin etiqueta del LLM, por motivo (no_provider, llm_budget_exhausted...). */
+  undetermined: Record<string, number>;
+  clusters: number;
+  verdicts: Record<string, number>;
+  llm: { model: string | null; unavailable: string | null; calls: number };
+}
 
 export const SOURCES_EVENT_CHANNEL = "sources:events";
 
