@@ -15,8 +15,10 @@ cabeceras Sec-Ch-*/Sec-Fetch-*, cookies ni un UA de navegador, y que un UA
 de relleno se rechaza con un error tipado y traducido, antes de salir a la red.
 """
 
+import ast
 import asyncio
 import importlib
+import inspect
 import re
 import unittest
 from functools import partial
@@ -122,6 +124,23 @@ class TestSinSuplantacion(ConRedFalsa):
             with self.subTest(fichero=fichero.name):
                 self.assertNotRegex(texto, r"impersonate|curl_cffi|over18|Sec-Fetch")
         self.assertNotRegex((RAIZ / "requirements.txt").read_text(encoding="utf-8"), "curl_cffi")
+
+    def test_quien_crea_el_cliente_usa_sus_parametros_reales(self):
+        """Tras quitar la suplantación, scripts/demo_ingestion.py seguía
+        pasando impersonate_browser y moría con TypeError al arrancar."""
+        admitidos = set(inspect.signature(RedditIngestionClient).parameters)
+        for carpeta in ("core", "scripts"):
+            for fichero in (RAIZ / carpeta).rglob("*.py"):
+                arbol = ast.parse(fichero.read_text(encoding="utf-8"))
+                for nodo in ast.walk(arbol):
+                    if (
+                        isinstance(nodo, ast.Call)
+                        and isinstance(nodo.func, ast.Name)
+                        and nodo.func.id == "RedditIngestionClient"
+                    ):
+                        with self.subTest(fichero=fichero.name, linea=nodo.lineno):
+                            nombres = {k.arg for k in nodo.keywords if k.arg}
+                            self.assertLessEqual(nombres, admitidos)
 
 
 class TestUserAgent(ConRedFalsa):

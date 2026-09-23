@@ -2,7 +2,7 @@
 Script de Demostración y Verificación en Vivo de la Capa de Ingesta
 ===================================================================
 Ejecuta una prueba completa end-to-end:
-1. Inicializa RedditIngestionClient con impersonación TLS y bypass.
+1. Inicializa RedditIngestionClient (API OAuth; sin credenciales usa la muestra sintética).
 2. Consulta el subreddit 'r/Entrepreneur' o 'r/SaaS'.
 3. Aplica paginación Bellingcat, filtro léxico de 33 palabras de dolor,
    normalización reddit-find e interfoliado snscrape.
@@ -31,7 +31,6 @@ async def run_demo():
     print("=" * 70)
 
     client = RedditIngestionClient(
-        impersonate_browser="chrome124",
         rate_limit_delay=1.0,
         timeout_seconds=15.0
     )
