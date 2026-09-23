@@ -1,0 +1,161 @@
+"""
+Juez, etapa 4: compuertas G1–G8 y veredicto (D-M3)
+==================================================
+
+Para CONSTRUIR deben pasar TODAS; cada una se guarda con pasa/falla, valor
+medido, umbral e ids de la evidencia que la sostienen.
+
+  G1 Al menos MIN_DISTINCT_SOURCES fuentes distintas (entre los dolores).
+  G2 Al menos MIN_DISTINCT_AUTHORS autores distintos (author_hash).
+  G3 Al menos 1 parche casero verificado.
+  G4 Al menos 1 señal de pago o de búsqueda de herramienta verificada.
+  G5 Concentración: ningún hilo ni autor aporta más de CONCENTRATION_MAX_SHARE.
+  G6 Recencia: al menos RECENCY_MIN_SHARE de la evidencia en RECENCY_DAYS días.
+  G7 Saturación: ningún competidor gratuito mencionado mayoritariamente como
+     solución satisfactoria.
+  G8 Solo datos reales: todos los miembros con data_source 'real' (demo y
+     legacy sin procedencia no cuentan, D-M5).
+
+Tabla de veredictos D-M3, en este orden:
+  1. Falla G7 -> DESCARTAR.
+  2. G2 por debajo de la mitad de N -> DESCARTAR.
+  3. Fallan G1 y G2 a la vez -> DESCARTAR.
+  4. Falla G8 -> como máximo INVESTIGAR MÁS.
+  5. Fallan G1, G2 (con al menos N/2) o G5 -> INVESTIGAR MÁS.
+  6. Fallan G3, G4 o G6 -> INVESTIGAR MÁS, diciendo qué falta.
+  7. Pasan todas -> CONSTRUIR.
+"""
+
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Literal
+
+from core.evidence.model import EvidenceItem
+
+from .dimensions import (
+    NicheScore,
+    pain_items,
+    payment_items,
+    score_cluster,
+    workaround_items,
+)
+from .labels import VerifiedLabel
+
+MIN_DISTINCT_SOURCES = 2
+MIN_DISTINCT_AUTHORS = 8
+MIN_WORKAROUNDS = 1
+MIN_PAYMENT_SIGNALS = 1
+CONCENTRATION_MAX_SHARE = 0.40
+RECENCY_DAYS = 180
+RECENCY_MIN_SHARE = 0.50
+
+Verdict = Literal["CONSTRUIR", "INVESTIGAR MÁS", "DESCARTAR"]
+#: Orden de los veredictos, del mejor al peor.
+VERDICT_RANK: dict[str, int] = {"CONSTRUIR": 0, "INVESTIGAR MÁS": 1, "DESCARTAR": 2}
+
+
+@dataclass(frozen=True)
+class GateResult:
+    gate: str
+    passed: bool
+    value: float
+    threshold: float
+    evidence_ids: list[str]
+
+
+@dataclass(frozen=True)
+class ClusterJudgement:
+    verdict: Verdict
+    #: Compuertas que fallan, en orden.
+    missing: list[str]
+    #: Regla de la tabla D-M3 que decidió.
+    rule: str
+    gates: list[GateResult]
+    score: NicheScore
+
+
+def _ids(items: Sequence[EvidenceItem]) -> list[str]:
+    return sorted(i.id for i in items)
+
+
+def _concentracion(dolores: Sequence[EvidenceItem]) -> GateResult:
+    if not dolores:
+        return GateResult("G5", False, 1.0, CONCENTRATION_MAX_SHARE, [])
+    hilos = Counter(i.thread_id for i in dolores)
+    autores = Counter(i.author_hash for i in dolores if i.author_hash)
+    clave, maximo = max(list(hilos.items()) + list(autores.items()), key=lambda kv: kv[1])
+    cuota = maximo / len(dolores)
+    culpables = [i for i in dolores if clave in (i.thread_id, i.author_hash)]
+    return GateResult("G5", cuota <= CONCENTRATION_MAX_SHARE, cuota, CONCENTRATION_MAX_SHARE,
+                      _ids(culpables))
+
+
+def _saturacion(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> GateResult:
+    menciones: dict[str, list[tuple[str, str, bool | None]]] = defaultdict(list)
+    for item in items:
+        etiqueta = labels.get(item.id)
+        for c in etiqueta.competitors if etiqueta else []:
+            menciones[c.name.casefold()].append((item.id, c.stance, c.free))
+    peores: list[str] = []
+    cuota_max = 0.0
+    for lista in menciones.values():
+        satisfechos = [m for m in lista if m[1] == "satisfecho"]
+        gratis = any(m[2] for m in lista)
+        cuota = len(satisfechos) / len(lista)
+        if gratis and cuota > cuota_max:
+            cuota_max, peores = cuota, sorted({m[0] for m in satisfechos})
+    return GateResult("G7", cuota_max <= 0.5, cuota_max, 0.5, peores)
+
+
+def evaluate_gates(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
+                   now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS) -> list[GateResult]:
+    dolores = pain_items(items, labels)
+    fuentes = {i.source for i in dolores}
+    autores = {i.author_hash for i in dolores if i.author_hash}
+    pago, parches = payment_items(items, labels), workaround_items(items, labels)
+    recientes = [i for i in dolores if i.created_at >= now - timedelta(days=RECENCY_DAYS)]
+    cuota_reciente = len(recientes) / len(dolores) if dolores else 0.0
+    no_reales = [i for i in items if i.data_source != "real"]
+    return [
+        GateResult("G1", len(fuentes) >= MIN_DISTINCT_SOURCES, len(fuentes), MIN_DISTINCT_SOURCES,
+                   _ids(dolores)),
+        GateResult("G2", len(autores) >= min_authors, len(autores), min_authors, _ids(dolores)),
+        GateResult("G3", len(parches) >= MIN_WORKAROUNDS, len(parches), MIN_WORKAROUNDS, _ids(parches)),
+        GateResult("G4", len(pago) >= MIN_PAYMENT_SIGNALS, len(pago), MIN_PAYMENT_SIGNALS, _ids(pago)),
+        _concentracion(dolores),
+        GateResult("G6", bool(dolores) and cuota_reciente >= RECENCY_MIN_SHARE, cuota_reciente,
+                   RECENCY_MIN_SHARE, _ids(recientes)),
+        _saturacion(items, labels),
+        GateResult("G8", not no_reales, len(no_reales), 0, _ids(no_reales)),
+    ]
+
+
+def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHORS) -> tuple[Verdict, str]:
+    """Tabla D-M3. Devuelve (veredicto, regla que decidió)."""
+    por = {g.gate: g for g in gates}
+    falla = {g.gate for g in gates if not g.passed}
+    if "G7" in falla:
+        return "DESCARTAR", "1: falla G7"
+    if por["G2"].value < min_authors / 2:
+        return "DESCARTAR", "2: G2 por debajo de N/2"
+    if {"G1", "G2"} <= falla:
+        return "DESCARTAR", "3: fallan G1 y G2"
+    if falla & {"G1", "G2", "G5"}:
+        return "INVESTIGAR MÁS", "5: fallan G1, G2 o G5"
+    if falla & {"G3", "G4", "G6"}:
+        return "INVESTIGAR MÁS", "6: fallan G3, G4 o G6"
+    if "G8" in falla:
+        return "INVESTIGAR MÁS", "4: falla G8 (como máximo INVESTIGAR MÁS)"
+    return "CONSTRUIR", "7: pasan todas"
+
+
+def judge_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
+                  now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS) -> ClusterJudgement:
+    compuertas = evaluate_gates(items, labels, now=now, min_authors=min_authors)
+    veredicto, regla = decide(compuertas, min_authors=min_authors)
+    return ClusterJudgement(veredicto, [g.gate for g in compuertas if not g.passed], regla,
+                            compuertas, score_cluster(items, labels, now=now))
