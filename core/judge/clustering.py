@@ -2,11 +2,11 @@
 Juez, etapa 2: agrupación multifuente
 =====================================
 
-Agrupamiento «líder» voraz y determinista sobre embeddings multilingües
-(e5-large, D-M2): los ítems se recorren por fecha y cada uno se une al
-grupo cuyo centroide supera CLUSTER_MIN_SIMILARITY, o abre uno nuevo. La
-misma queja en inglés y en español cae en el mismo grupo si sus vectores
-están cerca; el idioma no separa.
+clustering-v2 (B3): enlace promedio jerárquico sobre embeddings
+multilingües (e5-large, D-M2), con umbral CLUSTER_MIN_SIMILARITY elegido por
+pureza y ARI en un conjunto dorado. La misma queja en inglés y en español
+cae en el mismo grupo si sus vectores están cerca; el idioma no separa.
+clustering-v1 (líder voraz) queda como leader_partition, para el barrido.
 
 Solo los grupos con al menos MIN_CLUSTER_SIZE miembros llegan al juez.
 La identidad es estable entre escaneos (D-G): un grupo que comparte
@@ -27,9 +27,13 @@ import numpy as np
 from core.evidence.model import EvidenceItem
 from core.storage.identity import Candidato, Previo, asignar_identidades
 
-#: Coseno mínimo con el centroide para unirse a un grupo. PROVISIONAL: e5 comprime
-#: los cosenos (temas ajenos ~0,75, paráfrasis ~0,9); se revisa con el escaneo real.
-CLUSTER_MIN_SIMILARITY = 0.86
+#: B3: elegido por métrica sobre el conjunto dorado de agrupación
+#: (tests/fixtures/golden_clusters.json; barrido en scripts/calibrar_agrupacion.py):
+#: enlace promedio con 0,82 dio pureza 0,735 y ARI 0,487 (6 grupos), frente a
+#: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
+CLUSTERING_VERSION = "clustering-v2"
+CLUSTERING_METHOD = "average_linkage"
+CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
 MIN_CLUSTER_SIZE = 3
 KEYWORDS_PER_CLUSTER = 5
@@ -74,6 +78,63 @@ def _palabras_clave(textos: Sequence[str]) -> list[str]:
     return [p for p, _ in sorted(conteo.items(), key=lambda kv: (-kv[1], kv[0]))][:KEYWORDS_PER_CLUSTER]
 
 
+def leader_partition(vectores: Sequence[Sequence[float]], umbral: float) -> list[int]:
+    """Líder voraz (clustering-v1): cada vector, en orden, al grupo cuyo
+    centroide más se le parece si supera `umbral`; si no, abre uno."""
+    etiquetas: list[int] = []
+    grupos: list[list[np.ndarray]] = []
+    for vector in vectores:
+        actual = _unitario(vector)
+        mejor, similitud = None, umbral
+        for indice, vs in enumerate(grupos):
+            coseno = float(_unitario(np.mean(vs, axis=0)) @ actual)
+            if coseno >= similitud:
+                mejor, similitud = indice, coseno
+        if mejor is None:
+            grupos.append([actual])
+            etiquetas.append(len(grupos) - 1)
+        else:
+            grupos[mejor].append(actual)
+            etiquetas.append(mejor)
+    return etiquetas
+
+
+def average_linkage_partition(vectores: Sequence[Sequence[float]], umbral: float) -> list[int]:
+    """Enlace promedio (jerárquico aglomerativo): se unen los dos grupos cuya
+    similitud media entre pares es la mayor, mientras sea >= `umbral`. No
+    encadena como el enlace mínimo; empates, por el par de índices menor.
+
+    Actualización de Lance-Williams: la similitud media de (a ∪ b) con c es
+    (|a|·s(a,c) + |b|·s(b,c)) / (|a| + |b|). O(n²) por unión, vectorizada.
+    """
+    n = len(vectores)
+    if n == 0:
+        return []
+    matriz = np.stack([_unitario(v) for v in vectores])
+    similitud = matriz @ matriz.T
+    np.fill_diagonal(similitud, -np.inf)
+    tamanos = np.ones(n)
+    vivos = np.ones(n, dtype=bool)
+    miembros: list[list[int]] = [[i] for i in range(n)]
+    while vivos.sum() > 1:
+        activa = np.where(vivos[:, None] & vivos[None, :], similitud, -np.inf)
+        a, b = divmod(int(np.argmax(np.triu(activa, k=1) + np.tril(np.full((n, n), -np.inf)))), n)
+        if activa[a, b] < umbral:
+            break
+        nueva = (tamanos[a] * similitud[a] + tamanos[b] * similitud[b]) / (tamanos[a] + tamanos[b])
+        similitud[a, :] = nueva
+        similitud[:, a] = nueva
+        similitud[a, a] = -np.inf
+        tamanos[a] += tamanos[b]
+        vivos[b] = False
+        miembros[a] = sorted(miembros[a] + miembros[b])
+    etiquetas = [0] * n
+    for numero, grupo in enumerate(sorted(miembros[i] for i in range(n) if vivos[i])):
+        for i in grupo:
+            etiquetas[i] = numero
+    return etiquetas
+
+
 def cluster_evidence(
     items: Sequence[EvidenceItem],
     vectors: Mapping[str, Sequence[float]],
@@ -81,22 +142,15 @@ def cluster_evidence(
     previous: Sequence[Previo] = (),
 ) -> list[EvidenceCluster]:
     """Grupos de al menos MIN_CLUSTER_SIZE ítems, con identidad estable."""
-    grupos: list[tuple[list[EvidenceItem], list[np.ndarray]]] = []
-    for item in sorted(items, key=lambda i: (i.created_at, i.id)):
-        vector = vectors.get(item.id)
-        if vector is None:
-            continue
-        actual = _unitario(vector)
-        mejor, similitud = None, CLUSTER_MIN_SIMILARITY
-        for indice, (_, vs) in enumerate(grupos):
-            coseno = float(_unitario(np.mean(vs, axis=0)) @ actual)
-            if coseno >= similitud:
-                mejor, similitud = indice, coseno
-        if mejor is None:
-            grupos.append(([item], [actual]))
-        else:
-            grupos[mejor][0].append(item)
-            grupos[mejor][1].append(actual)
+    con_vector = [i for i in sorted(items, key=lambda i: (i.created_at, i.id)) if i.id in vectors]
+    etiquetas = average_linkage_partition([vectors[i.id] for i in con_vector],
+                                          CLUSTER_MIN_SIMILARITY)
+    por_etiqueta: dict[int, tuple[list[EvidenceItem], list[np.ndarray]]] = {}
+    for item, etiqueta in zip(con_vector, etiquetas, strict=True):
+        miembros, vs = por_etiqueta.setdefault(etiqueta, ([], []))
+        miembros.append(item)
+        vs.append(_unitario(vectors[item.id]))
+    grupos = [por_etiqueta[e] for e in sorted(por_etiqueta)]
 
     candidatos: list[tuple[Candidato, list[EvidenceItem], np.ndarray]] = []
     for miembros, vs in grupos:
