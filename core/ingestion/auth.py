@@ -29,7 +29,8 @@ from __future__ import annotations
 import base64
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, Mapping, Optional
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ DEFAULT_USER_AGENT = "python:reddit-intelligence-radar:v0.5 (by /u/unknown)"
 # Margen de seguridad para renovar antes de que el token expire de verdad.
 EXPIRY_MARGIN_SECONDS = 60.0
 
-TokenFetcher = Callable[[Dict[str, str], Dict[str, str]], Awaitable[Dict[str, Any]]]
+TokenFetcher = Callable[[dict[str, str], dict[str, str]], Awaitable[dict[str, Any]]]
 
 
 class RedditAuthError(RuntimeError):
@@ -49,9 +50,9 @@ class RedditAuthError(RuntimeError):
 
 
 def load_dotenv(
-    path: Optional[str] = None,
-    env: Optional[Dict[str, str]] = None,
-) -> Dict[str, str]:
+    path: str | None = None,
+    env: MutableMapping[str, str] | None = None,
+) -> MutableMapping[str, str]:
     """
     Carga variables desde un archivo `.env` sin depender de python-dotenv.
 
@@ -95,6 +96,20 @@ def load_dotenv(
     return env
 
 
+def load_reddit_oauth(env_path: str | None = None) -> RedditOAuth | None:
+    """
+    Única vía para obtener las credenciales de Reddit.
+
+    Lee el `.env` tal como está AHORA, en un diccionario propio: ni consulta
+    ni escribe `os.environ`. Si se volcase allí, la primera lectura fijaría
+    los valores para siempre (`load_dotenv` no pisa lo ya presente) y lo que
+    se guarde después desde la interfaz no llegaría a ningún escaneo. El
+    escaneo y «Probar conexión» pasan los dos por aquí, así que ven siempre
+    las mismas credenciales.
+    """
+    return RedditOAuth.from_env(env=load_dotenv(env_path, env={}))
+
+
 class RedditOAuth:
     """
     Gestor de token OAuth2 con renovación perezosa.
@@ -105,12 +120,12 @@ class RedditOAuth:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
         user_agent: str = DEFAULT_USER_AGENT,
-        token_fetcher: Optional[TokenFetcher] = None,
+        token_fetcher: TokenFetcher | None = None,
     ) -> None:
         self.client_id = client_id
         self._client_secret = client_secret
@@ -119,7 +134,7 @@ class RedditOAuth:
         self.user_agent = user_agent or DEFAULT_USER_AGENT
         self._token_fetcher = token_fetcher
 
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._expires_at: float = 0.0
 
     # -- Construcción ------------------------------------------------------
@@ -127,9 +142,9 @@ class RedditOAuth:
     @classmethod
     def from_env(
         cls,
-        env: Optional[Mapping[str, str]] = None,
-        token_fetcher: Optional[TokenFetcher] = None,
-    ) -> Optional["RedditOAuth"]:
+        env: Mapping[str, str] | None = None,
+        token_fetcher: TokenFetcher | None = None,
+    ) -> RedditOAuth | None:
         """
         Construye el gestor desde el entorno.
 
@@ -169,7 +184,7 @@ class RedditOAuth:
 
     # -- Token -------------------------------------------------------------
 
-    def _grant_payload(self) -> Dict[str, str]:
+    def _grant_payload(self) -> dict[str, str]:
         if self.username and self._password:
             return {
                 "grant_type": "password",
@@ -178,8 +193,8 @@ class RedditOAuth:
             }
         return {"grant_type": "client_credentials"}
 
-    def _auth_headers(self) -> Dict[str, str]:
-        raw = f"{self.client_id}:{self._client_secret}".encode("utf-8")
+    def _auth_headers(self) -> dict[str, str]:
+        raw = f"{self.client_id}:{self._client_secret}".encode()
         return {
             "Authorization": "Basic " + base64.b64encode(raw).decode("ascii"),
             "User-Agent": self.user_agent,
@@ -222,7 +237,7 @@ class RedditOAuth:
         logger.info("Token de Reddit obtenido (expira en %.0fs)", expires_in)
         return self._access_token
 
-    async def auth_headers(self) -> Dict[str, str]:
+    async def auth_headers(self) -> dict[str, str]:
         """Cabeceras listas para una petición autenticada."""
         return {
             "Authorization": f"bearer {await self.get_token()}",
@@ -231,9 +246,9 @@ class RedditOAuth:
 
 
 async def _fetch_token_over_https(
-    payload: Dict[str, str],
-    headers: Dict[str, str],
-) -> Dict[str, Any]:
+    payload: dict[str, str],
+    headers: dict[str, str],
+) -> dict[str, Any]:
     """Obtentor real de token. Se aísla aquí para poder inyectarlo en pruebas."""
     from curl_cffi.requests import AsyncSession
 

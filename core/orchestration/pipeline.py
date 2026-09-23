@@ -11,17 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import (
-    Any,
-    AsyncIterator,
-    Awaitable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-)
+from typing import Any
 
 from core.storage import LanceDBStore
 
@@ -36,7 +28,7 @@ from .state import MIN_OPPORTUNITY_SCORE, RadarState, new_state
 logger = logging.getLogger(__name__)
 
 
-def _run_coroutine(coro: Awaitable[Any]) -> Any:
+def _run_coroutine(coro: Coroutine[Any, Any, Any]) -> Any:
     """
     Ejecuta una corrutina desde código síncrono, haya o no un bucle activo.
 
@@ -66,21 +58,36 @@ class RedditFetcher:
     def __init__(
         self,
         client: Any = None,
-        max_age_days: Optional[int] = None,
+        max_age_days: int | None = None,
         timeframe: str = "month",
+        env_path: str | None = None,
+        client_factory: Callable[[Any], Any] | None = None,
     ) -> None:
         self._client = client
+        # Un cliente inyectado es de quien lo inyecta: invalidar no lo toca.
+        self._client_inyectado = client is not None
         self.max_age_days = max_age_days
         self.timeframe = timeframe
+        self.env_path = env_path
+        self._client_factory = client_factory
+
+    def invalidate(self) -> None:
+        """
+        Olvida el cliente construido.
+
+        El siguiente escaneo lo rehace leyendo el `.env` de nuevo: es lo que
+        hace que unas credenciales recién guardadas surtan efecto sin
+        reiniciar el sidecar.
+        """
+        if not self._client_inyectado:
+            self._client = None
 
     def _get_client(self) -> Any:
         if self._client is None:
             from core.ingestion import RedditIngestionClient
-            from core.ingestion.auth import RedditOAuth, load_dotenv
+            from core.ingestion.auth import load_reddit_oauth
 
-            # El .env es una comodidad de desarrollo; el entorno real manda.
-            load_dotenv()
-            oauth = RedditOAuth.from_env()
+            oauth = load_reddit_oauth(self.env_path)
             if oauth is None:
                 logger.warning(
                     "Sin credenciales de Reddit: se usara el endpoint publico "
@@ -88,7 +95,10 @@ class RedditFetcher:
                     "Define RIR_REDDIT_CLIENT_ID y RIR_REDDIT_CLIENT_SECRET."
                 )
 
-            self._client = RedditIngestionClient(oauth=oauth)
+            factory = self._client_factory or (
+                lambda credenciales: RedditIngestionClient(oauth=credenciales)
+            )
+            self._client = factory(oauth)
         return self._client
 
     def __call__(
@@ -96,8 +106,8 @@ class RedditFetcher:
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-        cursor: Optional[str] = None,
-    ) -> Tuple[Sequence[Dict[str, Any]], Optional[str]]:
+        cursor: str | None = None,
+    ) -> tuple[Sequence[dict[str, Any]], str | None]:
         client = self._get_client()
         posts, next_cursor = _run_coroutine(
             client.fetch_subreddit_page(
@@ -114,12 +124,13 @@ class RedditFetcher:
 
 
 def create_default_dependencies(
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
     allow_hash_fallback: bool = False,
+    env_path: str | None = None,
 ) -> RadarDependencies:
     """Ensambla las dependencias de producción: ingesta real y almacén real."""
     return RadarDependencies(
-        fetcher=RedditFetcher(),
+        fetcher=RedditFetcher(env_path=env_path),
         store=LanceDBStore(db_path=db_path, allow_hash_fallback=allow_hash_fallback),
     )
 
@@ -134,7 +145,7 @@ class RadarPipeline:
 
     def __init__(
         self,
-        deps: Optional[RadarDependencies] = None,
+        deps: RadarDependencies | None = None,
         target_qualified: int = DEFAULT_TARGET_QUALIFIED,
         max_cycles: int = DEFAULT_MAX_CYCLES,
         min_score: float = MIN_OPPORTUNITY_SCORE,
@@ -183,7 +194,7 @@ class RadarPipeline:
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-    ) -> AsyncIterator[Tuple[str, Any]]:
+    ) -> AsyncIterator[tuple[str, Any]]:
         """
         Ejecuta el grafo emitiendo el avance nodo a nodo.
 
@@ -200,8 +211,8 @@ class RadarPipeline:
         la mitad: `updates` dice QUÉ nodo acaba de correr y `values` trae el
         estado acumulado tras ese nodo.
         """
-        last_state: Optional[RadarState] = None
-        pending_node: Optional[str] = None
+        last_state: RadarState | None = None
+        pending_node: str | None = None
 
         async for mode, chunk in self._graph.astream(
             new_state(subreddit=subreddit, limit=limit, sort=sort),
@@ -223,7 +234,7 @@ class RadarPipeline:
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Ejecuta el grafo y devuelve el resumen para quien consulta."""
         return self.summarize(self.run_state(subreddit, limit, sort))
 
@@ -232,14 +243,14 @@ class RadarPipeline:
         subreddit: str,
         limit: int = 25,
         sort: str = "hot",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Gemelo asíncrono de `run`."""
         return self.summarize(await self.arun_state(subreddit, limit, sort))
 
     @staticmethod
-    def summarize(final: RadarState) -> Dict[str, Any]:
+    def summarize(final: RadarState) -> dict[str, Any]:
         """Reduce el estado final a lo que interesa a quien invoca."""
-        qualified: List[Dict[str, Any]] = list(final.get("qualified") or [])
+        qualified: list[dict[str, Any]] = list(final.get("qualified") or [])
         qualified.sort(key=lambda q: q.get("opportunity_score", 0.0), reverse=True)
 
         return {

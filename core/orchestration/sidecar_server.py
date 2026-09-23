@@ -34,7 +34,8 @@ import os
 import sys
 import time
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from collections.abc import Mapping, MutableMapping
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -65,10 +66,10 @@ class ScanRequest(BaseModel):
     subreddit: str
     limit: int = Field(default=25, ge=1, le=100)
     sort: str = Field(default="hot")
-    persist: Optional[bool] = None
+    persist: bool | None = None
     # Quien invoca puede fijar el identificador. Sin eso no hay forma de
     # cancelar un escaneo que todavia no ha empezado a responder.
-    runId: Optional[str] = None
+    runId: str | None = None
 
     @field_validator("subreddit")
     @classmethod
@@ -102,8 +103,8 @@ class CredentialsRequest(BaseModel):
     clientId: str
     clientSecret: str
     userAgent: str = "python:reddit-intelligence-radar:v0.5"
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
 
     @field_validator("clientId", "clientSecret")
     @classmethod
@@ -121,7 +122,7 @@ class BlueprintRequest(BaseModel):
     aqui abriria una segunda fuente de verdad que podria discrepar.
     """
 
-    cluster: Dict[str, Any] = Field(default_factory=dict)
+    cluster: dict[str, Any] = Field(default_factory=dict)
     language: str = "es"
 
 
@@ -139,7 +140,7 @@ class ArchitectRequest(BaseModel):
     de PostgreSQL.
     """
 
-    cluster: Dict[str, Any] = Field(default_factory=dict)
+    cluster: dict[str, Any] = Field(default_factory=dict)
     language: str = "es"
 
 
@@ -150,7 +151,7 @@ class TranslateRequest(BaseModel):
     enorme al modelo por accidente.
     """
 
-    texts: List[str] = Field(default_factory=list, max_length=60)
+    texts: list[str] = Field(default_factory=list, max_length=60)
     target: str = "es"
 
 
@@ -172,22 +173,22 @@ class CancelResponse(BaseModel):
 
 class ScanResponse(BaseModel):
     subreddit: str
-    runId: Optional[str] = None
+    runId: str | None = None
     cycles: int = 0
-    stats: Dict[str, int] = Field(default_factory=dict)
-    errors: List[str] = Field(default_factory=list)
-    qualified: List[Dict[str, Any]] = Field(default_factory=list)
-    clusters: List[Dict[str, Any]] = Field(default_factory=list)
-    qualifiedClusters: List[Dict[str, Any]] = Field(default_factory=list)
+    stats: dict[str, int] = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+    qualified: list[dict[str, Any]] = Field(default_factory=list)
+    clusters: list[dict[str, Any]] = Field(default_factory=list)
+    qualifiedClusters: list[dict[str, Any]] = Field(default_factory=list)
     persisted: bool = False
     # Por que no se persistio. Tragarse el motivo convertia un fallo de base
     # de datos en un silencioso "persisted: false" imposible de diagnosticar.
-    persistError: Optional[str] = None
+    persistError: str | None = None
 
 
 class SearchResponse(BaseModel):
     query: str
-    hits: List[Dict[str, Any]] = Field(default_factory=list)
+    hits: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # =====================================================================
@@ -195,11 +196,11 @@ class SearchResponse(BaseModel):
 # =====================================================================
 
 def create_app(
-    deps: Optional[RadarDependencies] = None,
-    token: Optional[str] = None,
+    deps: RadarDependencies | None = None,
+    token: str | None = None,
     persist_default: bool = True,
-    postgres_dsn: Optional[str] = None,
-    env_path: Optional[str] = None,
+    postgres_dsn: str | None = None,
+    env_path: str | None = None,
 ) -> FastAPI:
     """
     Construye la aplicación sobre unas dependencias dadas.
@@ -213,7 +214,7 @@ def create_app(
         env_path: archivo de configuración que gestiona la vista de ajustes.
     """
     started_at = time.monotonic()
-    dependencies = deps or create_default_dependencies()
+    dependencies = deps or create_default_dependencies(env_path=env_path)
     pipeline = RadarPipeline(deps=dependencies)
 
     app = FastAPI(
@@ -231,7 +232,7 @@ def create_app(
     cancelled_runs: set = set()
 
     def require_token(
-        x_radar_token: Optional[str] = Header(default=None, alias=TOKEN_HEADER),
+        x_radar_token: str | None = Header(default=None, alias=TOKEN_HEADER),
     ) -> None:
         if token and x_radar_token != token:
             raise HTTPException(status_code=401, detail="Token invalido o ausente")
@@ -239,7 +240,7 @@ def create_app(
     # -- Salud ---------------------------------------------------------
 
     @app.get("/api/health", dependencies=[Depends(require_token)])
-    def health() -> Dict[str, Any]:
+    def health() -> dict[str, Any]:
         """
         Estado del proceso y de los modelos realmente cargados.
 
@@ -307,9 +308,9 @@ def create_app(
             raise HTTPException(status_code=500, detail=f"Fallo del pipeline: {exc}")
 
         should_persist = persist_default if request.persist is None else request.persist
-        run_id: Optional[str] = None
+        run_id: str | None = None
         persisted = False
-        persist_error: Optional[str] = None
+        persist_error: str | None = None
 
         if should_persist:
             run_id, persisted, persist_error = await _persist(
@@ -349,7 +350,7 @@ def create_app(
     # aqui hay varios manejadores que la tocan.
     mode_holder = ["reddit" if _is_reddit_fetcher(dependencies.fetcher) else "synthetic"]
 
-    def _gemini_summary() -> Dict[str, Any]:
+    def _gemini_summary() -> dict[str, Any]:
         """Estado del motor de arquitectura, SIN devolver la clave.
 
         Vale lo mismo que para el secreto de Reddit: una clave que llega al
@@ -367,7 +368,7 @@ def create_app(
 
         return {"configured": bool(key), "keyMasked": masked, "model": model}
 
-    def _credentials_summary() -> Dict[str, Any]:
+    def _credentials_summary() -> dict[str, Any]:
         """
         Estado de las credenciales SIN devolver el secreto.
 
@@ -394,7 +395,7 @@ def create_app(
         }
 
     @app.get("/api/config", dependencies=[Depends(require_token)])
-    def get_config() -> Dict[str, Any]:
+    def get_config() -> dict[str, Any]:
         """Lo que la vista de Configuracion necesita saber."""
         return {
             "fetcherMode": mode_holder[0],
@@ -405,7 +406,7 @@ def create_app(
         }
 
     @app.post("/api/config/mode", dependencies=[Depends(require_token)])
-    def set_mode(request: ModeRequest) -> Dict[str, Any]:
+    def set_mode(request: ModeRequest) -> dict[str, Any]:
         """
         Cambia la fuente de datos en caliente.
 
@@ -419,14 +420,14 @@ def create_app(
         else:
             from .pipeline import RedditFetcher
 
-            dependencies.fetcher = RedditFetcher()
+            dependencies.fetcher = RedditFetcher(env_path=env_path)
 
         mode_holder[0] = request.mode
         logger.info("Fuente de datos cambiada a '%s'", request.mode)
         return {"fetcherMode": request.mode}
 
     @app.post("/api/credentials", dependencies=[Depends(require_token)])
-    def save_credentials(request: CredentialsRequest) -> Dict[str, Any]:
+    def save_credentials(request: CredentialsRequest) -> dict[str, Any]:
         """
         Guarda las credenciales en el `.env`.
 
@@ -445,6 +446,11 @@ def create_app(
             values["RIR_REDDIT_PASSWORD"] = request.password
 
         target = update_dotenv(values, env_path)
+        # El cliente construido con las credenciales anteriores ya no vale:
+        # el siguiente escaneo lo rehace leyendo el `.env` recien escrito.
+        invalidar = getattr(dependencies.fetcher, "invalidate", None)
+        if callable(invalidar):
+            invalidar()
         # Se registra que se guardo, nunca lo guardado.
         logger.info("Credenciales de Reddit actualizadas en %s", target)
         return {"saved": True, "envPath": str(target),
@@ -454,10 +460,11 @@ def create_app(
               dependencies=[Depends(require_token)])
     async def test_credentials() -> ProbeResponse:
         """Intenta obtener un token real con lo que hay guardado."""
-        from core.ingestion.auth import RedditOAuth
+        from core.ingestion.auth import load_reddit_oauth
 
-        values = load_dotenv(env_path, env={})
-        auth = RedditOAuth.from_env(env=values)
+        # La misma lectura que hace el escaneo: si aqui sale bien, el
+        # escaneo usara exactamente estas credenciales.
+        auth = load_reddit_oauth(env_path)
         if auth is None:
             return ProbeResponse(
                 ok=False,
@@ -516,7 +523,7 @@ def create_app(
                 "subreddit": request.subreddit,
             })
 
-            final_state: Dict[str, Any] = {}
+            final_state: dict[str, Any] = {}
             cancelled = run_id in cancelled_runs
             try:
                 if not cancelled:
@@ -591,7 +598,7 @@ def create_app(
     # -- Traduccion de citas -------------------------------------------
 
     @app.post("/api/translate", dependencies=[Depends(require_token)])
-    def translate_quotes(request: TranslateRequest) -> Dict[str, Any]:
+    def translate_quotes(request: TranslateRequest) -> dict[str, Any]:
         """
         Traduce citas al idioma de la interfaz.
 
@@ -601,7 +608,7 @@ def create_app(
         """
         from core.intelligence import translator
 
-        key, model = _gemini_credenciales()
+        key, _modelo_guardado = _gemini_credenciales()
         traducciones = translator.translate(
             request.texts,
             request.target,
@@ -623,7 +630,7 @@ def create_app(
         return key, model
 
     @app.post("/api/gemini", dependencies=[Depends(require_token)])
-    def save_gemini(request: GeminiRequest) -> Dict[str, Any]:
+    def save_gemini(request: GeminiRequest) -> dict[str, Any]:
         """Guarda la clave en el `.env` del proyecto."""
         if not request.apiKey.strip():
             raise HTTPException(status_code=400, detail="La clave no puede estar vacia")
@@ -667,13 +674,12 @@ def create_app(
 
         def cuerpo():
             try:
-                for trozo in gemini_architect.stream_architecture(
+                yield from gemini_architect.stream_architecture(
                     request.cluster,
                     api_key=key,
                     model=model,
                     language=request.language,
-                ):
-                    yield trozo
+                )
             except Exception as exc:
                 # El fallo llega a mitad del texto ya enviado: no se puede
                 # cambiar el codigo de estado, asi que se escribe dentro del
@@ -686,7 +692,7 @@ def create_app(
     # -- Especificacion de proyecto ------------------------------------
 
     @app.post("/api/blueprint", dependencies=[Depends(require_token)])
-    def blueprint(request: BlueprintRequest) -> Dict[str, Any]:
+    def blueprint(request: BlueprintRequest) -> dict[str, Any]:
         """
         Sintetiza el PRD de un cluster.
 
@@ -744,14 +750,16 @@ def synthetic_total() -> int:
     return total_posts()
 
 
-def load_dotenv(path: Optional[str], env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def load_dotenv(
+    path: str | None, env: MutableMapping[str, str] | None = None
+) -> MutableMapping[str, str]:
     """Lee un `.env` sin tocar el entorno del proceso."""
     from core.ingestion.auth import load_dotenv as _load
 
     return _load(path or _default_env_path(), env=env if env is not None else {})
 
 
-def update_dotenv(values: Dict[str, str], path: Optional[str] = None):
+def update_dotenv(values: dict[str, str], path: str | None = None):
     """
     Escribe o actualiza claves en un `.env`, preservando el resto.
 
@@ -794,16 +802,16 @@ async def _probe_reddit(auth) -> tuple:
     """
     from core.ingestion.auth import RedditAuthError
 
+    # `get_token` ya envuelve en RedditAuthError cualquier fallo del
+    # transporte (auth.py): no hay otra excepcion esperable que traducir.
     try:
         token = await auth.get_token()
         return True, f"Token obtenido correctamente ({len(token)} caracteres)."
     except RedditAuthError as exc:
         return False, str(exc)
-    except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}"
 
 
-def _sse(payload: Dict[str, Any]) -> str:
+def _sse(payload: dict[str, Any]) -> str:
     """Serializa un evento en el formato `text/event-stream`."""
     return "data: " + json.dumps(payload, default=str) + "\n\n"
 
@@ -811,11 +819,13 @@ def _sse(payload: Dict[str, Any]) -> str:
 def _safe(fn, default):
     try:
         return fn()
-    except Exception:
+    # Frontera de /api/health: el informe de salud no puede caerse por el
+    # fallo de la pieza que esta describiendo, sea cual sea ese fallo.
+    except Exception:  # noqa: BLE001
         return default
 
 
-def _hit_to_camel(hit: Any) -> Dict[str, Any]:
+def _hit_to_camel(hit: Any) -> dict[str, Any]:
     """Adapta un resultado de búsqueda al contrato de `ui/src/types/radar.ts`."""
     return {
         "id": hit.id,
@@ -834,11 +844,11 @@ def _hit_to_camel(hit: Any) -> Dict[str, Any]:
 
 
 async def _persist(
-    state: Dict[str, Any],
+    state: Mapping[str, Any],
     deps: RadarDependencies,
-    postgres_dsn: Optional[str],
+    postgres_dsn: str | None,
     status: str = "completed",
-) -> tuple[Optional[str], bool, Optional[str]]:
+) -> tuple[str | None, bool, str | None]:
     """
     Vuelca el estado final en PostgreSQL.
 
@@ -857,7 +867,7 @@ async def _persist(
     """
     import asyncio
 
-    def _write() -> tuple[Optional[str], bool, Optional[str]]:
+    def _write() -> tuple[str | None, bool, str | None]:
         try:
             from core.storage.postgres_store import PostgresStore, run_async
 
@@ -866,7 +876,7 @@ async def _persist(
             async def _inner():
                 async with PostgresStore(dsn=postgres_dsn) as store:
                     return await store.persist_state(
-                        state,
+                        dict(state),
                         trigger_source="sidecar",
                         embedding_model=getattr(embedder, "name", None),
                         status=status,
@@ -874,7 +884,9 @@ async def _persist(
 
             summary = run_async(_inner())
             return summary.get("run_id"), True, None
-        except Exception as exc:
+        # Frontera con PostgreSQL: conexion, SQL y mapeo pueden fallar de
+        # muchas formas y todas deben llegar al usuario como `persistError`.
+        except Exception as exc:  # noqa: BLE001
             detail = f"{type(exc).__name__}: {exc}"
             logger.error("No se pudo persistir en PostgreSQL: %s", detail)
             return None, False, detail
@@ -884,8 +896,8 @@ async def _persist(
 
 def run(
     host: str = DEFAULT_HOST,
-    port: Optional[int] = None,
-    token: Optional[str] = None,
+    port: int | None = None,
+    token: str | None = None,
     mode: str = "reddit",
 ) -> None:
     """
@@ -919,9 +931,9 @@ def run(
     deps = None
     if mode == "synthetic":
         from core.ingestion.synthetic import SyntheticFetcher
+        from core.storage import LanceDBStore
 
         from .graph import RadarDependencies
-        from core.storage import LanceDBStore
 
         store = LanceDBStore()
         deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store)
@@ -932,7 +944,7 @@ def run(
     )
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="Sidecar del Reddit Intelligence Radar")
