@@ -379,11 +379,16 @@ fn get_app_health_devuelve_app_health() {
                 last_success_at: None,
                 error_code: None,
             }),
+            sidecar_launch: Some(crate::sidecar::LaunchFailure {
+                code: "python_not_found".into(),
+                detail: texto(),
+            }),
         },
         "AppHealth",
     );
     assert_eq!(claves(&json["app"]), claves_ts("ComponentHealth"));
     assert_eq!(claves(&json["source"]), claves_ts("SourceStatus"));
+    assert_eq!(claves(&json["sidecarLaunch"]), claves_ts("LaunchFailure"));
 }
 
 #[test]

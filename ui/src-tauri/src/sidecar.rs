@@ -9,9 +9,9 @@
 //! consola de desarrollo, otra instancia) y cerrar esta aplicacion no debe
 //! llevarselo por delante.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
 use crate::commands::engine::{sondear, sidecar_url, Sonda};
@@ -24,7 +24,6 @@ const PORT_ENV_VAR: &str = "RIR_SIDECAR_PORT";
 /// Loopback a proposito: el sidecar no debe ser alcanzable desde la red.
 const SIDECAR_HOST: &str = "127.0.0.1";
 
-const DEFAULT_PYTHON: &str = "python";
 const DEFAULT_PORT: &str = "8765";
 const MODULE: &str = "core.orchestration.sidecar_server";
 
@@ -72,6 +71,65 @@ pub fn sidecar_token() -> &'static str {
     TOKEN.get_or_init(generar_token)
 }
 
+/// Codigos estables de por que no hay sidecar; los traduce la interfaz.
+pub const CODIGO_SIN_PYTHON: &str = "python_not_found";
+pub const CODIGO_NO_LANZA: &str = "sidecar_spawn_failed";
+pub const CODIGO_PUERTO_AJENO: &str = "sidecar_port_in_use";
+pub const CODIGO_NO_RESPONDE: &str = "sidecar_unresponsive";
+
+/// Todos los anteriores, para exigir su traduccion.
+pub const CODIGOS_DE_ARRANQUE: &[&str] = &[
+    CODIGO_SIN_PYTHON,
+    CODIGO_NO_LANZA,
+    CODIGO_PUERTO_AJENO,
+    CODIGO_NO_RESPONDE,
+];
+
+/// Interprete de la `.venv` del proyecto, donde lo deja `scripts/setup_env.ps1`.
+fn interprete_del_venv(proyecto: &Path) -> PathBuf {
+    let venv = proyecto.join(".venv");
+    if cfg!(windows) {
+        venv.join("Scripts").join("python.exe")
+    } else {
+        venv.join("bin").join("python")
+    }
+}
+
+/// Que Python ejecuta el sidecar (D-D).
+///
+/// `RIR_PYTHON` si esta definida; si no, la `.venv` del proyecto; si no, un
+/// error que dice como arreglarlo. Nunca el `python` global del PATH: con el
+/// el sidecar arrancaba con otras versiones de las dependencias, o sin
+/// ellas, y fallaba de formas que no apuntaban a la causa.
+fn resolver_interprete(explicito: Option<String>, proyecto: Option<&Path>) -> Result<PathBuf, String> {
+    if let Some(ruta) = explicito.filter(|r| !r.trim().is_empty()) {
+        return Ok(PathBuf::from(ruta));
+    }
+    let Some(proyecto) = proyecto else {
+        return Err(
+            "No se encontro la raiz del proyecto. Define RIR_PROJECT_DIR, o RIR_PYTHON, \
+             o crea el entorno con scripts/setup_env.ps1."
+                .into(),
+        );
+    };
+    let venv = interprete_del_venv(proyecto);
+    if venv.is_file() {
+        Ok(venv)
+    } else {
+        Err(format!(
+            "No existe {}. Crealo con scripts/setup_env.ps1 o define RIR_PYTHON.",
+            venv.display()
+        ))
+    }
+}
+
+/// Por que no hay sidecar, para la interfaz.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct LaunchFailure {
+    pub code: String,
+    pub detail: String,
+}
+
 /// URL base del sidecar, derivada de `sidecar_port`.
 pub fn sidecar_base_url() -> String {
     format!("http://{SIDECAR_HOST}:{}", sidecar_port())
@@ -88,6 +146,8 @@ pub enum SidecarStatus {
     Unresponsive,
     /// Ni siquiera se pudo lanzar el proceso.
     FailedToSpawn,
+    /// No hay interprete de Python.
+    NoInterpreter,
     /// En el puerto contesta un sidecar que rechaza nuestro token: es de
     /// otro proceso. No se lanza otro encima ni se usa.
     PortInUse,
@@ -96,12 +156,15 @@ pub enum SidecarStatus {
 pub struct SidecarManager {
     /// Solo contiene algo si el proceso lo lanzamos nosotros.
     child: Mutex<Option<Child>>,
+    /// Por que fallo el ultimo arranque; `None` si fue bien o no se intento.
+    fallo: Mutex<Option<LaunchFailure>>,
 }
 
 impl SidecarManager {
     pub fn new() -> Self {
         Self {
             child: Mutex::new(None),
+            fallo: Mutex::new(None),
         }
     }
 
@@ -110,9 +173,9 @@ impl SidecarManager {
     /// Tiene que ser la raiz del proyecto para que `core` sea importable.
     /// Se busca hacia arriba desde el ejecutable porque en desarrollo este
     /// vive en `ui/src-tauri/target/debug`.
-    fn project_dir() -> Option<std::path::PathBuf> {
+    fn project_dir() -> Option<PathBuf> {
         if let Ok(dir) = std::env::var(PROJECT_DIR_ENV_VAR) {
-            return Some(std::path::PathBuf::from(dir));
+            return Some(PathBuf::from(dir));
         }
 
         let start = std::env::current_exe()
@@ -156,8 +219,7 @@ impl SidecarManager {
     /// Su stdout y stderr van, filtrados, al log rotativo de `log_dir`
     /// (D-E): antes se descartaban y un sidecar que moria al arrancar no
     /// dejaba rastro de por que.
-    fn spawn(&self, log_dir: Option<&Path>) -> std::io::Result<Child> {
-        let python = std::env::var(PYTHON_ENV_VAR).unwrap_or_else(|_| DEFAULT_PYTHON.to_string());
+    fn spawn(&self, python: &Path, log_dir: Option<&Path>) -> std::io::Result<Child> {
         let log = Self::abrir_log(log_dir);
         let salida = || if log.is_some() { Stdio::piped() } else { Stdio::null() };
 
@@ -201,29 +263,59 @@ impl SidecarManager {
         client: &reqwest::Client,
         log_dir: Option<&Path>,
     ) -> SidecarStatus {
+        let (status, fallo) = self.arrancar(client, log_dir).await;
+        *self.fallo.lock().unwrap_or_else(PoisonError::into_inner) = fallo;
+        status
+    }
+
+    async fn arrancar(
+        &self,
+        client: &reqwest::Client,
+        log_dir: Option<&Path>,
+    ) -> (SidecarStatus, Option<LaunchFailure>) {
+        let fallo = |code: &str, detail: String| {
+            Some(LaunchFailure {
+                code: code.into(),
+                detail,
+            })
+        };
+
         match sondear(client).await {
             Sonda::Responde => {
                 log::info!("Sidecar ya activo en {}", sidecar_url());
-                return SidecarStatus::AlreadyRunning;
+                return (SidecarStatus::AlreadyRunning, None);
             }
             Sonda::Rechaza => {
-                log::error!(
+                let detalle = format!(
                     "En {} contesta un sidecar que rechaza el token: el puerto es de otro proceso",
                     sidecar_url()
                 );
-                return SidecarStatus::PortInUse;
+                log::error!("{detalle}");
+                return (SidecarStatus::PortInUse, fallo(CODIGO_PUERTO_AJENO, detalle));
             }
             Sonda::NoResponde => {}
         }
 
-        log::info!("Arrancando el sidecar Python...");
-        match self.spawn(log_dir) {
+        let python = match resolver_interprete(
+            std::env::var(PYTHON_ENV_VAR).ok(),
+            Self::project_dir().as_deref(),
+        ) {
+            Ok(python) => python,
+            Err(detalle) => {
+                log::error!("{detalle}");
+                return (SidecarStatus::NoInterpreter, fallo(CODIGO_SIN_PYTHON, detalle));
+            }
+        };
+
+        log::info!("Arrancando el sidecar Python con {}", python.display());
+        match self.spawn(&python, log_dir) {
             Ok(child) => {
-                *self.child.lock().unwrap() = Some(child);
+                *self.child.lock().unwrap_or_else(PoisonError::into_inner) = Some(child);
             }
             Err(err) => {
-                log::error!("No se pudo lanzar el sidecar: {err}");
-                return SidecarStatus::FailedToSpawn;
+                let detalle = format!("{}: {err}", python.display());
+                log::error!("No se pudo lanzar el sidecar: {detalle}");
+                return (SidecarStatus::FailedToSpawn, fallo(CODIGO_NO_LANZA, detalle));
             }
         }
 
@@ -235,21 +327,28 @@ impl SidecarManager {
             if let Ok(mut guard) = self.child.lock() {
                 if let Some(child) = guard.as_mut() {
                     if let Ok(Some(status)) = child.try_wait() {
-                        log::error!("El sidecar termino con {status}");
+                        let detalle = format!("El sidecar termino con {status}; ver sidecar.log");
+                        log::error!("{detalle}");
                         *guard = None;
-                        return SidecarStatus::Unresponsive;
+                        return (SidecarStatus::Unresponsive, fallo(CODIGO_NO_RESPONDE, detalle));
                     }
                 }
             }
 
             if sondear(client).await == Sonda::Responde {
                 log::info!("Sidecar listo tras {} intentos", intento);
-                return SidecarStatus::Started;
+                return (SidecarStatus::Started, None);
             }
         }
 
-        log::error!("El sidecar no respondio a tiempo");
-        SidecarStatus::Unresponsive
+        let detalle = "El sidecar no respondio a tiempo; ver sidecar.log".to_string();
+        log::error!("{detalle}");
+        (SidecarStatus::Unresponsive, fallo(CODIGO_NO_RESPONDE, detalle))
+    }
+
+    /// Por que fallo el ultimo arranque, si fallo.
+    pub fn ultimo_fallo(&self) -> Option<LaunchFailure> {
+        self.fallo.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// Detiene el proceso hijo, si lo lanzamos nosotros.
@@ -269,7 +368,7 @@ impl SidecarManager {
 
 /// Raiz del proyecto, para los tests de otros modulos.
 #[cfg(test)]
-pub fn project_root_for_tests() -> Option<std::path::PathBuf> {
+pub fn project_root_for_tests() -> Option<PathBuf> {
     SidecarManager::project_dir()
 }
 
@@ -397,6 +496,76 @@ mod tests {
         assert_eq!(cabecera, format!("Bearer {}", sidecar_token()));
     }
 
+    fn proyecto_temporal(nombre: &str, con_venv: bool) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("rir_{nombre}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        if con_venv {
+            let python = interprete_del_venv(&dir);
+            std::fs::create_dir_all(python.parent().unwrap()).unwrap();
+            std::fs::write(&python, b"").unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn rir_python_manda_sobre_todo() {
+        let dir = proyecto_temporal("py_explicito", true);
+        let elegido = resolver_interprete(Some("C:/otro/python.exe".into()), Some(&dir));
+        assert_eq!(elegido, Ok(std::path::PathBuf::from("C:/otro/python.exe")));
+    }
+
+    #[test]
+    fn sin_rir_python_se_usa_el_venv_del_proyecto() {
+        let dir = proyecto_temporal("py_venv", true);
+        assert_eq!(resolver_interprete(None, Some(&dir)), Ok(interprete_del_venv(&dir)));
+    }
+
+    #[test]
+    fn sin_venv_ni_rir_python_es_un_error_y_nunca_el_python_global() {
+        let dir = proyecto_temporal("py_nada", false);
+        for explicito in [None, Some(String::new()), Some("  ".into())] {
+            let resultado = resolver_interprete(explicito, Some(&dir));
+            let detalle = resultado.expect_err("sin intérprete no puede haber ruta");
+            assert!(detalle.contains("setup_env.ps1"), "el detalle no dice cómo arreglarlo");
+        }
+        assert!(resolver_interprete(None, None).is_err());
+    }
+
+    #[tokio::test]
+    async fn sin_interprete_no_se_lanza_nada_y_queda_el_fallo_con_codigo() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = proyecto_temporal("py_arranque", false);
+        std::env::set_var(PORT_ENV_VAR, TEST_PORT);
+        std::env::set_var(PROJECT_DIR_ENV_VAR, &dir);
+        std::env::remove_var(PYTHON_ENV_VAR);
+
+        let manager = SidecarManager::new();
+        let status = manager.ensure_running(&reqwest::Client::new(), None).await;
+
+        std::env::remove_var(PROJECT_DIR_ENV_VAR);
+        std::env::remove_var(PORT_ENV_VAR);
+        assert_eq!(status, SidecarStatus::NoInterpreter);
+        assert!(manager.child.lock().unwrap().is_none(), "no debe haber proceso hijo");
+        let fallo = manager.ultimo_fallo().expect("sin fallo registrado");
+        assert_eq!(fallo.code, CODIGO_SIN_PYTHON);
+    }
+
+    #[test]
+    fn cada_codigo_de_arranque_tiene_texto_en_es_y_en() {
+        for diccionario in [
+            include_str!("../../src/i18n/es.ts"),
+            include_str!("../../src/i18n/en.ts"),
+        ] {
+            let inicio = diccionario.find("\n  errors: {").expect("sin bloque errors");
+            let bloque = &diccionario[inicio..];
+            let bloque = &bloque[..bloque.find("\n  },").unwrap()];
+            for codigo in CODIGOS_DE_ARRANQUE {
+                assert!(bloque.contains(&format!("\n    {codigo}:")), "falta {codigo}");
+            }
+        }
+    }
+
     #[test]
     fn shutdown_without_a_child_is_harmless() {
         SidecarManager::new().shutdown();
@@ -409,6 +578,16 @@ mod tests {
     async fn spawns_waits_and_stops_a_real_sidecar() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         std::env::set_var(PORT_ENV_VAR, TEST_PORT);
+
+        // El test elige su interprete de forma explicita (D-D): el de la
+        // .venv del proyecto si existe; si no, el `python` del PATH, pero
+        // declarado en RIR_PYTHON, no como valor por defecto.
+        let venv = project_root_for_tests().map(|raiz| interprete_del_venv(&raiz));
+        let python = venv
+            .filter(|p| p.is_file())
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "python".into());
+        std::env::set_var(PYTHON_ENV_VAR, python);
 
         let client = reqwest::Client::new();
         let manager = SidecarManager::new();
@@ -441,5 +620,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&logs);
 
         std::env::remove_var(PORT_ENV_VAR);
+        std::env::remove_var(PYTHON_ENV_VAR);
     }
 }

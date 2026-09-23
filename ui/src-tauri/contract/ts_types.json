@@ -227,12 +227,17 @@
       "lastSuccessAt",
       "state"
     ],
+    "LaunchFailure": [
+      "code",
+      "detail"
+    ],
     "AppHealth": [
       "app",
       "ok",
       "postgres",
       "sidecar",
       "sidecarInfo",
+      "sidecarLaunch",
       "source",
       "version"
     ],

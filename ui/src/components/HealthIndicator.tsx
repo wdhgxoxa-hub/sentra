@@ -1,5 +1,6 @@
 import { AlertTriangle, Database, Cpu } from "lucide-react";
 
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { Explain } from "@/components/Explain";
 import { useAppHealth } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
@@ -102,6 +103,15 @@ export function HealthIndicator() {
           <span className="sr-only">{state.ok ? t.health.up : t.health.down}</span>
         </div>
       ))}
+
+      {/* Si el motor no arrancó, se dice por qué y cómo arreglarlo (D-D),
+          no solo un punto rojo. */}
+      {health.data.sidecarLaunch && (
+        <ErrorNotice
+          code={health.data.sidecarLaunch.code}
+          detail={health.data.sidecarLaunch.detail}
+        />
+      )}
 
       {/* La fuente se describe por lo que ha pasado de verdad, no por el
           modo elegido (AUD-004): solo un 200 real de Reddit pinta verde. */}

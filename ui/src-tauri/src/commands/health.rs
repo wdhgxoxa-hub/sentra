@@ -5,11 +5,14 @@
 //! sin arrancar. Un unico indicador "ok/ko" ocultaria justo lo que hace
 //! falta saber para arreglarlo, asi que se informa de cada pieza.
 
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::engine::{sidecar_health, sidecar_url};
 use crate::db::{connect_options, AppState, DatabaseStatus, RadarResult};
+use crate::sidecar::{LaunchFailure, SidecarManager};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,11 +66,16 @@ pub struct AppHealth {
     pub sidecar_info: Option<serde_json::Value>,
     /// Estado real de la fuente de datos. `None` si el sidecar no respondió.
     pub source: Option<SourceStatus>,
+    /// Por qué no se pudo arrancar el sidecar (D-D), con código traducible.
+    pub sidecar_launch: Option<LaunchFailure>,
 }
 
 /// Estado de Rust, PostgreSQL y el sidecar Python.
 #[tauri::command]
-pub async fn get_app_health(state: State<'_, AppState>) -> RadarResult<AppHealth> {
+pub async fn get_app_health(
+    state: State<'_, AppState>,
+    manager: State<'_, Arc<SidecarManager>>,
+) -> RadarResult<AppHealth> {
     let app = ComponentHealth {
         ok: true,
         detail: format!("Tauri {}", env!("CARGO_PKG_VERSION")),
@@ -133,6 +141,7 @@ pub async fn get_app_health(state: State<'_, AppState>) -> RadarResult<AppHealth
         sidecar,
         sidecar_info: info,
         source,
+        sidecar_launch: manager.ultimo_fallo(),
     })
 }
 

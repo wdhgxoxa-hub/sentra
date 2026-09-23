@@ -513,6 +513,12 @@ export interface SourceStatus {
   errorCode: ScanErrorCode | null;
 }
 
+/** Por qué no se pudo arrancar el motor (D-D); `code` se traduce. */
+export interface LaunchFailure {
+  code: string;
+  detail: string;
+}
+
 export interface AppHealth {
   /** true solo si las tres piezas responden. */
   ok: boolean;
@@ -529,6 +535,8 @@ export interface AppHealth {
   } | null;
   /** Estado real de la fuente; null si el motor no respondió. */
   source: SourceStatus | null;
+  /** Por qué no arrancó el motor; null si arrancó o ya estaba. */
+  sidecarLaunch: LaunchFailure | null;
 }
 
 // ---------------------------------------------------------------------
