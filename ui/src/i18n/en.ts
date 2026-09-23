@@ -178,6 +178,7 @@ export const en: Dictionary = {
     scanFailed: "The scan could not be started.",
     cancelFailed: "The scan could not be cancelled.",
     history: "Recent runs",
+    colSource: "Source",
     colStatus: "Status",
     colRead: "Read",
     colQualified: "Qualified",

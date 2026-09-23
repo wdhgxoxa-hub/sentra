@@ -287,6 +287,9 @@ export function PipelineControl() {
                     {t.pipeline.colStatus}
                   </th>
                   <th scope="col" className="px-3 py-2.5 font-medium">
+                    {t.pipeline.colSource}
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">
                     {t.pipeline.colRead}
                   </th>
                   <th scope="col" className="px-3 py-2.5 font-medium">
@@ -309,6 +312,9 @@ export function PipelineControl() {
                       }`}
                     >
                       {run.status}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <SourceBadge source={run.dataSource} />
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs tabular-nums">
                       {run.fetched}

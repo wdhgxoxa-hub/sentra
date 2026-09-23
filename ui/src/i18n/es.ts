@@ -177,6 +177,7 @@ export const es = {
     scanFailed: "No se pudo lanzar el escaneo.",
     cancelFailed: "No se pudo cancelar el escaneo.",
     history: "Ejecuciones recientes",
+    colSource: "Fuente",
     colStatus: "Estado",
     colRead: "Leídos",
     colQualified: "Cualificados",
