@@ -171,6 +171,8 @@ def filter_node(state: RadarState, deps: RadarDependencies) -> dict[str, Any]:
     dropped = len(raw_items) - len(kept)
     return {
         "filtered_items": kept,
+        # La cosecha acumulada entre ciclos, que es la que se persiste.
+        "all_items": kept,
         "errors": errors,
         "stats": {"filtered_out": dropped, "filtered_in": len(kept)},
     }

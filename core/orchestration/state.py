@@ -63,6 +63,27 @@ BLOCKING_RISK_FLAGS = frozenset({
 RECOMPUTED_STATS = frozenset({"clusters", "qualified_clusters"})
 
 
+def _id_de(elemento: Any) -> str:
+    """Id de Reddit de un ítem crudo (dict) o de una señal analizada."""
+    if isinstance(elemento, dict):
+        return str(elemento.get("id", ""))
+    return str(elemento.id)
+
+
+def _merge_by_id(left: list[Any], right: list[Any]) -> list[Any]:
+    """
+    Acumula la cosecha de todos los ciclos, una entrada por id de Reddit.
+
+    Un post que vuelve a aparecer en otra página (o en otra vuelta) no es una
+    segunda voz: se queda la lectura más reciente, en la posición de la
+    primera. Sin esto, repetirlo inflaba menciones y clusters.
+    """
+    acumulado: dict[str, Any] = {}
+    for elemento in [*(left or []), *(right or [])]:
+        acumulado[_id_de(elemento)] = elemento
+    return list(acumulado.values())
+
+
 def _merge_stats(left: dict[str, int], right: dict[str, int]) -> dict[str, int]:
     """
     Fusiona los contadores de dos vueltas del ciclo.
@@ -104,7 +125,10 @@ class RadarState(TypedDict, total=False):
 
     # La agregación necesita TODA la cosecha, no solo la página en curso:
     # un problema que aparece una vez por ciclo solo se ve al juntarlos.
-    all_signals: Annotated[list[AnalyzedSignal], operator.add]
+    all_signals: Annotated[list[AnalyzedSignal], _merge_by_id]
+    # Ítems que pasaron el filtro en TODOS los ciclos: es lo que se persiste
+    # como raw_posts (AUD-006). `filtered_items` es solo la página en curso.
+    all_items: Annotated[list[dict[str, Any]], _merge_by_id]
 
     # Se recalculan enteros en cada vuelta sobre `all_signals`, así que se
     # reemplazan en lugar de acumularse.
@@ -137,6 +161,7 @@ def new_state(
         errors=[],
         stats={},
         all_signals=[],
+        all_items=[],
         clusters=[],
         qualified_clusters=[],
         failure=None,

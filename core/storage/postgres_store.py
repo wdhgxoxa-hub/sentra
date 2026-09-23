@@ -315,6 +315,19 @@ def opportunity_to_row(signal: Any, signal_uuid: str) -> dict[str, Any]:
     }
 
 
+def _cosecha(state: dict[str, Any], acumulada: str, de_la_pagina: str) -> list[Any]:
+    """
+    Lo que se persiste: la cosecha de TODOS los ciclos (AUD-006).
+
+    `filtered_items` y `signals` son solo la página en curso y se reemplazan
+    en cada vuelta del grafo. La clave de página solo se usa si el estado no
+    trae la acumulada, como el que se construye a mano fuera del grafo.
+    """
+    if acumulada in state:
+        return list(state[acumulada] or [])
+    return list(state.get(de_la_pagina) or [])
+
+
 # =====================================================================
 # Repositorio
 # =====================================================================
@@ -765,7 +778,7 @@ class PostgresStore:
 
         try:
             posts = await self.save_raw_posts(
-                state.get("filtered_items") or [],
+                _cosecha(state, "all_items", "filtered_items"),
                 subreddit_name,
                 subreddit_id=subreddit_id,
                 run_id=run_id,
@@ -775,7 +788,7 @@ class PostgresStore:
             opportunities_saved = 0
             signal_uuids: dict[str, str] = {}
 
-            for signal in state.get("signals") or []:
+            for signal in _cosecha(state, "all_signals", "signals"):
                 signal_uuid = await self.save_signal(
                     signal,
                     run_id=run_id,
