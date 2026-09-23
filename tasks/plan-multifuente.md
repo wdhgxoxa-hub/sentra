@@ -42,7 +42,7 @@ Nota: `tasks/plan.md` pertenece a un trabajo anterior (21 tareas sin marcar) y n
 - [x] T2.7 Escaneo paralelo por fuente: el fallo de una no detiene a las demás. Persistencia y SSE por fuente. *(POST /api/sources/scan/stream. Una respuesta real del escaneo verifica la fuente. Cancelación cooperativa con la ruta de siempre (/api/scan/cancel, cancel_scan): lo traído se guarda y la ejecución se cierra como `cancelled`. El trabajo vive en una tarea de fondo: si la conexión se corta, el escaneo termina y la ejecución se cierra igual. La pipeline antigua (Radar, Pipeline, Top 6) se retira en F3, cuando el juez la sustituya: retirarla con el adaptador de Reddit dejaría esas vistas sin datos antes de tiempo.)*
 - [x] T2.8 Deduplicación: huella normalizada más similitud de embeddings con un umbral con nombre.
 - [x] T2.9 UI: sección «Fuentes», resumen en la barra lateral, progreso por fuente y perfil de escaneo.
-- [ ] T2.10–T2.19 Un adaptador por commit, en el orden de la especificación. Cada uno lleva sus dobles oficiales, su tarjeta con «Probar» y su prueba real acotada según R7.
+- [x] T2.10–T2.19 Un adaptador por commit, en el orden de la especificación. Cada uno lleva sus dobles oficiales, su tarjeta con «Probar» y su prueba real acotada según R7.
   - [x] Stack Exchange: API v2.3, clave opcional RIR_STACKEXCHANGE_KEY (D-SE1), solo uso personal, backoff, ritmo < 30/s, sin peticiones idénticas antes de 60 s, cuota diaria. Prueba real sin clave: 2 peticiones (más 3 páginas de documentación). Con clave: NO VERIFICADO hasta que el usuario la introduzca en la tarjeta.
   - [x] GitHub: búsqueda de issues. Prueba real: NO VERIFICADO (sin token en .env).
   - [ ] **Obligación para F3 (D-SE3, términos de Stack Exchange):** el panel del juez, el mapa de corroboración y cualquier documento o PDF que incluya evidencia multifuente la atribuyen con core/sources/attribution.py (EvidenceAttributionLine en la UI, attribution_line en documentos), con un test que lo exija en cada salida.
@@ -83,3 +83,17 @@ fast-forward a `main`.
 - Síntoma: «el motor no arranca». Causas en sidecar.log: (1) a las 15:56 no existía .venv (NoInterpreter), creado a las 15:57; (2) GET /api/sources → 500 «no existe la relación sources_state»: la base real estaba en la migración 8.
 - Código (7e65b0f): tabla inexistente → 503 `migrations_pending` con la lista de lo que falta; el escaneo lo emite como evento; Rust conserva el código.
 - Base (autorizado por el usuario): respaldo F:ackupseddit_intelligence_radar_2026-09-23_1606_pre009.dump; 009 aplicada (30 ms); verificación en solo lectura: 18 evidence_items legacy (21 raw_posts, 18 ids distintos), 0 autores en claro, /api/sources 200. El paso 3 del cierre repetirá respaldo y verificación con las migraciones que falten entonces.
+
+## Checkpoint F2 (2026-09-23)
+
+Adaptadores (10): Hacker News, Stack Exchange, GitHub, Reddit (pendiente de aprobación, R7), Bluesky, YouTube, Mastodon, Discourse, Product Hunt, X (apagada y pendiente de aprobación, R7).
+
+Pruebas reales acotadas (R7), peticiones a la API:
+- Hacker News: 4 de 20.
+- Stack Exchange: 4 de 20 (2 sin clave + 2 con clave), más 3 páginas de documentación.
+- Discourse (meta.discourse.org): 4 de 20.
+- GitHub: 2 (con token). Bluesky: 3 (sesión incluida). YouTube: 3 (102 unidades). Mastodon: 2.
+- Product Hunt: NO VERIFICADO (sin token en el .env). Reddit y X: cero llamadas (prohibido).
+- Además, sondas pulsadas por el usuario desde la app (no cuentan como pruebas de la misión).
+
+Pendiente de decisión del usuario: en GitHub la comunidad y la URL llevan owner/repo; el owner puede ser una cuenta personal (no es el autor de la queja, que va hasheado).
