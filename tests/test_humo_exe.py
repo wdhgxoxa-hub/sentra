@@ -92,5 +92,32 @@ class TestEvaluar(unittest.TestCase):
         self.assertTrue(any("preferencias" in f for f in evaluar(cambiado, verdad(), ahora=AHORA)))
 
 
+class TestLectorCdp(unittest.TestCase):
+    def test_un_minuto_sin_mensajes_no_mata_al_lector(self):
+        # AUD2-026: con la app en reposo pasaba más de un minuto sin mensajes
+        # CDP; recv() lanzaba timeout, el hilo lector moría y toda respuesta
+        # posterior se perdía (heap y nodos a 0 en la medida larga).
+        import websocket
+
+        from tests.humo_exe import _Cdp
+
+        class WsFalso:
+            def __init__(self):
+                self.pasos = [websocket.WebSocketTimeoutException("silencio"),
+                              '{"id": 7, "result": {}}', ConnectionError("cerrada")]
+
+            def recv(self):
+                paso = self.pasos.pop(0)
+                if isinstance(paso, Exception):
+                    raise paso
+                return paso
+
+        cdp = _Cdp.__new__(_Cdp)
+        cdp.ws = WsFalso()  # type: ignore[assignment]  # doble: solo recv()
+        cdp._respuestas, cdp.excepciones, cdp.errores_csp = {}, [], 0
+        cdp._leer()
+        self.assertIn(7, cdp._respuestas)
+
+
 if __name__ == "__main__":
     unittest.main()

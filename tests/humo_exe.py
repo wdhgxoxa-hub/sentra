@@ -234,9 +234,13 @@ class _Cdp:
             self.enviar(dominio)
 
     def _leer(self) -> None:
+        import websocket
+
         while True:
             try:
                 m = json.loads(self.ws.recv())
+            except websocket.WebSocketTimeoutException:
+                continue  # app en reposo: un rato sin mensajes no es una conexión cerrada
             except Exception:  # noqa: BLE001 - la conexión se cierra al cerrar la app
                 return
             if "id" in m:
