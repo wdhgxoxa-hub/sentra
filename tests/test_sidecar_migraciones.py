@@ -18,9 +18,6 @@ from unittest import mock
 import psycopg
 from fastapi.testclient import TestClient
 
-from core.ingestion.synthetic import SyntheticFetcher
-from core.orchestration import RadarDependencies
-from core.storage import HashEmbedder, LanceDBStore
 from tests._sin_red import prohibir_red_real
 
 
@@ -47,7 +44,6 @@ class TestMigracionesPendientes(unittest.TestCase):
 
         tmp = tempfile.mkdtemp(prefix="rir_mig_")
         self.addCleanup(shutil.rmtree, tmp, True)
-        store = LanceDBStore(db_path=os.path.join(tmp, "l"), embedder=HashEmbedder(dim=16))
         parches = [
             mock.patch.object(sidecar_server, "_estado_de_fuentes",
                               return_value=EstadoSinTabla()),
@@ -58,7 +54,6 @@ class TestMigracionesPendientes(unittest.TestCase):
             parche.start()
             self.addCleanup(parche.stop)
         app = sidecar_server.create_app(
-            deps=RadarDependencies(fetcher=SyntheticFetcher(), store=store),
             insecure_dev=True, persist_default=False, env_path=os.path.join(tmp, ".env"))
         self.client = TestClient(app)
 

@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::State;
 
 use crate::commands::engine::{sidecar_health, sidecar_url};
@@ -21,38 +21,6 @@ pub struct ComponentHealth {
     pub detail: String,
 }
 
-/// Capacidad real de leer datos (AUD-004), tal como la calcula el sidecar.
-///
-/// Solo `RedditVerificado` significa que Reddit respondió 200 de verdad; es
-/// el único estado que la interfaz pinta en verde.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceState {
-    Demo,
-    RedditSinCredenciales,
-    RedditSinVerificar,
-    RedditVerificado,
-    RedditError,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceStatus {
-    pub state: SourceState,
-    /// Último acceso real con éxito (ISO 8601), si lo hubo.
-    pub last_success_at: Option<String>,
-    /// Código estable del último fallo, en `RedditError`.
-    pub error_code: Option<String>,
-}
-
-/// Extrae el estado de la fuente del cuerpo de `/api/health`.
-///
-/// Un estado desconocido no se convierte en uno conocido: devuelve `None`,
-/// que la interfaz muestra como «sin información», nunca como verde.
-pub fn source_from_sidecar(body: &serde_json::Value) -> Option<SourceStatus> {
-    serde_json::from_value(body.get("source")?.clone()).ok()
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppHealth {
@@ -64,10 +32,23 @@ pub struct AppHealth {
     pub sidecar: ComponentHealth,
     /// Cuerpo de /api/health del sidecar, si respondio.
     pub sidecar_info: Option<serde_json::Value>,
-    /// Estado real de la fuente de datos. `None` si el sidecar no respondió.
-    pub source: Option<SourceStatus>,
     /// Por qué no se pudo arrancar el sidecar (D-D), con código traducible.
     pub sidecar_launch: Option<LaunchFailure>,
+}
+
+/// Lo que se dice del motor cuando responde: si persiste en PostgreSQL. El
+/// embedder, el NLI y el estado del escaner de Reddit eran de la pipeline
+/// antigua y se retiraron con ella (C2).
+fn detalle_del_motor(cuerpo: &serde_json::Value) -> String {
+    let persiste = cuerpo
+        .get("persistence")
+        .and_then(|p| p.get("enabled"))
+        .and_then(serde_json::Value::as_bool);
+    match persiste {
+        Some(true) => "activo (persiste en PostgreSQL)".into(),
+        Some(false) => "activo (sin persistencia)".into(),
+        None => "activo".into(),
+    }
 }
 
 /// Estado de Rust, PostgreSQL y el sidecar Python.
@@ -103,24 +84,10 @@ pub async fn get_app_health(
 
     let info = sidecar_health(&state.http).await;
     let sidecar = match &info {
-        Some(body) => {
-            // Se destaca el motor de clasificacion: mientras el NLI corra en
-            // modo heuristico, quien mire el panel debe poder saberlo.
-            let engine = body
-                .get("nli")
-                .and_then(|n| n.get("engine"))
-                .and_then(|e| e.as_str())
-                .unwrap_or("desconocido");
-            let embedder = body
-                .get("embedder")
-                .and_then(|e| e.get("name"))
-                .and_then(|n| n.as_str())
-                .unwrap_or("desconocido");
-            ComponentHealth {
-                ok: true,
-                detail: format!("activo (embedder: {embedder}, NLI: {engine})"),
-            }
-        }
+        Some(body) => ComponentHealth {
+            ok: true,
+            detail: detalle_del_motor(body),
+        },
         None => ComponentHealth {
             ok: false,
             detail: format!(
@@ -131,8 +98,6 @@ pub async fn get_app_health(
         },
     };
 
-    let source = info.as_ref().and_then(source_from_sidecar);
-
     Ok(AppHealth {
         ok: app.ok && postgres.ok && sidecar.ok,
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -140,7 +105,6 @@ pub async fn get_app_health(
         postgres,
         sidecar,
         sidecar_info: info,
-        source,
         sidecar_launch: manager.ultimo_fallo(),
     })
 }
@@ -150,50 +114,17 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn cuerpo(source: serde_json::Value) -> serde_json::Value {
-        json!({ "status": "ok", "source": source })
-    }
-
     #[test]
-    fn cada_estado_del_sidecar_llega_tipado() {
-        let casos = [
-            ("demo", SourceState::Demo),
-            ("reddit_sin_credenciales", SourceState::RedditSinCredenciales),
-            ("reddit_sin_verificar", SourceState::RedditSinVerificar),
-            ("reddit_verificado", SourceState::RedditVerificado),
-            ("reddit_error", SourceState::RedditError),
-        ];
-        for (texto, esperado) in casos {
-            let fuente = source_from_sidecar(&cuerpo(json!({
-                "state": texto, "lastSuccessAt": null, "errorCode": null
-            })))
-            .unwrap_or_else(|| panic!("'{texto}' no se reconocio"));
-            assert_eq!(fuente.state, esperado);
-        }
-    }
-
-    #[test]
-    fn la_evidencia_viaja_con_el_estado() {
-        let fuente = source_from_sidecar(&cuerpo(json!({
-            "state": "reddit_error", "lastSuccessAt": "2026-09-23T10:00:00+00:00",
-            "errorCode": "reddit_forbidden"
-        })))
-        .unwrap();
-        assert_eq!(fuente.error_code.as_deref(), Some("reddit_forbidden"));
-        assert_eq!(fuente.last_success_at.as_deref(), Some("2026-09-23T10:00:00+00:00"));
-    }
-
-    #[test]
-    fn un_estado_desconocido_no_se_hace_pasar_por_valido() {
-        assert!(source_from_sidecar(&cuerpo(json!({
-            "state": "reddit_en_vivo", "lastSuccessAt": null, "errorCode": null
-        })))
-        .is_none());
-    }
-
-    #[test]
-    fn sin_bloque_de_fuente_no_hay_estado() {
-        assert!(source_from_sidecar(&json!({ "status": "ok" })).is_none());
+    fn el_detalle_dice_si_el_motor_persiste() {
+        assert_eq!(
+            detalle_del_motor(&json!({ "persistence": { "enabled": true } })),
+            "activo (persiste en PostgreSQL)"
+        );
+        assert_eq!(
+            detalle_del_motor(&json!({ "persistence": { "enabled": false } })),
+            "activo (sin persistencia)"
+        );
+        assert_eq!(detalle_del_motor(&json!({ "status": "ok" })), "activo");
     }
 }
 

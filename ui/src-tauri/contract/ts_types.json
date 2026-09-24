@@ -1,92 +1,6 @@
 {
   "origen": "ui/src/types/radar.ts",
   "interfaces": {
-    "ScoreBreakdown": [
-      "finalScore",
-      "frequencyFactor",
-      "paidSignalFactor",
-      "rawScore",
-      "recencyFactor",
-      "severityFactor",
-      "spreadFactor"
-    ],
-    "RadarFeedEntry": [
-      "author",
-      "buyingIntent",
-      "content",
-      "createdUtc",
-      "dataSource",
-      "finalScore",
-      "jobStatement",
-      "painSeverity",
-      "postPermalink",
-      "postTitle",
-      "qualified",
-      "redditId",
-      "riskFlags",
-      "sentiment",
-      "signalId",
-      "subredditName",
-      "urgencyTier"
-    ],
-    "EvidenceQuote": [
-      "author",
-      "createdUtc",
-      "quote",
-      "score",
-      "signalId",
-      "subreddit",
-      "url"
-    ],
-    "OpportunityCluster": [
-      "breakdown",
-      "clusterKey",
-      "clusterStats",
-      "communityCount",
-      "createdAt",
-      "currentSolutions",
-      "dataSource",
-      "evidence",
-      "id",
-      "intentType",
-      "jobStatement",
-      "keywords",
-      "label",
-      "linkedSignals",
-      "mentionCount",
-      "opportunityId",
-      "qualified",
-      "representativeContent",
-      "representativeRedditId",
-      "riskFlags",
-      "runId",
-      "runStartedAt",
-      "subreddits",
-      "urgencyTier",
-      "validatedAt",
-      "validationAssignee",
-      "validationNotes",
-      "validationStatus"
-    ],
-    "ClusterStats": [
-      "classifier_engines",
-      "distinct_texts",
-      "keywords",
-      "mentions",
-      "pairs",
-      "severity_undetermined"
-    ],
-    "ClusterHistoryPoint": [
-      "communityCount",
-      "createdAt",
-      "dataSource",
-      "finalScore",
-      "id",
-      "mentionCount",
-      "qualified",
-      "runId",
-      "urgencyTier"
-    ],
     "EvidenceSearchHit": [
       "attribution",
       "community",
@@ -102,130 +16,13 @@
       "title",
       "url"
     ],
-    "SubredditHealth": [
-      "consecutiveFailures",
-      "errorCount",
-      "fetched",
-      "lastRunDataSource",
-      "lastRunDurationMs",
-      "lastRunId",
-      "lastRunStartedAt",
-      "lastRunStatus",
-      "lastScannedAt",
-      "listing",
-      "name",
-      "nextScanAt",
-      "qualified",
-      "status",
-      "subredditId"
-    ],
-    "PipelineRun": [
-      "analyzed",
-      "cycles",
-      "dataSource",
-      "durationMs",
-      "errorCount",
-      "errors",
-      "fetched",
-      "filteredIn",
-      "filteredOut",
-      "finishedAt",
-      "id",
-      "qualified",
-      "rejected",
-      "startedAt",
-      "status",
-      "stored",
-      "subredditName",
-      "triggerSource"
-    ],
-    "FeedParams": [
-      "limit",
-      "minScore",
-      "subreddit",
-      "urgencyTiers"
-    ],
-    "BoardParams": [
-      "limit",
-      "minScore",
-      "qualifiedOnly",
-      "urgencyTiers"
-    ],
     "SearchParams": [
       "limit",
       "query"
     ],
-    "ScanParams": [
-      "limit",
-      "sort",
-      "subreddit"
-    ],
-    "RunStats": [
-      "analyzed",
-      "clusters",
-      "fetched",
-      "filtered_in",
-      "filtered_out",
-      "qualified",
-      "qualified_clusters",
-      "rejected",
-      "stored"
-    ],
-    "RunClosedFields": [
-      "clusters",
-      "dataSource",
-      "errors",
-      "persistError",
-      "persistedRunId",
-      "qualified",
-      "runId",
-      "stats",
-      "top"
-    ],
-    "RunTopOutcome": [
-      "complete",
-      "found",
-      "reason",
-      "target"
-    ],
-    "TopItem": [
-      "clusterKey",
-      "communityCount",
-      "finalScore",
-      "label",
-      "mentionCount",
-      "position"
-    ],
-    "TopOpportunities": [
-      "complete",
-      "dataSource",
-      "finishedAt",
-      "found",
-      "items",
-      "reason",
-      "runId",
-      "status",
-      "target"
-    ],
-    "ScanResult": [
-      "clusters",
-      "cycles",
-      "errors",
-      "persisted",
-      "qualified",
-      "qualifiedClusters",
-      "runId",
-      "stats",
-      "subreddit"
-    ],
     "ComponentHealth": [
       "detail",
       "ok"
-    ],
-    "SourceStatus": [
-      "errorCode",
-      "lastSuccessAt",
-      "state"
     ],
     "LaunchFailure": [
       "code",
@@ -238,61 +35,16 @@
       "sidecar",
       "sidecarInfo",
       "sidecarLaunch",
-      "source",
       "version"
-    ],
-    "ClusterValidation": [
-      "assignedTo",
-      "clusterKey",
-      "notes",
-      "scoreAtDecision",
-      "status",
-      "updatedAt",
-      "validatedAt"
-    ],
-    "UpsertSubredditParams": [
-      "limitPerPage",
-      "listing",
-      "minOpportunityScore",
-      "name",
-      "scanIntervalMinutes",
-      "status",
-      "tags"
-    ],
-    "SubredditRow": [
-      "limitPerPage",
-      "listing",
-      "minOpportunityScore",
-      "name",
-      "scanIntervalMinutes",
-      "status",
-      "subredditId",
-      "tags"
     ],
     "CancelResult": [
       "markedInDatabase",
       "runId",
       "wasActive"
     ],
-    "CredentialsSummary": [
-      "clientIdMasked",
-      "configured",
-      "hasUser",
-      "userAgent"
-    ],
     "AppSettings": [
-      "credentials",
       "envPath",
-      "fetcherMode",
-      "gemini",
-      "syntheticPosts"
-    ],
-    "CredentialsInput": [
-      "clientId",
-      "clientSecret",
-      "password",
-      "userAgent",
-      "username"
+      "gemini"
     ],
     "ProbeResult": [
       "detail",
@@ -448,44 +200,6 @@
     "EvidenceFeed": [
       "items"
     ],
-    "BlueprintPhase": [
-      "items",
-      "name"
-    ],
-    "BlueprintQuote": [
-      "author",
-      "quote",
-      "subreddit",
-      "url"
-    ],
-    "BlueprintDoc": [
-      "dataSource",
-      "distinctQuotes",
-      "evidence",
-      "executiveSummary",
-      "markdown",
-      "monetisation",
-      "mvp",
-      "oneLiner",
-      "problem",
-      "productName",
-      "sections",
-      "solution",
-      "sourceNotice",
-      "whyExistingFail"
-    ],
-    "DocumentSection": [
-      "blocks",
-      "id",
-      "title"
-    ],
-    "DocumentBlock": [
-      "items",
-      "kind",
-      "rows",
-      "signature",
-      "text"
-    ],
     "GeminiModel": [
       "displayName",
       "id"
@@ -504,76 +218,13 @@
       "keyMasked",
       "model"
     ],
-    "ArchitectChunk": [
-      "clusterKey",
-      "done",
-      "error",
-      "text"
-    ],
     "DatabaseStatus": [
       "code",
       "connected",
       "detail"
-    ],
-    "ArchitectFailure": [
-      "code",
-      "detail",
-      "missing"
-    ],
-    "QuoteTranslation": [
-      "approximate",
-      "engine",
-      "text"
     ]
   },
   "uniones": {
-    "RadarEvent": {
-      "run:started": [
-        "runId",
-        "subreddit",
-        "type"
-      ],
-      "run:progress": [
-        "cycle",
-        "node",
-        "runId",
-        "stats",
-        "type"
-      ],
-      "run:finished": [
-        "clusters",
-        "dataSource",
-        "errors",
-        "persistError",
-        "persistedRunId",
-        "qualified",
-        "runId",
-        "stats",
-        "top",
-        "type"
-      ],
-      "run:cancelled": [
-        "clusters",
-        "dataSource",
-        "errors",
-        "persistError",
-        "persistedRunId",
-        "qualified",
-        "runId",
-        "stats",
-        "top",
-        "type"
-      ],
-      "run:error": [
-        "code",
-        "message",
-        "persistError",
-        "persistedRunId",
-        "retryAfterSeconds",
-        "runId",
-        "type"
-      ]
-    },
     "MultiScanEvent": {
       "scan:started": [
         "runId",

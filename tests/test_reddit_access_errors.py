@@ -23,7 +23,6 @@ from typing import ClassVar
 from unittest import mock
 
 import httpx
-from fastapi.testclient import TestClient
 
 from core.ingestion import RedditIngestionClient
 from core.ingestion.auth import RedditOAuth
@@ -36,11 +35,7 @@ from core.ingestion.errors import (
     RedditRateLimited,
     RedditUnavailable,
 )
-from core.orchestration import RadarDependencies
 from core.orchestration.pipeline import RedditFetcher
-from core.orchestration.sidecar_server import create_app
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
-from tests._sin_red import prohibir_red_real
 
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
@@ -255,116 +250,6 @@ def _eventos(raw):
             if linea.startswith("data:"):
                 eventos.append(json.loads(linea[5:].strip()))
     return eventos
-
-
-class EscaneoConRedDoble(ConRedDoble):
-
-    def setUp(self):
-        prohibir_red_real(self)
-        super().setUp()
-        self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_access_"))
-        self.addCleanup(shutil.rmtree, self.tmpdir, True)
-        self.store = LanceDBStore(
-            db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32)
-        )
-
-
-    def _app(self, fetcher, **kwargs):
-        deps = RadarDependencies(
-            fetcher=fetcher, store=self.store,
-            search_engine=HybridSearchEngine(store=self.store),
-        )
-        return TestClient(create_app(insecure_dev=True, deps=deps, env_path=str(self.tmpdir / ".env"),
-                                     **kwargs))
-
-    def _fetcher_autenticado(self):
-        return RedditFetcher(client=RedditIngestionClient(oauth=_oauth(), rate_limit_delay=0))
-
-
-class TestEscaneoQueFalla(EscaneoConRedDoble):
-
-    def test_sin_credenciales_el_flujo_termina_en_error_con_codigo(self):
-        app = self._app(RedditFetcher(env_path=str(self.tmpdir / ".env")),
-                        persist_default=False)
-        eventos = _eventos(app.post("/api/scan/stream", json={"subreddit": "SaaS"}).text)
-        final = eventos[-1]
-        self.assertEqual(final["type"], "run:error")
-        self.assertEqual(final["code"], "reddit_credentials_missing")
-        self.assertEqual(SesionDoble.peticiones, [])
-
-    def test_un_403_termina_en_error_y_no_en_completado(self):
-        SesionDoble.respuesta = RespuestaDoble(403, {"message": "Forbidden"})
-        app = self._app(self._fetcher_autenticado(), persist_default=False)
-        eventos = _eventos(app.post("/api/scan/stream", json={"subreddit": "SaaS"}).text)
-        self.assertEqual(eventos[-1]["type"], "run:error")
-        self.assertEqual(eventos[-1]["code"], "reddit_forbidden")
-        self.assertNotIn("run:finished", [e["type"] for e in eventos])
-        self.assertNuncaTocaElEndpointPublico()
-
-    def test_el_429_viaja_con_los_segundos_de_espera(self):
-        SesionDoble.respuesta = RespuestaDoble(429, {}, {"Retry-After": "12"})
-        app = self._app(self._fetcher_autenticado(), persist_default=False)
-        final = _eventos(app.post("/api/scan/stream", json={"subreddit": "SaaS"}).text)[-1]
-        self.assertEqual(final["code"], "reddit_rate_limited")
-        self.assertEqual(final["retryAfterSeconds"], 12)
-
-    def test_el_escaneo_sin_flujo_informa_del_fallo(self):
-        SesionDoble.respuesta = RespuestaDoble(404, {"message": "Not Found"})
-        app = self._app(self._fetcher_autenticado(), persist_default=False)
-        cuerpo = app.post("/api/scan", json={"subreddit": "noexiste"}).json()
-        self.assertEqual(cuerpo["status"], "failed")
-        self.assertEqual(cuerpo["failureCode"], "reddit_not_found")
-
-    def test_un_listado_vacio_real_si_termina_como_completado(self):
-        SesionDoble.respuesta = RespuestaDoble(200, _listado([]))
-        app = self._app(self._fetcher_autenticado(), persist_default=False)
-        final = _eventos(app.post("/api/scan/stream", json={"subreddit": "SaaS"}).text)[-1]
-        self.assertEqual(final["type"], "run:finished")
-
-
-@unittest.skipUnless(POSTGRES_AVAILABLE, "PostgreSQL no disponible")
-class TestRunFallidoEnPostgres(EscaneoConRedDoble):
-
-    @classmethod
-    def setUpClass(cls):
-        import psycopg
-
-        from scripts.migrate import migrate
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-            conn.execute(f'CREATE DATABASE "{TEST_DB}"')
-        cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
-        migrate(cls.dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
-
-    @classmethod
-    def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-
-    def _ultimo_run(self):
-        import psycopg
-        from psycopg.rows import dict_row
-
-        with psycopg.connect(self.dsn, row_factory=dict_row) as conn:
-            return conn.execute(
-                "SELECT status::text AS status, errors, fetched "
-                "FROM radar.pipeline_runs ORDER BY started_at DESC LIMIT 1"
-            ).fetchone()
-
-    def test_el_run_queda_fallido_con_motivo_legible(self):
-        SesionDoble.respuesta = RespuestaDoble(403, {"message": "Forbidden"})
-        app = self._app(self._fetcher_autenticado(), persist_default=True,
-                        postgres_dsn=self.dsn)
-        final = _eventos(app.post("/api/scan/stream", json={"subreddit": "SaaS"}).text)[-1]
-        self.assertEqual(final["type"], "run:error")
-        self.assertIsNotNone(final["persistedRunId"])
-
-        run = self._ultimo_run()
-        self.assertEqual(run["status"], "failed")
-        self.assertTrue(any("reddit_forbidden" in e for e in run["errors"]), run["errors"])
 
 
 if __name__ == "__main__":

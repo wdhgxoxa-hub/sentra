@@ -9,22 +9,12 @@ detectan igual que los vería quien abre el documento.
 """
 
 import io
-import logging
 import re
-import shutil
-import tempfile
 import unittest
-from pathlib import Path
 
-from fastapi.testclient import TestClient
 from pypdf import PdfReader
 
 from core.documents.pdf_report import build_pdf
-from core.ingestion.synthetic import SyntheticFetcher
-from core.orchestration import RadarDependencies
-from core.orchestration.sidecar_server import create_app
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
-from tests._sin_red import prohibir_red_real
 
 ETIQUETA = "Facturación manual: ¿por qué falla? ¡Otra vez! Ñandú"
 
@@ -190,31 +180,6 @@ class TestDocumentoPdf(unittest.TestCase):
         self.assertNotIn("página", todo)
         # El enunciado JTBD del motor solo existe en español: no se mezcla.
         self.assertNotIn("Cuando los profesionales", todo)
-
-
-class TestEndpoint(unittest.TestCase):
-
-    def setUp(self):
-        prohibir_red_real(self)
-        logging.disable(logging.CRITICAL)
-        self.tmpdir = Path(tempfile.mkdtemp(prefix="rir_pdf_"))
-        self.addCleanup(shutil.rmtree, self.tmpdir, True)
-        store = LanceDBStore(db_path=str(self.tmpdir / "lance"), embedder=HashEmbedder(dim=32))
-        deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
-                                 search_engine=HybridSearchEngine(store=store))
-        self.client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
-                                            env_path=str(self.tmpdir / ".env")))
-
-    def tearDown(self):
-        logging.disable(logging.NOTSET)
-
-    def test_devuelve_el_pdf_en_bytes(self):
-        respuesta = self.client.post("/api/document/pdf", json={
-            "cluster": cluster(), "language": "es", "architecture": None,
-        })
-        self.assertEqual(respuesta.status_code, 200, respuesta.text[:200])
-        self.assertEqual(respuesta.headers["content-type"], "application/pdf")
-        self.assertTrue(respuesta.content.startswith(b"%PDF"))
 
 
 class TestEvidenciaFechada(unittest.TestCase):

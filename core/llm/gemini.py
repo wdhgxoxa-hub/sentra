@@ -127,6 +127,12 @@ class GeminiIncomplete(GeminiError):
     code = "gemini_incomplete"
 
 
+class GeminiSinConfigurar(GeminiError):
+    """No hay clave de API guardada."""
+
+    code = "gemini_not_configured"
+
+
 #: Estados HTTP transitorios y el error que les corresponde.
 _POR_ESTADO: dict[int, type[GeminiError]] = {
     408: GeminiTimeout,

@@ -104,10 +104,7 @@ class TestPendienteDeAprobacion(unittest.IsolatedAsyncioTestCase):
     def test_la_ruta_probar_del_sidecar_tampoco_sale(self):
         from fastapi.testclient import TestClient
 
-        from core.ingestion.synthetic import SyntheticFetcher
-        from core.orchestration import RadarDependencies
         from core.orchestration.sidecar_server import create_app
-        from core.storage import HashEmbedder, LanceDBStore
         from tests._sin_red import prohibir_red_real
 
         prohibir_red_real(self)
@@ -115,9 +112,7 @@ class TestPendienteDeAprobacion(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(shutil.rmtree, tmp, True)
         with open(os.path.join(tmp, ".env"), "w", encoding="utf-8") as env:
             env.writelines(f"{k}={v}\n" for k, v in ENV.items())
-        store = LanceDBStore(db_path=os.path.join(tmp, "l"), embedder=HashEmbedder(dim=16))
-        app = create_app(deps=RadarDependencies(fetcher=SyntheticFetcher(), store=store),
-                         insecure_dev=True, persist_default=False, env_path=os.path.join(tmp, ".env"))
+        app = create_app(insecure_dev=True, persist_default=False, env_path=os.path.join(tmp, ".env"))
         cuerpo = TestClient(app).post("/api/sources/reddit/probe").json()
         self.assertEqual((cuerpo["ok"], cuerpo["code"]), (False, "source_pending_approval"))
 

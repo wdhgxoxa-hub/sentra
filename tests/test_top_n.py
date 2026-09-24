@@ -161,55 +161,6 @@ class TestResultadoDeLaEjecucion(ConAlmacen):
         self.assertEqual(top["found"], 0)
 
 
-class TestSidecar(ConAlmacen):
-
-    def _app(self, **kwargs):
-        from fastapi.testclient import TestClient
-
-        from core.orchestration.sidecar_server import create_app
-
-        deps = RadarDependencies(
-            fetcher=SyntheticFetcher(), store=self.store,
-            search_engine=HybridSearchEngine(store=self.store),
-        )
-        return TestClient(create_app(insecure_dev=True, deps=deps, env_path=str(self.tmpdir / ".env"), **kwargs))
-
-    def test_el_evento_final_trae_el_resultado_y_la_fuente(self):
-        import json
-
-        crudo = self._app(persist_default=False).post(
-            "/api/scan/stream", json={"subreddit": "SaaS"}).text
-        final = [json.loads(linea[5:]) for linea in crudo.splitlines()
-                 if linea.startswith("data:")][-1]
-        self.assertEqual(final["type"], "run:finished")
-        self.assertEqual(final["dataSource"], "demo")
-        self.assertEqual(final["top"]["target"], TOP_N)
-        self.assertEqual(final["top"]["reason"], "datos_insuficientes")
-
-    def test_la_respuesta_del_escaneo_trae_el_resultado(self):
-        cuerpo = self._app(persist_default=False).post(
-            "/api/scan", json={"subreddit": "SaaS"}).json()
-        self.assertEqual(cuerpo["dataSource"], "demo")
-        self.assertEqual(cuerpo["top"]["target"], TOP_N)
-
-    def test_el_sidecar_persiste_la_fuente(self):
-        from core.orchestration.sidecar import scan as sidecar_scan
-
-        recibido = {}
-
-        async def espia(state, deps, dsn, status="completed", data_source=None, author_salt=None):
-            recibido["data_source"] = data_source
-            return "run", True, None
-
-        original = sidecar_scan._persist
-        sidecar_scan._persist = espia
-        try:
-            self._app(persist_default=True).post("/api/scan", json={"subreddit": "SaaS"})
-        finally:
-            sidecar_scan._persist = original
-        self.assertEqual(recibido["data_source"], "demo")
-
-
 class TestDesempate(unittest.TestCase):
 
     def test_el_orden_de_entrada_no_cambia_el_ranking(self):
@@ -232,7 +183,6 @@ class TestDesempate(unittest.TestCase):
         muchos = [{"key": str(i), "opportunity_score": float(i), "mention_count": 1,
                    "community_count": 1} for i in range(20)]
         self.assertEqual(len(rank_top(muchos)), TOP_N)
-
 
 
 # ---------------------------------------------------------------------

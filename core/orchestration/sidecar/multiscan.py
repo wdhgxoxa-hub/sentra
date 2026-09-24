@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
@@ -23,12 +24,17 @@ from core.sources.scan import MultiScanResult, SourceProgress, run_multisource_s
 
 from .context import SidecarContext, load_dotenv
 from .migrations import pending_detail
-from .scan import _sse
+from .schemas import CancelRequest, CancelResponse
 from .sources import commercial_mode
 
 logger = logging.getLogger(__name__)
 
 TRIGGER_SOURCE = "multifuente"
+
+
+def _sse(payload: dict[str, Any]) -> str:
+    """Serializa un evento en el formato `text/event-stream`."""
+    return "data: " + json.dumps(payload, default=str) + "\n\n"
 
 
 class MultiScanRequest(BaseModel):
@@ -134,6 +140,21 @@ def _resumen_fuente(progreso: SourceProgress) -> dict[str, Any]:
 
 def router(ctx: SidecarContext) -> APIRouter:
     rutas = APIRouter()
+
+    @rutas.post("/api/scan/cancel", response_model=CancelResponse)
+    def cancel(request: CancelRequest) -> CancelResponse:
+        """
+        Solicita la interrupción de un escaneo multifuente.
+
+        Es cooperativa: cada fuente la mira entre páginas, y lo traído hasta
+        ese punto se conserva. Se admite cancelar un id que aún no ha
+        arrancado: entre la petición y la primera página hay tiempo de sobra
+        para arrepentirse.
+        """
+        was_active = request.runId in ctx.active_runs
+        ctx.cancelled_runs.add(request.runId)
+        logger.info("Cancelacion solicitada para %s (activo=%s)", request.runId, was_active)
+        return CancelResponse(runId=request.runId, wasActive=was_active)
 
     @rutas.post("/api/sources/scan/stream")
     async def multiscan_stream(request: MultiScanRequest) -> StreamingResponse:

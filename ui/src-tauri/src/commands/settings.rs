@@ -15,15 +15,6 @@ const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CredentialsSummary {
-    pub configured: bool,
-    pub client_id_masked: String,
-    pub user_agent: String,
-    pub has_user: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GeminiSummary {
     pub configured: bool,
     /// Clave recortada. La entera no sale nunca del sidecar.
@@ -37,17 +28,12 @@ pub struct GeminiSummary {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
-    /// "synthetic" o "reddit".
-    pub fetcher_mode: String,
-    pub credentials: CredentialsSummary,
     pub env_path: String,
-    /// Cuantos posts trae el corpus de demostracion.
-    pub synthetic_posts: i64,
-    /// Estado del motor de arquitectura.
+    /// Clave (enmascarada) y modelos de Gemini.
     pub gemini: GeminiSummary,
 }
 
-/// Estado actual: fuente de datos y credenciales (sin secretos).
+/// Estado actual: ruta del `.env` y Gemini (sin secretos).
 #[tauri::command]
 pub async fn get_settings(state: State<'_, AppState>) -> RadarResult<AppSettings> {
     let response = with_token_pub(

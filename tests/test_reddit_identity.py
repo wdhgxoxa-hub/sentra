@@ -177,35 +177,10 @@ class TestUserAgent(ConRedFalsa):
             asyncio.run(cliente.fetch_subreddit_page("SaaS"))
         self.assertEqual(self.red.peticiones, [])
 
-    def test_guardar_un_user_agent_de_relleno_es_400_con_codigo_y_no_escribe(self):
-        import shutil
-        import tempfile
-
-        from fastapi.testclient import TestClient
-
-        from core.ingestion.synthetic import SyntheticFetcher
-        from core.orchestration import RadarDependencies
-        from core.orchestration.sidecar_server import create_app
-        from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
-
-        tmp = Path(tempfile.mkdtemp(prefix="rir_ua_"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        store = LanceDBStore(db_path=str(tmp / "lance"), embedder=HashEmbedder(dim=32))
-        deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
-                                 search_engine=HybridSearchEngine(store=store))
-        client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
-                                       env_path=str(tmp / ".env")))
-        respuesta = client.post("/api/credentials", json={
-            "clientId": "cid", "clientSecret": "csec",
-            "userAgent": "python:reddit-intelligence-radar:v0.5 (by /u/tu_usuario)"})
-        self.assertEqual(respuesta.status_code, 400)
-        self.assertEqual(respuesta.json()["detail"]["code"], "reddit_user_agent_invalid")
-        self.assertFalse((tmp / ".env").exists())
-
     def test_el_codigo_tiene_texto_en_es_y_en(self):
         for idioma in ("es", "en"):
             fuente = (RAIZ / "ui" / "src" / "i18n" / f"{idioma}.ts").read_text(encoding="utf-8")
-            for bloque in ("scanErrors", "errors"):
+            for bloque in ("errors",):
                 encontrado = re.search(rf"\n  {bloque}: \{{(.*?)\n  \}},", fuente, re.DOTALL)
                 self.assertIsNotNone(encontrado, (idioma, bloque))
                 self.assertIn("reddit_user_agent_invalid:", encontrado.group(1), (idioma, bloque))

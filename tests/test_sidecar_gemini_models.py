@@ -5,15 +5,14 @@ Modelos de Gemini en el sidecar (F1.2, F1.3, F1.6)
 La configuración ofrece solo los modelos que la clave puede usar
 (`models.list`). Hay dos usos:
 
-- general (traducción, etiquetado): por defecto, el Flash estable 3.x más reciente;
-- documentos (plan de arquitectura): por defecto, el Pro 3.x más reciente.
+- general (etiquetado del juez): por defecto, el Flash estable 3.x más reciente;
+- documentos (dossier y plan de la Fase E): por defecto, el Pro 3.x más reciente.
 
 Cada uso admite un modelo guardado. Si el guardado desaparece de la lista,
 error tipado `llm_model_unavailable`, nunca un cambio silencioso. Ningún
 test sale a la red: el cliente del SDK es un doble con catálogo.
 """
 
-import json
 import unittest
 from unittest import mock
 
@@ -34,14 +33,14 @@ class ConCatalogo(ConfigTestCase):
     def guardar(self, **campos):
         return self.client.post("/api/gemini", json={"apiKey": CLAVE, **campos})
 
-    def plan(self, capturado):
-        def falso(cluster, **kwargs):
-            capturado.update(kwargs)
-            yield "ok"
+    def resolver(self, uso):
+        """Lo que resuelve el sidecar al usar Gemini (antes se miraba a través
+        del plan de arquitectura y la traducción, retirados en C2)."""
+        from core.orchestration.sidecar.context import SidecarContext
 
-        with mock.patch("core.intelligence.gemini_architect.stream_architecture", falso):
-            respuesta = self.client.post("/api/architect/generate", json={"cluster": {"label": "x"}})
-        return [json.loads(linea) for linea in respuesta.text.splitlines() if linea]
+        ctx = SidecarContext(persist_default=False, postgres_dsn=None,
+                             env_path=str(self.env_path), started_at=0.0)
+        return ctx.resolver_modelo(uso)
 
 
 class TestConfiguracion(ConCatalogo):
@@ -98,7 +97,6 @@ class TestListaDeModelos(ConCatalogo):
         self.guardar()
         self.client.get("/api/gemini/models")
         self.client.get("/api/gemini/models")
-        self.plan({})
         self.assertEqual(ClienteConCatalogo.llamadas_a_list, 1)
 
     def test_guardar_otra_clave_vacia_la_lista(self):
@@ -136,38 +134,31 @@ class TestProbarClave(ConCatalogo):
 
 
 class TestResolucionAlUsar(ConCatalogo):
-    def test_el_plan_usa_por_defecto_el_pro_mas_reciente(self):
+    def test_documentos_usa_por_defecto_el_pro_mas_reciente(self):
         self.guardar()
-        vistos = {}
-        self.plan(vistos)
-        self.assertEqual(vistos["model"], "gemini-3.1-pro-preview")
-        self.assertEqual(vistos["api_key"], CLAVE)
+        self.assertEqual(self.resolver("documentos"), (CLAVE, "gemini-3.1-pro-preview"))
 
-    def test_el_plan_respeta_el_modelo_guardado(self):
+    def test_documentos_respeta_el_modelo_guardado(self):
         self.guardar(model="gemini-2.5-flash")
-        vistos = {}
-        self.plan(vistos)
-        self.assertEqual(vistos["model"], "gemini-2.5-flash")
+        self.assertEqual(self.resolver("documentos")[1], "gemini-2.5-flash")
 
-    def test_si_el_modelo_guardado_desaparece_el_plan_termina_en_error_tipado(self):
+    def test_si_el_modelo_guardado_desaparece_es_un_error_tipado(self):
+        from core.llm.base import LLMModelUnavailable
+
         self.guardar(model="gemini-2.0-flash")
-        vistos = {}
-        eventos = self.plan(vistos)
-        self.assertEqual(vistos, {}, "no debe llamar al modelo")
-        self.assertEqual(eventos[-1]["type"], "error")
-        self.assertEqual(eventos[-1]["code"], "llm_model_unavailable")
+        with self.assertRaises(LLMModelUnavailable) as caso:
+            self.resolver("documentos")
+        self.assertEqual(caso.exception.code, "llm_model_unavailable")
 
-    def test_la_traduccion_usa_el_modelo_general(self):
+    def test_el_uso_general_va_al_flash(self):
         self.guardar()
-        vistos = {}
+        self.assertEqual(self.resolver("defecto")[1], "gemini-3.6-flash")
 
-        def falso(textos, target, **kwargs):
-            vistos.update(kwargs)
-            return []
+    def test_sin_clave_no_hay_modelo(self):
+        from core.llm.gemini import GeminiSinConfigurar
 
-        with mock.patch("core.intelligence.translator.translate", falso):
-            self.client.post("/api/translate", json={"texts": ["hola"], "target": "en"})
-        self.assertEqual(vistos["model"], "gemini-3.6-flash")
+        with self.assertRaises(GeminiSinConfigurar):
+            self.resolver("defecto")
 
 
 if __name__ == "__main__":

@@ -31,18 +31,6 @@ export const es = {
     up: "activo",
     down: "sin respuesta",
     noBackend: "sin respuesta del backend",
-    heuristicNli: "NLI heurístico",
-    heuristicNliHint:
-      "El clasificador funciona con reglas, no con un modelo de lenguaje. Las etiquetas de intención y severidad son orientativas.",
-    sourceStates: {
-      demo: "Demostración: datos fabricados",
-      reddit_sin_credenciales: "Reddit: faltan credenciales",
-      reddit_sin_verificar: "Reddit: credenciales guardadas, sin verificar",
-      reddit_verificado: "Reddit: verificado",
-      reddit_error: "Reddit: error",
-    },
-    sourceUnknown: "Fuente: sin información del motor",
-    sourceVerifiedAt: "último acceso real a las {time}",
   },
 
   radar: {
@@ -91,19 +79,6 @@ export const es = {
       support: "Soporte repetitivo",
       pricing: "Precios confusos",
     },
-  },
-
-  scanErrors: {
-    reddit_credentials_missing: "Faltan las credenciales de Reddit. Guárdalas en Configuración.",
-    reddit_user_agent_invalid: "El User-Agent de Reddit no identifica a la app y a su autor. Usa plataforma:app:versión (by /u/tu-usuario-real) en Configuración.",
-    reddit_auth_failed: "Reddit rechazó las credenciales. Revisa el Client ID y el Client Secret.",
-    reddit_forbidden: "Reddit denegó el acceso a esta comunidad.",
-    reddit_not_found: "La comunidad no existe o es privada.",
-    reddit_rate_limited: "Reddit ha limitado las peticiones. Vuelve a intentarlo en {seconds} s.",
-    reddit_rate_limited_unknown: "Reddit ha limitado las peticiones. Espera antes de reintentar.",
-    reddit_unavailable: "Reddit no está disponible en este momento.",
-    fetch_failed: "La fuente de datos falló y el escaneo no trajo nada.",
-    internal_error: "El motor falló durante el escaneo.",
   },
 
   settings: {
@@ -169,7 +144,6 @@ export const es = {
 
   source: {
     demo: "Datos de demostración",
-    reddit: "Datos de Reddit",
     real: "Datos reales",
     unknown: "Fuente desconocida",
   },

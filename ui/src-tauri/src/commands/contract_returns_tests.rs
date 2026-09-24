@@ -15,9 +15,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::commands::gemini;
-use crate::commands::health::{AppHealth, ComponentHealth, SourceState, SourceStatus};
+use crate::commands::health::{AppHealth, ComponentHealth};
 use crate::commands::mutations::CancelResult;
-use crate::commands::settings::{AppSettings, CredentialsSummary, GeminiSummary};
+use crate::commands::settings::{AppSettings, GeminiSummary};
 
 const TIPOS_TS: &str = include_str!("../../contract/ts_types.json");
 
@@ -71,15 +71,7 @@ fn cancel_scan_devuelve_cancel_result() {
 fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
     let json = cumple(
         &AppSettings {
-            fetcher_mode: texto(),
-            credentials: CredentialsSummary {
-                configured: false,
-                client_id_masked: texto(),
-                user_agent: texto(),
-                has_user: false,
-            },
             env_path: texto(),
-            synthetic_posts: 15,
             gemini: GeminiSummary {
                 configured: false,
                 key_masked: texto(),
@@ -89,7 +81,6 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
         },
         "AppSettings",
     );
-    assert_eq!(claves(&json["credentials"]), claves_ts("CredentialsSummary"));
     assert_eq!(claves(&json["gemini"]), claves_ts("GeminiSummary"));
     let lista = gemini::GeminiModelsResult {
         ok: true,
@@ -115,11 +106,6 @@ fn get_app_health_devuelve_app_health() {
             postgres: ComponentHealth { ok: true, detail: texto() },
             sidecar: ComponentHealth { ok: true, detail: texto() },
             sidecar_info: None,
-            source: Some(SourceStatus {
-                state: SourceState::Demo,
-                last_success_at: None,
-                error_code: None,
-            }),
             sidecar_launch: Some(crate::sidecar::LaunchFailure {
                 code: "python_not_found".into(),
                 detail: texto(),
@@ -128,7 +114,6 @@ fn get_app_health_devuelve_app_health() {
         "AppHealth",
     );
     assert_eq!(claves(&json["app"]), claves_ts("ComponentHealth"));
-    assert_eq!(claves(&json["source"]), claves_ts("SourceStatus"));
     assert_eq!(claves(&json["sidecarLaunch"]), claves_ts("LaunchFailure"));
 }
 

@@ -2,22 +2,21 @@
 Servidor Sidecar (resolución de la deuda D14)
 =============================================
 
-Expone por HTTP local lo único que el proceso Rust no puede resolver por su
-cuenta: ejecutar el grafo LangGraph y buscar sobre LanceDB. Todo lo demás
-—el feed, el tablero, la telemetría— lo lee Rust directamente de PostgreSQL,
-porque abrir el dashboard no debería cruzar dos procesos para hacer un
-SELECT.
+Expone por HTTP local lo que el proceso Rust no resuelve por su cuenta: las
+fuentes y su escaneo, el juez, la búsqueda sobre la evidencia y Gemini.
 
 Las rutas viven en routers por responsabilidad (`core/orchestration/sidecar/`,
-R-D): salud, escaneo, configuración y credenciales, Gemini, documentos y
-búsqueda. Este módulo los monta, con el token por delante de todos.
+R-D): salud, configuración, Gemini, búsqueda, fuentes, escaneo multifuente y
+juez. Este módulo los monta, con el token por delante de todos. La pipeline
+antigua de Reddit (escaneo por subreddit, documentos por cluster) se retiró
+en C2.
 
 Dos decisiones de seguridad
 ---------------------------
 1. **Solo loopback.** El servidor escucha en 127.0.0.1. Un sidecar de
    escritorio no tiene ningún motivo para ser alcanzable desde la red.
 2. **Token obligatorio (D-B).** Incluso en loopback, cualquier proceso del
-   equipo podría llamar a `/api/scan`, que consume cuota de Reddit, o leer
+   equipo podría lanzar un escaneo, que consume cuota de las fuentes, o leer
    la configuración. La aplicación de escritorio genera un token aleatorio
    en cada arranque y lo pasa en `RIR_SIDECAR_TOKEN`; cada petición lo trae
    en `Authorization: Bearer`, y se compara en tiempo constante. Sin token
@@ -49,26 +48,17 @@ from core.sources.registry import (
     SourcesStateRepository,
 )
 
-from .graph import RadarDependencies
-from .pipeline import RadarPipeline, create_default_dependencies
 from .sidecar import (
     config,
-    documents,
     gemini,
     health,
     judge,
     migrations,
     multiscan,
-    scan,
     search,
     sources,
 )
-from .sidecar.context import (
-    SERVICE_NAME,
-    SERVICE_VERSION,
-    SidecarContext,
-    is_reddit_fetcher,
-)
+from .sidecar.context import SERVICE_NAME, SERVICE_VERSION, SidecarContext
 
 if TYPE_CHECKING:
     from core.evidence.vectors import EvidenceVectorStore
@@ -87,7 +77,7 @@ TOKEN_ENV_VAR = "RIR_SIDECAR_TOKEN"
 MIN_TOKEN_LENGTH = 32
 
 #: Routers montados, en este orden.
-ROUTERS = (health, scan, config, gemini, documents, search, sources, multiscan, judge)
+ROUTERS = (health, config, gemini, search, sources, multiscan, judge)
 
 
 class SidecarSinToken(RuntimeError):
@@ -116,7 +106,6 @@ def _vectores_de_evidencia() -> Callable[[], EvidenceVectorStore]:
 
 
 def create_app(
-    deps: RadarDependencies | None = None,
     token: str | None = None,
     persist_default: bool = True,
     postgres_dsn: str | None = None,
@@ -124,16 +113,15 @@ def create_app(
     insecure_dev: bool = False,
 ) -> FastAPI:
     """
-    Construye la aplicación sobre unas dependencias dadas.
+    Construye la aplicación.
 
     Args:
-        deps: colaboradores del grafo. Si se omiten, se crean los de
-            producción (ingesta real contra Reddit, almacén real).
         token: cada petición debe traerlo en `Authorization: Bearer`.
             Obligatorio, de al menos MIN_TOKEN_LENGTH caracteres.
         insecure_dev: permite servir sin token (desarrollo y tests que no
             prueban la seguridad). Hay que pedirlo explícitamente.
-        persist_default: si los escaneos vuelcan a PostgreSQL por defecto.
+        persist_default: si los escaneos vuelcan a PostgreSQL por defecto (y
+            con ello si hay juez, búsqueda y vectores de la evidencia).
         postgres_dsn: cadena de conexión para esa persistencia.
         env_path: archivo de configuración que gestiona la vista de ajustes.
     """
@@ -144,17 +132,13 @@ def create_app(
             f"Falta {TOKEN_ENV_VAR}. Solo con --insecure-dev puede servirse sin token."
         )
 
-    dependencies = deps or create_default_dependencies(env_path=env_path)
     ctx = SidecarContext(
-        deps=dependencies,
-        pipeline=RadarPipeline(deps=dependencies),
         persist_default=persist_default,
         postgres_dsn=postgres_dsn,
         env_path=env_path,
         started_at=time.monotonic(),
         sources_state=_estado_de_fuentes(persist_default, postgres_dsn),
         evidence_vectors=_vectores_de_evidencia() if persist_default else None,
-        mode="reddit" if is_reddit_fetcher(dependencies.fetcher) else "synthetic",
     )
 
     def require_token(authorization: str | None = Header(default=None)) -> None:
@@ -201,17 +185,9 @@ def run(
     host: str = DEFAULT_HOST,
     port: int | None = None,
     token: str | None = None,
-    mode: str = "reddit",
     insecure_dev: bool = False,
 ) -> None:
-    """
-    Arranca el servidor con uvicorn.
-
-    `mode` elige la fuente inicial. Se puede cambiar despues desde la
-    interfaz sin reiniciar, pero arrancar ya en el modo correcto evita que
-    el primer escaneo falle contra Reddit cuando lo que se queria era la
-    demostracion.
-    """
+    """Arranca el servidor con uvicorn."""
     import asyncio
 
     import uvicorn
@@ -238,19 +214,8 @@ def run(
             "invocarlo. Solo para desarrollo."
         )
 
-    deps = None
-    if mode == "synthetic":
-        from core.ingestion.synthetic import SyntheticFetcher
-        from core.storage import LanceDBStore
-
-        from .graph import RadarDependencies
-
-        store = LanceDBStore()
-        deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store)
-        logger.info("Arrancando en modo DEMOSTRACION (corpus sintetico)")
-
     uvicorn.run(
-        create_app(deps=deps, token=token, insecure_dev=insecure_dev),
+        create_app(token=token, insecure_dev=insecure_dev),
         host=host,
         port=port,
         log_level="info",
@@ -264,12 +229,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument(
-        "--mode",
-        choices=["reddit", "synthetic"],
-        default="reddit",
-        help="fuente de datos inicial ('synthetic' usa el corpus de demostracion)",
-    )
-    parser.add_argument(
         "--insecure-dev",
         action="store_true",
         help="servir sin token (solo desarrollo: cualquier proceso local podra invocarlo)",
@@ -277,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run(host=args.host, port=args.port, mode=args.mode, insecure_dev=args.insecure_dev)
+    run(host=args.host, port=args.port, insecure_dev=args.insecure_dev)
     return 0
 
 

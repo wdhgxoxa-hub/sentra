@@ -25,7 +25,7 @@ from typing import Any
 # dos grafías de cada campo y saben mirar dentro de `breakdown`. Duplicarlos
 # aquí sería asegurarse de que un día dejen de coincidir.
 from core.intelligence.blueprint import _campo, _citas, _lista, _numero, _stats
-from core.llm.gemini import GeminiError, GeminiIncomplete, GeminiProvider
+from core.llm.gemini import GeminiIncomplete, GeminiProvider, GeminiSinConfigurar
 
 IDIOMA_POR_DEFECTO = "es"
 
@@ -58,12 +58,6 @@ SECCIONES_OBLIGATORIAS = {
 AVISO_AUSENTE = {"es": "aviso de procedencia", "en": "provenance warning"}
 
 ClientFactory = Callable[[str], Any]
-
-
-class GeminiSinConfigurar(GeminiError):
-    """No hay clave de API guardada."""
-
-    code = "gemini_not_configured"
 
 
 # --- Instrucción de sistema --------------------------------------------------

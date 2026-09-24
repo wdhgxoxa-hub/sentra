@@ -24,10 +24,8 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
-from core.ingestion.synthetic import SyntheticFetcher
-from core.orchestration import RadarDependencies, sidecar_server
+from core.orchestration import sidecar_server
 from core.orchestration.sidecar_server import create_app
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 from tests._sin_red import prohibir_red_real
 
 TOKEN = "ab" * 32
@@ -40,13 +38,10 @@ class ConApp(unittest.TestCase):
         prohibir_red_real(self)
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_token_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
-        self.deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
-                                      search_engine=HybridSearchEngine(store=store))
 
 
     def app(self, **kwargs):
-        return create_app(deps=self.deps, persist_default=False,
+        return create_app(persist_default=False,
                           env_path=str(self.tmp / ".env"), **kwargs)
 
 
@@ -67,25 +62,23 @@ class TestArranque(ConApp):
         with mock.patch.dict("os.environ", {sidecar_server.TOKEN_ENV_VAR: ""}), \
                 mock.patch("uvicorn.run") as servir, \
                 self.assertRaises(SystemExit) as ctx:
-            sidecar_server.main(["--mode", "synthetic"])
+            sidecar_server.main([])
         self.assertNotEqual(ctx.exception.code, 0)
         servir.assert_not_called()
 
     def test_con_insecure_dev_el_proceso_arranca(self):
         with mock.patch.dict("os.environ", {sidecar_server.TOKEN_ENV_VAR: ""}), \
                 mock.patch("uvicorn.run") as servir, \
-                mock.patch.object(sidecar_server, "create_app") as fabrica, \
-                mock.patch("core.storage.LanceDBStore"):
-            sidecar_server.main(["--mode", "synthetic", "--insecure-dev"])
+                mock.patch.object(sidecar_server, "create_app") as fabrica:
+            sidecar_server.main(["--insecure-dev"])
         servir.assert_called_once()
         self.assertTrue(fabrica.call_args.kwargs["insecure_dev"])
 
     def test_con_token_en_el_entorno_el_proceso_arranca_con_el(self):
         with mock.patch.dict("os.environ", {sidecar_server.TOKEN_ENV_VAR: TOKEN}), \
                 mock.patch("uvicorn.run") as servir, \
-                mock.patch.object(sidecar_server, "create_app") as fabrica, \
-                mock.patch("core.storage.LanceDBStore"):
-            sidecar_server.main(["--mode", "synthetic"])
+                mock.patch.object(sidecar_server, "create_app") as fabrica:
+            sidecar_server.main([])
         servir.assert_called_once()
         self.assertEqual(fabrica.call_args.kwargs["token"], TOKEN)
 

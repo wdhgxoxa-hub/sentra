@@ -22,12 +22,9 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
-from core.ingestion.synthetic import SyntheticFetcher
 from core.intelligence import gemini_architect, translator
 from core.llm import gemini as gemini_client
-from core.orchestration import RadarDependencies
 from core.orchestration.sidecar_server import create_app
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 from tests._sin_red import prohibir_red_real
 
 CLAVE = "AIza" + "Sy" + "Q7x" * 11  # 39 caracteres, forma de clave de Google
@@ -128,30 +125,14 @@ class TestSidecar(ConLogs):
         super().setUp()
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuga_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
-        deps = RadarDependencies(fetcher=SyntheticFetcher(), store=store,
-                                 search_engine=HybridSearchEngine(store=store))
-        self.client = TestClient(create_app(insecure_dev=True, deps=deps, persist_default=False,
+        self.client = TestClient(create_app(insecure_dev=True, persist_default=False,
                                             env_path=str(self.tmp / ".env")))
         self.client.post("/api/gemini", json={"apiKey": CLAVE, "model": "gemini-2.5-flash"})
 
 
-    def test_el_documento_en_streaming_no_la_muestra(self):
-        with mock.patch.object(gemini_client, "_cliente_real", cliente_que_filtra):
-            respuesta = self.client.post(
-                "/api/architect/generate", json={"cluster": {"label": "x"}, "language": "es"})
-        self.assertSinClaves(respuesta.text)
-
     def test_la_prueba_por_http_no_la_muestra(self):
         with mock.patch.object(gemini_client, "_cliente_real", cliente_que_filtra):
             respuesta = self.client.post("/api/gemini/test")
-        self.assertSinClaves(respuesta.text)
-
-    def test_la_traduccion_por_http_no_la_muestra(self):
-        translator.clear_cache()
-        with mock.patch.object(gemini_client, "_cliente_real", cliente_que_filtra):
-            respuesta = self.client.post(
-                "/api/translate", json={"texts": ["otra frase nueva"], "target": "es"})
         self.assertSinClaves(respuesta.text)
 
 
