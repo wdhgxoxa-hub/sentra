@@ -208,6 +208,36 @@ class TestPersistenciaDelJuez(unittest.TestCase):
                          "el seudónimo no sale del almacén (R9)")
         self.assertEqual([e["id"] for e in detalle["gate_evidence"]], [ajena.id])
 
+    def test_el_nombre_del_problema_se_guarda_y_llega_al_radar_y_al_dossier(self):
+        from core.judge.store import verdict_detail
+
+        miembros = [pieza(n) for n in (95, 96)]
+        nombre = {"es": "Perseguir facturas impagadas", "en": "Chasing unpaid invoices"}
+
+        async def guardar(store):
+            await store.upsert_evidence(miembros)
+            run = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(run, [{**veredicto("n", "INVESTIGAR MÁS", 20.0, [i.id for i in miembros]),
+                                             "problem_name": nombre},
+                                            veredicto("sin", "DESCARTAR", 5.0, [miembros[0].id])])
+            top = await top_verdicts(store, run)
+            fila = await store._fetchone("SELECT id::text AS id FROM niche_verdicts WHERE run_id = %s AND "
+                                         "cluster_key = 'n'", (run,))
+            return top, await verdict_detail(store, fila["id"])
+
+        top, detalle = self.run_store(guardar)
+        self.assertEqual({v["cluster_key"]: v["problem_name"] for v in top["verdicts"]}, {"n": nombre, "sin": None})
+        self.assertEqual(detalle["problem_name"], nombre)
+
+    def test_la_cache_de_g0_sobrevive_entre_conexiones(self):
+        from core.judge.coherencia import ResultadoCoherencia
+        from core.judge.store import PostgresCoherenceCache
+
+        resultado = ResultadoCoherencia("distinto", "mezcla", ("a:1", "a:2", "a:3"), "impagos", None)
+        PostgresCoherenceCache(self.dsn).put("b" * 64, "coherence-v3/m", resultado)
+        self.assertEqual(PostgresCoherenceCache(self.dsn).get("b" * 64, "coherence-v3/m"), resultado)
+        self.assertIsNone(PostgresCoherenceCache(self.dsn).get("b" * 64, "coherence-v3/otro"))
+
     def test_el_detalle_de_un_veredicto_trae_toda_su_evidencia_para_los_documentos(self):
         # E2: el dossier y el plan citan por id; el modelo ve el texto entero.
         largo = "queja inventada muy larga " * 60

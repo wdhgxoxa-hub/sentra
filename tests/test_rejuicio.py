@@ -114,6 +114,20 @@ class TestRejuicio(unittest.TestCase):
         self.assertTrue(nuevos)
         self.assertTrue(all("invoice" not in fila["keywords"] for fila in nuevos), "el tema no nombra nichos")
 
+    def test_el_segundo_rejuicio_reutiliza_g0_de_la_base_sin_llamar(self):
+        # Estabilidad de G0 (tras E8): el resultado de cada grupo se guarda en la base.
+        origen, propias = self._sembrar()
+        vectores = {i.id: [1.0, 0.01 * n, 0.0] for n, i in enumerate(propias)}
+        llamadas = []
+        for _ in range(2):
+            llm = LLMDoble()
+            rejuzgar(self.dsn, origen, provider=llm, model="m", cache=InMemoryLabelCache(),
+                     vectores=lambda ids: {k: vectores[k] for k in ids if k in vectores},
+                     vectores_frase=lambda frases: {k: vectores[k] for k in frases if k in vectores},
+                     now=AHORA)
+            llamadas.append(llm.llamadas.get("coherencia", 0))
+        self.assertEqual(llamadas, [1, 0])
+
     def test_el_tope_de_piezas_etiquetadas_se_puede_fijar(self):
         # Escaneo sin etiquetar (0 llamadas) + re-juicio que etiqueta todo lo que
         # pasa el filtro bajo un tope duro de llamadas: el tope por defecto (300)

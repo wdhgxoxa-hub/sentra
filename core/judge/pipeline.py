@@ -32,7 +32,7 @@ from .clustering import (
     cluster_evidence,
     subgrupo,
 )
-from .coherencia import comprobar_coherencia, compuerta_coherencia
+from .coherencia import CoherenceCache, comprobar_coherencia, compuerta_coherencia
 from .dimensions import es_lanzamiento, pain_items
 from .gates import judge_cluster, umbral_autores
 from .labels import (
@@ -140,6 +140,7 @@ def run_judge(
     label_batch_size: int = BATCH_SIZE,
     label_max_items: int = MAX_ITEMS_PER_SCAN,
     tema: Sequence[str] = (),
+    coherence_cache: CoherenceCache | None = None,
 ) -> JudgeResult:
     """`tema`: términos del perfil del escaneo; no nombran nichos.
 
@@ -162,7 +163,7 @@ def run_judge(
 
     # G0 (residuos de AUD2-001 y 006): una sola llamada con las frases de todos los grupos.
     coherencias = comprobar_coherencia({g.key: {m: frases[m] for m in g.member_ids} for g in grupos},
-                                       provider=provider, model=model)
+                                       provider=provider, model=model, cache=coherence_cache)
     # G0 v2: una mezcla con un problema dominante se separa (el resto vuelve a ser
     # piezas sueltas) y el subgrupo se comprueba otra vez, todos en una llamada.
     separados = {g.key: subgrupo(g, coherencias[g.key].dominantes, vectores_de_frase, frases=frases,
@@ -171,7 +172,7 @@ def run_judge(
     if separados:
         coherencias.update(comprobar_coherencia(
             {s.key: {m: frases[m] for m in s.member_ids} for s in separados.values()},
-            provider=provider, model=model))
+            provider=provider, model=model, cache=coherence_cache))
         grupos = [separados.get(g.key, g) for g in grupos]
 
     contextos = contexto_de_g7({g.key: g.member_ids for g in grupos}, sin_dolor, vectors)
@@ -186,6 +187,8 @@ def run_judge(
             "opportunity_id": grupo.opportunity_id,
             "cluster_key": grupo.key,
             "keywords": grupo.keywords,
+            # El nombre que da G0 a un mismo problema (es/en): lo comparten Radar y dossier.
+            "problem_name": coherencias[grupo.key].nombre,
             "verdict": abogado.verdict_after,
             "rule": juicio.rule,
             # Una mezcla (G0 fallida) no tiene problema común que puntuar (decisión del usuario).

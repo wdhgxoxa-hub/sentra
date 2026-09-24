@@ -20,6 +20,7 @@ from core.judge.coherencia import (
     COHERENCE_VERSION,
     CoherenceGroup,
     CoherenceReport,
+    InMemoryCoherenceCache,
     comprobar_coherencia,
     compuerta_coherencia,
 )
@@ -103,7 +104,7 @@ class TestLlamada(unittest.TestCase):
         self.assertEqual(doble.prompts, [])
 
     def test_version(self):
-        self.assertEqual(COHERENCE_VERSION, "coherence-v2")
+        self.assertEqual(COHERENCE_VERSION, "coherence-v3")
 
 
 MEZCLA = {"a": {"x:1": "el cliente no paga", "x:2": "factura sin cobrar", "x:3": "me deben mayo",
@@ -167,6 +168,55 @@ class TestEnElJuez(unittest.TestCase):
         self.assertIsNone(veredicto["score"])
         self.assertNotIn(AdvocateReport, doble.esquemas)
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v6")
+
+
+
+IMPAGOS = {"a": {"x:1": "el cliente no paga", "x:2": "factura sin cobrar", "x:3": "me deben mayo"}}
+
+
+class TestNombreYCache(unittest.TestCase):
+    """coherence-v3 (tras E8): el grupo que es un mismo problema sale con nombre
+    (es y en), el que comparten el Radar y el dossier; y el resultado se guarda
+    por grupo para que G0 sea estable y no se repita la llamada."""
+
+    def mismo(self, **nombre):
+        return ProveedorDoble(CoherenceReport(groups=[CoherenceGroup(
+            group_id="a", same_problem=True, reason="igual", **nombre)]))
+
+    def test_un_mismo_problema_sale_con_su_nombre_en_los_dos_idiomas(self):
+        doble = self.mismo(problem_name_es="Perseguir facturas impagadas", problem_name_en="Chasing unpaid invoices")
+        [r] = comprobar_coherencia(IMPAGOS, provider=doble, model="m").values()
+        self.assertEqual(r.nombre, {"es": "Perseguir facturas impagadas", "en": "Chasing unpaid invoices"})
+
+    def test_sin_los_dos_nombres_no_hay_nombre(self):
+        [r] = comprobar_coherencia(IMPAGOS, provider=self.mismo(problem_name_es="Solo en español"),
+                                   model="m").values()
+        self.assertIsNone(r.nombre)
+
+    def test_un_grupo_ya_comprobado_no_se_vuelve_a_preguntar(self):
+        cache = InMemoryCoherenceCache()
+        primero = self.mismo(problem_name_es="Cobrar", problem_name_en="Getting paid")
+        antes = comprobar_coherencia(IMPAGOS, provider=primero, model="m", cache=cache)
+        segundo = ProveedorDoble(error=AssertionError("no debía llamar"))
+        despues = comprobar_coherencia(IMPAGOS, provider=segundo, model="m", cache=cache)
+        self.assertEqual(despues, antes)
+        self.assertEqual(segundo.prompts, [])
+
+    def test_solo_se_pregunta_por_los_grupos_que_no_estan_en_cache(self):
+        cache = InMemoryCoherenceCache()
+        comprobar_coherencia(IMPAGOS, provider=self.mismo(), model="m", cache=cache)
+        doble = ProveedorDoble(CoherenceReport(groups=[]))
+        comprobar_coherencia({**IMPAGOS, "b": {"y:1": "otra cosa"}}, provider=doble, model="m", cache=cache)
+        [prompt] = doble.prompts
+        self.assertEqual(set(json.loads(prompt[prompt.index("{"):])), {"b"})
+
+    def test_lo_no_comprobado_no_se_guarda_y_otro_modelo_no_reutiliza(self):
+        cache = InMemoryCoherenceCache()
+        comprobar_coherencia(IMPAGOS, provider=ProveedorDoble(error=LLMError("caído")), model="m", cache=cache)
+        comprobar_coherencia(IMPAGOS, provider=self.mismo(), model="m", cache=cache)
+        otro = ProveedorDoble(CoherenceReport(groups=[]))
+        comprobar_coherencia(IMPAGOS, provider=otro, model="otro-modelo", cache=cache)
+        self.assertEqual(len(otro.prompts), 1, "la caché es por versión del revisor y modelo")
 
 
 if __name__ == "__main__":

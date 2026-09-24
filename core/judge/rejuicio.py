@@ -23,7 +23,7 @@ from core.storage.postgres_store import PostgresStore, run_async
 
 from .labels import MAX_ITEMS_PER_SCAN, LabelCache
 from .pipeline import run_judge
-from .store import marcar_juzgada, previous_identities
+from .store import PostgresCoherenceCache, marcar_juzgada, previous_identities
 
 #: trigger_source de las ejecuciones que re-juzgan un escaneo guardado.
 TRIGGER_REJUICIO = "rejuicio"
@@ -79,7 +79,8 @@ def rejuzgar(
             juicio = run_judge(items, vectores([i.id for i in items]), provider=provider, model=model,
                                cache=cache, now=now, vectores_frase=vectores_frase,
                                previous=await previous_identities(store),
-                               tema=list(parametros.get("keywords") or []), label_max_items=label_max_items)
+                               tema=list(parametros.get("keywords") or []), label_max_items=label_max_items,
+                               coherence_cache=PostgresCoherenceCache(dsn))
             nueva = await store.start_run(origen["subreddit_name"], trigger_source=TRIGGER_REJUICIO,
                                           parameters={**parametros, "rejuicio_de": run_origen},
                                           data_source="real")

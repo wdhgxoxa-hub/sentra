@@ -214,6 +214,32 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual({k: [i.id for i in v] for k, v in contextos.items()},
                          {"A": ["cerca_de_a"], "B": []}, "supera 0,82 con los dos: solo el más cercano")
 
+    def test_el_veredicto_lleva_el_nombre_que_da_g0_y_la_cache_evita_repetirla(self):
+        # Tras E8: el Radar y el dossier comparten el nombre de G0, y G0 es estable.
+        from core.judge.coherencia import InMemoryCoherenceCache
+
+        class Nombra(LLMDoble):
+            def generate_json(self, prompt, schema, **kwargs):
+                if schema is not CoherenceReport:
+                    return super().generate_json(prompt, schema, **kwargs)
+                import json as _json
+
+                self.llamadas["coherencia"] = self.llamadas.get("coherencia", 0) + 1
+                return CoherenceReport(groups=[CoherenceGroup(
+                    group_id=g, same_problem=True, reason="mismo", problem_name_es="Exportar facturas a mano",
+                    problem_name_en="Exporting invoices by hand") for g in _json.loads(prompt[prompt.index("{"):])])
+
+        items, vectores = escenario()
+        cache, etiquetas = InMemoryCoherenceCache(), InMemoryLabelCache()
+        primera, segunda = Nombra(), Nombra()
+        [v1] = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=primera, model="m",
+                         cache=etiquetas, now=AHORA, coherence_cache=cache).verdicts
+        [v2] = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=segunda, model="m",
+                         cache=etiquetas, now=AHORA, coherence_cache=cache).verdicts
+        self.assertEqual(v1["problem_name"], {"es": "Exportar facturas a mano", "en": "Exporting invoices by hand"})
+        self.assertEqual((primera.llamadas["coherencia"], segunda.llamadas.get("coherencia", 0)), (1, 0))
+        self.assertEqual((v2["problem_name"], v2["gates"][0]), (v1["problem_name"], v1["gates"][0]))
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",

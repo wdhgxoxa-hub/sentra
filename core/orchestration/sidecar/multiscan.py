@@ -127,7 +127,12 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     from datetime import UTC, datetime
 
     from core.judge.pipeline import run_judge
-    from core.judge.store import PostgresLabelCache, marcar_juzgada, previous_identities
+    from core.judge.store import (
+        PostgresCoherenceCache,
+        PostgresLabelCache,
+        marcar_juzgada,
+        previous_identities,
+    )
     from core.storage.postgres_store import (
         PostgresStore,
         resolver_dsn,
@@ -144,7 +149,8 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
                                vectores_frase=almacen.embed_frases if almacen else (lambda _f: {}),
-                               previous=previos, tema=tema, label_max_items=_tope_de_etiquetas())
+                               previous=previos, tema=tema, label_max_items=_tope_de_etiquetas(),
+                               coherence_cache=PostgresCoherenceCache(dsn))
             await store.save_verdicts(run_id, juicio.verdicts)
             await marcar_juzgada(store, run_id, construir=sum(
                 1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))

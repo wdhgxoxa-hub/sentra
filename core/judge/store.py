@@ -29,6 +29,7 @@ from core.sources.attribution import attribution_fields
 from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
 
+from .coherencia import ResultadoCoherencia
 from .gates import normalizar_compuertas
 from .labels import VerifiedLabel
 
@@ -66,6 +67,35 @@ class PostgresLabelCache:
                 ON CONFLICT (tenant_id, content_hash, labeler) DO UPDATE SET label = EXCLUDED.label
                 """,
                 (self.tenant_id, label.content_hash, label.labeler, json.dumps(label.model_dump())))
+
+
+class PostgresCoherenceCache:
+    """G0 estable (tras E8): el resultado medido de cada grupo, por huella y revisor."""
+
+    def __init__(self, dsn: str, tenant_id: str = DEFAULT_TENANT_ID) -> None:
+        self.dsn = dsn
+        self.tenant_id = tenant_id
+
+    def _conectar(self) -> psycopg.Connection[dict[str, Any]]:
+        return psycopg.connect(self.dsn, row_factory=dict_row, options=SCHEMA_OPTIONS)
+
+    def get(self, group_hash: str, checker: str) -> ResultadoCoherencia | None:
+        with self._conectar() as conn:
+            fila = conn.execute(
+                "SELECT result FROM coherence_checks "
+                "WHERE tenant_id = %s AND group_hash = %s AND checker = %s",
+                (self.tenant_id, group_hash, checker)).fetchone()
+        return ResultadoCoherencia.de_json(fila["result"]) if fila else None
+
+    def put(self, group_hash: str, checker: str, resultado: ResultadoCoherencia) -> None:
+        with self._conectar() as conn:
+            conn.execute(
+                """
+                INSERT INTO coherence_checks (tenant_id, group_hash, checker, result)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (tenant_id, group_hash, checker) DO UPDATE SET result = EXCLUDED.result
+                """,
+                (self.tenant_id, group_hash, checker, json.dumps(resultado.a_json(), ensure_ascii=False)))
 
 
 #: Por qué una ejecución juzgada no tiene veredictos (AUD2-001): el juez solo
@@ -130,7 +160,7 @@ _VEREDICTO = """
                v.opportunity_id::text AS opportunity_id, v.cluster_key,
                v.keywords, v.verdict, v.rule, v.score::float8 AS score, v.weights_version,
                v.missing, v.gates, v.dimensions, v.advocate, v.member_count,
-               v.labeler_version, v.clustering_version,
+               v.labeler_version, v.clustering_version, v.problem_name,
                COALESCE(array_agg(ce.evidence_id ORDER BY ce.evidence_id)
                         FILTER (WHERE ce.evidence_id IS NOT NULL), '{}') AS member_ids
           FROM niche_verdicts v
