@@ -23,6 +23,45 @@ class ProveedorDoble:
                                   reasoning_tokens=10, duration_s=1.0)]
 
 
+class TestTopeDeLlamadas(unittest.TestCase):
+    """R7 (≤ 15 llamadas en la misión): el re-juicio no puede pasarse. Al tope,
+    la llamada no sale y el juez hace lo seguro (sin comprobar → nunca CONSTRUIR)."""
+
+    def test_al_tope_la_llamada_no_sale(self):
+        from core.llm.base import LLMBudgetExhausted
+        from scripts.rejuzgar import ProveedorConTope
+
+        class Contador:
+            def __init__(self):
+                self.llamadas, self.usage = 0, []
+
+            def generate_json(self, *args, **kwargs):
+                self.llamadas += 1
+                return "ok"
+
+        real = Contador()
+        con_tope = ProveedorConTope(real, 2)
+        self.assertEqual([con_tope.generate_json("p", object()) for _ in range(2)], ["ok", "ok"])
+        with self.assertRaises(LLMBudgetExhausted):
+            con_tope.generate_json("p", object())
+        self.assertEqual(real.llamadas, 2)
+        self.assertIs(con_tope.usage, real.usage)
+
+    def test_el_script_aplica_el_tope_pedido(self):
+        from scripts import rejuzgar
+
+        proveedor = ProveedorDoble()
+        with mock.patch.object(rejuzgar, "_proveedor", return_value=(proveedor, "gemini-x", None)), \
+                mock.patch.object(rejuzgar, "_almacen", return_value=mock.Mock(
+                    vectors=lambda ids: {}, embed_frases=lambda frases: {})), \
+                mock.patch.object(rejuzgar, "rejuzgar", return_value=("run-nueva", {})) as juzgar, \
+                redirect_stdout(io.StringIO()):
+            rejuzgar.main(["--run", "run-origen", "--max-llamadas", "2"])
+        pasado = juzgar.call_args.kwargs["provider"]
+        self.assertIsInstance(pasado, rejuzgar.ProveedorConTope)
+        self.assertEqual(pasado.maximo, 2)
+
+
 class TestScriptRejuzgar(unittest.TestCase):
     def test_conecta_el_proveedor_del_escaneo_y_cuenta_las_llamadas(self):
         from scripts import rejuzgar

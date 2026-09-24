@@ -42,6 +42,27 @@ def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
     return _proveedor_del_juez(ctx)
 
 
+class ProveedorConTope:
+    """R7: deja pasar como mucho `maximo` llamadas; la siguiente es
+    LLMBudgetExhausted y no sale. El juez hace entonces lo seguro: etiqueta
+    undetermined, G0 sin comprobar y CONSTRUIR sin revisar baja."""
+
+    def __init__(self, proveedor: Any, maximo: int) -> None:
+        self.proveedor, self.maximo, self.hechas = proveedor, maximo, 0
+
+    @property
+    def usage(self) -> Any:
+        return getattr(self.proveedor, "usage", [])
+
+    def generate_json(self, *args: Any, **kwargs: Any) -> Any:
+        from core.llm.base import LLMBudgetExhausted
+
+        if self.hechas >= self.maximo:
+            raise LLMBudgetExhausted(f"tope de {self.maximo} llamadas del re-juicio (R7)")
+        self.hechas += 1
+        return self.proveedor.generate_json(*args, **kwargs)
+
+
 def _almacen() -> EvidenceVectorStore:
     from core.evidence.vectors import EvidenceVectorStore
 
@@ -54,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Re-juzga un escaneo guardado con el juez actual")
     parser.add_argument("--run", required=True, help="id del escaneo de origen (pipeline_runs.id)")
     parser.add_argument("--dsn", default=None)
+    parser.add_argument("--max-llamadas", type=int, default=None,
+                        help="tope de llamadas al LLM (R7); al llegar, el juez hace lo seguro")
     args = parser.parse_args(argv)
     dsn = resolver_dsn(args.dsn)
 
@@ -63,6 +86,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     from core.judge.store import PostgresLabelCache
+
+    if args.max_llamadas is not None:
+        proveedor = ProveedorConTope(proveedor, args.max_llamadas)
 
     almacen = _almacen()
     nueva, resumen = rejuzgar(dsn, args.run, provider=proveedor, model=modelo,
