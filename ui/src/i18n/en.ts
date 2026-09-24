@@ -22,9 +22,7 @@ export const en: Dictionary = {
   nav: {
     radar: "Live radar",
     search: "Semantic search",
-    pipeline: "Pipeline control",
     settings: "Settings",
-    opportunity: "Opportunity",
     sources: "Sources",
   },
 
@@ -72,26 +70,6 @@ export const en: Dictionary = {
     filterPending: "Unreviewed",
   },
 
-  detail: {
-    selectPrompt: "Pick an opportunity from the radar to see its card.",
-    loading: "Loading card…",
-    gone: "That opportunity is no longer in the store.",
-    job: "What people need",
-    breakdown: "Where the score comes from",
-    solutions: "Tools they already use",
-    evolution: "How it evolved",
-    noEvolution:
-      "Only one reading so far. Evolution shows up once the same problem is detected in later scans.",
-    validation: "Review",
-    notes: "Analysis notes",
-    notesPlaceholder: "What you'd build, for whom, and why now",
-    saveNotes: "Save notes",
-    decidedOn: "Decided on",
-    noDecision: "No decision recorded yet",
-    saveError: "Could not save",
-    total: "Total",
-  },
-
   search: {
     title: "Semantic search",
     subtitle: "Search by meaning, not just exact words. Compare both.",
@@ -116,32 +94,6 @@ export const en: Dictionary = {
     },
   },
 
-  pdf: {
-    export: "Export PDF",
-    exporting: "Generating PDF…",
-    withPlan: "It will include the architecture plan generated in this session.",
-    withoutPlan: "No architecture plan in this session: the PDF will state it was not generated.",
-    saved: "PDF saved to {path}",
-    cancelled: "Export cancelled: no file was saved.",
-    error: "The PDF could not be exported. Check that the engine is running and try again.",
-  },
-  topSix: {
-    title: "Top {target} opportunities",
-    titleGeneric: "Top opportunities",
-    loading: "Loading the top opportunities…",
-    error: "Could not read the result of the last run.",
-    noRuns: "No run has finished yet. Start a scan from Pipeline.",
-    complete: "Complete ({found}/{target})",
-    partial: "Incomplete ({found}/{target})",
-    incomplete: "Only {found} of {target} opportunities pass the cut.",
-    open: "Open details",
-    reasons: {
-      fuentes_agotadas: "Everything available was reviewed and the remaining problems do not reach the minimum score.",
-      limite_ciclos: "The scan hit its cycle limit with content still left to review.",
-      sin_acceso_reddit: "The data source could not be read.",
-      datos_insuficientes: "Not enough data: the source ran out before gathering that many distinct problems.",
-    },
-  },
   scanErrors: {
     reddit_user_agent_invalid: "The Reddit User-Agent does not identify the app and its author. Use platform:app:version (by /u/your-real-user) in Settings.",
     reddit_credentials_missing: "Reddit credentials are missing. Save them in Settings.",
@@ -154,67 +106,9 @@ export const en: Dictionary = {
     fetch_failed: "The data source failed and the scan brought nothing back.",
     internal_error: "The engine failed during the scan.",
   },
-  pipeline: {
-    title: "Pipeline control",
-    subtitle: "Start scans and watch the engine work",
-    running: "Scans in progress",
-    clearFinished: "Clear finished",
-    cancel: "Cancel",
-    cancelled: "Cancelled",
-    watched: "Watched communities",
-    addPlaceholder: "r/SaaS",
-    tagsPlaceholder: "vertical, priority",
-    tagsLabel: "Tags (comma separated)",
-    order: "Sort",
-    subreddit: "Community",
-    watch: "Watch",
-    saving: "Saving…",
-    scan: "Scan",
-    pause: "Pause",
-    activate: "Activate",
-    lastRun: "last run",
-    never: "never",
-    noSubreddits: "You are not watching any community yet. Add one above.",
-    noRuns: "No runs yet.",
-    subredditsError: "The list of communities could not be read.",
-    runsError: "The run history could not be read.",
-    saveFailed: "The community could not be saved.",
-    scanFailed: "The scan could not be started.",
-    cancelFailed: "The scan could not be cancelled.",
-    history: "Recent runs",
-    colSource: "Source",
-    colStatus: "Status",
-    colRead: "Read",
-    colQualified: "Qualified",
-    colErrors: "Errors",
-    cycle: "cycle",
-    read: "read",
-    analysed: "analysed",
-    stored: "stored",
-    clusters: "problems",
-    qualified: "qualified",
-    discard: "dismiss",
-    nodes: {
-      fetch: "Fetch",
-      filter: "Filter",
-      comments: "Comments",
-      intelligence: "Analysis",
-      storage: "Storage",
-      quality_gate: "Gate",
-      aggregate: "Cluster",
-    },
-    nodeHints: {
-      fetch: "Pulls posts from the chosen community.",
-      filter: "Drops the noise: greetings, spam and covert promotion.",
-      comments: "Fetches the top-voted comments of the complaints that passed the filter.",
-      intelligence: "Reads each complaint and scores how much it hurts.",
-      storage: "Saves everything so it can be searched later.",
-      quality_gate: "Sets aside complaints that are too weak.",
-      aggregate: "Groups complaints that describe the same problem.",
-    },
-  },
 
   settings: {
+    saving: "Saving…",
     title: "Settings",
     subtitle: "Credentials, language and data source",
     appearance: "Appearance",
@@ -223,27 +117,6 @@ export const en: Dictionary = {
     themeLight: "Light",
     themeDark: "Dark",
     themeSystem: "System",
-    source: "Data source",
-    sourceHint:
-      "Demo mode uses a fixed set of fabricated posts. Everything else — analysis, clustering, search — works exactly the same.",
-    modeSynthetic: "Demo",
-    modeSyntheticDesc: "{count} fabricated posts, always the same ones",
-    modeReddit: "Live Reddit",
-    modeRedditDesc: "Requires Reddit API credentials",
-    credentials: "Reddit credentials",
-    credentialsHint:
-      "Create them at reddit.com/prefs/apps choosing the «script» type. They are stored in the project's .env file, never in the database.",
-    clientId: "Client ID",
-    clientSecret: "Client Secret",
-    userAgent: "User Agent",
-    userAgentHint: "Reddit asks that it identify the application and its author, as platform:app:version (by /u/username) with your real Reddit username.",
-    userAgentPlaceholder: "windows:sentra:0.1.0 (by /u/your-reddit-username)",
-    username: "Username (optional)",
-    password: "Password (optional)",
-    userHint: "If filled in, the user-based flow is used, with a higher quota.",
-    save: "Save credentials",
-    saved: "Credentials saved",
-    test: "Test connection",
     testing: "Testing…",
     configured: "Configured",
     notConfigured: "Not configured",
@@ -270,65 +143,10 @@ export const en: Dictionary = {
     modelsLoading: "Asking which models your key can use…",
     modelsFailed: "The model list could not be fetched.",
     saveModels: "Save models",
-    modeFailed: "The data source could not be changed.",
     keySaved: "Key saved",
     probeFailed: "The key could not be tested.",
     saveKey: "Save key",
     testKey: "Test key",
-    storedIn: "Stored in",
-    secretNeverShown:
-      "The secret is never shown once saved, not even to this window.",
-  },
-
-  architect: {
-    open: "Generate architecture with Gemini",
-    regenerate: "Generate again",
-    close: "Hide architecture",
-    generating: "The model is writing…",
-    error: "The architecture could not be generated",
-    copy: "Copy as Markdown",
-    copied: "Copied to clipboard",
-    copyFailed: "Could not copy",
-    copyCode: "Copy block",
-    empty:
-      "Press it and Gemini drafts a two-phase build plan from this evidence: an MVP for 24-48 h and the full product for when it validates.",
-    warning:
-      "This is written by a generative model, not by the radar. Review the code and the schema before running them.",
-    incomplete: "Incomplete document: it is not kept for the PDF.",
-    missing: "Missing sections",
-  },
-  blueprint: {
-    open: "View project specification (PRD)",
-    close: "Hide specification",
-    title: "Project specification",
-    loading: "Writing the document…",
-    error: "The specification could not be written",
-    copy: "Copy document as Markdown",
-    copied: "Copied to clipboard",
-    copyFailed: "Could not copy",
-    value: "Value proposition",
-    derived:
-      "Derived from the stored evidence, with nothing made up: where there is no data, it says so.",
-  },
-  quotes: {
-    anonymousAuthor: "anonymous author",
-    title: "What they said",
-    count: "quotes",
-    translate: "Translate to English",
-    showOriginal: "Show original",
-    translating: "Translating…",
-    error: "The quotes could not be translated",
-    approximate: "Approximate translation: only the recognised parts were translated.",
-    approximateShort: "approximate",
-    offlineHint:
-      "Without a Gemini key the offline engine translates, and it only knows common phrases.",
-  },
-  validation: {
-    new: "Unreviewed",
-    triaged: "Investigating",
-    validated: "Validated",
-    rejected: "Rejected",
-    shipped: "Built",
   },
 
   urgency: {
@@ -338,61 +156,7 @@ export const en: Dictionary = {
     LOW: "Low",
   },
 
-  intent: {
-    ready_to_buy: "Ready to buy",
-    seeking_recommendation: "Seeking recommendation",
-    seeking_alternative: "Seeking alternative",
-    comparing_products: "Comparing products",
-    casual_discussion: "Casual discussion",
-    undetermined: "Undetermined: not enough evidence",
-    none: "No intent",
-  },
-
-  pain: {
-    severe_blocker: "Severe blocker",
-    time_consuming_friction: "Costly friction",
-    minor_inconvenience: "Minor inconvenience",
-    no_problem: "No problem",
-    undetermined: "Undetermined: not enough evidence",
-    none: "Unclassified",
-  },
-
   explain: {
-    jtbd: {
-      title: "Jobs-To-Be-Done",
-      body:
-        "The task someone is trying to finish and can't. Instead of «wants an invoicing app», it says «needs to get paid without retyping data». Framing it as the task avoids rebuilding what already exists.",
-    },
-    spread: {
-      title: "Spread",
-      body:
-        "How many distinct communities the problem shows up in. Ten complaints in one forum are one unhappy forum; one complaint in ten forums is a market pattern.",
-    },
-    frequency: {
-      title: "Frequency",
-      body:
-        "How often it repeats within each community. Tells a recurring problem apart from something someone said once.",
-    },
-    severity: {
-      title: "Severity",
-      body:
-        "How much it hurts. «Would be nice to have» is not the same as «this blocks my work». Inferred from the wording of each message.",
-    },
-    recency: {
-      title: "Recency",
-      body:
-        "How recent the newest complaint is. It decays exponentially: a problem nobody has mentioned in a year was probably solved already.",
-    },
-    paidSignal: {
-      title: "Willingness to pay",
-      body:
-        "Whether someone explicitly said they would pay, or mentioned what the problem costs them. That's the difference between an annoyance and a market.",
-    },
-    intensity: {
-      title: "Intensity",
-      body:
-        "The weighted sum of the five factors, from 0 to 100. From 60 up it counts as an opportunity worth attention.",
-    },
     rrf: {
       title: "Result fusion (RRF)",
       body:
@@ -407,16 +171,6 @@ export const en: Dictionary = {
       title: "Word-based search (BM25)",
       body:
         "Matches the words as written, weighting rare ones higher. It's what rescues tool names like «pgpool» or «Stripe», where meaning doesn't help.",
-    },
-    cluster: {
-      title: "Problem clustering",
-      body:
-        "Groups complaints about the same thing even across different forums. Without it every message would stand alone and no pattern would clear the bar.",
-    },
-    signalVsCluster: {
-      title: "Complaints and opportunities",
-      body:
-        "A single complaint rarely justifies building anything. An opportunity is a problem that repeats across communities. That's why there are two lists and two different bars.",
     },
   },
 
@@ -474,8 +228,6 @@ export const en: Dictionary = {
     gemini_truncated: "The document was cut off at the model's length limit.",
     gemini_incomplete: "The document arrived without all the required sections.",
     internal_error: "Internal engine failure.",
-    architect_protocol: "The engine returned an answer the app does not understand.",
-    architect_interrupted: "The connection to the engine dropped before the document was finished.",
   },
 
   database: {

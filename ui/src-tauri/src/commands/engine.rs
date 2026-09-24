@@ -1,8 +1,7 @@
 //! Comandos que delegan en el sidecar Python.
 //!
-//! El motor (grafo LangGraph, embeddings, busqueda hibrida sobre LanceDB)
-//! vive en Python y no tiene equivalente en Rust. Estos comandos hablan con
-//! el con HTTP sobre loopback.
+//! El motor (fuentes, juez, embeddings, busqueda) vive en Python y no tiene
+//! equivalente en Rust. Estos comandos hablan con el con HTTP sobre loopback.
 //!
 //! El sidecar se arranca aparte:
 //!
@@ -18,9 +17,6 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::db::{AppState, RadarError, RadarResult};
 
-
-/// Canal por el que viaja el progreso hacia el WebView.
-pub const RADAR_EVENT_CHANNEL: &str = "radar:events";
 
 /// Un escaneo puede recorrer varios ciclos y analizar decenas de posts;
 /// el timeout corto de una API web no sirve aqui.
@@ -73,21 +69,6 @@ pub struct SearchParams {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ScanParams {
-    pub subreddit: String,
-    pub limit: Option<i64>,
-    pub sort: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct ScanBody {
-    subreddit: String,
-    limit: i64,
-    sort: String,
-}
-
 #[derive(Debug, Serialize)]
 struct SearchBody {
     query: String,
@@ -137,45 +118,6 @@ pub async fn search_hybrid(
 
     let envelope: SearchEnvelope = response.json().await.map_err(transport_error)?;
     Ok(envelope.hits)
-}
-
-/// Dispara un escaneo completo, retransmitiendo su avance al WebView.
-///
-/// Consume el flujo SSE del sidecar y reenvia cada evento por el canal
-/// `radar:events`. La interfaz pinta el progreso segun llega, sin sondear.
-///
-/// Devuelve el ultimo evento (`run:finished` o `run:error`), de modo que
-/// quien invoca tambien tiene el desenlace sin tener que escuchar el canal.
-#[tauri::command]
-pub async fn trigger_scan(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    params: ScanParams,
-) -> RadarResult<serde_json::Value> {
-    let response = with_token(
-        state
-            .http
-            .post(format!("{}/api/scan/stream", sidecar_url()))
-            .timeout(SCAN_TIMEOUT)
-            .json(&ScanBody {
-                subreddit: params.subreddit,
-                limit: params.limit.unwrap_or(25),
-                sort: params.sort.unwrap_or_else(|| "hot".into()),
-            }),
-    )
-    .send()
-    .await
-    .map_err(transport_error)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        return Err(RadarError::Sidecar(format!(
-            "El escaneo fallo ({status}): {detail}"
-        )));
-    }
-
-    relay_sse(&app, response, RADAR_EVENT_CHANNEL).await
 }
 
 /// Reenvia cada evento SSE del sidecar por `channel` y devuelve el ultimo.
@@ -272,63 +214,4 @@ pub async fn sidecar_health_en(client: &reqwest::Client, base: &str) -> Option<s
     } else {
         None
     }
-}
-
-/// Una cita traducida.
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QuoteTranslation {
-    pub text: String,
-    /// "gemini" o "offline".
-    pub engine: String,
-    /// True cuando el texto solo esta traducido en parte.
-    pub approximate: bool,
-}
-
-#[derive(Debug, Serialize)]
-struct TranslateBody {
-    texts: Vec<String>,
-    target: String,
-}
-
-/// Traduce las citas de una oportunidad al idioma de la interfaz.
-///
-/// El sidecar decide el motor segun haya clave de Gemini o no, y responde
-/// siempre: una cita sin traducir se lee, un hueco no.
-#[tauri::command]
-pub async fn translate_quotes(
-    state: State<'_, AppState>,
-    texts: Vec<String>,
-    target: String,
-) -> RadarResult<Vec<QuoteTranslation>> {
-    if texts.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let response = with_token(
-        state
-            .http
-            .post(format!("{}/api/translate", sidecar_url()))
-            .timeout(Duration::from_secs(120))
-            .json(&TranslateBody { texts, target }),
-    )
-    .send()
-    .await
-    .map_err(transport_error)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        return Err(RadarError::Sidecar(format!(
-            "No se pudo traducir ({status}): {detail}"
-        )));
-    }
-
-    #[derive(Deserialize)]
-    struct Envelope {
-        translations: Vec<QuoteTranslation>,
-    }
-
-    let envelope: Envelope = response.json().await.map_err(transport_error)?;
-    Ok(envelope.translations)
 }

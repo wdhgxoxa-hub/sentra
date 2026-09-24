@@ -1,4 +1,4 @@
-import { Radar, RadioTower, Search, Settings, SlidersHorizontal, Target } from "lucide-react";
+import { Radar, RadioTower, Search, Settings } from "lucide-react";
 
 import isotipo from "@/assets/isotipo.png";
 import { HealthIndicator } from "@/components/HealthIndicator";
@@ -8,12 +8,12 @@ import { useUiStore, type RadarView } from "@/stores/uiStore";
 
 const ICONS = {
   radar: Radar,
-  opportunity: Target,
   search: Search,
-  pipeline: SlidersHorizontal,
   sources: RadioTower,
   settings: Settings,
 } as const;
+
+const ITEMS: RadarView[] = ["radar", "search", "sources", "settings"];
 
 /**
  * «X de N fuentes activas». N es el catálogo real del motor, no una cifra
@@ -40,21 +40,11 @@ function SourcesSummary() {
   );
 }
 
-/**
- * Navegación principal.
- *
- * La ficha de oportunidad aparece en el rail solo cuando hay una elegida:
- * un destino que lleva a una pantalla vacía es una promesa incumplida.
- */
+/** Navegación principal: el escaneo vive en Fuentes (D-C2). */
 export function Sidebar() {
   const t = useT();
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
-  const selectedCluster = useUiStore((state) => state.selectedClusterKey);
-
-  const items: RadarView[] = ["radar"];
-  if (selectedCluster) items.push("opportunity");
-  items.push("search", "pipeline", "sources", "settings");
 
   return (
     <nav
@@ -88,7 +78,7 @@ export function Sidebar() {
       </div>
 
       <ul className="flex flex-col gap-0.5">
-        {items.map((item) => {
+        {ITEMS.map((item) => {
           const Icon = ICONS[item];
           const active = view === item;
           return (

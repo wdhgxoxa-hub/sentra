@@ -20,9 +20,7 @@ export const es = {
   nav: {
     radar: "Radar en vivo",
     search: "Búsqueda semántica",
-    pipeline: "Control del pipeline",
     settings: "Configuración",
-    opportunity: "Oportunidad",
     sources: "Fuentes",
   },
 
@@ -70,26 +68,6 @@ export const es = {
     filterPending: "Sin revisar",
   },
 
-  detail: {
-    selectPrompt: "Elige una oportunidad del radar para ver su ficha.",
-    loading: "Cargando ficha…",
-    gone: "Esa oportunidad ya no está en el almacén.",
-    job: "Qué necesita la gente",
-    breakdown: "De dónde sale la puntuación",
-    solutions: "Herramientas que ya usan",
-    evolution: "Cómo ha evolucionado",
-    noEvolution:
-      "Una sola lectura por ahora. La evolución aparece cuando el mismo problema se detecta en escaneos sucesivos.",
-    validation: "Validación",
-    notes: "Notas de análisis",
-    notesPlaceholder: "Qué se construiría, para quién, y por qué ahora",
-    saveNotes: "Guardar notas",
-    decidedOn: "Decidido el",
-    noDecision: "Sin decisión registrada todavía",
-    saveError: "No se pudo guardar",
-    total: "Total",
-  },
-
   search: {
     title: "Búsqueda semántica",
     subtitle:
@@ -115,32 +93,6 @@ export const es = {
     },
   },
 
-  pdf: {
-    export: "Exportar PDF",
-    exporting: "Generando PDF…",
-    withPlan: "Incluirá el plan de arquitectura generado en esta sesión.",
-    withoutPlan: "Sin plan de arquitectura en esta sesión: el PDF lo indicará como no generado.",
-    saved: "PDF guardado en {path}",
-    cancelled: "Exportación cancelada: no se guardó ningún archivo.",
-    error: "No se pudo exportar el PDF. Comprueba que el motor está activo e inténtalo de nuevo.",
-  },
-  topSix: {
-    title: "Top {target} oportunidades",
-    titleGeneric: "Mejores oportunidades",
-    loading: "Cargando las mejores oportunidades…",
-    error: "No se pudo leer el resultado de la última ejecución.",
-    noRuns: "Todavía no hay ninguna ejecución terminada. Lanza un escaneo desde Pipeline.",
-    complete: "Completo ({found}/{target})",
-    partial: "Incompleto ({found}/{target})",
-    incomplete: "Solo {found} de {target} oportunidades superan el corte.",
-    open: "Abrir ficha",
-    reasons: {
-      fuentes_agotadas: "Se revisó todo lo disponible y el resto de problemas no alcanza la puntuación mínima.",
-      limite_ciclos: "Se alcanzó el límite de ciclos del escaneo con contenido todavía por revisar.",
-      sin_acceso_reddit: "No se pudo leer la fuente de datos.",
-      datos_insuficientes: "No hay datos suficientes: la fuente se agotó antes de reunir tantos problemas distintos.",
-    },
-  },
   scanErrors: {
     reddit_credentials_missing: "Faltan las credenciales de Reddit. Guárdalas en Configuración.",
     reddit_user_agent_invalid: "El User-Agent de Reddit no identifica a la app y a su autor. Usa plataforma:app:versión (by /u/tu-usuario-real) en Configuración.",
@@ -153,67 +105,9 @@ export const es = {
     fetch_failed: "La fuente de datos falló y el escaneo no trajo nada.",
     internal_error: "El motor falló durante el escaneo.",
   },
-  pipeline: {
-    title: "Control del pipeline",
-    subtitle: "Lanza escaneos y observa el motor trabajar",
-    running: "Escaneos en curso",
-    clearFinished: "Limpiar terminados",
-    cancel: "Cancelar",
-    cancelled: "Cancelado",
-    watched: "Comunidades vigiladas",
-    addPlaceholder: "r/SaaS",
-    tagsPlaceholder: "vertical, prioritario",
-    tagsLabel: "Etiquetas (separadas por comas)",
-    order: "Orden",
-    subreddit: "Comunidad",
-    watch: "Vigilar",
-    saving: "Guardando…",
-    scan: "Escanear",
-    pause: "Pausar",
-    activate: "Activar",
-    lastRun: "última ejecución",
-    never: "nunca",
-    noSubreddits: "Todavía no vigilas ninguna comunidad. Añade una arriba.",
-    noRuns: "Todavía no hay ejecuciones.",
-    subredditsError: "No se pudo leer la lista de comunidades.",
-    runsError: "No se pudo leer el historial de ejecuciones.",
-    saveFailed: "No se pudo guardar la comunidad.",
-    scanFailed: "No se pudo lanzar el escaneo.",
-    cancelFailed: "No se pudo cancelar el escaneo.",
-    history: "Ejecuciones recientes",
-    colSource: "Fuente",
-    colStatus: "Estado",
-    colRead: "Leídos",
-    colQualified: "Cualificados",
-    colErrors: "Errores",
-    cycle: "ciclo",
-    read: "leídos",
-    analysed: "analizados",
-    stored: "guardados",
-    clusters: "problemas",
-    qualified: "cualificados",
-    discard: "descartar",
-    nodes: {
-      fetch: "Descarga",
-      filter: "Filtrado",
-      comments: "Comentarios",
-      intelligence: "Análisis",
-      storage: "Guardado",
-      quality_gate: "Corte",
-      aggregate: "Agrupado",
-    },
-    nodeHints: {
-      fetch: "Trae publicaciones de la comunidad elegida.",
-      filter: "Descarta el ruido: saludos, spam y publicidad encubierta.",
-      comments: "Trae los comentarios más votados de las quejas que pasaron el filtro.",
-      intelligence: "Lee cada queja y puntúa cuánto duele.",
-      storage: "Guarda todo para poder buscarlo después.",
-      quality_gate: "Aparta las quejas demasiado flojas.",
-      aggregate: "Junta las quejas que hablan del mismo problema.",
-    },
-  },
 
   settings: {
+    saving: "Guardando…",
     title: "Configuración",
     subtitle: "Credenciales, idioma y fuente de datos",
     appearance: "Apariencia",
@@ -222,27 +116,6 @@ export const es = {
     themeLight: "Claro",
     themeDark: "Oscuro",
     themeSystem: "Automático",
-    source: "Fuente de datos",
-    sourceHint:
-      "El modo demostración usa un conjunto fijo de publicaciones fabricadas. Todo lo demás —el análisis, el agrupado, la búsqueda— funciona igual.",
-    modeSynthetic: "Demostración",
-    modeSyntheticDesc: "{count} publicaciones fabricadas, siempre las mismas",
-    modeReddit: "Reddit real",
-    modeRedditDesc: "Requiere credenciales de la API de Reddit",
-    credentials: "Credenciales de Reddit",
-    credentialsHint:
-      "Se crean en reddit.com/prefs/apps eligiendo el tipo «script». Se guardan en el archivo .env del proyecto, nunca en la base de datos.",
-    clientId: "Client ID",
-    clientSecret: "Client Secret",
-    userAgent: "User Agent",
-    userAgentHint: "Reddit pide que identifique a la aplicación y a su autor, con la forma plataforma:app:versión (by /u/usuario) y tu usuario real de Reddit.",
-    userAgentPlaceholder: "windows:sentra:0.1.0 (by /u/tu-usuario-de-reddit)",
-    username: "Usuario (opcional)",
-    password: "Contraseña (opcional)",
-    userHint: "Si los rellenas, se usa el flujo en nombre del usuario, con más cuota.",
-    save: "Guardar credenciales",
-    saved: "Credenciales guardadas",
-    test: "Probar conexión",
     testing: "Probando…",
     configured: "Configuradas",
     notConfigured: "Sin configurar",
@@ -269,65 +142,10 @@ export const es = {
     modelsLoading: "Consultando los modelos de tu clave…",
     modelsFailed: "No se pudo obtener la lista de modelos.",
     saveModels: "Guardar modelos",
-    modeFailed: "No se pudo cambiar la fuente de datos.",
     keySaved: "Clave guardada",
     probeFailed: "No se pudo probar la clave.",
     saveKey: "Guardar clave",
     testKey: "Probar clave",
-    storedIn: "Se guardan en",
-    secretNeverShown:
-      "El secreto no se muestra nunca una vez guardado, ni siquiera a esta ventana.",
-  },
-
-  architect: {
-    open: "Generar arquitectura con Gemini",
-    regenerate: "Volver a generar",
-    close: "Ocultar arquitectura",
-    generating: "El modelo está escribiendo…",
-    error: "No se pudo generar la arquitectura",
-    copy: "Copiar en Markdown",
-    copied: "Copiado al portapapeles",
-    copyFailed: "No se pudo copiar",
-    copyCode: "Copiar bloque",
-    empty:
-      "Púlsalo y Gemini redacta un plan de construcción en dos fases a partir de esta evidencia: un MVP para 24-48 h y el producto completo para cuando valide.",
-    warning:
-      "Esto lo escribe un modelo generativo, no el radar. Revisa el código y el esquema antes de ejecutarlos.",
-    incomplete: "Documento incompleto: no se guarda para el PDF.",
-    missing: "Secciones que faltan",
-  },
-  blueprint: {
-    open: "Ver especificación del proyecto (PRD)",
-    close: "Ocultar especificación",
-    title: "Especificación del proyecto",
-    loading: "Redactando el documento…",
-    error: "No se pudo redactar la especificación",
-    copy: "Copiar documento en Markdown",
-    copied: "Copiado al portapapeles",
-    copyFailed: "No se pudo copiar",
-    value: "Propuesta de valor",
-    derived:
-      "Documento derivado de la evidencia guardada, sin inventar nada: donde no hay dato, lo dice.",
-  },
-  quotes: {
-    anonymousAuthor: "autor anónimo",
-    title: "Lo que dijeron",
-    count: "citas",
-    translate: "Traducir al español",
-    showOriginal: "Ver original",
-    translating: "Traduciendo…",
-    error: "No se pudieron traducir las citas",
-    approximate: "Traducción aproximada: solo se ha traducido lo reconocido.",
-    approximateShort: "aproximada",
-    offlineHint:
-      "Sin clave de Gemini traduce el motor sin conexión, que solo reconoce expresiones frecuentes.",
-  },
-  validation: {
-    new: "Sin revisar",
-    triaged: "En estudio",
-    validated: "Validada",
-    rejected: "Descartada",
-    shipped: "Construida",
   },
 
   urgency: {
@@ -337,62 +155,8 @@ export const es = {
     LOW: "Baja",
   },
 
-  intent: {
-    ready_to_buy: "Listo para comprar",
-    seeking_recommendation: "Busca recomendación",
-    seeking_alternative: "Busca alternativa",
-    comparing_products: "Comparando productos",
-    casual_discussion: "Conversación casual",
-    undetermined: "Indeterminada: sin evidencia suficiente",
-    none: "Sin intención",
-  },
-
-  pain: {
-    severe_blocker: "Bloqueante grave",
-    time_consuming_friction: "Fricción costosa",
-    minor_inconvenience: "Molestia menor",
-    no_problem: "Sin problema",
-    undetermined: "Indeterminada: sin evidencia suficiente",
-    none: "Sin clasificar",
-  },
-
   /** Explicaciones didácticas de cada métrica. */
   explain: {
-    jtbd: {
-      title: "Jobs-To-Be-Done",
-      body:
-        "La tarea que alguien intenta terminar y no puede. En vez de «quiere una app de facturas», dice «necesita cobrar sin copiar datos a mano». Enfocarse en la tarea evita construir una copia de lo que ya existe.",
-    },
-    spread: {
-      title: "Difusión",
-      body:
-        "En cuántas comunidades distintas aparece el problema. Diez quejas en un solo foro son un foro descontento; una queja en diez foros es un patrón de mercado.",
-    },
-    frequency: {
-      title: "Frecuencia",
-      body:
-        "Cuántas veces se repite dentro de cada comunidad. Mide si es un problema recurrente o algo que alguien dijo una vez.",
-    },
-    severity: {
-      title: "Severidad",
-      body:
-        "Cuánto duele. No es lo mismo «sería cómodo tenerlo» que «esto me bloquea el trabajo». Se deduce del lenguaje de cada mensaje.",
-    },
-    recency: {
-      title: "Recencia",
-      body:
-        "Cuán reciente es la queja más nueva. Decae exponencialmente: un problema del que nadie habla desde hace un año probablemente ya se resolvió.",
-    },
-    paidSignal: {
-      title: "Disposición a pagar",
-      body:
-        "Si alguien dijo explícitamente que pagaría, o mencionó lo que le cuesta el problema. Es la diferencia entre una molestia y un mercado.",
-    },
-    intensity: {
-      title: "Intensidad",
-      body:
-        "La suma ponderada de los cinco factores, de 0 a 100. A partir de 60 se considera una oportunidad que merece atención.",
-    },
     rrf: {
       title: "Fusión de resultados (RRF)",
       body:
@@ -407,16 +171,6 @@ export const es = {
       title: "Búsqueda por palabras (BM25)",
       body:
         "Busca las palabras tal cual, dando más peso a las poco frecuentes. Es la que rescata nombres de herramientas como «pgpool» o «Stripe», donde el significado no ayuda.",
-    },
-    cluster: {
-      title: "Agrupado de problemas",
-      body:
-        "Junta las quejas que hablan de lo mismo aunque estén en foros distintos. Sin esto, cada mensaje se vería suelto y ningún patrón alcanzaría el corte.",
-    },
-    signalVsCluster: {
-      title: "Quejas y oportunidades",
-      body:
-        "Una queja suelta casi nunca justifica construir algo. Una oportunidad es un problema que se repite en varias comunidades. Por eso hay dos listas y dos umbrales distintos.",
     },
   },
 
@@ -479,8 +233,6 @@ export const es = {
     gemini_truncated: "El documento se cortó al llegar al límite de longitud del modelo.",
     gemini_incomplete: "El documento llegó sin todas las secciones exigidas.",
     internal_error: "Fallo interno del motor.",
-    architect_protocol: "El motor devolvió una respuesta que la aplicación no entiende.",
-    architect_interrupted: "La conexión con el motor se cortó antes de terminar el documento.",
   },
 
   database: {

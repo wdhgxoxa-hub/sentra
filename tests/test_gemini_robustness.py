@@ -294,8 +294,8 @@ class TestCodigosTraducidos(unittest.TestCase):
             for clase in vars(modulo).values()
             if isinstance(clase, type) and issubclass(clase, base.LLMError)
         } | {"internal_error"}
-        rust = (Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "src"
-                / "commands" / "architect.rs").read_text(encoding="utf-8")
+        comandos = Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "src" / "commands"
+        rust = "\n".join(f.read_text(encoding="utf-8") for f in comandos.glob("*.rs"))
         return python | set(re.findall(r'const CODIGO_\w+: &str = "(\w+)";', rust))
 
     def test_es_y_en_traducen_todos_los_codigos(self):
@@ -303,7 +303,6 @@ class TestCodigosTraducidos(unittest.TestCase):
         from pathlib import Path
 
         codigos = self.codigos()
-        self.assertIn("architect_interrupted", codigos)
         self.assertIn("gemini_not_configured", codigos)
         self.assertIn("llm_model_unavailable", codigos)
         for idioma in ("es", "en"):

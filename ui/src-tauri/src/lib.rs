@@ -72,27 +72,12 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            // Lecturas contra PostgreSQL
-            commands::radar::get_radar_feed,
-            commands::radar::get_opportunity_board,
-            commands::radar::get_opportunity_detail,
-            commands::radar::get_cluster_history,
-            commands::radar::get_subreddits,
-            commands::radar::get_pipeline_runs,
-            commands::radar::get_top_opportunities,
             // Motor Python
             commands::engine::search_hybrid,
-            commands::engine::trigger_scan,
-            commands::engine::translate_quotes,
             // Escrituras
-            commands::mutations::update_opportunity_status,
-            commands::mutations::upsert_subreddit,
             commands::mutations::cancel_scan,
             // Configuracion
             commands::settings::get_settings,
-            commands::settings::set_fetcher_mode,
-            commands::settings::save_reddit_credentials,
-            commands::settings::test_reddit_connection,
             // Fuentes (F2)
             commands::sources::list_sources,
             commands::sources::save_source_credentials,
@@ -103,15 +88,10 @@ pub fn run() {
             // Juez de nichos (F3)
             commands::judge::get_judge_top,
             commands::judge::get_evidence_feed,
-            // Especificacion de proyecto
-            commands::blueprint::generate_blueprint,
-            // Documento entregable (AUD-008)
-            commands::document::export_pdf,
-            // Motor de arquitectura (Gemini)
-            commands::architect::save_gemini_key,
-            commands::architect::test_gemini_key,
-            commands::architect::list_gemini_models,
-            commands::architect::generate_architecture,
+            // Clave y modelos de Gemini
+            commands::gemini::save_gemini_key,
+            commands::gemini::test_gemini_key,
+            commands::gemini::list_gemini_models,
             // Estado agregado
             commands::health::get_app_health,
             commands::health::get_database_status,

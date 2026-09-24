@@ -1,25 +1,19 @@
-//! Comandos expuestos al WebView.
+//! Comandos expuestos al WebView, repartidos segun a quien preguntan:
 //!
-//! Se reparten en tres grupos segun a quien preguntan:
-//!
-//! - `radar`: lecturas resueltas por Rust contra PostgreSQL.
-//! - `engine`: operaciones que necesitan el motor Python (grafo, LanceDB).
+//! - `engine`: conexion con el motor Python (busqueda, sondas, SSE).
 //! - `health`: estado agregado de las tres piezas.
-//! - `mutations`: las escrituras, juntas para que la superficie con la
-//!   que se cambia el estado del sistema sea facil de revisar.
-//! - `settings`: configuracion y credenciales, delegadas al sidecar.
+//! - `judge`: Top 6 del juez y feed de evidencia, delegados al sidecar.
+//! - `mutations`: las escrituras (cancelar un escaneo), juntas para que la
+//!   superficie con la que se cambia el estado sea facil de revisar.
+//! - `settings`: configuracion, delegada al sidecar.
+//! - `gemini`: clave y modelos de Gemini.
 //! - `sources`: fuentes multifuente (estado, credenciales, escaneo), delegadas al sidecar.
-//! - `blueprint`: especificacion de proyecto, redactada por el motor.
-//! - `architect`: plan de construccion, redactado por Gemini.
 
-pub mod architect;
-pub mod blueprint;
-pub mod document;
 pub mod engine;
+pub mod gemini;
 pub mod health;
 pub mod judge;
 pub mod mutations;
-pub mod radar;
 pub mod settings;
 pub mod sources;
 

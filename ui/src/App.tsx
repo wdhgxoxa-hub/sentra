@@ -3,14 +3,11 @@ import { useEffect } from "react";
 import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
-import { onRadarEvent, onSourcesEvent } from "@/lib/ipc";
-import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
+import { onSourcesEvent } from "@/lib/ipc";
+import { queryClient, useDatabaseStatus } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
-import { useProgressStore } from "@/stores/progressStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
-import { OpportunityDetail } from "@/views/OpportunityDetail";
-import { PipelineControl } from "@/views/PipelineControl";
 import { RadarViewPage } from "@/views/RadarView";
 import { SearchConsole } from "@/views/SearchConsole";
 import { SettingsView } from "@/views/SettingsView";
@@ -19,32 +16,12 @@ import { SourcesView } from "@/views/SourcesView";
 export default function App() {
   const t = useT();
   const view = useUiStore((state) => state.view);
-  const applyProgress = useProgressStore((state) => state.apply);
   const applyMultiscan = useMultiscanStore((state) => state.apply);
   const baseDeDatos = useDatabaseStatus();
   const sinBase = baseDeDatos.data !== undefined && !baseDeDatos.data.connected;
 
-  // Un único suscriptor para todo el progreso: alimenta el store y, cuando
-  // el escaneo termina, invalida la caché en lugar de sondear.
-  useEffect(() => {
-    const unlisten = onRadarEvent((event) => {
-      applyProgress(event);
-      // Un escaneo cancelado también deja datos: lo cosechado hasta ese
-      // momento se guarda, así que la caché queda igual de vieja (AUD-010).
-      if (
-        event.type === "run:finished" ||
-        event.type === "run:cancelled" ||
-        event.type === "run:error"
-      ) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.radar });
-      }
-    });
-    return () => {
-      void unlisten.then((stop) => stop());
-    };
-  }, [applyProgress]);
-
-  // El escaneo multifuente sigue aunque se cambie de vista: se escucha aquí.
+  // El escaneo multifuente sigue aunque se cambie de vista: se escucha aquí;
+  // al terminar se invalida la caché en lugar de sondear.
   useEffect(() => {
     const unlisten = onSourcesEvent((evento) => {
       applyMultiscan(evento);
@@ -85,9 +62,7 @@ export default function App() {
             ) : (
               <>
                 {view === "radar" && <RadarViewPage />}
-                {view === "opportunity" && <OpportunityDetail />}
                 {view === "search" && <SearchConsole />}
-                {view === "pipeline" && <PipelineControl />}
                 {view === "settings" && <SettingsView />}
                 {view === "sources" && <SourcesView />}
               </>
