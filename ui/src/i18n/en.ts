@@ -233,6 +233,8 @@ export const en: Dictionary = {
     optionalSaved: "Optional key saved: raised quota",
     lastVerified: "Last real response: {when}",
     neverVerified: "Never verified with a real response",
+    verifiedButUnconfigured:
+      "It answered in a scan with what the profile provided, but what it needs is not saved: without it, it is left out of automatic scans.",
     terms: "Terms",
     cost: "Cost",
     costUnit: {

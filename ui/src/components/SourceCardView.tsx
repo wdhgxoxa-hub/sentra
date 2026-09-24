@@ -107,7 +107,12 @@ export function SourceCardView({ card }: { card: SourceCard }) {
         {textoAcceso && <div>{t.sources[textoAcceso]}</div>}
       </dl>
 
-      {/* Sin configurar con motivo (p. ej. pendiente de aprobación, R7): se dice por qué. */}
+      {/* AUD2-023: respondió en un escaneo (con lo que llevaba el perfil) pero no tiene
+          guardado lo que exige: se explica en lugar de dejar dos estados que chocan. */}
+      {card.status === "no_configurada" && card.lastVerifiedAt && !card.detail && (
+        <p className="mt-2 text-xs text-warn">{t.sources.verifiedButUnconfigured}</p>
+      )}
+      {/* Sin configurar con motivo (p. ej. pendiente de aprobación): se dice por qué. */}
       {card.status === "no_configurada" && card.detail && (
         <p className="mt-2 text-xs text-warn">{card.detail}</p>
       )}

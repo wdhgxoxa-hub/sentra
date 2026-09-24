@@ -238,6 +238,8 @@ export const es = {
     optionalSaved: "Clave opcional guardada: cuota ampliada",
     lastVerified: "Última respuesta real: {when}",
     neverVerified: "Nunca verificada con una respuesta real",
+    verifiedButUnconfigured:
+      "Respondió en un escaneo con lo que indicaba el perfil, pero no tiene guardado lo que necesita: sin ello no entra en un escaneo automático.",
     terms: "Términos",
     cost: "Coste",
     costUnit: {
