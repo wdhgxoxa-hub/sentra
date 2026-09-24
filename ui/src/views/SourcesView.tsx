@@ -65,7 +65,7 @@ export function SourcesView() {
 
           <MultiscanPanel cards={lista} />
 
-          <JudgePanel cards={lista} />
+          <JudgePanel />
         </>
       )}
     </div>

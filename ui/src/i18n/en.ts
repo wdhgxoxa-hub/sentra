@@ -341,6 +341,8 @@ export const en: Dictionary = {
     judgeFailed: "The judge failed after the scan; the scan itself was saved.",
     judgeSummary: "{kept} of {items} items pass the filter · {labeled} labeled · {clusters} groups",
     noLlm: "No Gemini: labels stay undetermined and nothing comes out as Build.",
+    summaryByVerdict: "{build} to build · {research} to research further · {discard} discarded",
+    seeInRadar: "See the verdicts in the Radar",
   },
 
   documents: {

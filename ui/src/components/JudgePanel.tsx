@@ -7,7 +7,8 @@ import { comoError } from "@/lib/errors";
 import { useJudgeTop } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
-import type { JudgeVerdict, JudgeVersions, NicheVerdict, SourceCard } from "@/types/radar";
+import { useUiStore } from "@/stores/uiStore";
+import type { JudgeVerdict, JudgeVersions, NicheVerdict } from "@/types/radar";
 
 export const VERDICT_COLOR: Record<NicheVerdict, string> = {
   CONSTRUIR: "border-ok text-ok",
@@ -187,15 +188,17 @@ export function VerdictCard({
 }
 
 /**
- * Panel del juez: Top 6 por veredicto (CONSTRUIR primero, sin rellenar),
- * con compuertas, corroboración, dimensiones, abogado del diablo y la
- * evidencia siempre atribuida (R5, D-SE3).
+ * Panel del juez en Fuentes: cómo fue el juicio tras el escaneo y un resumen
+ * de los veredictos con enlace al Radar, que es el único sitio donde se ven
+ * enteros (AUD2-008, DP6 A: antes se repetía aquí el Top completo).
  */
-export function JudgePanel({ cards }: { cards: SourceCard[] }) {
+export function JudgePanel() {
   const t = useT();
   const top = useJudgeTop(null);
   const juez = useMultiscanStore((s) => s.scan.judge);
-  const nombre = (id: string) => cards.find((c) => c.source === id)?.displayName ?? id;
+  const setView = useUiStore((s) => s.setView);
+  const todos = [...(top.data?.verdicts ?? []), ...(top.data?.rest ?? [])];
+  const cuantos = (veredicto: NicheVerdict) => String(todos.filter((v) => v.verdict === veredicto).length);
 
   return (
     <section className="flex flex-col gap-3">
@@ -236,9 +239,19 @@ export function JudgePanel({ cards }: { cards: SourceCard[] }) {
               .replace("{target}", String(top.data.target))}
             {top.data.reason && <span className="block text-ink-faint">{top.data.reason}</span>}
           </p>
-          {top.data.verdicts.map((v) => (
-            <VerdictCard key={v.id} v={v} t={t} nombre={nombre} actuales={top.data.currentVersions} />
-          ))}
+          <p className="text-xs">
+            {t.judge.summaryByVerdict
+              .replace("{build}", cuantos("CONSTRUIR"))
+              .replace("{research}", cuantos("INVESTIGAR MÁS"))
+              .replace("{discard}", cuantos("DESCARTAR"))}
+          </p>
+          <button
+            type="button"
+            onClick={() => setView("radar")}
+            className="self-start rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-2"
+          >
+            {t.judge.seeInRadar}
+          </button>
         </>
       )}
     </section>

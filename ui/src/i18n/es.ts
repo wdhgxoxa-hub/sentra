@@ -347,6 +347,8 @@ export const es = {
     judgeFailed: "El juez falló tras el escaneo; el escaneo sí se guardó.",
     judgeSummary: "{kept} de {items} ítems pasan el filtro · {labeled} etiquetados · {clusters} grupos",
     noLlm: "Sin Gemini: las etiquetas quedan sin determinar y nada sale Construir.",
+    summaryByVerdict: "{build} para construir · {research} para investigar más · {discard} descartados",
+    seeInRadar: "Ver los veredictos en el Radar",
   },
 
   documents: {
