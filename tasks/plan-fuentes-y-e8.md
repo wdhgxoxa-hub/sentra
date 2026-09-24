@@ -108,3 +108,16 @@ ya estaba escrito en scripts/calibrar_agrupacion.py desde B3.
   tope 4 llamadas): «coherente» = un grupo que pasa G0 con ≥ 3 autores distintos
   cuyo dolor es un impago (regex IMPAGO del diagnóstico). Si lo hay, E8: dossier;
   plan solo si el juez dice CONSTRUIR. Si no, se dice y no se genera nada.
+
+### Resultado (criterios de arriba, sin tocarlos)
+
+- R1 (012a4eb): 300 comentarios fuera de tema descartados; quedan 246, 51 con dolor.
+- R2: el barrido del dorado vuelve a elegir 0,82 (ARI 0,487; 0,83 da pureza 0,824
+  pero ARI 0,351). Umbral sin cambios; versión clustering-v8 por R1.
+- Validación (re-juicio 01a0d4cc-34af-7049-9a1b-4d75bcc2c956, 1 llamada, 1468→326
+  tokens): 3 grupos, los 3 fallan G0. El de impagos existe (~31 miembros, ~18
+  quejas reales de impago de Bluesky, Mastodon, GitHub y Discourse) pero arrastra
+  vecinos del mismo mundo (impuestos, QuickBooks, comentarios del cliente,
+  conseguir clientes). No cumple el criterio: E8 no se hace. No se prueba otro
+  umbral con este caso (sería calibrar con la validación).
+- Gemini de este presupuesto: 29 de 40; quedan 11.
