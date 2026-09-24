@@ -44,9 +44,15 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 - [x] E8 Verificación real (tras elegir el usuario el modelo en Ajustes): llamadas, tokens y secciones.
 
 ## Fase F — Cierre
-- [ ] F1 Compuerta; instalación limpia temporal.
-- [ ] F2 Migraciones (R12).
-- [ ] F3 Release con SENTRA cerrada; grep -c -a; SENTRA.lnk.
+- [x] F1 Compuerta; instalación limpia temporal.
+- [x] F2 Migraciones (R12).
+- [x] F3 Release con SENTRA cerrada; grep -c -a; SENTRA.lnk.
+  (F1: compuerta con CLIPPY y AUDIT en verde; instalación limpia en un clon temporal
+  siguiendo el README, que destapó un test con la ruta F: fija (12b28db). F2: 15
+  migraciones aplicadas, ninguna pendiente. F3: release desde a00fdd7 sin avisos,
+  compuerta de release con humo en verde; grep -c -a: solo quedan «localhost:5173»
+  (devUrl de Tauri) y «Reddit Intelligence Radar» de 001_initial_schema.sql, a
+  sabiendas (D-C6); SENTRA.lnk apunta a la release nueva.)
 - [ ] F4 Push, fast-forward, push de main.
 
 ## Fase G — Credenciales
