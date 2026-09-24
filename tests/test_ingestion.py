@@ -11,6 +11,7 @@ Verifica el 100% de los componentes de la Fase 2:
 import asyncio
 import unittest
 from datetime import UTC, datetime
+from unittest import mock
 
 from core.ingestion.auth import RedditAuthError, RedditOAuth, load_dotenv
 from core.ingestion.client import RedditIngestionClient
@@ -22,6 +23,7 @@ from core.ingestion.normalizer import (
     RedditNormalizer,
 )
 from core.ingestion.pagination import RedditPaginator
+from tests._ayudas import presente
 
 #: User-Agent con el formato que exige Reddit (AUD-014).
 UA = "python:sentra-tests:1.0 (by /u/sentra_ci)"
@@ -280,7 +282,9 @@ class TestSubredditPagination(unittest.TestCase):
             self.requests.append({"url": url, "params": dict(params or {})})
             return queue.pop(0) if queue else None
 
-        self.client._execute_request = fake_execute
+        parche = mock.patch.object(self.client, "_execute_request", fake_execute)
+        parche.start()
+        self.addCleanup(parche.stop)
 
     def test_page_returns_posts_and_the_next_cursor(self):
         self._install_transport([_reddit_listing(["aaa", "bbb"], after="t3_bbb")])
@@ -400,8 +404,8 @@ class TestRedditOAuth(unittest.TestCase):
             "RIR_REDDIT_USER_AGENT": UA,
         })
         self.assertIsNotNone(auth)
-        self.assertEqual(auth.client_id, "cid")
-        self.assertEqual(auth.user_agent, UA)
+        self.assertEqual(presente(auth).client_id, "cid")
+        self.assertEqual(presente(auth).user_agent, UA)
 
     def test_app_only_grant_when_there_is_no_user(self):
         auth = RedditOAuth(client_id="cid", client_secret="csec", user_agent=UA,
@@ -493,17 +497,17 @@ class TestDotEnvLoading(unittest.TestCase):
         return path
 
     def test_parses_key_value_pairs(self):
-        env = {}
+        env: dict[str, str] = {}
         load_dotenv(self._write("RIR_REDDIT_CLIENT_ID=abc\n"), env=env)
         self.assertEqual(env["RIR_REDDIT_CLIENT_ID"], "abc")
 
     def test_ignores_comments_and_blank_lines(self):
-        env = {}
+        env: dict[str, str] = {}
         load_dotenv(self._write("# comentario\n\nA=1\n  \n"), env=env)
         self.assertEqual(env, {"A": "1"})
 
     def test_strips_surrounding_quotes(self):
-        env = {}
+        env: dict[str, str] = {}
         load_dotenv(self._write('A="con espacios"\nB=\'simple\'\n'), env=env)
         self.assertEqual(env["A"], "con espacios")
         self.assertEqual(env["B"], "simple")
@@ -514,12 +518,12 @@ class TestDotEnvLoading(unittest.TestCase):
         self.assertEqual(env["A"], "del_entorno")
 
     def test_a_missing_file_is_not_an_error(self):
-        env = {}
+        env: dict[str, str] = {}
         load_dotenv(self.tmpdir + "/no_existe", env=env)
         self.assertEqual(env, {})
 
     def test_value_containing_equals_is_preserved(self):
-        env = {}
+        env: dict[str, str] = {}
         load_dotenv(self._write("A=x=y=z\n"), env=env)
         self.assertEqual(env["A"], "x=y=z")
 
@@ -545,7 +549,9 @@ class TestAuthenticatedFetch(unittest.TestCase):
                                   "headers": dict(headers or {})})
             return _reddit_listing(["aaa"], after=None)
 
-        client._execute_request = fake_execute
+        parche = mock.patch.object(client, "_execute_request", fake_execute)
+        parche.start()
+        self.addCleanup(parche.stop)
         return client
 
     def test_anonymous_client_fails_instead_of_using_the_public_endpoint(self):

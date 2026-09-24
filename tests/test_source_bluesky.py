@@ -89,7 +89,7 @@ class TestSesion(unittest.IsolatedAsyncioTestCase):
         BlueskySource.sessions.clear()
 
     async def test_crea_la_sesion_con_la_contrasena_de_app(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         await todos(fuente(servidor(peticiones)).search(SearchQuery(keywords=["invoice"])))
         sesion = peticiones[0]
         self.assertEqual((sesion.method, urlparse(str(sesion.url)).path),
@@ -101,14 +101,14 @@ class TestSesion(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(peticiones[1].headers["Authorization"], "Bearer jwt-acceso")
 
     async def test_la_sesion_se_reutiliza_entre_escaneos(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         await todos(fuente(servidor(peticiones)).search(SearchQuery(keywords=["a"])))
         await todos(fuente(servidor(peticiones)).search(SearchQuery(keywords=["b"])))
         sesiones = [p for p in peticiones if p.url.path.endswith("createSession")]
         self.assertEqual(len(sesiones), 1)
 
     async def test_otra_cuenta_no_reutiliza_la_sesion(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         await todos(fuente(servidor(peticiones)).search(SearchQuery(keywords=["a"])))
         otra = dict(CREDENCIALES, identifier="otra-inventada.bsky.social")
         await todos(fuente(servidor(peticiones), otra).search(SearchQuery(keywords=["a"])))
@@ -124,7 +124,7 @@ class TestSesion(unittest.IsolatedAsyncioTestCase):
 
     async def test_una_contrasena_mala_no_se_reintenta(self):
         # createSession tiene un límite bajo por cuenta: no se gasta en vano.
-        peticiones = []
+        peticiones: list[httpx.Request] = []
 
         def manejador(peticion):
             peticiones.append(peticion)
@@ -135,7 +135,7 @@ class TestSesion(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(peticiones), 1)
 
     async def test_un_token_caducado_se_renueva_una_vez(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         busquedas = iter([httpx.Response(401, json={"error": "ExpiredToken"}),
                           httpx.Response(200, json=resultados(POST))])
 
@@ -155,7 +155,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         BlueskySource.sessions.clear()
 
     async def test_busca_recientes_dentro_de_la_ventana(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         consulta = SearchQuery(keywords=["invoice"], phrases=["is there a tool"],
                                since=datetime(2026, 1, 1, tzinfo=UTC))
         await todos(fuente(servidor(peticiones)).search(consulta))
@@ -201,7 +201,7 @@ class TestSonda(unittest.IsolatedAsyncioTestCase):
         BlueskySource.sessions.clear()
 
     async def test_la_sonda_es_una_busqueda_minima_autenticada(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         resultado = await fuente(servidor(peticiones, resultados())).probe()
         self.assertTrue(resultado.ok)
         self.assertEqual(parse_qs(urlparse(str(peticiones[-1].url)).query)["limit"], ["1"])

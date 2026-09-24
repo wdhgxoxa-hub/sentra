@@ -87,7 +87,7 @@ class TestDeclaracion(unittest.TestCase):
 
 class TestBusqueda(unittest.IsolatedAsyncioTestCase):
     async def test_busca_videos_y_lee_sus_comentarios_cobrando_unidades(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         adaptador = fuente(api(peticiones=peticiones))
         consulta = SearchQuery(keywords=["invoice"], since=datetime(2026, 1, 1, tzinfo=UTC))
         items = await todos(adaptador.search(consulta))
@@ -124,7 +124,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
     async def test_el_presupuesto_de_unidades_corta_antes_de_pasarse(self):
         from core.sources.budget import SourceBudget
 
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         presupuesto = SourceBudget(source="youtube", max_units=150)
         # Planifica las búsquedas con las unidades que tiene: no llega a pasarse.
         await todos(fuente(api(peticiones=peticiones), presupuesto).search(
@@ -134,7 +134,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(presupuesto.spent_units, 150)
 
     async def test_cuota_diaria_agotada_para_sin_reintentar(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         with self.assertRaises(SourceRateLimited):
             await todos(fuente(api(busqueda=error_google(403, "quotaExceeded"),
                                    peticiones=peticiones)).search(SearchQuery(keywords=["x"])))
@@ -148,7 +148,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
 
 class TestSonda(unittest.IsolatedAsyncioTestCase):
     async def test_la_sonda_cuesta_una_unidad(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         adaptador = fuente(api(peticiones=peticiones))
         resultado = await adaptador.probe()
         self.assertTrue(resultado.ok)

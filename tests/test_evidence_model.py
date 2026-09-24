@@ -14,18 +14,20 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
 from core.evidence.author import AUTHOR_SALT_ENV, author_hash, load_or_create_salt
 from core.evidence.model import Engagement, EvidenceItem, SearchQuery
+from tests._ayudas import presente
 
 SAL = "0f" * 32
 AHORA = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
 
 
 def item(**cambios):
-    base = {
+    base: dict[str, Any] = {
         "id": "hackernews:123",
         "source": "hackernews",
         "community": "Ask HN",
@@ -49,7 +51,7 @@ def item(**cambios):
 
 class TestHashDeAutor(unittest.TestCase):
     def test_es_un_hash_hex_sin_rastro_del_nombre(self):
-        h = author_hash("reddit", "Ana_Lopez", SAL)
+        h = presente(author_hash("reddit", "Ana_Lopez", SAL))
         self.assertRegex(h, r"^[0-9a-f]{64}$")
         self.assertNotIn("ana_lopez", h.lower())
 

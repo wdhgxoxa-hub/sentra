@@ -132,18 +132,26 @@ class TestRespuestasDelSidecar(unittest.TestCase):
             cost_model = CostModel(unit="request")
             credential_fields = (CredentialField(name="token", env_var="RIR_X_TOKEN"),)
 
+            async def probe(self):
+                raise NotImplementedError
+
+            def search(self, query):
+                raise NotImplementedError
+
         estado = _en_camel(source_status(ConClave, {}, None, False).model_dump(mode="json"))
         self.assertEqual(set(estado["credentialFields"][0]), interfaz("SourceCredentialState"))
 
     def test_probar_entrega_source_probe_result(self):
         # Sin red: el camino de «faltan credenciales» devuelve la misma forma.
+        from datetime import UTC, datetime
+
         from core.orchestration.sidecar.sources import _en_camel
         from core.sources.base import ProbeResult
         from core.sources.errors import SourceCredentialsMissing
 
         error = SourceCredentialsMissing("x", "faltan: token")
         forma = _en_camel(ProbeResult(ok=False, code=error.code, detail=error.detail,
-                                      checked_at="2026-09-01T00:00:00Z").model_dump(mode="json"))
+                                      checked_at=datetime(2026, 9, 1, tzinfo=UTC)).model_dump(mode="json"))
         self.assertEqual(set(forma), interfaz("SourceProbeResult"))
 
     def test_la_atribucion_entrega_evidence_attribution(self):

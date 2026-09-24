@@ -63,7 +63,7 @@ class TestPerfil(unittest.TestCase):
 
     def test_una_intencion_desconocida_se_rechaza(self):
         with self.assertRaises(ValidationError):
-            ScanProfile(name="x", keywords=["a"], intents=["inventada"])
+            ScanProfile.model_validate({"name": "x", "keywords": ["a"], "intents": ["inventada"]})
 
     def test_el_perfil_guarda_la_version_de_frases(self):
         self.assertEqual(ScanProfile(name="x", keywords=["a"]).phrase_library_version,

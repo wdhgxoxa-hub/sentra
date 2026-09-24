@@ -11,12 +11,14 @@ con hora; la que falló, en error con su código.
 
 import unittest
 from datetime import UTC, datetime
+from typing import Any
 
 from core.evidence.model import EvidenceItem
 from core.sources.dedup import Duplicate
 from core.sources.persist import persist_multiscan, record_source_outcomes
 from core.sources.registry import InMemorySourcesState
 from core.sources.scan import MultiScanResult, SourceProgress
+from tests._ayudas import presente
 
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -51,7 +53,7 @@ class AlmacenDoble:
 
 class VectoresDoble:
     def __init__(self):
-        self.recibido = None
+        self.recibido: tuple[list[str], dict[str, Any]] | None = None
 
     def upsert(self, items, vectors=None):
         self.recibido = ([i.id for i in items], dict(vectors or {}))
@@ -127,7 +129,7 @@ class TestPersistencia(unittest.IsolatedAsyncioTestCase):
     async def test_los_vectores_son_de_los_canonicos_y_se_reutilizan(self):
         vectores = VectoresDoble()
         await persist_multiscan(AlmacenDoble(), "run-1", resultado(), vector_store=vectores)
-        ids, dados = vectores.recibido
+        ids, dados = presente(vectores.recibido)
         self.assertEqual(ids, ["hn:1", "hn:2"])
         self.assertEqual(set(dados), {"hn:1", "se:9", "hn:2"})
 
@@ -136,7 +138,7 @@ class TestEstadoDeFuentes(unittest.TestCase):
     def test_la_que_respondio_queda_verificada_y_la_que_fallo_en_error(self):
         estado = InMemorySourcesState()
         record_source_outcomes(estado, resultado().per_source, now=AHORA)
-        hn, se = estado.get("hn"), estado.get("se")
+        hn, se = presente(estado.get("hn")), presente(estado.get("se"))
         self.assertEqual((hn.status, hn.last_verified_at), ("verificada", AHORA))
         self.assertEqual((se.status, se.error_code), ("error", "source_rate_limited"))
 
@@ -145,7 +147,7 @@ class TestEstadoDeFuentes(unittest.TestCase):
         record_source_outcomes(estado, {"hn": SourceProgress(
             "hn", status="done", items=5, requests=2, stop_reason="source_budget_exhausted")},
             now=AHORA)
-        self.assertEqual(estado.get("hn").status, "verificada")
+        self.assertEqual(presente(estado.get("hn")).status, "verificada")
 
     def test_sin_ninguna_peticion_no_hubo_respuesta_que_verifique(self):
         estado = InMemorySourcesState()

@@ -12,6 +12,7 @@ Base desechable; datos inventados.
 
 import unittest
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 from core.evidence.model import EvidenceItem
 from core.evidence.search import RRF_K, evidence_hits, fuse_rrf, lexical_ids
@@ -51,6 +52,8 @@ def pieza(n, texto, titulo=None):
 
 @unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestBusquedaEnLaBase(unittest.TestCase):
+    dsn: ClassVar[str]
+
     @classmethod
     def setUpClass(cls):
         from pathlib import Path

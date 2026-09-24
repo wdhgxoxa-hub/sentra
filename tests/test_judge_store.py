@@ -11,11 +11,13 @@ Base desechable; datos inventados.
 
 import unittest
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 from core.evidence.model import EvidenceItem
 from core.judge.labels import VerifiedLabel
 from core.judge.store import PostgresLabelCache, recent_evidence, top_verdicts
 from core.storage.postgres_store import PostgresStore, run_async
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 TEST_DB = "rir_judge_store_test"
@@ -45,6 +47,8 @@ def veredicto(clave, verdict, score, miembros):
 
 @unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestPersistenciaDelJuez(unittest.TestCase):
+    dsn: ClassVar[str]
+
     @classmethod
     def setUpClass(cls):
         import psycopg
@@ -78,7 +82,7 @@ class TestPersistenciaDelJuez(unittest.TestCase):
                                  is_pain="yes", intent="queja", workaround_described="no",
                                  wtp_signal="undetermined", evidence_spans={"is_pain": "queja"})
         PostgresLabelCache(self.dsn).put(etiqueta)
-        leida = PostgresLabelCache(self.dsn).get("a" * 64, "labels-v1/m")
+        leida = presente(PostgresLabelCache(self.dsn).get("a" * 64, "labels-v1/m"))
         self.assertEqual(leida.model_dump(exclude={"item_id"}), etiqueta.model_dump(exclude={"item_id"}))
         self.assertIsNone(PostgresLabelCache(self.dsn).get("a" * 64, "labels-v2/m"))
 

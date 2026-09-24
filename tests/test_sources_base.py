@@ -29,6 +29,7 @@ from core.sources.errors import (
     SourceRateLimited,
     SourceUnavailable,
 )
+from tests._ayudas import presente
 
 SAL = "1a" * 32
 
@@ -193,7 +194,7 @@ class TestCodigosTraducidos(unittest.TestCase):
         for idioma in ("es", "en"):
             fuente = (raiz / f"{idioma}.ts").read_text(encoding="utf-8")
             bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
-            traducidos = set(re.findall(r"^\s+(\w+):", bloque.group(1), re.MULTILINE))
+            traducidos = set(re.findall(r"^\s+(\w+):", presente(bloque).group(1), re.MULTILINE))
             with self.subTest(idioma=idioma):
                 self.assertEqual({e.code for e in TODOS} - traducidos, set())
 

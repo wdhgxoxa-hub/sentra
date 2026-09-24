@@ -10,6 +10,7 @@ comercial y lo dice.
 
 import unittest
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from core.sources.base import CostModel, CredentialField, ProbeResult, SourceAdapter
 from core.sources.registry import (
@@ -17,6 +18,7 @@ from core.sources.registry import (
     active_sources,
     source_status,
 )
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 
@@ -142,6 +144,8 @@ TEST_DB = "rir_sources_state_test"
 
 @unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestEnPostgres(unittest.TestCase):
+    dsn: ClassVar[str]
+
     """El repositorio de PostgreSQL cumple el mismo contrato que el de memoria."""
 
     @classmethod
@@ -175,9 +179,9 @@ class TestEnPostgres(unittest.TestCase):
         repo.set_disabled("github", True)
         repo.set_disabled("github", False)
         otra = PostgresSourcesState(self.dsn)
-        hn = otra.get("hackernews")
+        hn = presente(otra.get("hackernews"))
         self.assertEqual((hn.status, hn.last_verified_at), ("verificada", HORA))
-        gh = otra.get("github")
+        gh = presente(otra.get("github"))
         self.assertEqual((gh.status, gh.error_code, gh.disabled), ("error", "source_auth_failed", False))
         self.assertIsNone(otra.get("mastodon"))
 

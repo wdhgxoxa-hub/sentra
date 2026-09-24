@@ -34,3 +34,9 @@ disallow_untyped_defs = true
 # con un argumento que ya no existía.
 module = "scripts.*"
 check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# Los tests tampoco se anotan del todo, pero sus cuerpos se revisan (D4): un
+# doble que no cumple la interfaz o un Optional sin comprobar ya no pasan.
+module = "tests.*"
+check_untyped_defs = true

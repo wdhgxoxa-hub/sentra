@@ -10,10 +10,12 @@ guardada no cambia, y el autor solo llega como hash.
 
 import unittest
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from core.evidence.author import author_hash
 from core.evidence.model import Engagement, EvidenceItem
 from core.storage.postgres_store import PostgresStore, run_async
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 TEST_DB = "rir_evidence_store_test"
@@ -36,6 +38,8 @@ def item(nativo="42", texto="I export invoices by hand every week", **cambios):
 
 @unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestUpsertEvidence(unittest.TestCase):
+    dsn: ClassVar[str]
+
     @classmethod
     def setUpClass(cls):
         import psycopg
@@ -90,9 +94,9 @@ class TestUpsertEvidence(unittest.TestCase):
         import psycopg
 
         with psycopg.connect(self.dsn) as conn:
-            n = conn.execute(
+            n = presente(conn.execute(
                 "SELECT count(*) FROM radar.evidence_items WHERE id = 'stackexchange:7'"
-            ).fetchone()[0]
+            ).fetchone())[0]
         self.assertEqual(n, 1)
         self.assertEqual(self.fila("stackexchange:7")["score"], 30)
 

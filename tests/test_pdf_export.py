@@ -15,6 +15,7 @@ import unittest
 from pypdf import PdfReader
 
 from core.documents.pdf_report import build_pdf
+from tests._ayudas import presente
 
 ETIQUETA = "Facturación manual: ¿por qué falla? ¡Otra vez! Ñandú"
 
@@ -114,7 +115,7 @@ class TestDocumentoPdf(unittest.TestCase):
         for titulo in SECCIONES_ES:
             encontrado = re.search(r"(\d+)\s*\n\s*" + re.escape(titulo), texto[1])
             self.assertIsNotNone(encontrado, titulo)
-            pagina = int(encontrado.group(1))
+            pagina = int(presente(encontrado).group(1))
             self.assertIn(titulo, texto[pagina - 1], titulo)
 
     def test_el_indice_no_se_lista_a_si_mismo(self):

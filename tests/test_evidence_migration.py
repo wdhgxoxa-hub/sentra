@@ -20,6 +20,7 @@ from pathlib import Path
 
 from core.evidence.author import author_hash
 from scripts.migrate import MigrationError, migrate
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -114,20 +115,20 @@ class TestMigracion009(unittest.TestCase):
 
         with psycopg.connect(self.dsn) as conn:
             conn.execute("SET search_path = radar, public")
-            tid = conn.execute("SELECT id FROM tenants WHERE slug = 'local'").fetchone()[0]
+            tid = presente(conn.execute("SELECT id FROM tenants WHERE slug = 'local'").fetchone())[0]
             runs = {}
             for nombre, fuente in (("nula", None), ("demo", "demo"), ("reddit", "reddit")):
-                runs[nombre] = conn.execute(
+                runs[nombre] = presente(conn.execute(
                     "INSERT INTO pipeline_runs (tenant_id, subreddit_name, status, data_source) "
                     "VALUES (%s, 'SaaS', 'completed', %s) RETURNING id", (tid, fuente),
-                ).fetchone()[0]
+                ).fetchone())[0]
             posts = {}
             for rid, run, autor, enlace in (
                 ("t3_leg", "nula", "ana_legado", None),
                 ("t3_dem", "demo", "bruno_demo", "https://reddit.com/r/SaaS/comments/t3_dem"),
                 ("t3_red", "reddit", "Carla_Reddit", "https://www.reddit.com/r/SaaS/comments/red/"),
             ):
-                posts[rid] = conn.execute(
+                posts[rid] = presente(conn.execute(
                     "INSERT INTO raw_posts (tenant_id, run_id, reddit_id, subreddit_name, title, "
                     "selftext, author, score, num_comments, created_utc, permalink, content_hash, "
                     "data_source, raw_payload) VALUES (%s, %s, %s, 'SaaS', 'Título ' || %s, "
@@ -137,7 +138,7 @@ class TestMigracion009(unittest.TestCase):
                     "'author_fullname', 't2_' || %s::text)) "
                     "RETURNING id",
                     (tid, runs[run], rid, rid, autor, enlace, rid, runs[run], rid, autor, autor),
-                ).fetchone()[0]
+                ).fetchone())[0]
             conn.execute(
                 "INSERT INTO raw_comments (tenant_id, post_id, run_id, reddit_id, author, body, "
                 "created_utc, permalink, content_hash, data_source, raw_payload) VALUES (%s, %s, "
@@ -146,12 +147,12 @@ class TestMigracion009(unittest.TestCase):
                 "'{\"author\": \"dario_comenta\", \"body\": \"Un comentario\"}'::jsonb)",
                 (tid, posts["t3_dem"], runs["demo"]),
             )
-            senal = conn.execute(
+            senal = presente(conn.execute(
                 "INSERT INTO analyzed_signals (tenant_id, run_id, source_kind, post_id, reddit_id, "
                 "subreddit_name, author, content, created_utc, data_source) VALUES (%s, %s, 'post', "
                 "%s, 't3_dem', 'SaaS', 'bruno_demo', 'x', now(), 'demo') RETURNING id",
                 (tid, runs["demo"], posts["t3_dem"]),
-            ).fetchone()[0]
+            ).fetchone())[0]
             conn.execute(
                 "INSERT INTO opportunity_clusters (tenant_id, run_id, cluster_key, label, "
                 "mention_count, community_count, final_score, opportunity_id, evidence, "

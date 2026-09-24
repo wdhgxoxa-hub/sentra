@@ -11,6 +11,7 @@ fallo: la fuente termina con ese motivo. Al final se deduplica.
 import asyncio
 import unittest
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -48,14 +49,14 @@ class Base(SourceAdapter):
 
 
 def fuente(clase, **presupuesto):
-    return clase(http=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: None)),
+    return clase(http=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(599))),
                  budget=SourceBudget(**presupuesto), credentials={}, author_salt=SAL)
 
 
 class Buena(Base):
     id = "buena"
     display_name = "Buena"
-    textos = ("queja uno", "queja dos")
+    textos: tuple[str, ...] = ("queja uno", "queja dos")
 
 
 class Rota(Base):
@@ -79,7 +80,7 @@ class Original(Base):
 
 class TestParalelo(unittest.IsolatedAsyncioTestCase):
     async def test_el_fallo_de_una_fuente_no_detiene_las_demas(self):
-        eventos = []
+        eventos: list[dict[str, Any]] = []
         resultado = await run_multisource_scan(
             [fuente(Buena), fuente(Rota)], QUERY, on_event=eventos.append)
         self.assertEqual(resultado.per_source["buena"].status, "done")

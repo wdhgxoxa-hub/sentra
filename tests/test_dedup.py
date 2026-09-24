@@ -19,6 +19,7 @@ from core.sources.dedup import (
     MIN_CHARS_FOR_SEMANTIC_DEDUP,
     deduplicate,
 )
+from tests._ayudas import presente
 
 BASE = datetime(2026, 9, 1, tzinfo=UTC)
 LARGO = ("Every month I export all our invoices by hand into a spreadsheet because the "
@@ -61,7 +62,7 @@ class TestDeduplicar(unittest.TestCase):
         self.assertEqual([i.id for i in resultado.canonical], ["hackernews:1"])
         [dup] = resultado.duplicates
         self.assertEqual(dup.method, "embedding")
-        self.assertAlmostEqual(dup.similarity, float(np.cos(0.1)), places=4)
+        self.assertAlmostEqual(presente(dup.similarity), float(np.cos(0.1)), places=4)
 
     def test_dos_quejas_distintas_del_mismo_problema_no_se_funden(self):
         a = item("1", LARGO, horas=0)

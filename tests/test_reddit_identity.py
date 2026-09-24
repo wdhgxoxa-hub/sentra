@@ -31,6 +31,7 @@ from core.ingestion import RedditIngestionClient
 from core.ingestion.auth import RedditOAuth
 from core.ingestion.errors import RedditUserAgentInvalid
 from core.ingestion.user_agent import validar_user_agent
+from tests._ayudas import presente
 from tests._sin_red import prohibir_red_real
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -183,7 +184,7 @@ class TestUserAgent(ConRedFalsa):
             for bloque in ("errors",):
                 encontrado = re.search(rf"\n  {bloque}: \{{(.*?)\n  \}},", fuente, re.DOTALL)
                 self.assertIsNotNone(encontrado, (idioma, bloque))
-                self.assertIn("reddit_user_agent_invalid:", encontrado.group(1), (idioma, bloque))
+                self.assertIn("reddit_user_agent_invalid:", presente(encontrado).group(1), (idioma, bloque))
 
 
 if __name__ == "__main__":

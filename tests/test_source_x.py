@@ -22,6 +22,7 @@ from core.sources.budget import SourceBudget
 from core.sources.errors import SourceBudgetExhausted, SourcePendingApproval
 from core.sources.registry import InMemorySourcesState, active_sources, source_status
 from core.sources.x import XSource
+from tests._ayudas import presente
 
 SAL = "e0" * 32
 TOKEN = {"bearer_token": "x-token-inventado"}
@@ -77,7 +78,7 @@ class TestCodigoConDobles(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(XSource.cost_model.unit, "usd")
         presupuesto = XSource.default_budget()
         self.assertIsNotNone(presupuesto.max_usd)
-        self.assertGreater(presupuesto.max_usd, 0)
+        self.assertGreater(presente(presupuesto.max_usd), 0)
 
     async def test_busqueda_reciente_con_bearer_y_sin_nombre_de_usuario(self):
         peticiones = []

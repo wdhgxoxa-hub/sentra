@@ -98,11 +98,6 @@ class TestGeminiEndpoints(ConfigTestCase):
         cuerpo = self.client.post("/api/gemini/test").json()
         self.assertFalse(cuerpo["ok"])
 
-    def eventos(respuesta):
-        """El cuerpo NDJSON del plan, evento a evento (AUD-020)."""
-        import json
-
-        return [json.loads(linea) for linea in respuesta.text.splitlines() if linea]
 
 
 if __name__ == "__main__":

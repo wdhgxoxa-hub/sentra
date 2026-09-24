@@ -18,6 +18,7 @@ from unittest import mock
 import psycopg
 from fastapi.testclient import TestClient
 
+from tests._ayudas import presente
 from tests._sin_red import prohibir_red_real
 
 
@@ -87,7 +88,7 @@ class TestTraduccion(unittest.TestCase):
             fuente = (raiz / f"{idioma}.ts").read_text(encoding="utf-8")
             bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
             with self.subTest(idioma=idioma):
-                self.assertRegex(bloque.group(1), r"\n\s+migrations_pending:")
+                self.assertRegex(presente(bloque).group(1), r"\n\s+migrations_pending:")
 
 
 if __name__ == "__main__":

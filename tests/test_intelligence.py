@@ -12,6 +12,7 @@ Verifica el 100% de los módulos de la Fase 3:
 import math
 import unittest
 from datetime import UTC, datetime
+from typing import Any
 from unittest import mock
 
 from core.intelligence.clustering import TopicClusterer
@@ -19,6 +20,7 @@ from core.intelligence.engine import IntelligenceEngine
 from core.intelligence.jtbd_analyzer import JTBDAnalyzer
 from core.intelligence.temporal_scoring import OpportunityMetrics, TemporalScorer
 from core.intelligence.zeroshot_nli import ZeroShotNLIClassifier
+from tests._ayudas import presente
 
 
 class TestTemporalScorer(unittest.TestCase):
@@ -78,7 +80,9 @@ class TestTemporalScorer(unittest.TestCase):
     def test_default_weights_are_not_shared_mutable_state(self):
         """Los pesos por defecto son de la clase: nadie puede cambiarlos para todos."""
         with self.assertRaises(TypeError):
-            TemporalScorer.DEFAULT_WEIGHTS["spread"] = 1.0
+            # Se intenta a propósito lo que el tipo prohíbe: es lo que se comprueba.
+            pesos: Any = TemporalScorer.DEFAULT_WEIGHTS
+            pesos["spread"] = 1.0
         self.scorer.weights["spread"] = 0.0
         self.assertEqual(TemporalScorer().weights["spread"], 0.25)
 
@@ -102,7 +106,7 @@ class TestJTBDAnalyzer(unittest.TestCase):
         has_workaround, desc = self.analyzer.detect_workaround(text_with_hack)
         self.assertTrue(has_workaround)
         self.assertIsNotNone(desc)
-        self.assertIn("python script", desc)
+        self.assertIn("python script", presente(desc))
 
         clean_text = "Does this feature work out of the box?"
         has_workaround, _ = self.analyzer.detect_workaround(clean_text)
@@ -230,7 +234,7 @@ class TestIntelligenceEngine(unittest.TestCase):
         self.assertEqual(signal.id, "item_01")
         self.assertEqual(signal.buying_intent, "seeking alternative")
         self.assertEqual(signal.jtbd.willingness_to_pay, "explicit")
-        self.assertIn("Salesforce", signal.jtbd.current_solution)
+        self.assertIn("Salesforce", presente(signal.jtbd.current_solution))
         self.assertGreater(signal.score_breakdown.final_score, 40.0)
 
     def test_analyze_batch(self):

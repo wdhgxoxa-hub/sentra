@@ -11,6 +11,7 @@ aporta cero a su componente de la puntuación.
 import itertools
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 from core.intelligence import IntelligenceEngine
 from core.intelligence.zeroshot_nli import (
@@ -20,6 +21,7 @@ from core.intelligence.zeroshot_nli import (
     UNDETERMINED_LABEL,
     ZeroShotNLIClassifier,
 )
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 SIN_EVIDENCIA = [
@@ -86,6 +88,8 @@ class TestReglaDeDecision(unittest.TestCase):
 
 
 class TestPuntuacion(unittest.TestCase):
+    engine: ClassVar[IntelligenceEngine]
+
 
     @classmethod
     def setUpClass(cls):
@@ -126,9 +130,9 @@ class TestMigracionUndetermined(unittest.TestCase):
             migrate(dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
             with psycopg.connect(dsn) as conn:
                 for tipo in ("buying_intent", "pain_severity", "sentiment_label"):
-                    valores = conn.execute(
+                    valores = presente(conn.execute(
                         f"SELECT enum_range(NULL::radar.{tipo})::text[]"
-                    ).fetchone()[0]
+                    ).fetchone())[0]
                     self.assertIn("undetermined", valores, tipo)
         finally:
             with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:

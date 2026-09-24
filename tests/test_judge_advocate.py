@@ -24,6 +24,7 @@ from core.judge.advocate import (
 from core.judge.gates import judge_cluster
 from core.judge.labels import VerifiedLabel
 from core.llm.base import LLMError
+from tests._ayudas import presente
 
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 FUENTES = ("hackernews", "stackexchange", "github")
@@ -47,7 +48,8 @@ class LLMAbogado:
     def __init__(self, informe=None, error=None):
         self.informe, self.error, self.prompts = informe, error, []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None):
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+                      thinking_budget=None):
         self.prompts.append(prompt)
         if self.error:
             raise self.error
@@ -72,7 +74,7 @@ class TestSoloBaja(unittest.TestCase):
             evidence_ids=["hackernews:0", "stackexchange:1"], severity="bloqueante")), self.ids)
         self.assertEqual((resultado.verdict_before, resultado.verdict_after), ("CONSTRUIR", "INVESTIGAR MÁS"))
         self.assertTrue(resultado.downgraded)
-        self.assertIn("bloqueante", resultado.reason)
+        self.assertIn("bloqueante", presente(resultado.reason))
 
     def test_un_argumento_con_ids_inventados_se_descarta(self):
         resultado = apply_advocate(self.juicio, informe(AdvocateArgument(
@@ -122,7 +124,7 @@ class TestEjecucion(unittest.TestCase):
         llm = LLMAbogado(error=LLMError("fallo inventado"))
         resultado = run_advocate(self.juicio, self.items, provider=llm, model="m")
         self.assertEqual(resultado.verdict_after, "INVESTIGAR MÁS")
-        self.assertTrue(resultado.reason.startswith("advocate_unavailable"))
+        self.assertTrue(presente(resultado.reason).startswith("advocate_unavailable"))
 
 
 if __name__ == "__main__":

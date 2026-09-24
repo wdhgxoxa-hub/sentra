@@ -28,6 +28,7 @@ from core.storage.embeddings import (
     FastEmbedEmbedder,
     HashEmbedder,
 )
+from tests._ayudas import presente
 
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -135,12 +136,12 @@ class TestAlmacenDeEvidencia(unittest.TestCase):
         self.almacen.upsert([item("1", "export invoices by hand"), item("2", "otra queja")])
         self.almacen.upsert([item("1", "export invoices by hand, updated")])
         self.assertEqual(self.almacen.count(), 2)
-        fila = self.almacen.get("hackernews:1")
+        fila = presente(self.almacen.get("hackernews:1"))
         self.assertEqual(fila["text"], "export invoices by hand, updated")
 
     def test_cada_fila_lleva_fuente_e_id_global_y_ningun_autor(self):
         self.almacen.upsert([item("1", "texto", fuente="stackexchange")])
-        fila = self.almacen.get("stackexchange:1")
+        fila = presente(self.almacen.get("stackexchange:1"))
         self.assertEqual((fila["source"], fila["community"], fila["data_source"]),
                          ("stackexchange", "Ask HN", "real"))
         self.assertFalse({"author", "author_hash"} & set(self.almacen.columnas()))

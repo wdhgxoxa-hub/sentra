@@ -16,11 +16,13 @@ import json
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from core.evidence.model import EvidenceItem
 from core.judge.calibration import agreement
 from core.judge.labels import (
     LABELER_VERSION,
+    CompetitorMention,
     InMemoryLabelCache,
     LLMItemLabel,
     LLMLabelBatch,
@@ -47,8 +49,8 @@ def etiqueta_perfecta(item_id, dorado):
         item_id=item_id, is_pain=esperado["is_pain"], pain_confidence=0.9,
         intent=esperado["intent"], workaround_described=esperado["workaround_described"],
         wtp_signal=esperado["wtp_signal"],
-        competitors_mentioned=[{"name": c["name"], "stance": c["stance"],
-                                "evidence_span": spans[f"competitors.{c['name']}"]}
+        competitors_mentioned=[CompetitorMention(name=c["name"], stance=c["stance"],
+                                                 evidence_span=spans[f"competitors.{c['name']}"])
                                for c in esperado["competitors"]],
         evidence_spans={k: v for k, v in spans.items() if not k.startswith("competitors.")})
 
@@ -80,7 +82,7 @@ class TestVerificacion(unittest.TestCase):
     TEXTO = "I wrote a Python script that scrapes our CRM export and emails the weekly report."
 
     def etiqueta(self, **cambios):
-        base = {"item_id": "x", "is_pain": True, "pain_confidence": 0.8, "intent": "parche_casero",
+        base: dict[str, Any] = {"item_id": "x", "is_pain": True, "pain_confidence": 0.8, "intent": "parche_casero",
                 "workaround_described": True, "wtp_signal": False,
                 "evidence_spans": {"is_pain": "scrapes our CRM export",
                                    "intent": "I wrote a Python script",

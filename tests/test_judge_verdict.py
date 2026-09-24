@@ -22,6 +22,7 @@ from core.judge.gates import (
     judge_cluster,
 )
 from core.judge.labels import VerifiedCompetitor, VerifiedLabel
+from tests._ayudas import presente
 
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 FUENTES = ("hackernews", "stackexchange", "github")
@@ -179,11 +180,11 @@ class TestPuntaje(unittest.TestCase):
         self.assertEqual(puntaje.weights_version, WEIGHTS_VERSION)
         dims = {d.name: d for d in puntaje.dimensions}
         self.assertEqual(dims["frecuencia"].value, 10)
-        self.assertAlmostEqual(dims["frecuencia"].normalized, 10 / 30)
+        self.assertAlmostEqual(presente(dims["frecuencia"].normalized), 10 / 30)
         self.assertEqual(dims["convergencia"].value, 3)
         self.assertEqual(dims["viabilidad"].normalized, None, "undetermined en F3")
-        base = (0.25 * 10 / 30 + 0.25 * 1 / 5 + 0.20 * 1 / 5 + 0.15 * dims["hueco"].normalized
-                + 0.15 * dims["tendencia"].normalized)
+        base = (0.25 * 10 / 30 + 0.25 * 1 / 5 + 0.20 * 1 / 5 + 0.15 * presente(dims["hueco"].normalized)
+                + 0.15 * presente(dims["tendencia"].normalized))
         self.assertAlmostEqual(puntaje.score, 100 * base * (0.5 + 0.5 * 1.0))
 
     def test_cada_dimension_lista_sus_items(self):

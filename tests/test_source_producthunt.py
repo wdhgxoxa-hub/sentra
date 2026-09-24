@@ -18,6 +18,7 @@ Términos: sin uso comercial sin permiso. Datos inventados (R8).
 import json
 import unittest
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -76,7 +77,7 @@ class TestDeclaracion(unittest.TestCase):
 
 class TestBusqueda(unittest.IsolatedAsyncioTestCase):
     async def test_temas_del_perfil_y_luego_sus_productos_en_la_ventana(self):
-        peticiones = []
+        peticiones: list[tuple[httpx.Request, Any]] = []
         consulta = SearchQuery(keywords=["invoicing"], since=datetime(2026, 1, 1, tzinfo=UTC))
         await todos(fuente(servidor(peticiones)).search(consulta))
         (p_temas, temas), (_p_posts, posts) = peticiones
@@ -102,8 +103,8 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("usuaria_inventada", visible.model_dump_json(), "R9")
 
     async def test_sin_temas_que_casen_no_pide_productos(self):
-        peticiones = []
-        vacio = {"data": {"topics": {"edges": []}}}
+        peticiones: list[tuple[httpx.Request, Any]] = []
+        vacio: dict[str, Any] = {"data": {"topics": {"edges": []}}}
         self.assertEqual(await todos(fuente(servidor(peticiones, temas=vacio)).search(
             SearchQuery(keywords=["nada"]))), [])
         self.assertEqual(len(peticiones), 1)
@@ -130,7 +131,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
 
 class TestSonda(unittest.IsolatedAsyncioTestCase):
     async def test_sonda_minima(self):
-        peticiones = []
+        peticiones: list[tuple[httpx.Request, Any]] = []
         resultado = await fuente(servidor(peticiones)).probe()
         self.assertTrue(resultado.ok)
         self.assertIn("first: 1", peticiones[0][1]["query"])

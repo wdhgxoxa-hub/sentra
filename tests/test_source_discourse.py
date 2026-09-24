@@ -89,7 +89,7 @@ class TestDeclaracion(unittest.TestCase):
 
 class TestBusqueda(unittest.IsolatedAsyncioTestCase):
     async def test_busca_en_el_foro_y_lee_el_texto_completo_por_tema(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         consulta = SearchQuery(keywords=["invoice"], phrases=["is there a"],
                                since=datetime(2026, 1, 1, tzinfo=UTC))
         [item] = await todos(fuente(servidor(peticiones)).search(consulta))
@@ -109,7 +109,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("autor_inventado", item.model_dump_json(), "R9")
 
     async def test_los_objetivos_del_perfil_se_suman_a_los_de_la_tarjeta(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
         await todos(fuente(servidor(peticiones, busqueda={"posts": [], "topics": []})).search(
             SearchQuery(keywords=["x"], targets={"discourse": ["https://otro.example.net/"]})))
         self.assertEqual({urlparse(str(p.url)).netloc for p in peticiones},
@@ -129,7 +129,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
 
 class TestSonda(unittest.IsolatedAsyncioTestCase):
     async def test_la_sonda_consulta_about_json_del_primer_foro(self):
-        peticiones = []
+        peticiones: list[httpx.Request] = []
 
         def manejador(peticion):
             peticiones.append(peticion)

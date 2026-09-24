@@ -16,6 +16,7 @@ from unittest import mock
 
 import httpx
 
+from tests._ayudas import presente
 from tests.test_sidecar_config import ConfigTestCase
 from tests.test_sidecar_sources import con_transporte
 
@@ -213,19 +214,20 @@ class TestCodigosTraducidos(unittest.TestCase):
 
         raiz = Path(__file__).resolve().parents[1]
         arbol = ast.parse((raiz / "core/orchestration/sidecar/multiscan.py").read_text("utf-8"))
-        codigos = {
-            n.values[[k.value for k in n.keys].index("code")].value
-            for n in ast.walk(arbol)
-            if isinstance(n, ast.Dict)
-            and all(isinstance(k, ast.Constant) for k in n.keys)
-            and {"type", "code"} <= {k.value for k in n.keys}
-            and isinstance(n.values[[k.value for k in n.keys].index("code")], ast.Constant)
-        }
+        codigos = set()
+        for n in ast.walk(arbol):
+            if not isinstance(n, ast.Dict):
+                continue
+            pares = {k.value: v for k, v in zip(n.keys, n.values, strict=True)
+                     if isinstance(k, ast.Constant)}
+            valor = pares.get("code")
+            if "type" in pares and isinstance(valor, ast.Constant):
+                codigos.add(valor.value)
         self.assertIn("no_active_sources", codigos)
         for idioma in ("es", "en"):
             fuente = (raiz / "ui/src/i18n" / f"{idioma}.ts").read_text(encoding="utf-8")
             bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
-            traducidos = set(re.findall(r"^\s+(\w+):", bloque.group(1), re.MULTILINE))
+            traducidos = set(re.findall(r"^\s+(\w+):", presente(bloque).group(1), re.MULTILINE))
             with self.subTest(idioma=idioma):
                 self.assertEqual(codigos - traducidos, set())
 

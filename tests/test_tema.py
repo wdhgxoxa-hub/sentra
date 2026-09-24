@@ -15,6 +15,7 @@ import math
 import re
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 CSS = Path(__file__).resolve().parents[1] / "ui" / "src" / "styles.css"
 
@@ -95,6 +96,10 @@ def _bloque(texto: str, inicio: str) -> str:
 
 
 class BaseTema(unittest.TestCase):
+    css: ClassVar[str]
+    claro: ClassVar[dict[str, tuple[float, float, float, float]]]
+    oscuro: ClassVar[dict[str, tuple[float, float, float, float]]]
+
     @classmethod
     def setUpClass(cls):
         cls.css = CSS.read_text(encoding="utf-8")

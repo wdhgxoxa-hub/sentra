@@ -23,6 +23,7 @@ import pyarrow as pa
 from core.storage import HashEmbedder, LanceDBStore
 from core.storage.lancedb_store import OpportunityRecord
 from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes
+from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -56,10 +57,10 @@ class TestLanceDB(unittest.TestCase):
         }], schema=antiguo)
 
         store = almacen(self.tmp / "vieja")
-        self.assertIsNone(store.get_by_id("t3_viejo")["data_source"])
+        self.assertIsNone(presente(store.get_by_id("t3_viejo"))["data_source"])
         store.insert_opportunities([OpportunityRecord(id="t3_nuevo", text="x",
                                                       data_source="reddit")])
-        self.assertEqual(store.get_by_id("t3_nuevo")["data_source"], "reddit")
+        self.assertEqual(presente(store.get_by_id("t3_nuevo"))["data_source"], "reddit")
 
 
 class TestRellenoDeLanceDB(unittest.TestCase):
@@ -86,9 +87,9 @@ class TestRellenoDeLanceDB(unittest.TestCase):
         ])
         cambiadas = rellenar_fuentes(store, {"t3_a": "demo", "t3_b": "demo", "t3_c": None})
         self.assertEqual(cambiadas, 1)
-        self.assertEqual(store.get_by_id("t3_a")["data_source"], "demo")
-        self.assertEqual(store.get_by_id("t3_b")["data_source"], "reddit")
-        self.assertIsNone(store.get_by_id("t3_c")["data_source"])
+        self.assertEqual(presente(store.get_by_id("t3_a"))["data_source"], "demo")
+        self.assertEqual(presente(store.get_by_id("t3_b"))["data_source"], "reddit")
+        self.assertIsNone(presente(store.get_by_id("t3_c"))["data_source"])
 
 
 TEST_DB = "rir_provenance_test"
@@ -158,21 +159,21 @@ class TestPostgres(unittest.TestCase):
         with psycopg.connect(self.dsn) as conn:
             conn.execute("SET search_path = radar, public")
             # El tenant local lo crea la migración 001.
-            tid = conn.execute("SELECT id FROM tenants WHERE slug = 'local'").fetchone()[0]
+            tid = presente(conn.execute("SELECT id FROM tenants WHERE slug = 'local'").fetchone())[0]
             runs = {}
             for nombre, fuente in (("demo", "demo"), ("reddit", "reddit"), ("nula", None)):
-                runs[nombre] = conn.execute(
+                runs[nombre] = presente(conn.execute(
                     "INSERT INTO pipeline_runs (tenant_id, subreddit_name, status, data_source) "
                     "VALUES (%s, 'SaaS', 'completed', %s) RETURNING id", (tid, fuente),
-                ).fetchone()[0]
+                ).fetchone())[0]
             posts = {}
             for rid, run in (("t3_demo", runs["demo"]), ("t3_reddit", runs["reddit"]),
                              ("t3_sin_run", None), ("t3_run_sin_fuente", runs["nula"])):
-                posts[rid] = conn.execute(
+                posts[rid] = presente(conn.execute(
                     "INSERT INTO raw_posts (tenant_id, run_id, reddit_id, subreddit_name, "
                     "created_utc, content_hash) VALUES (%s, %s, %s, 'SaaS', now(), %s) "
                     "RETURNING id", (tid, run, rid, rid),
-                ).fetchone()[0]
+                ).fetchone())[0]
             for rid, run in (("t3_demo", runs["demo"]), ("t3_reddit", runs["reddit"])):
                 conn.execute(
                     "INSERT INTO analyzed_signals (tenant_id, run_id, source_kind, post_id, "

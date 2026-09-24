@@ -9,6 +9,7 @@ es un doble.
 """
 
 import unittest
+from typing import Any
 from unittest import mock
 
 import httpx
@@ -93,7 +94,8 @@ class TestSinRed(unittest.TestCase):
 
         prohibir_red_real(self)
         with self.assertRaises(AssertionError):
-            multiscan._juzgar(None, "run", None)
+            nada: Any = None  # a propósito: sin contexto ni resultado
+            multiscan._juzgar(nada, "run", nada)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from core.orchestration.sidecar_server import (
@@ -140,7 +141,7 @@ class TestSurface(SidecarTestCase):
         paths = {
             route.path
             for route in self.app.routes
-            if getattr(route, "path", "").startswith("/api")
+            if isinstance(route, APIRoute) and route.path.startswith("/api")
         }
         self.assertEqual(
             paths,

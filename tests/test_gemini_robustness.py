@@ -25,6 +25,7 @@ from unittest import mock
 from google.genai import errors, types
 
 from core.llm import gemini as gemini_client
+from tests._ayudas import presente
 
 CLAVE = "clave-de-prueba"
 
@@ -223,7 +224,7 @@ class TestCodigosTraducidos(unittest.TestCase):
                       / f"{idioma}.ts").read_text(encoding="utf-8")
             bloque = re.search(r"\n  errors: \{(.*?)\n  \},", fuente, re.DOTALL)
             self.assertIsNotNone(bloque, idioma)
-            traducidos = set(re.findall(r"^\s+(\w+):", bloque.group(1), re.MULTILINE))
+            traducidos = set(re.findall(r"^\s+(\w+):", presente(bloque).group(1), re.MULTILINE))
             self.assertEqual(codigos - traducidos, set(), idioma)
 
 
