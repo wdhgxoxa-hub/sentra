@@ -14,7 +14,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
-from tests.humo_exe import Observado, Verdad, esperado, evaluar
+from tests.humo_exe import RAIZ, Observado, Verdad, esperado, evaluar
 
 AHORA = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
@@ -76,7 +76,9 @@ class TestEvaluar(unittest.TestCase):
     def test_el_motor_tiene_que_ser_el_de_esta_interfaz_y_no_el_del_repo(self):
         self.assertTrue(evaluar(observado(huella_motor="ffffffffffffffff"), verdad(), ahora=AHORA))
         self.assertTrue(evaluar(observado(huella_motor=None), verdad(), ahora=AHORA))
-        dentro = observado(raiz_motor="F:/reddit_intelligence_radar")
+        # La raíz de este repo, esté donde esté el clon (F1: en una instalación limpia
+        # en otra carpeta, una ruta fija de F: ya no era «el repositorio»).
+        dentro = observado(raiz_motor=str(RAIZ))
         self.assertTrue(any("repositorio" in f for f in evaluar(dentro, verdad(), ahora=AHORA)))
 
     def test_un_exe_sin_la_interfaz_embebida_es_un_fallo(self):
