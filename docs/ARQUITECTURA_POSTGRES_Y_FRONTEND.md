@@ -237,8 +237,10 @@ sola transacción**. Si algo falla, hace rollback y marca la ejecución como
 # 1. Crear la base de datos
 psql -h localhost -U postgres -c "CREATE DATABASE reddit_intelligence_radar"
 
-# 2. Aplicar el esquema
-psql -h localhost -U postgres -d reddit_intelligence_radar -f sql/schema.sql
+# 2. Aplicar el esquema: todas las migraciones pendientes, en orden
+#    (sql/migrations/; el esquema inicial es la migración 001)
+python scripts/migrate.py up --dry-run
+python scripts/migrate.py up
 
 # 3. Comprobar
 psql -h localhost -U postgres -d reddit_intelligence_radar \
@@ -250,13 +252,11 @@ cliente de línea de comandos):
 
 ```bash
 python -c "
-import psycopg, pathlib
+import psycopg
 with psycopg.connect('host=localhost user=postgres dbname=postgres', autocommit=True) as c:
     c.execute('CREATE DATABASE reddit_intelligence_radar')
-with psycopg.connect('host=localhost user=postgres dbname=reddit_intelligence_radar') as c:
-    c.execute(pathlib.Path('sql/schema.sql').read_text(encoding='utf-8')); c.commit()
-print('esquema aplicado')
 "
+python scripts/migrate.py up
 ```
 
 Configuración (`.env`):

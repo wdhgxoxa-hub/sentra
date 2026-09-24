@@ -51,7 +51,7 @@ def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
             return runner.run(coro)
     return asyncio.run(coro)
 
-# Tenant de la instalación local (ver sql/schema.sql).
+# Tenant de la instalación local: lo crea la migración 001 (sql/migrations/001_initial_schema.sql).
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
 DEFAULT_DSN = (
