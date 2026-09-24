@@ -32,8 +32,11 @@ def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
     """(proveedor, modelo, motivo): exactamente la resolución del escaneo."""
     from core.orchestration.sidecar.context import SidecarContext
     from core.orchestration.sidecar.multiscan import _proveedor_del_juez
+    from core.rutas import ruta_cache_modelos_gemini
 
-    ctx = SidecarContext(persist_default=True, postgres_dsn=dsn, env_path=None, started_at=time.monotonic())
+    # La lista de modelos guardada (AUD2-019): el re-juicio no la vuelve a pedir a Google.
+    ctx = SidecarContext(persist_default=True, postgres_dsn=dsn, env_path=None, started_at=time.monotonic(),
+                         cache_modelos=ruta_cache_modelos_gemini())
     return _proveedor_del_juez(ctx)
 
 

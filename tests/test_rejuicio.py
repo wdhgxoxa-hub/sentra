@@ -113,5 +113,28 @@ class TestRejuicio(unittest.TestCase):
         self.assertTrue(all("invoice" not in fila["keywords"] for fila in nuevos), "el tema no nombra nichos")
 
 
+class TestProveedorDelRejuicio(unittest.TestCase):
+    def test_usa_la_lista_de_modelos_guardada_y_no_la_pide_otra_vez(self):
+        # AUD2-019: el re-juicio resolvía el modelo con un contexto sin caché
+        # en disco y listaba los modelos en Google cada vez.
+        from unittest import mock
+
+        from core import rutas
+        from core.orchestration.sidecar import context, multiscan
+        from scripts import rejuzgar as script
+
+        construidos = []
+
+        class Espia(context.SidecarContext):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                construidos.append(self)
+
+        with mock.patch.object(context, "SidecarContext", Espia), \
+                mock.patch.object(multiscan, "_proveedor_del_juez", return_value=(None, None, "sin clave")):
+            script._proveedor("postgresql://x@localhost/y")
+        self.assertEqual([c.cache_modelos for c in construidos], [rutas.ruta_cache_modelos_gemini()])
+
+
 if __name__ == "__main__":
     unittest.main()
