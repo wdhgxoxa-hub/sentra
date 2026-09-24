@@ -51,6 +51,34 @@ def pieza(n, texto, titulo=None):
 
 
 @unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
+class VectoresDobles:
+    """Como EvidenceVectorStore.similar: filas con `_distance` (coseno)."""
+
+    def __init__(self, distancias):
+        self.distancias = distancias
+
+    def similar(self, text, limit=10):
+        return [{"id": i, "_distance": d} for i, d in self.distancias[:limit]]
+
+
+class TestUmbralDenso(unittest.TestCase):
+    """AUD2-009: «zzzz qqqq» devolvía 20 resultados. Medido sobre la evidencia
+    real (79 piezas): lo pertinente tiene su mejor acierto entre 0,235 y 0,391
+    y lo ajeno entre 0,399 y 0,506; la rama densa corta en 0,395."""
+
+    def test_la_rama_densa_no_devuelve_lo_que_no_se_parece(self):
+        from core.evidence.search import MAX_DISTANCIA_DENSA, dense_ids
+
+        self.assertEqual(MAX_DISTANCIA_DENSA, 0.395)
+        vectores = VectoresDobles([("a", 0.25), ("b", 0.391), ("c", 0.399), ("d", 0.50)])
+        self.assertEqual(dense_ids(vectores, "consulta", 20), ["a", "b"])
+
+    def test_una_consulta_sin_sentido_no_encuentra_nada_por_significado(self):
+        from core.evidence.search import dense_ids
+
+        self.assertEqual(dense_ids(VectoresDobles([("x", 0.41), ("y", 0.44)]), "zzzz qqqq", 20), [])
+
+
 class TestBusquedaEnLaBase(unittest.TestCase):
     dsn: ClassVar[str]
 

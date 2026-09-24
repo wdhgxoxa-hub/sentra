@@ -19,14 +19,18 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from core.sources.attribution import attribution_fields
 
 if TYPE_CHECKING:
     from core.storage.postgres_store import PostgresStore
 
-    from .vectors import EvidenceVectorStore
+
+class BusquedaPorSignificado(Protocol):
+    """Lo que la rama densa necesita del almacén de vectores (EvidenceVectorStore)."""
+
+    def similar(self, text: str, limit: int = 10) -> list[dict[str, Any]]: ...
 
 #: Constante de RRF (la del artículo original y la de la búsqueda antigua).
 RRF_K = 60
@@ -56,8 +60,18 @@ def fuse_rrf(dense: Sequence[str], lexical: Sequence[str], k: int = RRF_K) -> li
     return sorted(fusion, key=lambda r: (-r.score, r.id))
 
 
-def dense_ids(vectors: EvidenceVectorStore, query: str, limit: int) -> list[str]:
-    return [fila["id"] for fila in vectors.similar(query, limit=limit)]
+#: AUD2-009: la rama densa siempre devolvía `limit` filas, pareciesen o no
+#: («zzzz qqqq» traía 20). Distancia coseno máxima, medida sobre la evidencia
+#: real (79 piezas, 2026-09-24): el mejor acierto de 9 consultas pertinentes
+#: quedó entre 0,235 y 0,391 y el de 8 ajenas entre 0,399 y 0,506. Provisional:
+#: se recalibra cuando haya más evidencia. La rama léxica no se filtra: una
+#: coincidencia de palabras es pertinente por definición.
+MAX_DISTANCIA_DENSA = 0.395
+
+
+def dense_ids(vectors: BusquedaPorSignificado, query: str, limit: int) -> list[str]:
+    return [fila["id"] for fila in vectors.similar(query, limit=limit)
+            if float(fila.get("_distance", 0.0)) <= MAX_DISTANCIA_DENSA]
 
 
 async def lexical_ids(store: PostgresStore, query: str, limit: int) -> list[str]:
