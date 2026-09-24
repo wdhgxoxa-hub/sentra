@@ -2,7 +2,7 @@
 Re-juicio de un escaneo guardado (AUD2-001, 6.4)
 ===============================================
 
-    python scripts/rejuzgar.py --run <id del escaneo> [--dsn DSN]
+    python scripts/rejuzgar.py --run <id del escaneo> [--dsn DSN] [--max-llamadas N] [--max-etiquetas N]
 
 Pasa el juez actual por la evidencia que ya guardó un escaneo, sin escanear
 de nuevo, y lo guarda como una ejecución nueva «rejuicio» (el escaneo de
@@ -77,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dsn", default=None)
     parser.add_argument("--max-llamadas", type=int, default=None,
                         help="tope de llamadas al LLM (R7); al llegar, el juez hace lo seguro")
+    parser.add_argument("--max-etiquetas", type=int, default=None,
+                        help="tope de piezas etiquetadas (por defecto, el del escaneo)")
     args = parser.parse_args(argv)
     dsn = resolver_dsn(args.dsn)
 
@@ -85,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No se re-juzga: sin proveedor del juez ({motivo}). Sin etiquetas no hay nichos.")
         return 2
 
+    from core.judge.labels import MAX_ITEMS_PER_SCAN
     from core.judge.store import PostgresLabelCache
 
     if args.max_llamadas is not None:
@@ -93,7 +96,8 @@ def main(argv: list[str] | None = None) -> int:
     almacen = _almacen()
     nueva, resumen = rejuzgar(dsn, args.run, provider=proveedor, model=modelo,
                               cache=PostgresLabelCache(dsn), vectores=almacen.vectors,
-                              vectores_frase=almacen.embed_frases, now=datetime.now(UTC))
+                              vectores_frase=almacen.embed_frases, now=datetime.now(UTC),
+                              label_max_items=MAX_ITEMS_PER_SCAN if args.max_etiquetas is None else args.max_etiquetas)
     uso = list(getattr(proveedor, "usage", []) or [])
     print(f"ejecución nueva: {nueva} (rejuicio de {args.run})")
     print(f"modelo: {modelo} · llamadas al LLM: {len(uso)}")

@@ -114,6 +114,18 @@ class TestRejuicio(unittest.TestCase):
         self.assertTrue(nuevos)
         self.assertTrue(all("invoice" not in fila["keywords"] for fila in nuevos), "el tema no nombra nichos")
 
+    def test_el_tope_de_piezas_etiquetadas_se_puede_fijar(self):
+        # Escaneo sin etiquetar (0 llamadas) + re-juicio que etiqueta todo lo que
+        # pasa el filtro bajo un tope duro de llamadas: el tope por defecto (300)
+        # dejaba fuera el resto de un escaneo de ~600 piezas.
+        origen, propias = self._sembrar()
+        vectores = {i.id: [1.0, 0.01 * n, 0.0] for n, i in enumerate(propias)}
+        _, resumen = rejuzgar(self.dsn, origen, provider=LLMDoble(), model="m", cache=InMemoryLabelCache(),
+                              vectores=lambda ids: {k: vectores[k] for k in ids if k in vectores},
+                              vectores_frase=lambda frases: {k: vectores[k] for k in frases if k in vectores},
+                              now=AHORA, label_max_items=2)
+        self.assertEqual((resumen["labeled"], resumen["undetermined"]), (2, {"item_budget": 4}))
+
 
 class TestProveedorDelRejuicio(unittest.TestCase):
     def test_usa_la_lista_de_modelos_guardada_y_no_la_pide_otra_vez(self):
@@ -136,6 +148,27 @@ class TestProveedorDelRejuicio(unittest.TestCase):
                 mock.patch.object(multiscan, "_proveedor_del_juez", return_value=(None, None, "sin clave")):
             script._proveedor("postgresql://x@localhost/y")
         self.assertEqual([c.cache_modelos for c in construidos], [rutas.ruta_cache_modelos_gemini()])
+
+    def test_max_etiquetas_llega_al_juez_y_sin_el_se_usa_el_tope_por_defecto(self):
+        from unittest import mock
+
+        from core.judge.labels import MAX_ITEMS_PER_SCAN
+        from scripts import rejuzgar as script
+
+        pasados = []
+
+        def rejuzgar_espia(*args, **kwargs):
+            pasados.append(kwargs.get("label_max_items"))
+            return "nueva", {}
+
+        with mock.patch.object(script, "_proveedor", return_value=(object(), "m", None)), \
+                mock.patch.object(script, "_almacen"), \
+                mock.patch.object(script, "rejuzgar", rejuzgar_espia), \
+                mock.patch("core.judge.store.PostgresLabelCache"), \
+                mock.patch("builtins.print"):
+            script.main(["--run", "r", "--dsn", "postgresql://x@localhost/y", "--max-etiquetas", "700"])
+            script.main(["--run", "r", "--dsn", "postgresql://x@localhost/y"])
+        self.assertEqual(pasados, [700, MAX_ITEMS_PER_SCAN])
 
 
 if __name__ == "__main__":

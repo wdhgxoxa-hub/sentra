@@ -21,7 +21,7 @@ from core.evidence.model import Engagement, EvidenceItem
 from core.llm.base import JsonGenerator
 from core.storage.postgres_store import PostgresStore, run_async
 
-from .labels import LabelCache
+from .labels import MAX_ITEMS_PER_SCAN, LabelCache
 from .pipeline import run_judge
 from .store import marcar_juzgada, previous_identities
 
@@ -62,6 +62,7 @@ def rejuzgar(
     vectores: Callable[[Sequence[str]], Mapping[str, Sequence[float]]],
     vectores_frase: Callable[[Mapping[str, str]], Mapping[str, Sequence[float]]],
     now: datetime,
+    label_max_items: int = MAX_ITEMS_PER_SCAN,
 ) -> tuple[str, dict[str, Any]]:
     """Re-juzga el escaneo `run_origen`; devuelve (id de la ejecución nueva, resumen)."""
 
@@ -78,7 +79,7 @@ def rejuzgar(
             juicio = run_judge(items, vectores([i.id for i in items]), provider=provider, model=model,
                                cache=cache, now=now, vectores_frase=vectores_frase,
                                previous=await previous_identities(store),
-                               tema=list(parametros.get("keywords") or []))
+                               tema=list(parametros.get("keywords") or []), label_max_items=label_max_items)
             nueva = await store.start_run(origen["subreddit_name"], trigger_source=TRIGGER_REJUICIO,
                                           parameters={**parametros, "rejuicio_de": run_origen},
                                           data_source="real")
