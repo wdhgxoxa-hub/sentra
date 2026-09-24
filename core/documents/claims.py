@@ -9,7 +9,8 @@ ese veredicto. Lo técnico del plan (stack, arquitectura, modelo de datos,
 pasos) no es una afirmación de mercado y no lleva cita.
 
 Cada esquema entero es la unión de dos mitades (`...PartA`, `...PartB`): si la
-respuesta se trunca, se piden por separado (E4).
+respuesta se trunca, se piden por separado (E4). Se hereda B antes que A para
+que las propiedades de A vayan primero: el modelo genera en ese orden.
 """
 
 from __future__ import annotations
@@ -96,7 +97,7 @@ class DossierPartB(_Estricto):
         return criterios
 
 
-class DossierLLM(DossierPartA, DossierPartB):
+class DossierLLM(DossierPartB, DossierPartA):
     """El dossier entero tal como lo redacta el modelo."""
 
 
@@ -124,7 +125,7 @@ class PlanPartB(_Estricto):
         return pasos
 
 
-class PlanLLM(PlanPartA, PlanPartB):
+class PlanLLM(PlanPartB, PlanPartA):
     """El plan entero tal como lo redacta el modelo."""
 
 
