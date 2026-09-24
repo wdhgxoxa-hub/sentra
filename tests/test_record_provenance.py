@@ -54,6 +54,17 @@ class TestPostgres(unittest.TestCase):
         with psycopg.connect(self.dsn) as conn:
             return conn.execute(sql).fetchall()
 
+    def migraciones_011(self):
+        """Migraciones hasta la 011: este test prueba migraciones históricas
+        (007 y 009) y lee tablas que la 012 retira (AUD2-016)."""
+        destino = self.tmp / "hasta_011"
+        if not destino.exists():
+            destino.mkdir()
+            for sql in sorted(MIGRACIONES.glob("*.sql")):
+                if int(sql.name[:3]) <= 11:
+                    shutil.copy(sql, destino / sql.name)
+        return destino
+
     def test_la_migracion_hereda_la_fuente_de_la_ejecucion(self):
         from scripts.migrate import migrate
 
@@ -65,7 +76,7 @@ class TestPostgres(unittest.TestCase):
         migrate(self.dsn, anteriores)
         self._sembrar_datos_anteriores()
 
-        migrate(self.dsn, MIGRACIONES)
+        migrate(self.dsn, self.migraciones_011())
         fuentes = dict(self._filas(
             "SELECT reddit_id, data_source FROM radar.raw_posts"))
         self.assertEqual(fuentes, {"t3_demo": "demo", "t3_reddit": "reddit",

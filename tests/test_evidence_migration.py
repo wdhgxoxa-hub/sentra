@@ -58,6 +58,17 @@ class TestMigracion009(unittest.TestCase):
             conn.execute("SET search_path = radar, public")
             return conn.execute(sql, params).fetchall()
 
+    def migraciones_011(self):
+        """Migraciones hasta la 011: este test prueba migraciones históricas
+        (007 y 009) y lee tablas que la 012 retira (AUD2-016)."""
+        destino = self.tmp / "hasta_011"
+        if not destino.exists():
+            destino.mkdir()
+            for sql in sorted(MIGRACIONES.glob("*.sql")):
+                if int(sql.name[:3]) <= 11:
+                    shutil.copy(sql, destino / sql.name)
+        return destino
+
     def hasta_008(self):
         anteriores = self.tmp / "hasta_008"
         anteriores.mkdir()
@@ -68,7 +79,7 @@ class TestMigracion009(unittest.TestCase):
     # --- Base nueva --------------------------------------------------------------
 
     def test_una_base_nueva_migra_sin_sal_y_tiene_las_tablas(self):
-        migrate(self.dsn, MIGRACIONES)
+        migrate(self.dsn, self.migraciones_011())
         tablas = {f[0] for f in self.filas(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'radar'")}
         self.assertLessEqual({"evidence_items", "evidence_duplicates", "sources_state"}, tablas)
@@ -76,7 +87,7 @@ class TestMigracion009(unittest.TestCase):
     def test_las_restricciones_hacen_cumplir_el_contrato(self):
         import psycopg
 
-        migrate(self.dsn, MIGRACIONES)
+        migrate(self.dsn, self.migraciones_011())
         malas = {
             "id sin su fuente": ("reddit:1", "hackernews", "https://x", "real", None),
             "url no https": ("hackernews:1", "hackernews", "http://x", "real", None),
@@ -98,7 +109,7 @@ class TestMigracion009(unittest.TestCase):
     def test_verificada_exige_hora_y_error_exige_codigo(self):
         import psycopg
 
-        migrate(self.dsn, MIGRACIONES)
+        migrate(self.dsn, self.migraciones_011())
         for estado, hora, codigo in (("verificada", None, None), ("error", None, None)):
             with self.subTest(estado), self.assertRaises(psycopg.errors.CheckViolation), \
                     psycopg.connect(self.dsn) as conn:
@@ -168,14 +179,14 @@ class TestMigracion009(unittest.TestCase):
         self.hasta_008()
         self.sembrar()
         with self.assertRaises(MigrationError):
-            migrate(self.dsn, MIGRACIONES)
+            migrate(self.dsn, self.migraciones_011())
         self.assertEqual(self.filas("SELECT count(*) FROM raw_posts WHERE author = 'ana_legado'"),
                          [(1,)], "nada a medias: la migración no se aplicó")
 
     def test_copia_con_su_procedencia_sin_inferir(self):
         self.hasta_008()
         self.sembrar()
-        migrate(self.dsn, MIGRACIONES, author_salt=SAL)
+        migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
         items = {f[0]: f[1:] for f in self.filas(
             "SELECT id, source, data_source, kind, community, url, thread_id FROM evidence_items")}
         self.assertEqual(items["legacy:t3_leg"][:2], ("legacy", None))
@@ -189,7 +200,7 @@ class TestMigracion009(unittest.TestCase):
     def test_el_hash_de_la_migracion_es_el_de_python(self):
         self.hasta_008()
         self.sembrar()
-        migrate(self.dsn, MIGRACIONES, author_salt=SAL)
+        migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
         hashes = dict(self.filas("SELECT id, author_hash FROM evidence_items"))
         self.assertEqual(hashes["legacy:t3_leg"], author_hash("legacy", "ana_legado", SAL))
         self.assertEqual(hashes["reddit:t3_red"], author_hash("reddit", "carla_reddit", SAL))
@@ -198,7 +209,7 @@ class TestMigracion009(unittest.TestCase):
     def test_ningun_nombre_queda_en_claro_en_ninguna_tabla(self):
         self.hasta_008()
         self.sembrar()
-        migrate(self.dsn, MIGRACIONES, author_salt=SAL)
+        migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
         volcado = " ".join(
             str(f) for tabla in ("raw_posts", "raw_comments", "analyzed_signals",
                                  "opportunity_clusters", "evidence_items")
@@ -216,7 +227,7 @@ class TestMigracion009(unittest.TestCase):
     def test_el_feed_lee_titulo_y_enlace_de_evidence_items(self):
         self.hasta_008()
         self.sembrar()
-        migrate(self.dsn, MIGRACIONES, author_salt=SAL)
+        migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
         feed = self.filas("SELECT post_title, post_permalink, post_score, num_comments "
                           "FROM v_radar_feed")
         self.assertEqual(feed, [("Título t3_dem", "https://reddit.com/r/SaaS/comments/t3_dem", 7, 2)])
@@ -224,8 +235,8 @@ class TestMigracion009(unittest.TestCase):
     def test_volver_a_migrar_no_hace_nada(self):
         self.hasta_008()
         self.sembrar()
-        migrate(self.dsn, MIGRACIONES, author_salt=SAL)
-        segunda = migrate(self.dsn, MIGRACIONES, author_salt=SAL)
+        migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
+        segunda = migrate(self.dsn, self.migraciones_011(), author_salt=SAL)
         self.assertEqual(segunda["applied"], [])
         self.assertEqual(self.filas("SELECT count(*) FROM evidence_items"), [(4,)])
 

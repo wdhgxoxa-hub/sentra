@@ -207,8 +207,8 @@ class TestApplyingMigrations(unittest.TestCase):
             )
         }
         self.assertTrue(
-            {"tenants", "subreddits", "pipeline_runs", "raw_posts",
-             "raw_comments", "analyzed_signals", "jtbd_opportunities"} <= tables
+            {"tenants", "subreddits", "pipeline_runs", "evidence_items",
+             "evidence_labels", "niche_verdicts", "sources_state"} <= tables
         )
 
     def test_creates_the_control_table(self):
@@ -290,16 +290,14 @@ class TestApplyingMigrations(unittest.TestCase):
         rows = self._query("SELECT slug FROM radar.tenants")
         self.assertIn("local", [r[0] for r in rows])
 
-    def test_the_cluster_tables_exist_after_migrating(self):
+    def test_the_old_cluster_tables_are_gone_after_migrating(self):
+        """La 012 retira las tablas de agrupación de la pipeline antigua (AUD2-016)."""
         migrate(self.dsn, REAL_MIGRATIONS)
         rows = self._query(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema = 'radar' AND table_name LIKE 'opportunity_cluster%%'"
         )
-        names = {r[0] for r in rows}
-        self.assertEqual(
-            names, {"opportunity_clusters", "opportunity_cluster_signals"}
-        )
+        self.assertEqual({r[0] for r in rows}, set())
 
 
 if __name__ == "__main__":
