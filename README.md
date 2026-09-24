@@ -126,5 +126,5 @@ release.
   especificación y decisiones (D-M*, D-C*).
 - `docs/pipeline-antigua.md`: qué se retiró de la pipeline antigua y qué queda.
 - `docs/proceso.md`: reglas de proceso (compuerta, humo, verificación con datos).
-- `docs/ARQUITECTURA_POSTGRES_Y_FRONTEND.md`: esquema y frontend (histórico,
-  de la fase 6).
+- `docs/historico/`: documentos de etapas anteriores (la biblioteca de
+  repositorios clonados, el esquema de la fase 6), con una nota (AUD2-017).
