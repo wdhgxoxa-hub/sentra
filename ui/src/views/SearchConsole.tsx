@@ -5,6 +5,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { EvidenceAttributionLine } from "@/components/EvidenceAttributionLine";
 import { SourceBadge } from "@/components/SourceBadge";
 import { comoError } from "@/lib/errors";
+import { useDebouncedValue } from "@/lib/debounce";
 import { useHybridSearch } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -19,11 +20,17 @@ import type { EvidenceSearchHit } from "@/types/radar";
  * los casos raros: una consulta sin vocabulario común que aun así acierta,
  * o un nombre propio que solo rescata la búsqueda léxica.
  */
+/** Pausa de tecleo tras la que se busca. */
+const SEARCH_DEBOUNCE_MS = 350;
+
 export function SearchConsole() {
   const t = useT();
   const searchQuery = useUiStore((state) => state.searchQuery);
   const setSearchQuery = useUiStore((state) => state.setSearchQuery);
-  const results = useHybridSearch({ query: searchQuery, limit: 20 });
+  // AUD-054: cada búsqueda carga e5 y consulta PostgreSQL; se lanza cuando
+  // se deja de teclear, no a cada tecla.
+  const consulta = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
+  const results = useHybridSearch({ query: consulta, limit: 20 });
 
   const examples = [
     t.search.examples.billing,

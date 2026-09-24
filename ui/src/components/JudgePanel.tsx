@@ -156,7 +156,11 @@ export function VerdictCard({
           {v.evidence.map((e) => (
             <li key={e.id} className="rounded-lg border border-border p-2">
               <p className="text-xs">{e.excerpt}</p>
-              <div className="mt-1">
+              {/* AUD-045: cada pieza con su fecha y su enlace, no solo el texto. */}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <time dateTime={e.createdAt} className="text-[11px] text-ink-faint">
+                  {new Date(e.createdAt).toLocaleDateString()}
+                </time>
                 <EvidenceAttributionLine attribution={e.attribution} />
               </div>
             </li>
