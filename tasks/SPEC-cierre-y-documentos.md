@@ -49,6 +49,60 @@ supuestos, las decisiones y los criterios de éxito verificables.
   CI del proyecto y el README explica cómo pasarla; eslint/prettier no se
   añaden (serían dependencias nuevas): en la UI hace de lint `tsc` estricto.
 
+## Fase E — diseño
+
+Del veredicto a dos documentos: el **dossier** (cualquier veredicto: para
+decidir) y el **plan de construcción** (para ejecutarlo paso a paso). El
+contenido de mercado lo redacta el modelo de documentos (D-C1) con
+`generate_json`; el formato, los avisos, la franja y la marca de agua los
+escribe el código, nunca el modelo.
+
+**Afirmaciones con cita.** Toda afirmación de mercado (problema, quién lo
+sufre, cómo se resuelve hoy, oportunidad, riesgos, alcance del MVP,
+criterios de validación, plan de publicación) es un `Claim {text,
+evidence_ids}`. La cita tiene que ser un id de la evidencia de ese veredicto;
+una afirmación sin ids o con un id que no es del veredicto se retira entera y
+el documento lo dice con un aviso («N afirmaciones retiradas por citar
+evidencia inexistente»). Si una sección se queda vacía, el código escribe
+«Sin afirmaciones verificables», nunca relleno. Lo técnico del plan (stack,
+arquitectura, modelo de datos, pasos) no es una afirmación de mercado y no
+lleva cita.
+
+**Dossier** (secciones fijas, en este orden): 1 Resumen del veredicto
+(código: veredicto, puntuación, regla, compuertas que faltan); 2 El problema;
+3 Quién lo sufre; 4 Cómo lo resuelven hoy; 5 Por qué ahora (oportunidad);
+6 Compuertas y dimensiones (código); 7 Abogado del diablo (código); 8
+Viabilidad — estimación del modelo (E3); 9 Riesgos; 10 Evidencia citada
+(código: extracto, fecha y atribución de cada pieza citada); 11 Procedencia
+(código: ejecución, versiones, modelo, fecha, fuente de los datos).
+
+**Plan** (solo para CONSTRUIR; forzable en otro veredicto, y entonces cada
+página lleva la franja «El juez no recomienda construir este nicho: <regla>»):
+1 Qué se construye y para quién; 2 Alcance del MVP (dentro / fuera, con
+cita); 3 Stack; 4 Arquitectura; 5 Modelo de datos; 6 Diez pasos, cada uno con
+objetivo, archivos, comandos, pruebas de aceptación y criterio de hecho
+(exactamente 10); 7 Validación tras el lanzamiento (con cita); 8 Plan de
+publicación (con cita: dónde está la gente que se quejó); 9 Procedencia.
+
+**Viabilidad (E3).** Rúbrica fija de cinco criterios (complejidad técnica,
+tiempo hasta un MVP, dependencias externas, coste de conseguir usuarios,
+riesgo legal) con nota 1–5 y motivo, etiquetada «Estimación del modelo: no es
+un dato medido y no cambia el veredicto». No toca compuertas ni puntuación.
+
+**Llamadas.** Una por documento, con presupuesto de razonamiento y límite de
+salida. Si se trunca (`LLMTruncated`), el esquema se parte en dos mitades y se
+pide cada una (una sola división: tope de 3 llamadas por documento). El
+sidecar guarda en memoria lo generado por (veredicto, documento, idioma,
+modelo, forzado): exportar PDF y luego Markdown no vuelve a llamar.
+
+**Salidas.** PDF (ReportLab, la fuente incrustada de `core/documents`, con
+tildes y ñ) y Markdown para un agente, ambos desde el mismo modelo de
+documento, guardados con el diálogo nativo. Marca de agua «DATOS DE
+DEMOSTRACIÓN» solo si alguna pieza del veredicto es de demostración. El
+idioma es el de la interfaz. `blueprint.py` y el documento por cluster
+antiguo se retiran (AUD-049; AUD-050 se cierra con la procedencia y las
+citas).
+
 ## Supuestos
 
 - Sin dependencias nuevas si la biblioteca estándar, numpy o el SDK instalado

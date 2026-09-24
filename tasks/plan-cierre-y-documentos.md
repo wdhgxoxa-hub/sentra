@@ -34,13 +34,14 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 - [x] D6 Triaje AUD-032…AUD-071 y cierre de los abiertos.
 
 ## Fase E — Del nicho al MVP
-- [ ] E1 Esquemas del dossier y del plan (JSON estricto) y validación de citas.
-- [ ] E2 Viabilidad (dimensión 7) como estimación del modelo, sin tocar compuertas.
-- [ ] E3 Generación con generate_json (modelo de documentos, presupuesto y truncado como B1).
-- [ ] E4 Renderizado: PDF (ReportLab) de ambos y Markdown del plan para agente; franja, avisos y marca de agua por código.
-- [ ] E5 Sidecar + Rust + diálogo nativo de guardado.
-- [ ] E6 UI en el panel del juez (botones, estados, i18n).
-- [ ] E7 Verificación real (tras elegir el usuario el modelo en Ajustes).
+- [ ] E1 Modelo de documento genérico (sin el documento por cluster ni blueprint) y PDF con franja y marca de agua; tests con pypdf.
+- [ ] E2 Carga del veredicto con toda su evidencia (store) para los documentos.
+- [ ] E3 Esquemas estrictos (Claim, dossier, plan, viabilidad) y validación de citas: una cita inválida retira la afirmación.
+- [ ] E4 Generación con generate_json (modelo de documentos, presupuesto, división por truncado, tope 3 llamadas) con dobles.
+- [ ] E5 Composición del dossier y del plan (secciones fijas, avisos, franja, viabilidad «estimación del modelo») y Markdown para agente.
+- [ ] E6 Sidecar (caché en memoria) + Rust (diálogo nativo) + contratos.
+- [ ] E7 UI en el panel del juez: botones, estados, forzar el plan, i18n.
+- [ ] E8 Verificación real (tras elegir el usuario el modelo en Ajustes): llamadas, tokens y secciones.
 
 ## Fase F — Cierre
 - [ ] F1 Compuerta; instalación limpia temporal.
