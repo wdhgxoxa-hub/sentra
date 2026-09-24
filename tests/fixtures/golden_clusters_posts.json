@@ -1,5 +1,5 @@
 {
- "version": "2026-09-23.v1",
+ "version": "2026-09-24.v2",
  "note": "Versión «publicación» del conjunto dorado (clustering-v5): la frase del problema rodeada del contexto común del tema. Generado por scripts/embed_golden_clusters.py; textos INVENTADOS (R8).",
  "items": [
   {
@@ -477,6 +477,286 @@
    "lang": "es",
    "problem": "¿Merece la pena aprender a tocar el ukelele con más de cuarenta años?",
    "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Hola a todos, os leo desde hace tiempo. ¿Merece la pena aprender a tocar el ukelele con más de cuarenta años? Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "imp-en-1",
+   "group": "impagos",
+   "lang": "en",
+   "problem": "A client still owes me for a logo I delivered in March and now ignores every email I send.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Hi all, long time lurker here. A client still owes me for a logo I delivered in March and now ignores every email I send. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "imp-en-2",
+   "group": "impagos",
+   "lang": "en",
+   "problem": "Third reminder this month for the same invoice. They keep saying accounts payable will handle it.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. For context, we're a team of three and I handle most of the infrastructure. Third reminder this month for the same invoice. They keep saying accounts payable will handle it. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "imp-en-3",
+   "group": "impagos",
+   "lang": "en",
+   "problem": "How do you get paid when an agency client just stops answering after you ship the work?",
+   "post": "We use a transactional email provider and a mobile app for the notifications. Hi all, long time lurker here. How do you get paid when an agency client just stops answering after you ship the work? Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "imp-en-4",
+   "group": "impagos",
+   "lang": "en",
+   "problem": "Net 30 turned into net 120. I had to borrow money to cover rent while waiting on two invoices.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We use a transactional email provider and a mobile app for the notifications. Net 30 turned into net 120. I had to borrow money to cover rent while waiting on two invoices. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "imp-en-5",
+   "group": "impagos",
+   "lang": "en",
+   "problem": "My biggest client pays whenever they feel like it and I spend hours chasing overdue payments.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. My biggest client pays whenever they feel like it and I spend hours chasing overdue payments. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "imp-es-1",
+   "group": "impagos",
+   "lang": "es",
+   "problem": "Un cliente me debe tres facturas desde enero y ya ni me coge el teléfono.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Un cliente me debe tres facturas desde enero y ya ni me coge el teléfono. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "imp-es-2",
+   "group": "impagos",
+   "lang": "es",
+   "problem": "Entregué la web hace dos meses y todavía no he cobrado; cada semana me dicen que la semana que viene.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Hola a todos, os leo desde hace tiempo. Entregué la web hace dos meses y todavía no he cobrado; cada semana me dicen que la semana que viene. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "imp-es-3",
+   "group": "impagos",
+   "lang": "es",
+   "problem": "¿Cómo reclamáis una factura impagada sin perder al cliente? Ya he mandado cuatro recordatorios.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. ¿Cómo reclamáis una factura impagada sin perder al cliente? Ya he mandado cuatro recordatorios. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "imp-es-4",
+   "group": "impagos",
+   "lang": "es",
+   "problem": "Trabajo como autónoma y la mitad de mis clientes paga tarde; me paso el día persiguiendo cobros.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Trabajo como autónoma y la mitad de mis clientes paga tarde; me paso el día persiguiendo cobros. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "imp-es-5",
+   "group": "impagos",
+   "lang": "es",
+   "problem": "La agencia para la que hice el proyecto ha cerrado y la factura se ha quedado sin pagar.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Hola a todos, os leo desde hace tiempo. La agencia para la que hice el proyecto ha cerrado y la factura se ha quedado sin pagar. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "imt-en-1",
+   "group": "impuestos",
+   "lang": "en",
+   "problem": "Quarterly estimated taxes wiped out my savings again; I never know how much to set aside.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. We use a transactional email provider and a mobile app for the notifications. Quarterly estimated taxes wiped out my savings again; I never know how much to set aside. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "imt-en-2",
+   "group": "impuestos",
+   "lang": "en",
+   "problem": "I charged VAT to an EU client by mistake and now I have no idea how to fix the return.",
+   "post": "Our stack is Node.js with a queue for background jobs; notifications go out by email and push. I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. I charged VAT to an EU client by mistake and now I have no idea how to fix the return. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "imt-en-3",
+   "group": "impuestos",
+   "lang": "en",
+   "problem": "Is there a simple way to know which expenses are deductible when you freelance from home?",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We use a transactional email provider and a mobile app for the notifications. Is there a simple way to know which expenses are deductible when you freelance from home? Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "imt-en-4",
+   "group": "impuestos",
+   "lang": "en",
+   "problem": "Self-employment tax surprised me this year; I owe far more than I expected in April.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Self-employment tax surprised me this year; I owe far more than I expected in April. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "imt-en-5",
+   "group": "impuestos",
+   "lang": "en",
+   "problem": "Selling to clients in three countries means three tax rules and I keep getting them wrong.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Hi all, long time lurker here. Selling to clients in three countries means three tax rules and I keep getting them wrong. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "imt-es-1",
+   "group": "impuestos",
+   "lang": "es",
+   "problem": "Cada trimestre me vuelvo loco con el modelo 303 y siempre acabo pagando recargos.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Hola a todos, os leo desde hace tiempo. Cada trimestre me vuelvo loco con el modelo 303 y siempre acabo pagando recargos. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "imt-es-2",
+   "group": "impuestos",
+   "lang": "es",
+   "problem": "Tengo que adelantar el IVA de facturas que no he cobrado y me deja sin liquidez.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Tengo que adelantar el IVA de facturas que no he cobrado y me deja sin liquidez. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "imt-es-3",
+   "group": "impuestos",
+   "lang": "es",
+   "problem": "¿Qué gastos puedo deducir como autónomo si trabajo desde casa? Nadie me lo explica claro.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. ¿Qué gastos puedo deducir como autónomo si trabajo desde casa? Nadie me lo explica claro. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "imt-es-4",
+   "group": "impuestos",
+   "lang": "es",
+   "problem": "La cuota de autónomos se come casi todo lo que gano los meses flojos.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. La cuota de autónomos se come casi todo lo que gano los meses flojos. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "imt-es-5",
+   "group": "impuestos",
+   "lang": "es",
+   "problem": "Me ha llegado una paralela de Hacienda por una retención que no apliqué bien.",
+   "post": "Hola a todos, os leo desde hace tiempo. Para contexto: somos tres y yo llevo casi toda la infraestructura. Me ha llegado una paralela de Hacienda por una retención que no apliqué bien. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "cap-en-1",
+   "group": "captar-clientes",
+   "lang": "en",
+   "problem": "I finished my portfolio months ago and still can't land a single paying client.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. For context, we're a team of three and I handle most of the infrastructure. I finished my portfolio months ago and still can't land a single paying client. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "cap-en-2",
+   "group": "captar-clientes",
+   "lang": "en",
+   "problem": "Cold emailing small businesses gets me zero replies. Where do freelancers actually find work?",
+   "post": "Hi all, long time lurker here. We use a transactional email provider and a mobile app for the notifications. Cold emailing small businesses gets me zero replies. Where do freelancers actually find work? Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "cap-en-3",
+   "group": "captar-clientes",
+   "lang": "en",
+   "problem": "Upwork is flooded with bids at five dollars an hour; I can't compete on price.",
+   "post": "Hi all, long time lurker here. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Upwork is flooded with bids at five dollars an hour; I can't compete on price. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "cap-en-4",
+   "group": "captar-clientes",
+   "lang": "en",
+   "problem": "Every lead I get is a friend of a friend and that pipeline dried up this year.",
+   "post": "Hi all, long time lurker here. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Every lead I get is a friend of a friend and that pipeline dried up this year. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "cap-en-5",
+   "group": "captar-clientes",
+   "lang": "en",
+   "problem": "How do you find clients for bookkeeping services when you have no network in the city?",
+   "post": "We use a transactional email provider and a mobile app for the notifications. For context, we're a team of three and I handle most of the infrastructure. How do you find clients for bookkeeping services when you have no network in the city? Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "cap-es-1",
+   "group": "captar-clientes",
+   "lang": "es",
+   "problem": "Llevo medio año como diseñador freelance y no consigo ni un cliente fijo.",
+   "post": "Hola a todos, os leo desde hace tiempo. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Llevo medio año como diseñador freelance y no consigo ni un cliente fijo. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "cap-es-2",
+   "group": "captar-clientes",
+   "lang": "es",
+   "problem": "Mando propuestas en plataformas y nadie contesta; no sé cómo destacar.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Mando propuestas en plataformas y nadie contesta; no sé cómo destacar. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "cap-es-3",
+   "group": "captar-clientes",
+   "lang": "es",
+   "problem": "Mis únicos clientes vienen del boca a boca y este año se ha cortado.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Para contexto: somos tres y yo llevo casi toda la infraestructura. Mis únicos clientes vienen del boca a boca y este año se ha cortado. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "cap-es-4",
+   "group": "captar-clientes",
+   "lang": "es",
+   "problem": "¿Dónde buscáis clientes los traductores autónomos? LinkedIn no me funciona.",
+   "post": "Hola a todos, os leo desde hace tiempo. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. ¿Dónde buscáis clientes los traductores autónomos? LinkedIn no me funciona. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "cap-es-5",
+   "group": "captar-clientes",
+   "lang": "es",
+   "problem": "Hago webs para pymes pero no sé cómo llegar a ellas sin pagar publicidad.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Hago webs para pymes pero no sé cómo llegar a ellas sin pagar publicidad. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "con-en-1",
+   "group": "contabilidad",
+   "lang": "en",
+   "problem": "My accounting app keeps duplicating bank transactions and the balance never matches.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. My accounting app keeps duplicating bank transactions and the balance never matches. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "con-en-2",
+   "group": "contabilidad",
+   "lang": "en",
+   "problem": "Bank feeds disconnected again, so I spent the weekend reconciling three months by hand.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Bank feeds disconnected again, so I spent the weekend reconciling three months by hand. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "con-en-3",
+   "group": "contabilidad",
+   "lang": "en",
+   "problem": "The bookkeeping software categorizes every card payment as office supplies no matter what I do.",
+   "post": "Hi all, long time lurker here. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. The bookkeeping software categorizes every card payment as office supplies no matter what I do. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "con-en-4",
+   "group": "contabilidad",
+   "lang": "en",
+   "problem": "Exporting reports from my accounting tool breaks the currency formatting every single time.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. For context, we're a team of three and I handle most of the infrastructure. Exporting reports from my accounting tool breaks the currency formatting every single time. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "con-en-5",
+   "group": "contabilidad",
+   "lang": "en",
+   "problem": "Matching payments to invoices in my ledger takes hours because the import never lines up.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We use a transactional email provider and a mobile app for the notifications. Matching payments to invoices in my ledger takes hours because the import never lines up. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "con-es-1",
+   "group": "contabilidad",
+   "lang": "es",
+   "problem": "El programa de contabilidad duplica los movimientos del banco y el saldo nunca cuadra.",
+   "post": "Hola a todos, os leo desde hace tiempo. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. El programa de contabilidad duplica los movimientos del banco y el saldo nunca cuadra. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "con-es-2",
+   "group": "contabilidad",
+   "lang": "es",
+   "problem": "La sincronización con el banco se cae cada semana y concilio todo a mano.",
+   "post": "Hola a todos, os leo desde hace tiempo. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. La sincronización con el banco se cae cada semana y concilio todo a mano. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "con-es-3",
+   "group": "contabilidad",
+   "lang": "es",
+   "problem": "Mi software contable no deja importar los extractos de mi banco en ningún formato.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Para contexto: somos tres y yo llevo casi toda la infraestructura. Mi software contable no deja importar los extractos de mi banco en ningún formato. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "con-es-4",
+   "group": "contabilidad",
+   "lang": "es",
+   "problem": "Cada cierre de mes pierdo una tarde cuadrando los cobros con los apuntes contables.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Cada cierre de mes pierdo una tarde cuadrando los cobros con los apuntes contables. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "con-es-5",
+   "group": "contabilidad",
+   "lang": "es",
+   "problem": "La app de facturación exporta los informes con los importes mal redondeados.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Hola a todos, os leo desde hace tiempo. La app de facturación exporta los informes con los importes mal redondeados. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
   }
  ]
 }
