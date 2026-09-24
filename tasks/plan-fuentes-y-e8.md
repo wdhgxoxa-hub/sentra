@@ -90,3 +90,21 @@ sobre todo en Bluesky y Mastodon, y sus frases se parecen (similitud e5 mediana
 rondan 0,78, y con 41 dolores de YouTube que hablan del vídeo, los grupos salen
 mezclados y G0 los rechaza. Causas candidatas: ruido de comentarios de YouTube
 etiquetados como dolor y un umbral de agrupación poco discriminante.
+
+## Ruido y umbral: criterios fijados ANTES de mirar el resultado real (2026-09-24)
+
+Aviso de honestidad: el diagnóstico anterior ya enseñó la similitud de 11 frases
+de impago (0,783–0,922). Por eso no se inventa un criterio nuevo: se usa el que
+ya estaba escrito en scripts/calibrar_agrupacion.py desde B3.
+
+- R1 · Ruido: con tema, un comentario (kind = comment) cuyo texto propio no
+  nombra el tema (menciona_el_tema) no se etiqueta; cuenta como descartado
+  «off_topic». Los posts no cambian. Sin tema, nada cambia.
+- R2 · Umbral: se calibra SOLO con el conjunto dorado de frases
+  (tests/fixtures/golden_clusters_e5.npz, mismo embedder que en ejecución),
+  enlace promedio, rejilla 0,78–0,94 de 0,01. Criterio: ARI máximo; a igualdad,
+  más pureza; a igualdad, el umbral más alto. Si sale 0,82, el umbral no cambia.
+- Validación (impagos, re-juicio del escaneo 01a0d4b7…, etiquetas en caché;
+  tope 4 llamadas): «coherente» = un grupo que pasa G0 con ≥ 3 autores distintos
+  cuyo dolor es un impago (regex IMPAGO del diagnóstico). Si lo hay, E8: dossier;
+  plan solo si el juez dice CONSTRUIR. Si no, se dice y no se genera nada.
