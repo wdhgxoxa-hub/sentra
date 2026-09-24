@@ -301,6 +301,7 @@ export const en: Dictionary = {
     corroboration: "Corroboration by source",
     gates: "Gates",
     gateNames: {
+      G0: "The group's problems are the same one",
       G1: "At least 2 distinct sources",
       G2: "At least {n} distinct authors",
       G3: "At least 1 homemade workaround",

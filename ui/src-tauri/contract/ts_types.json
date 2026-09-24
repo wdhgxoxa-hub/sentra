@@ -125,6 +125,7 @@
       "evidenceIds",
       "gate",
       "measured",
+      "note",
       "passed",
       "threshold",
       "value"

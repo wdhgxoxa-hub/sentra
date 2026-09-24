@@ -69,6 +69,8 @@ class GateResult:
     #: False si no había nada que medir (AUD2-005): pasa para decidir, pero no
     #: se enseña como verificada. Solo G7 puede aprobar por ausencia.
     measured: bool = True
+    #: Por qué, cuando lo dice un revisor (G0: la razón de la coherencia).
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -130,6 +132,7 @@ def normalizar_compuertas(guardadas: Sequence[Mapping[str, Any]]) -> list[dict[s
         if "measured" not in copia:
             copia["measured"] = not (copia.get("gate") == "G7" and copia.get("passed")
                                      and not copia.get("evidence_ids") and not copia.get("value"))
+        copia.setdefault("note", None)  # antes de G0 ninguna compuerta llevaba nota
         salida.append(copia)
     return salida
 
@@ -175,6 +178,9 @@ def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHO
     """Tabla D-M3. Devuelve (veredicto, regla que decidió)."""
     por = {g.gate: g for g in gates}
     falla = {g.gate for g in gates if not g.passed}
+    coherencia = por.get("G0")
+    if coherencia is not None and coherencia.measured and not coherencia.passed:
+        return "DESCARTAR", "0: no es un mismo problema (G0)"
     if "G7" in falla:
         return "DESCARTAR", "1: falla G7"
     if por["G2"].value < min_authors / 2:
@@ -187,13 +193,19 @@ def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHO
         return "INVESTIGAR MÁS", "6: fallan G3, G4 o G6"
     if "G8" in falla:
         return "INVESTIGAR MÁS", "4: falla G8 (como máximo INVESTIGAR MÁS)"
+    if coherencia is not None and not coherencia.measured:
+        return "INVESTIGAR MÁS", "8: G0 sin comprobar (como máximo INVESTIGAR MÁS)"
     return "CONSTRUIR", "7: pasan todas"
 
 
 def judge_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
                   now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS,
-                  contexto: Sequence[EvidenceItem] = ()) -> ClusterJudgement:
-    compuertas = evaluate_gates(items, labels, now=now, min_authors=min_authors, contexto=contexto)
+                  contexto: Sequence[EvidenceItem] = (),
+                  coherencia: GateResult | None = None) -> ClusterJudgement:
+    """`coherencia`: G0 ya evaluada (coherencia.compuerta_coherencia); el juez del
+    pipeline siempre la pasa. Sin ella no hay G0 (tests de compuertas sueltas)."""
+    compuertas = ([coherencia] if coherencia else []) + evaluate_gates(
+        items, labels, now=now, min_authors=min_authors, contexto=contexto)
     veredicto, regla = decide(compuertas, min_authors=min_authors)
     return ClusterJudgement(veredicto, [g.gate for g in compuertas if not g.passed], regla,
                             compuertas, score_cluster(items, labels, now=now, contexto=contexto))

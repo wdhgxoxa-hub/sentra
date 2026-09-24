@@ -274,6 +274,8 @@ export interface JudgeGate {
   evidenceIds: string[];
   /** false = no había nada que medir: no se pinta como aprobada (AUD2-005). */
   measured: boolean;
+  /** Por qué, cuando lo dice un revisor (G0: la razón de la coherencia); null en el resto. */
+  note: string | null;
 }
 
 /** Una de las siete dimensiones; `normalized` null = undetermined (viabilidad en F3). */

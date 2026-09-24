@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 from core.evidence.model import EvidenceItem
 from core.judge.advocate import AdvocateReport
+from core.judge.coherencia import CoherenceGroup, CoherenceReport
 from core.judge.labels import InMemoryLabelCache, LLMItemLabel, LLMLabelBatch
 from core.judge.pipeline import run_judge
 
@@ -46,6 +47,12 @@ class LLMDoble:
         if schema is AdvocateReport:
             self.llamadas["abogado"] += 1
             return AdvocateReport()
+        if schema is CoherenceReport:
+            import json as _json
+
+            self.llamadas["coherencia"] = self.llamadas.get("coherencia", 0) + 1
+            return CoherenceReport(groups=[CoherenceGroup(group_id=g, same_problem=True, reason="mismo")
+                                           for g in _json.loads(prompt[prompt.index("{"):])])
         self.llamadas["etiquetas"] += 1
         import json
 
@@ -83,10 +90,12 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual(resultado.summary["clusters"], 1)
         [veredicto] = resultado.verdicts
         self.assertEqual(veredicto["verdict"], "CONSTRUIR")
-        self.assertEqual(len(veredicto["gates"]), 8)
+        # G0 (coherencia) + G1–G8.
+        self.assertEqual([g["gate"] for g in veredicto["gates"]], [f"G{n}" for n in range(9)])
         self.assertEqual(len(veredicto["member_ids"]), 10)
         self.assertFalse(veredicto["advocate"]["downgraded"])
-        self.assertEqual(llm.llamadas, {"etiquetas": 1, "abogado": 1})
+        # Una llamada de coherencia por escaneo, con todos los grupos (G0).
+        self.assertEqual(llm.llamadas, {"etiquetas": 1, "coherencia": 1, "abogado": 1})
         self.assertEqual(resultado.summary["verdicts"], {"CONSTRUIR": 1})
         # B4: cada veredicto sabe con qué versiones se produjo.
         from core.judge.clustering import CLUSTERING_VERSION

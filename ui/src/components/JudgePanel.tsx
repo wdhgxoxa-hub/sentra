@@ -106,6 +106,7 @@ export function VerdictCard({
                     ? t.judge.evidenceCountOne
                     : t.judge.evidenceCount.replace("{n}", String(g.evidenceIds.length))}
                 </span>
+                {g.note && <span className="block text-ink-faint">{g.note}</span>}
               </span>
             </li>
           ))}

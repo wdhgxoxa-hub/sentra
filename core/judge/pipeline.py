@@ -30,6 +30,7 @@ from .clustering import (
     _unitario,
     cluster_evidence,
 )
+from .coherencia import comprobar_coherencia, compuerta_coherencia
 from .dimensions import es_lanzamiento, pain_items
 from .gates import judge_cluster, umbral_autores
 from .labels import BATCH_SIZE, LABELER_VERSION, LabelCache, VerifiedLabel, label_items
@@ -80,6 +81,10 @@ def run_judge(
     sin_dolor = [i for i in calidad.kept if i.id not in ids_dolor and i.id in vectors]
     por_id = {i.id: i for i in calidad.kept}
 
+    # G0 (residuos de AUD2-001 y 006): una sola llamada con las frases de todos los grupos.
+    coherencias = comprobar_coherencia({g.key: [frases[m] for m in g.member_ids] for g in grupos},
+                                       provider=provider, model=model)
+
     veredictos: list[dict[str, Any]] = []
     for grupo in grupos:
         miembros = [por_id[m] for m in grupo.member_ids]
@@ -90,7 +95,8 @@ def run_judge(
         centro = _unitario(np.mean(textos, axis=0)) if textos else None
         contexto = [] if centro is None else [
             i for i in sin_dolor if float(_unitario(vectors[i.id]) @ centro) >= CLUSTER_MIN_SIMILARITY]
-        juicio = judge_cluster(miembros, etiquetas, now=now, min_authors=min_autores, contexto=contexto)
+        juicio = judge_cluster(miembros, etiquetas, now=now, min_authors=min_autores, contexto=contexto,
+                               coherencia=compuerta_coherencia(coherencias[grupo.key]))
         abogado = run_advocate(juicio, miembros, provider=provider, model=model)
         veredictos.append({
             "opportunity_id": grupo.opportunity_id,
@@ -129,5 +135,7 @@ def run_judge(
         "launches_excluded": sum(1 for i in calidad.kept if es_lanzamiento(i)),
         "min_authors": min_autores,
         "clusters": len(grupos),
+        "incoherent": sum(1 for c in coherencias.values() if c.estado == "distinto"),
+        "coherence_unchecked": sum(1 for c in coherencias.values() if c.estado == "sin_comprobar"),
         "verdicts": dict(Counter(v["verdict"] for v in veredictos)),
     })

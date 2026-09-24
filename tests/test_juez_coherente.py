@@ -18,6 +18,7 @@ import unittest
 
 from core.judge.advocate import AdvocateReport
 from core.judge.clustering import CLUSTERING_VERSION
+from core.judge.coherencia import CoherenceGroup, CoherenceReport
 from core.judge.dimensions import WEIGHTS_VERSION
 from core.judge.gates import MIN_DISTINCT_AUTHORS, umbral_autores
 from core.judge.labels import (
@@ -38,6 +39,9 @@ class DobleQueSeEquivoca:
                       thinking_budget=None):
         if schema is AdvocateReport:
             return AdvocateReport()
+        if schema is CoherenceReport:
+            return CoherenceReport(groups=[CoherenceGroup(group_id=g, same_problem=True, reason="mismo")
+                                           for g in json.loads(prompt[prompt.index("{"):])])
         etiquetas = []
         for e in json.loads(prompt[prompt.index("["):]):
             if "TallyBird" in e["text"]:
@@ -69,8 +73,8 @@ def por_id(vectores):
 
 def juzgar(items, vectores, **extra):
     extra.setdefault("vectores_frase", por_id(vectores))
-    return run_judge(items, vectores, provider=DobleQueSeEquivoca(), model="m",
-                     cache=InMemoryLabelCache(), now=AHORA, **extra)
+    extra.setdefault("provider", DobleQueSeEquivoca())
+    return run_judge(items, vectores, model="m", cache=InMemoryLabelCache(), now=AHORA, **extra)
 
 
 class TestJuezCoherente(unittest.TestCase):
@@ -155,7 +159,7 @@ class TestJuezCoherente(unittest.TestCase):
 
     def test_versiones_nuevas(self):
         self.assertEqual(CLUSTERING_VERSION, "clustering-v5")
-        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v3")
+        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v4")
 
 
 if __name__ == "__main__":

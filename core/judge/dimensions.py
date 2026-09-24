@@ -32,7 +32,7 @@ from .labels import VerifiedLabel
 
 #: v2 (AUD2-001): mismos pesos; cambian las reglas que alimentan el puntaje
 #: (lanzamientos fuera del dolor, G2 relativo al escaneo).
-WEIGHTS_VERSION = "judge-weights-v3"
+WEIGHTS_VERSION = "judge-weights-v4"
 #: D-M3. Suman 1.
 WEIGHTS: dict[str, float] = {"frecuencia": 0.25, "pago": 0.25, "parches": 0.20,
                              "hueco": 0.15, "tendencia": 0.15}

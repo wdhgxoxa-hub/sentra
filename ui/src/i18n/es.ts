@@ -307,6 +307,7 @@ export const es = {
     corroboration: "Corroboración por fuente",
     gates: "Compuertas",
     gateNames: {
+      G0: "Los problemas del grupo son el mismo",
       G1: "Al menos 2 fuentes distintas",
       G2: "Al menos {n} autores distintos",
       G3: "Al menos 1 parche casero",
