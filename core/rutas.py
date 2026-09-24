@@ -13,10 +13,18 @@ código, como siempre.
 
 from __future__ import annotations
 
+import functools
 import os
+from collections.abc import Iterable
 from pathlib import Path
 
 DATA_DIR_ENV_VAR = "RIR_DATA_DIR"
+#: La aplicación la pone a "1" al lanzar el motor desde su copia versionada.
+VERSIONADO_ENV_VAR = "RIR_MOTOR_VERSIONADO"
+
+_FNV_BASE = 0xCBF29CE484222325
+_FNV_PRIMO = 0x100000001B3
+_MASCARA = 0xFFFFFFFFFFFFFFFF
 
 #: <raíz>/core/rutas.py → la raíz del código del motor (repo o copia versionada).
 RAIZ_CODIGO = Path(__file__).resolve().parents[1]
@@ -26,3 +34,43 @@ def raiz_datos() -> Path:
     """Carpeta del proyecto con el `.env` y `data/`."""
     valor = os.environ.get(DATA_DIR_ENV_VAR, "").strip()
     return Path(valor) if valor else RAIZ_CODIGO
+
+
+def fnv1a64(datos: bytes) -> str:
+    """FNV-1a de 64 bits en hexadecimal. Huella, no seguridad: detecta que el
+    código del motor no es el que se compiló con la interfaz."""
+    h = _FNV_BASE
+    for byte in datos:
+        h = ((h ^ byte) * _FNV_PRIMO) & _MASCARA
+    return f"{h:016x}"
+
+
+def huella(ficheros: Iterable[tuple[str, bytes]]) -> str:
+    """Huella de un conjunto de ficheros: por ruta ordenada, `ruta\0longitud\0contenido`.
+
+    La misma composición la calcula build.rs al empaquetar el motor.
+    """
+    partes = bytearray()
+    for ruta, contenido in sorted(ficheros):
+        partes += ruta.encode("utf-8") + b"\0" + str(len(contenido)).encode() + b"\0" + contenido
+    return fnv1a64(bytes(partes))
+
+
+def huella_de_carpeta(raiz: Path) -> str:
+    """Huella de todo lo que hay bajo `raiz`, salvo la caché de Python y los
+    marcadores (ficheros que empiezan por punto)."""
+    ficheros = [
+        (p.relative_to(raiz).as_posix(), p.read_bytes())
+        for p in raiz.rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts and not p.name.startswith(".")
+    ]
+    return huella(ficheros)
+
+
+@functools.cache
+def huella_del_motor() -> str | None:
+    """Huella del código que corre, solo en la copia versionada: en el repo
+    (desarrollo, tests) la carpeta tiene de todo y no hay nada que comparar."""
+    if os.environ.get(VERSIONADO_ENV_VAR, "").strip() != "1":
+        return None
+    return huella_de_carpeta(RAIZ_CODIGO)
