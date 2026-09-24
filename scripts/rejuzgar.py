@@ -72,6 +72,9 @@ def _almacen() -> EvidenceVectorStore:
 def main(argv: list[str] | None = None) -> int:
     from core.storage.postgres_store import resolver_dsn
 
+    # Redirigida a un archivo, la salida de Windows es cp1252 y el informe usa «→».
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Re-juzga un escaneo guardado con el juez actual")
     parser.add_argument("--run", required=True, help="id del escaneo de origen (pipeline_runs.id)")
     parser.add_argument("--dsn", default=None)

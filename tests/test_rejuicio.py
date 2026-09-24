@@ -170,6 +170,27 @@ class TestProveedorDelRejuicio(unittest.TestCase):
             script.main(["--run", "r", "--dsn", "postgresql://x@localhost/y"])
         self.assertEqual(pasados, [700, MAX_ITEMS_PER_SCAN])
 
+    def test_el_informe_no_revienta_con_la_salida_redirigida_en_windows(self):
+        # Con la salida a un archivo, Windows escribe en cp1252: la «→» del uso
+        # por llamada tumbaba el script después de guardar (28 llamadas sin informe).
+        import io
+        from types import SimpleNamespace
+        from unittest import mock
+
+        from scripts import rejuzgar as script
+
+        uso = [SimpleNamespace(model="m", input_tokens=10, output_tokens=5, reasoning_tokens=1, duration_s=1.0)]
+        salida = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        with mock.patch.object(script, "_proveedor", return_value=(SimpleNamespace(usage=uso), "m", None)), \
+                mock.patch.object(script, "_almacen"), \
+                mock.patch.object(script, "rejuzgar", return_value=("nueva", {})), \
+                mock.patch("core.judge.store.PostgresLabelCache"), \
+                mock.patch("sys.stdout", salida):
+            codigo = script.main(["--run", "r", "--dsn", "postgresql://x@localhost/y"])
+        salida.flush()
+        self.assertEqual(codigo, 0)
+        self.assertIn("10 → 5", salida.buffer.getvalue().decode("utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()
