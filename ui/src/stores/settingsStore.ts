@@ -21,7 +21,7 @@ export type Theme = "light" | "dark" | "system";
 
 const DICTIONARIES: Record<Language, Dictionary> = { es, en };
 
-const STORAGE_KEY = "rir.preferences";
+const STORAGE_KEY = "sentra.preferences";
 
 interface StoredPreferences {
   language?: Language;

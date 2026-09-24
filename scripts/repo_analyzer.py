@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Analizador Estatico y Extractor de Modulos Clave para Reddit Intelligence Radar
+Analizador Estatico y Extractor de Modulos Clave para SENTRA
 Inspecciona con precision los repositorios descargados en F:\\reddit_intelligence_radar\\repos\\,
 detecta los archivos de logica de negocio real mediante heuristica de scoring
 y extrae las rutas relativas exactas para ingenieria inversa.

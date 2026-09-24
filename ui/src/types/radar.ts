@@ -70,7 +70,7 @@ export type SidecarStatus =
   | "portInUse";
 
 /** Canal por el que Rust avisa del arranque del motor (y de cada reintento). */
-export const SIDECAR_EVENT_CHANNEL = "radar:sidecar";
+export const SIDECAR_EVENT_CHANNEL = "sentra:sidecar";
 
 export interface AppHealth {
   /** true solo si las tres piezas responden. */

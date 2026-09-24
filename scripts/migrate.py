@@ -323,7 +323,7 @@ def _redact(dsn: str) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Gestor de migraciones del Reddit Intelligence Radar"
+        description="Gestor de migraciones de SENTRA"
     )
     parser.add_argument("command", choices=["up", "status"],
                         help="'up' aplica lo pendiente; 'status' solo informa")

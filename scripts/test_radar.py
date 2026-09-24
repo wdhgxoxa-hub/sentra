@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Suite de Pruebas y Verificacion TDD para Reddit Intelligence Radar
+Suite de Pruebas y Verificacion TDD para SENTRA
 Valida la integridad de los repositorios descargados, consistencia del catalogo
 y conformidad del archivo maestro INDEX.md con las reglas establecidas.
 """

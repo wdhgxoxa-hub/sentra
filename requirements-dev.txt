@@ -1,4 +1,4 @@
-# Reddit Intelligence Radar - dependencias SOLO de pruebas
+# SENTRA - dependencias SOLO de pruebas
 # Instalar ademas de requirements.txt: pip install -r requirements-dev.txt
 
 # Lee los PDF generados para comprobar su texto real (tests/test_pdf_export.py).

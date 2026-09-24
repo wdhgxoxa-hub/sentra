@@ -39,7 +39,7 @@ pub fn run() {
     // Un unico cliente HTTP para todo el proceso: reqwest mantiene su
     // propio pool de conexiones hacia el sidecar.
     let http = reqwest::Client::builder()
-        .user_agent(concat!("radar-desktop/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("sentra-desktop/", env!("CARGO_PKG_VERSION")))
         .build()
         .expect("no se pudo crear el cliente HTTP");
 

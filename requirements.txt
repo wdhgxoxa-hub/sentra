@@ -1,4 +1,4 @@
-# Reddit Intelligence Radar - dependencias de ejecución
+# SENTRA - dependencias de ejecución
 # Versiones fijadas a las verificadas en el entorno (Python 3.12.10, Windows).
 # tests/test_requirements.py exige que todo lo que importan core/ y scripts/
 # esté aquí con versión exacta, y que no sobre nada (salvo lo marcado

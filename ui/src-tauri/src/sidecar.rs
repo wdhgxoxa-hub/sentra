@@ -189,7 +189,7 @@ fn resolver_proyecto(indicado: Option<String>) -> Option<PathBuf> {
 }
 
 /// Canal por el que el estado del arranque del motor llega a la interfaz.
-pub const SIDECAR_EVENT_CHANNEL: &str = "radar:sidecar";
+pub const SIDECAR_EVENT_CHANNEL: &str = "sentra:sidecar";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

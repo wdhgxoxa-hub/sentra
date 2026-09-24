@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Orquestador de Descarga para Reddit Intelligence Radar
+Orquestador de Descarga para SENTRA
 Clona superficialmente (--depth 1) los repositorios base y de expansion inteligente.
 Maneja errores de red, repos privados o archivados con registro de incidencias.
 """

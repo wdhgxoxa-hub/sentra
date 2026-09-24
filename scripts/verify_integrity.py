@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Auditoría Exhaustiva de Integridad para Reddit Intelligence Radar
+Auditoría Exhaustiva de Integridad para SENTRA
 Verifica los 57 proyectos (Lote 1: 45 repos, Lote 2: 12 repos)
 Comprobaciones:
 1. Existencia del directorio en F:\\reddit_intelligence_radar\\repos\\<id>
@@ -261,7 +261,7 @@ def run_audit():
         json.dump(audit_summary, f, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 70)
-    print("      REPORTE EJECUTIVO DE INTEGRIDAD — REDDIT INTELLIGENCE RADAR")
+    print("      REPORTE EJECUTIVO DE INTEGRIDAD — SENTRA")
     print("=" * 70)
     print(f"Total de Repositorios Analizados: {len(results)}")
     print(f"100% Íntegros y Operativos:       {len(total_intact)} / {len(results)} ({audit_summary['integrity_rate_percent']}%)")

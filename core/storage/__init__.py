@@ -2,7 +2,7 @@
 Capa de Almacenamiento y Recuperación (Fase 4)
 ==============================================
 
-Superficie pública del módulo de persistencia del Reddit Intelligence Radar:
+Superficie pública del módulo de persistencia de SENTRA:
 
 - `LanceDBStore`: almacén columnar embebido sobre Apache Lance.
 - `OpportunityRecord`: modelo canónico de una oportunidad persistida.

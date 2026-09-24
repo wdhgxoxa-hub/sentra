@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generador del Archivo Maestro INDEX.md para Reddit Intelligence Radar
+Generador del Archivo Maestro INDEX.md para SENTRA
 Crea la tabla estandarizada requerida por la especificacion con:
 | Nombre del Proyecto | URL | Técnica Única que Aporta | Archivos/Módulos Clave para Estudiar |
 y enriquece con taxonomias, arquitectura de referencia, desglose por lotes
@@ -42,7 +42,7 @@ def generate_index():
     batch2_repos = [r for r in catalog if r["id"] in batch2_ids]
 
     lines = []
-    lines.append("# Reddit Intelligence Radar — Colección Maestra de Repositorios")
+    lines.append("# SENTRA — Colección Maestra de Repositorios")
     lines.append("")
     lines.append("> Repositorio local de referencia e ingeniería inversa para extracción masiva de datos en Reddit, minería semántica de puntos de dolor (*pain points*), detección algorítmica de demanda (*leads & buying intent*), bases de datos vectoriales y aceleración de micro-SaaS.")
     lines.append("")
@@ -157,7 +157,7 @@ def generate_index():
 """)
 
     lines.append("---")
-    lines.append("*Catálogo maestro actualizado con 57 repositorios por el orquestador Reddit Intelligence Radar.*")
+    lines.append("*Catálogo maestro actualizado con 57 repositorios por el orquestador SENTRA.*")
 
     with open(INDEX_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")

@@ -1,5 +1,5 @@
 """
-Paquete de pruebas del Reddit Intelligence Radar.
+Paquete de pruebas de SENTRA.
 
 Su existencia permite ejecutar la suite de forma recursiva indicando un
 directorio raiz explicito:

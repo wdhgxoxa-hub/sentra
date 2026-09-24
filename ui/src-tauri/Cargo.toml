@@ -6,7 +6,7 @@ edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "radar_lib"
+name = "sentra_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

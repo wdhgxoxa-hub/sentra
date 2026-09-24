@@ -185,7 +185,7 @@ fn parse_sse_block(block: &str) -> Option<serde_json::Value> {
 
 /// Lo que el sidecar dice ser en `/api/health` (`SERVICE_NAME` en Python;
 /// tests/test_superficie_ipc.py vigila que coincidan).
-pub const SIDECAR_SERVICE: &str = "reddit-intelligence-radar-sidecar";
+pub const SIDECAR_SERVICE: &str = "sentra-sidecar";
 
 /// Lo que contesta el puerto del sidecar a `/api/health`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

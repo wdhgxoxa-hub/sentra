@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 #: pedirla: cada petición a models.list es una llamada real a la API.
 MODELOS_TTL_S = 600.0
 
-SERVICE_NAME = "reddit-intelligence-radar-sidecar"
+SERVICE_NAME = "sentra-sidecar"
 SERVICE_VERSION = "0.1.0"
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Orquestador de Descarga - Lote 2 para Reddit Intelligence Radar
+Orquestador de Descarga - Lote 2 para SENTRA
 Clona la nueva tanda de repositorios diferenciales enfocados en:
 - LangGraph multi-agentes
 - n8n visual workflows

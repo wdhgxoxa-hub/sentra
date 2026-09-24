@@ -1,3 +1,3 @@
 """
-Reddit Intelligence Radar Core Architecture
+SENTRA Core Architecture
 """

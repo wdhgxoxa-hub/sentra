@@ -233,7 +233,7 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Sidecar del Reddit Intelligence Radar")
+    parser = argparse.ArgumentParser(description="Sidecar de SENTRA")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument(
