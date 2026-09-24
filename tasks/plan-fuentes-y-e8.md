@@ -218,3 +218,22 @@ mismo para los cuatro grupos; no se ha tocado.
    predijo sin llamadas. Los 4 veredictos llevan judge-weights-v6 · clustering-v10.
    Variación del LLM: el grupo «clients» (4 comentarios de YouTube) pasa ahora la
    confirmación de G0 y cae por la regla 3 (fallan G1 y G2). Gemini: 38 de 40.
+
+## Nombre único y G0 estable — diseño y criterio fijados ANTES de medir (2026-09-24)
+
+Decisión del usuario: temperatura por defecto (Google desaconseja < 1,0 en Gemini 3);
+la estabilidad la da una caché de G0 por grupo.
+
+- Migración 016 (R12): tabla coherence_checks (resultado de G0 por hash del grupo
+  —pares id/frase ordenados— y versión del revisor) y niche_verdicts.problem_name
+  (jsonb {es, en}, nulo en mezclas y veredictos antiguos).
+- G0 (coherence-v3): si el grupo es un mismo problema, el modelo lo nombra en es y
+  en en la misma llamada. Lo que está en caché no se pregunta; la confirmación de
+  subgrupos también pasa por la caché.
+- El Radar y el dossier leen el nombre del veredicto; el problem_name del dossier
+  queda solo como respaldo de veredictos sin nombre.
+- Medida (≤ 2 llamadas; quedan 2 de 40): re-juicio 1 de impagos (G0 + confirmación)
+  llena la caché; re-juicio 2 con --max-llamadas 0. Estable = los dos dan los mismos
+  grupos (miembros), el mismo G0 por grupo, los mismos nombres y los mismos
+  veredictos, y el segundo hace 0 llamadas. La estabilidad intrínseca del modelo a
+  temperatura por defecto NO se mide (haría falta repetir llamadas).
