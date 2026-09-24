@@ -2,9 +2,9 @@
 Proveedor Gemini: la frontera con el SDK
 ========================================
 
-Toda llamada a Gemini pasa por aquí: el motor de arquitectura, la prueba de
-clave y el traductor. Es el único módulo del proyecto que importa el SDK
-(`tests/test_llm_boundary.py` lo comprueba).
+Toda llamada a Gemini pasa por aquí: el juez (etiquetado, coherencia y
+abogado), los documentos y la prueba de clave. Es el único módulo del
+proyecto que importa el SDK (`tests/test_llm_boundary.py` lo comprueba).
 
 Saneado (AUD-031)
 -----------------
