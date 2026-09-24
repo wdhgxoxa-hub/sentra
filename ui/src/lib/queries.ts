@@ -16,6 +16,7 @@ import {
 } from "@tanstack/react-query";
 
 import { ipc } from "@/lib/ipc";
+import { esperaDeReintento, reintentarMientrasArranca } from "@/lib/reintentos";
 import type {
   AppSettings,
   GeminiModelsResult,
@@ -34,7 +35,10 @@ export const queryClient = new QueryClient({
       // refrescar al enfocar la ventana solo gastaría consultas.
       refetchOnWindowFocus: false,
       staleTime: 30_000,
-      retry: 1,
+      // Mientras el motor arranca se reintenta hasta que conteste; el resto
+      // de errores, una vez (lib/reintentos.ts).
+      retry: reintentarMientrasArranca(1),
+      retryDelay: esperaDeReintento,
     },
   },
 });
@@ -143,9 +147,9 @@ export function useSettings() {
   return useQuery<AppSettings>({
     queryKey: queryKeys.settings,
     queryFn: () => ipc.getSettings(),
-    // Si el motor no responde, reintentar cada pocos segundos llenaria el
-    // log de errores sin aportar nada: el indicador de salud ya lo dice.
-    retry: false,
+    // Si el motor falla, reintentar llenaria el log sin aportar nada: el
+    // indicador de salud ya lo dice. Solo se espera a que termine de arrancar.
+    retry: reintentarMientrasArranca(0),
   });
 }
 
@@ -155,8 +159,8 @@ export function useSources() {
   return useQuery<SourcesOverview>({
     queryKey: queryKeys.sources,
     queryFn: () => ipc.listSources(),
-    // Igual que los ajustes: si el motor no responde, lo dice la salud.
-    retry: false,
+    // Igual que los ajustes: solo se espera a que el motor termine de arrancar.
+    retry: reintentarMientrasArranca(0),
   });
 }
 

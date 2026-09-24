@@ -68,6 +68,7 @@ ruff check --no-cache                          # lint de Python
 mypy                                           # tipos: core, scripts y tests (check_untyped_defs)
 python -m unittest discover -s tests           # suite de Python
 cd ui; npx --no-install tsc --noEmit -p .      # tipos de la interfaz (hace de lint)
+cd ui; npm test                                # lógica pura de la interfaz (node --test, sin dependencias)
 cd ui/src-tauri; cargo test                    # suite de Rust
 cd ui/src-tauri; cargo clippy --all-targets -- -D warnings
 ```

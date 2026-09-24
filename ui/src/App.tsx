@@ -32,10 +32,11 @@ export default function App() {
   // AUD-059: el arranque del motor avisa al terminar (y al reintentarlo);
   // sin escucharlo, la salud seguía en rojo hasta el siguiente sondeo de 30 s.
   useEffect(() => {
+    // Todo lo que depende del motor cuelga de ["radar"]: al cambiar su estado
+    // se refresca entero. Una lista a mano dejó fuera el juez y la evidencia,
+    // y el Radar se quedaba vacío si cargaba antes de que el motor arrancase.
     const unlisten = onSidecarEvent(() => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.health });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.sources });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.radar });
     });
     return () => {
       void unlisten.then((stop) => stop());
