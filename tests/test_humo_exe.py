@@ -30,7 +30,7 @@ def observado(**cambios: Any) -> Observado:
         motor_activo_s=4.2, radar_top=6, radar_resto=3, radar_feed=40,
         feed_fechas=["2026-09-23", "2026-05-29"], busqueda_filas=20, fuentes_tarjetas=10,
         config_carga=True, cierre_normal=True, puerto_libre_tras_matar=True,
-        url_interfaz="http://tauri.localhost/",
+        url_interfaz="http://tauri.localhost/", cierre_ventana_interna=True,
         huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
         raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
         preferencias_antes={"lang": "es", "tema": "system"},
@@ -86,6 +86,14 @@ class TestEvaluar(unittest.TestCase):
             with self.subTest(url):
                 fallos = evaluar(observado(url_interfaz=url), verdad(), ahora=AHORA)
                 self.assertTrue(any("interfaz embebida" in f for f in fallos), fallos)
+
+    def test_un_cierre_por_la_ventana_interna_que_cuelga_la_app_es_un_fallo(self):
+        # AUD2-027: WM_CLOSE a la «Tao Thread Event Target» (visible a propósito
+        # en tao) la destruía y el proceso quedaba vivo sin ventana al cerrar.
+        fallos = evaluar(observado(cierre_ventana_interna=False), verdad(), ahora=AHORA)
+        self.assertTrue(any("ventana interna" in f for f in fallos), fallos)
+        fallos = evaluar(observado(huerfanos_tras_ventana_interna=2), verdad(), ahora=AHORA)
+        self.assertTrue(any("ventana interna" in f for f in fallos), fallos)
 
     def test_la_prueba_no_puede_tocar_las_preferencias_del_usuario(self):
         cambiado = observado(preferencias_despues={"lang": "es", "tema": "dark"})

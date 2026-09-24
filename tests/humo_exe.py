@@ -97,6 +97,10 @@ class Observado:
     raiz_motor: str | None = None
     #: Un exe de `cargo build` sin la feature custom-protocol abre el servidor de desarrollo.
     url_interfaz: str | None = None
+    #: AUD2-027: un WM_CLOSE a la ventana interna de tao («Tao Thread Event Target»,
+    #: visible a propósito) no puede dejar el proceso colgado ni motores vivos.
+    cierre_ventana_interna: bool = False
+    huerfanos_tras_ventana_interna: int = 0
 
 
 def esperado(verdad: Verdad) -> Esperado:
@@ -143,6 +147,10 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"cierre forzado: {obs.huerfanos_tras_matar} motores huérfanos")
     if not obs.puerto_libre_tras_matar:
         fallos.append(f"cierre forzado: el puerto {PUERTO_MOTOR} sigue ocupado")
+    if not obs.cierre_ventana_interna:
+        fallos.append("cierre por la ventana interna de tao: el proceso no terminó")
+    if obs.huerfanos_tras_ventana_interna:
+        fallos.append(f"cierre por la ventana interna de tao: {obs.huerfanos_tras_ventana_interna} motores vivos")
     if not obs.huella_motor or obs.huella_motor != obs.huella_compilada:
         fallos.append(f"motor: huella {obs.huella_motor}; la interfaz se compiló con {obs.huella_compilada}")
     if obs.raiz_motor is None or _dentro_del_repo(obs.raiz_motor):
@@ -279,6 +287,41 @@ class _Cdp:
                 f"{json.dumps(list(etiquetas))}.some(e => x.innerText.trim().startsWith(e))); if (b) b.click(); }})()")
 
 
+VENTANA_APP = "Tauri Window"
+VENTANA_INTERNA = "Tao Thread Event Target"
+
+
+def _ventana(pid: int, clase: str) -> int | None:
+    """La ventana de nivel superior de `pid` con esa clase (EnumWindows)."""
+    import ctypes
+    import ctypes.wintypes as w
+
+    user32 = ctypes.windll.user32
+    halladas: list[int] = []
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, w.HWND, w.LPARAM)
+    def cada(hwnd: int, _: int) -> bool:
+        propio = w.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(propio))
+        nombre = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, nombre, 256)
+        if propio.value == pid and nombre.value == clase:
+            halladas.append(hwnd)
+        return True
+
+    user32.EnumWindows(cada, 0)
+    return halladas[0] if halladas else None
+
+
+def _cerrar_ventana(pid: int, clase: str) -> bool:
+    """WM_CLOSE a esa ventana, como la X (la de la app) o como taskkill cuando
+    elige la ventana interna. taskkill sin /F no sirve: su destino cambia."""
+    import ctypes
+
+    hwnd = _ventana(pid, clase)
+    return bool(hwnd) and bool(ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0))
+
+
 PREFERENCIAS = "(() => { try { return JSON.parse(localStorage.getItem('sentra.preferences')); } catch (e) { return null; } })()"
 
 
@@ -327,7 +370,7 @@ def recorrer(exe: Path) -> Observado:
     obs.preferencias_despues = app.js(PREFERENCIAS)
     obs.excepciones, obs.errores_csp = list(app.excepciones), app.errores_csp
 
-    subprocess.run(["taskkill", "/PID", str(app.proceso.pid)], capture_output=True, check=False)
+    _cerrar_ventana(app.proceso.pid, VENTANA_APP)
     try:
         app.proceso.wait(timeout=20)
         obs.cierre_normal = True
@@ -336,6 +379,23 @@ def recorrer(exe: Path) -> Observado:
     time.sleep(3)
     obs.huerfanos_tras_cierre = _motores()
     return obs
+
+
+def cerrar_por_ventana_interna(exe: Path, obs: Observado) -> None:
+    """AUD2-027: el cierre que llega a la ventana interna de tao también cierra."""
+    proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+    fin = time.time() + ARRANQUE_MAX_S + 5
+    while not _puerto_ocupado() and time.time() < fin:
+        time.sleep(0.25)
+    time.sleep(1)
+    _cerrar_ventana(proceso.pid, VENTANA_INTERNA)
+    try:
+        proceso.wait(timeout=20)
+        obs.cierre_ventana_interna = True
+    except subprocess.TimeoutExpired:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proceso.pid)], capture_output=True, check=False)
+    time.sleep(3)
+    obs.huerfanos_tras_ventana_interna = _motores()
 
 
 def matar_de_golpe(exe: Path, obs: Observado) -> None:
@@ -369,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
 
     verdad = verdad_de_la_base()
     obs = recorrer(args.exe)
+    cerrar_por_ventana_interna(args.exe, obs)
     matar_de_golpe(args.exe, obs)
     fallos = evaluar(obs, verdad, ahora=datetime.now(UTC))
     informe = {"verdad": asdict(verdad), "esperado": asdict(esperado(verdad)), "observado": asdict(obs), "fallos": fallos}

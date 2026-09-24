@@ -19,6 +19,7 @@ pub mod sidecar_log;
 pub mod empaquetado;
 pub mod motor;
 pub mod registro;
+pub mod ventana_interna;
 
 #[cfg(test)]
 mod test_support;
@@ -85,6 +86,11 @@ pub fn run() {
                     },
                     Err(err) => sidecar::Motor::Fallo(err.to_string()),
                 });
+                // AUD2-027: un WM_CLOSE a la ventana interna de tao cierra la app
+                // en orden en lugar de dejar el proceso colgado.
+                if !ventana_interna::proteger(app.handle()) {
+                    log::warn!("No se encontró la ventana interna de tao para protegerla");
+                }
                 // El arranque del sidecar no bloquea la ventana: cargar el
                 // modelo de embeddings tarda, y mas vale ensenar la interfaz
                 // con el indicador en rojo que una pantalla congelada.
