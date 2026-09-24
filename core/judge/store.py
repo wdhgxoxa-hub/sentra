@@ -86,6 +86,8 @@ async def marcar_juzgada(store: PostgresStore, run_id: str, *, construir: int) -
         """,
         (TOP_TARGET, encontrados, motivo, store.tenant_id, run_id),
     )
+    # La conexión no es autocommit: sin esto, cerrarla desharía la marca.
+    await store.connection.commit()
 
 
 async def latest_judged_run(store: PostgresStore) -> str | None:

@@ -148,12 +148,19 @@ class TestPersistenciaDelJuez(unittest.TestCase):
             nueva = await store.start_run("perfil", trigger_source="rejuicio", data_source="real")
             await store.save_verdicts(nueva, [])
             await marcar_juzgada(store, nueva, construir=0)
+            return nueva
+
+        nueva = self.run_store(guardar)
+
+        # Con OTRA conexión: la marca tiene que haberse confirmado (la conexión
+        # no es autocommit y cerrarla sin commit la desharía).
+        async def leer(store):
             fila = await store._fetchone(
                 "SELECT top_n_target, top_n_found, top_n_reason::text AS motivo FROM pipeline_runs WHERE id = %s",
                 (nueva,))
-            return nueva, dict(fila), await latest_judged_run(store)
+            return dict(fila), await latest_judged_run(store)
 
-        nueva, marca, ultima = self.run_store(guardar)
+        marca, ultima = self.run_store(leer)
         self.assertEqual(ultima, nueva)
         self.assertEqual(marca, {"top_n_target": 6, "top_n_found": 0, "motivo": "datos_insuficientes"})
         top = self.run_store(lambda store: top_verdicts(store, nueva))
