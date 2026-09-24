@@ -48,6 +48,8 @@ FEED = 40
 ARRANQUE_MAX_S = 30.0
 #: El motor huérfano tiene que haber terminado tras un cierre forzado.
 FIN_MOTOR_MAX_S = 10.0
+#: Orígenes de la interfaz embebida en un exe de Tauri 2 (Windows usa el primero).
+ORIGENES_EMBEBIDOS = ("http://tauri.localhost", "https://tauri.localhost", "tauri://localhost")
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,8 @@ class Observado:
     huella_compilada: str | None = None
     huella_motor: str | None = None
     raiz_motor: str | None = None
+    #: Un exe de `cargo build` sin la feature custom-protocol abre el servidor de desarrollo.
+    url_interfaz: str | None = None
 
 
 def esperado(verdad: Verdad) -> Esperado:
@@ -106,6 +110,9 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
     """Fallos, en texto; lista vacía = la app hace lo que la base dice."""
     fallos: list[str] = []
     e = esperado(verdad)
+    if not (obs.url_interfaz or "").startswith(ORIGENES_EMBEBIDOS):
+        fallos.append(f"exe: la ventana abre {obs.url_interfaz}, no la interfaz embebida "
+                      "(¿compilado con cargo en lugar de `npm run tauri build`?)")
     if obs.motor_activo_s is None or obs.motor_activo_s > ARRANQUE_MAX_S:
         fallos.append(f"motor: no quedó activo en {ARRANQUE_MAX_S:.0f} s ({obs.motor_activo_s})")
     if (obs.radar_top, obs.radar_resto) != (e.top, e.resto):
@@ -274,6 +281,7 @@ PREFERENCIAS = "(() => { try { return JSON.parse(localStorage.getItem('sentra.pr
 def recorrer(exe: Path) -> Observado:
     obs = Observado()
     app = _Cdp(exe)
+    obs.url_interfaz = app.js("location.href")
     obs.preferencias_antes = app.js(PREFERENCIAS)
     if app.esperar("[...document.querySelectorAll('nav [title]')].some(d => /^(Motor|Engine)/.test(d.innerText.trim()) "
                    "&& /(activo|up)$/.test(d.innerText.replace(/\\s+/g, ' ').trim()))", ARRANQUE_MAX_S + 5):

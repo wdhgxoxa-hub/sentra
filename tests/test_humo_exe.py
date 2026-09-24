@@ -30,6 +30,7 @@ def observado(**cambios: Any) -> Observado:
         motor_activo_s=4.2, radar_top=6, radar_resto=3, radar_feed=40,
         feed_fechas=["2026-09-23", "2026-05-29"], busqueda_filas=20, fuentes_tarjetas=10,
         config_carga=True, cierre_normal=True, puerto_libre_tras_matar=True,
+        url_interfaz="http://tauri.localhost/",
         huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
         raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
         preferencias_antes={"lang": "es", "tema": "system"},
@@ -77,6 +78,14 @@ class TestEvaluar(unittest.TestCase):
         self.assertTrue(evaluar(observado(huella_motor=None), verdad(), ahora=AHORA))
         dentro = observado(raiz_motor="F:/reddit_intelligence_radar")
         self.assertTrue(any("repositorio" in f for f in evaluar(dentro, verdad(), ahora=AHORA)))
+
+    def test_un_exe_sin_la_interfaz_embebida_es_un_fallo(self):
+        # `cargo build --release` sin la feature custom-protocol de Tauri deja un
+        # exe que abre el servidor de desarrollo: la ventana queda vacía.
+        for url in ("http://localhost:5173/", None):
+            with self.subTest(url):
+                fallos = evaluar(observado(url_interfaz=url), verdad(), ahora=AHORA)
+                self.assertTrue(any("interfaz embebida" in f for f in fallos), fallos)
 
     def test_la_prueba_no_puede_tocar_las_preferencias_del_usuario(self):
         cambiado = observado(preferencias_despues={"lang": "es", "tema": "dark"})

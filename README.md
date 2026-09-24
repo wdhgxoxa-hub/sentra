@@ -85,7 +85,9 @@ necesitan PostgreSQL se saltan si no hay servidor (`tests/_postgres.py`).
 ## Antes de cada release: la prueba de humo
 
 Los tests no abren la aplicación; la prueba de humo sí (AUD2-004). Con la
-release compilada y SENTRA cerrada:
+release compilada con `npm run tauri build` (un `cargo build --release` suelto
+deja en el mismo sitio un exe sin la interfaz embebida, que abre el servidor
+de desarrollo y queda en blanco; la prueba lo detecta) y SENTRA cerrada:
 
 ```powershell
 python -m tests.humo_exe          # --exe RUTA para otro ejecutable
