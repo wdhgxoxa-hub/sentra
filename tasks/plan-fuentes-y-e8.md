@@ -192,3 +192,14 @@ G7 «menciones favorables insuficientes» (Clawbolt 1 de 3 autores, duevero.com 
 3). Los otros 3 grupos siguen siendo mezclas (G0). Gemini: 36 de 40; quedan 4.
 Observación: el contexto de G7 (piezas sin dolor cercanas al grupo) es casi el
 mismo para los cuatro grupos; no se ha tocado.
+
+## Pendientes menores del dossier — criterio fijado ANTES de medir (2026-09-24)
+
+1. La línea de G7 (y de cualquier compuerta en Riesgos) dice en palabras qué
+   exige la compuerta y lleva su nota; sin llamadas.
+2. Contexto de G7 (piezas sin dolor cercanas al grupo): hoy una pieza entra en el
+   contexto de TODOS los grupos cuyo centro supera 0,82, y en un escaneo de un
+   solo tema casi todas entran en todos. Criterio: cada pieza sin dolor va al
+   contexto de UN solo grupo, el de centro más cercano, y solo si supera 0,82 (el
+   umbral no cambia; no se calibra nada). Medida antes/después sin llamadas: piezas
+   de contexto por grupo y cuántas comparten grupos, en el escaneo de impagos.

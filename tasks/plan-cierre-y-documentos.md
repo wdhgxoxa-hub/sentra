@@ -56,7 +56,7 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 - [x] F4 Push, fast-forward, push de main. (0e46f1c → 8906c58, fast-forward puro de 128 commits.)
 
 ## Fase G — Credenciales
-- [ ] G1 Product Hunt: pedir el token en su tarjeta, esperar y probar.
+- [x] G1 Product Hunt: pedir el token en su tarjeta, esperar y probar. (Verificada al guardar, 16:21; sondeo independiente ok, sin ver el token.)
 
 ## Calibración de la agrupación (B3.2, 2026-09-23)
 
