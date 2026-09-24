@@ -173,6 +173,8 @@ class TestEscaneoMultifuente(ConfigTestCase):
         self.assertEqual((recibidos[-1]["runId"], recibidos[-1]["summary"]), ("run-7", resumen))
         run_id, resultado = juzgar.call_args.args[1:3]
         self.assertEqual((run_id, [i.id for i in resultado.items]), ("run-7", ["hackernews:900001"]))
+        # AUD2-001: el tema del perfil llega al juez para que no nombre los nichos.
+        self.assertEqual(juzgar.call_args.kwargs.get("tema"), ["invoice"])
 
     def test_un_fallo_del_juez_no_tumba_el_escaneo(self):
         from core.orchestration.sidecar import multiscan

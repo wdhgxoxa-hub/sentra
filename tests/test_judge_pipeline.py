@@ -105,12 +105,14 @@ class TestJuezCompleto(unittest.TestCase):
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertNotIn("CONSTRUIR", [v["verdict"] for v in resultado.verdicts])
 
-    def test_sin_proveedor_todo_undetermined_y_ningun_construir(self):
+    def test_sin_proveedor_todo_undetermined_y_ningun_nicho(self):
+        """Sin etiquetas no hay dolor verificado, y sin dolor no hay nichos
+        (AUD2-001: antes salía un DESCARTAR hecho de ítems sin determinar)."""
         items, vectores = escenario()
         resultado = run_judge(items, vectores, provider=None, model=None,
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertEqual(resultado.summary["undetermined"], {"no_provider": 10})
-        self.assertEqual([v["verdict"] for v in resultado.verdicts], ["DESCARTAR"])
+        self.assertEqual((resultado.summary["pain"], resultado.verdicts), (0, []))
 
     def test_sin_vectores_no_hay_grupos_y_se_dice(self):
         items, _ = escenario()

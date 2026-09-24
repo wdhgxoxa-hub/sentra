@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 import psycopg
@@ -97,8 +98,10 @@ def _proveedor_del_juez(ctx: SidecarContext) -> tuple[Any, str | None, str | Non
         return None, None, motivo
 
 
-def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> dict[str, Any]:
-    """Juez completo sobre lo guardado; devuelve su resumen. En un hilo aparte."""
+def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
+            tema: Sequence[str] = ()) -> dict[str, Any]:
+    """Juez completo sobre lo guardado; devuelve su resumen. En un hilo aparte.
+    `tema`: palabras clave del perfil; no nombran nichos (AUD2-001)."""
     import os
     from datetime import UTC, datetime
 
@@ -119,7 +122,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> dic
             previos = await previous_identities(store)
             juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
-                               previous=previos)
+                               previous=previos, tema=tema)
             await store.save_verdicts(run_id, juicio.verdicts)
             return juicio.summary
 
@@ -224,7 +227,8 @@ def router(ctx: SidecarContext) -> APIRouter:
                     if guardado and run_id is not None:
                         cola.put_nowait({"type": "judge:started", "runId": run_id})
                         try:
-                            resumen = await asyncio.to_thread(_juzgar, ctx, run_id, resultado)
+                            resumen = await asyncio.to_thread(
+                                functools.partial(_juzgar, ctx, run_id, resultado, tema=perfil.keywords))
                             cola.put_nowait({"type": "judge:done", "runId": run_id,
                                              "summary": resumen})
                         # El escaneo ya está guardado: un fallo del juez se cuenta, no lo tumba.

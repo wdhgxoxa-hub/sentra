@@ -1,0 +1,118 @@
+"""
+El juez agrupa problemas, no temas (AUD2-001, 6.3)
+=================================================
+
+Se agrupaba todo lo que pasaba el filtro de calidad: los grupos salían por
+tema («email») y mezclaban lanzamientos y comentarios sueltos. Ahora:
+- solo la evidencia con dolor pertinente forma nichos (un lanzamiento no,
+  aunque el LLM lo etiquete como dolor, que es justo el error real);
+- lo demás que queda cerca del grupo solo sirve de contexto para G7
+  (quién habla bien de un competidor gratuito);
+- G2 (autores distintos) escala con el tamaño del escaneo: 8 fijos era
+  inalcanzable con ~100 piezas;
+- los términos del tema del escaneo no nombran los nichos.
+"""
+
+import json
+import unittest
+
+from core.judge.advocate import AdvocateReport
+from core.judge.clustering import CLUSTERING_VERSION
+from core.judge.dimensions import WEIGHTS_VERSION
+from core.judge.gates import MIN_DISTINCT_AUTHORS, umbral_autores
+from core.judge.labels import (
+    CompetitorMention,
+    InMemoryLabelCache,
+    LLMItemLabel,
+    LLMLabelBatch,
+)
+from core.judge.pipeline import run_judge
+from tests.test_judge_pipeline import AHORA, pieza
+
+
+class DobleQueSeEquivoca:
+    """Etiqueta como dolor con parche TODO, lanzamientos incluidos (el error real);
+    el ítem «opinion» no es dolor y habla bien de un competidor gratuito."""
+
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+                      thinking_budget=None):
+        if schema is AdvocateReport:
+            return AdvocateReport()
+        etiquetas = []
+        for e in json.loads(prompt[prompt.index("["):]):
+            if "TallyBird" in e["text"]:
+                etiquetas.append(LLMItemLabel(
+                    item_id=e["id"], is_pain=False, pain_confidence=0.9, intent="mencion_competidor",
+                    workaround_described=False, wtp_signal=False,
+                    competitors_mentioned=[CompetitorMention(name="TallyBird", stance="satisfecho", free=True,
+                                                             evidence_span="TallyBird")],
+                    evidence_spans={"intent": "TallyBird"}))
+                continue
+            span = e["text"][:20]
+            etiquetas.append(LLMItemLabel(
+                item_id=e["id"], is_pain=True, pain_confidence=0.9, intent="parche_casero",
+                workaround_described=True, wtp_signal=False,
+                evidence_spans={"is_pain": span, "intent": span, "workaround_described": span}))
+        return LLMLabelBatch(labels=etiquetas)
+
+
+def lanzamiento(n):
+    return pieza(n, texto=f"I built an invoice exporter, try it (build {n})").model_copy(
+        update={"title": f"Show HN: Invoicer {n}"})
+
+
+def juzgar(items, vectores, **extra):
+    return run_judge(items, vectores, provider=DobleQueSeEquivoca(), model="m",
+                     cache=InMemoryLabelCache(), now=AHORA, **extra)
+
+
+class TestJuezCoherente(unittest.TestCase):
+    def test_los_lanzamientos_no_forman_nichos_aunque_el_llm_diga_que_son_dolor(self):
+        quejas = [pieza(n) for n in range(6)]
+        lanzamientos = [lanzamiento(n) for n in range(10, 14)]
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas + lanzamientos)}
+        resultado = juzgar(quejas + lanzamientos, vectores)
+        miembros = {m for v in resultado.verdicts for m in v["member_ids"]}
+        self.assertEqual(miembros, {i.id for i in quejas})
+        self.assertEqual(resultado.summary["launches_excluded"], 4)
+
+    def test_g2_escala_con_el_escaneo(self):
+        self.assertEqual(umbral_autores(0), 3)
+        self.assertEqual(umbral_autores(10), 3)
+        self.assertEqual(umbral_autores(41), 5)
+        self.assertEqual(umbral_autores(10_000), MIN_DISTINCT_AUTHORS)
+
+    def test_g2_del_escaneo_llega_a_las_compuertas(self):
+        quejas = [pieza(n) for n in range(6)]
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas)}
+        [veredicto] = juzgar(quejas, vectores).verdicts
+        g2 = next(g for g in veredicto["gates"] if g["gate"] == "G2")
+        self.assertEqual(g2["threshold"], 3)
+        self.assertTrue(g2["passed"], "6 autores distintos con umbral 3")
+
+    def test_la_evidencia_cercana_sin_dolor_informa_a_g7(self):
+        quejas = [pieza(n) for n in range(6)]
+        opiniones = [pieza(n, texto=f"TallyBird does this for free and works great ({n})") for n in (20, 21, 22)]
+        lejos = pieza(30, texto="TallyBird is fine for something else entirely")
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas + opiniones)}
+        vectores[lejos.id] = [0.0, 0.0, 1.0]
+        [veredicto] = juzgar(quejas + opiniones + [lejos], vectores).verdicts
+        g7 = next(g for g in veredicto["gates"] if g["gate"] == "G7")
+        self.assertFalse(g7["passed"])
+        self.assertTrue(g7["measured"])
+        self.assertNotIn(lejos.id, g7["evidence_ids"])
+        self.assertEqual(veredicto["verdict"], "DESCARTAR")
+
+    def test_el_tema_del_escaneo_no_nombra_los_nichos(self):
+        quejas = [pieza(n) for n in range(6)]
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas)}
+        [veredicto] = juzgar(quejas, vectores, tema=["invoice", "Export"]).verdicts
+        self.assertFalse({"invoice", "export"} & set(veredicto["keywords"]))
+
+    def test_versiones_nuevas(self):
+        self.assertEqual(CLUSTERING_VERSION, "clustering-v3")
+        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v2")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from core.evidence.model import EvidenceItem
+from core.judge.clustering import CLUSTERING_VERSION
 from core.judge.labels import VerifiedLabel
 from core.judge.store import (
     PostgresLabelCache,
@@ -150,7 +151,7 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual((detalle["id"], detalle["run_id"], detalle["verdict"]),
                          (verdict_id, run_id, "CONSTRUIR"))
         self.assertEqual(detalle["run"]["parameters"], {"topic": "facturas"})
-        self.assertEqual(detalle["current_versions"]["clustering"], "clustering-v2")
+        self.assertEqual(detalle["current_versions"]["clustering"], CLUSTERING_VERSION)
         por_id = {e["id"]: e for e in detalle["evidence"]}
         self.assertEqual(set(por_id), {"hackernews:70", "hackernews:71"})
         self.assertEqual(por_id["hackernews:71"]["text"], largo, "el texto entero, no el extracto")

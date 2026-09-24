@@ -28,6 +28,7 @@ Tabla de veredictos D-M3, en este orden:
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -133,8 +134,22 @@ def normalizar_compuertas(guardadas: Sequence[Mapping[str, Any]]) -> list[dict[s
     return salida
 
 
+#: G2 relativo al escaneo (AUD2-001, DP2 A): 8 autores fijos no se alcanzaban con
+#: ~100 piezas. N = 10 % del dolor pertinente del escaneo, entre 3 y 8.
+G2_MIN_ABSOLUTO = 3
+G2_FRACCION = 0.10
+
+
+def umbral_autores(dolor_del_escaneo: int) -> int:
+    """Autores distintos que exige G2 para un escaneo con tanto dolor pertinente."""
+    return min(MIN_DISTINCT_AUTHORS, max(G2_MIN_ABSOLUTO, math.ceil(G2_FRACCION * dolor_del_escaneo)))
+
+
 def evaluate_gates(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
-                   now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS) -> list[GateResult]:
+                   now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS,
+                   contexto: Sequence[EvidenceItem] = ()) -> list[GateResult]:
+    """`contexto`: evidencia sin dolor cercana al grupo; solo cuenta para G7
+    (quién habla bien de un competidor gratuito)."""
     dolores = pain_items(items, labels)
     fuentes = {i.source for i in dolores}
     autores = {i.author_hash for i in dolores if i.author_hash}
@@ -151,7 +166,7 @@ def evaluate_gates(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedL
         _concentracion(dolores),
         GateResult("G6", bool(dolores) and cuota_reciente >= RECENCY_MIN_SHARE, cuota_reciente,
                    RECENCY_MIN_SHARE, _ids(recientes)),
-        _saturacion(items, labels),
+        _saturacion([*items, *contexto], labels),
         GateResult("G8", not no_reales, len(no_reales), 0, _ids(no_reales)),
     ]
 
@@ -176,8 +191,9 @@ def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHO
 
 
 def judge_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
-                  now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS) -> ClusterJudgement:
-    compuertas = evaluate_gates(items, labels, now=now, min_authors=min_authors)
+                  now: datetime, min_authors: int = MIN_DISTINCT_AUTHORS,
+                  contexto: Sequence[EvidenceItem] = ()) -> ClusterJudgement:
+    compuertas = evaluate_gates(items, labels, now=now, min_authors=min_authors, contexto=contexto)
     veredicto, regla = decide(compuertas, min_authors=min_authors)
     return ClusterJudgement(veredicto, [g.gate for g in compuertas if not g.passed], regla,
                             compuertas, score_cluster(items, labels, now=now))

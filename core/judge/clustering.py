@@ -31,7 +31,9 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: (tests/fixtures/golden_clusters.json; barrido en scripts/calibrar_agrupacion.py):
 #: enlace promedio con 0,82 dio pureza 0,735 y ARI 0,487 (6 grupos), frente a
 #: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
-CLUSTERING_VERSION = "clustering-v2"
+#: v3 (AUD2-001): solo agrupa evidencia con dolor pertinente y el tema del
+#: escaneo no nombra nichos. El método y el umbral son los de v2.
+CLUSTERING_VERSION = "clustering-v3"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
@@ -85,11 +87,14 @@ def _unitario(vector: Sequence[float] | np.ndarray) -> np.ndarray:
     return v / norma if norma else v
 
 
-def _palabras_clave(textos: Sequence[str]) -> list[str]:
+def _palabras_clave(textos: Sequence[str], excluir: Sequence[str] = ()) -> list[str]:
+    """Las más frecuentes del grupo; `excluir` son los términos del tema del
+    escaneo, que están en todos los grupos y no distinguen ninguno."""
+    vacias = STOPWORDS | {p for termino in excluir for p in _PALABRA.findall(termino.casefold())}
     conteo: Counter[str] = Counter()
     for texto in textos:
         limpio = _ETIQUETA_HN.sub(" ", _CONTRACCION.sub(" ", _URL.sub(" ", texto.casefold())))
-        conteo.update({p for p in _PALABRA.findall(limpio) if p not in STOPWORDS})
+        conteo.update({p for p in _PALABRA.findall(limpio) if p not in vacias})
     return [p for p, _ in sorted(conteo.items(), key=lambda kv: (-kv[1], kv[0]))][:KEYWORDS_PER_CLUSTER]
 
 
@@ -155,6 +160,7 @@ def cluster_evidence(
     vectors: Mapping[str, Sequence[float]],
     *,
     previous: Sequence[Previo] = (),
+    excluir: Sequence[str] = (),
 ) -> list[EvidenceCluster]:
     """Grupos de al menos MIN_CLUSTER_SIZE ítems, con identidad estable."""
     con_vector = [i for i in sorted(items, key=lambda i: (i.created_at, i.id)) if i.id in vectors]
@@ -171,7 +177,7 @@ def cluster_evidence(
     for miembros, vs in grupos:
         if len(miembros) < MIN_CLUSTER_SIZE:
             continue
-        palabras = _palabras_clave([m.text for m in miembros])
+        palabras = _palabras_clave([m.text for m in miembros], excluir)
         ids = sorted(m.id for m in miembros)
         clave = "-".join(palabras[:3]) or ids[0]
         candidatos.append((Candidato(clave=f"{clave}#{ids[0]}", miembros=set(ids),
@@ -185,6 +191,6 @@ def cluster_evidence(
         nuevo = str(uuid.uuid5(_NAMESPACE, ",".join(ids)))
         resultado.append(EvidenceCluster(
             key=candidato.clave, opportunity_id=heredados.get(candidato.clave) or nuevo,
-            member_ids=ids, keywords=_palabras_clave([m.text for m in miembros]),
+            member_ids=ids, keywords=_palabras_clave([m.text for m in miembros], excluir),
             centroid=[float(x) for x in centroide]))
     return sorted(resultado, key=lambda g: g.key)
