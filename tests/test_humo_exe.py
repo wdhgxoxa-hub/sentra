@@ -109,6 +109,20 @@ class TestEvaluar(unittest.TestCase):
         self.assertTrue(any("perfil aislado" in f for f in fallos), fallos)
 
 
+class TestEsperas(unittest.TestCase):
+    def test_la_busqueda_se_espera_al_menos_lo_que_la_espera_la_app(self):
+        # Falso rojo tras una compilación: el humo se rendía a los 30 s y la app
+        # espera 60 (la primera búsqueda carga e5 en frío).
+        import re
+
+        from tests.humo_exe import BUSQUEDA_MAX_S, RAIZ
+
+        rust = (RAIZ / "ui" / "src-tauri" / "src" / "commands" / "engine.rs").read_text(encoding="utf-8")
+        encontrado = re.search(r"SEARCH_TIMEOUT: Duration = Duration::from_secs\((\d+)\)", rust)
+        assert encontrado is not None
+        self.assertGreater(BUSQUEDA_MAX_S, int(encontrado.group(1)))
+
+
 class TestLectorCdp(unittest.TestCase):
     def test_un_minuto_sin_mensajes_no_mata_al_lector(self):
         # AUD2-026: con la app en reposo pasaba más de un minuto sin mensajes

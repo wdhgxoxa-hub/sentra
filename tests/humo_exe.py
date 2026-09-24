@@ -52,6 +52,10 @@ FEED = 40
 ARRANQUE_MAX_S = 30.0
 #: El motor huérfano tiene que haber terminado tras un cierre forzado.
 FIN_MOTOR_MAX_S = 10.0
+#: Lo que se espera a la búsqueda: más que la propia app (SEARCH_TIMEOUT, 60 s en
+#: commands/engine.rs). La primera búsqueda tras compilar carga e5 en frío y con
+#: 30 s el humo daba un falso rojo que la app no tenía.
+BUSQUEDA_MAX_S = 65.0
 #: Orígenes de la interfaz embebida en un exe de Tauri 2 (Windows usa el primero).
 ORIGENES_EMBEBIDOS = ("http://tauri.localhost", "https://tauri.localhost", "tauri://localhost")
 #: El perfil de WebView que usa SENTRA de verdad (idioma y tema en su Local Storage).
@@ -86,6 +90,7 @@ class Observado:
     feed_fechas: list[str] = field(default_factory=list)
     feed_fuente_desconocida: int = 0
     busqueda_filas: int = 0
+    busqueda_s: float | None = None
     fuentes_tarjetas: int = 0
     config_carga: bool = False
     excepciones: list[str] = field(default_factory=list)
@@ -392,7 +397,9 @@ def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     app.js("(() => { const i = document.querySelector('main input');"
            " const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
            " set.call(i, 'email notifications'); i.dispatchEvent(new Event('input', {bubbles: true})); })()")
-    app.esperar("document.querySelectorAll('main tbody tr').length > 0 || document.querySelectorAll('main [role=alert]').length > 0", 30)
+    inicio = time.time()
+    app.esperar("document.querySelectorAll('main tbody tr').length > 0 || document.querySelectorAll('main [role=alert]').length > 0", BUSQUEDA_MAX_S)
+    obs.busqueda_s = round(time.time() - inicio, 1)
     obs.busqueda_filas = app.js("document.querySelectorAll('main tbody tr').length") or 0
 
     app.ir("Fuentes", "Sources")
@@ -483,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     for fallo in fallos:
         print(f"  ✗ {fallo}")
     print(f"HUMO {'OK' if not fallos else 'FALLA'}: motor {obs.motor_activo_s} s · Top {obs.radar_top}+{obs.radar_resto} · "
-          f"feed {obs.radar_feed} · búsqueda {obs.busqueda_filas} · fuentes {obs.fuentes_tarjetas} · "
+          f"feed {obs.radar_feed} · búsqueda {obs.busqueda_filas} ({obs.busqueda_s} s) · fuentes {obs.fuentes_tarjetas} · "
           f"huérfanos {obs.huerfanos_tras_cierre}/{obs.huerfanos_tras_matar}")
     return 0 if not fallos else 1
 
