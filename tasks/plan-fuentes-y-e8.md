@@ -237,3 +237,16 @@ la estabilidad la da una caché de G0 por grupo.
   grupos (miembros), el mismo G0 por grupo, los mismos nombres y los mismos
   veredictos, y el segundo hace 0 llamadas. La estabilidad intrínseca del modelo a
   temperatura por defecto NO se mide (haría falta repetir llamadas).
+
+### Resultado (migración 016 aplicada con R12; respaldo *_1755_pre016.dump)
+
+- Re-juicio 1 (01a0d5a2-8e7b-77d7-bd83-c7cf181c4c3b): 2 llamadas; llena la caché (6 resultados:
+  4 grupos + 2 subgrupos confirmados).
+- Re-juicio 2 (01a0d5a3-0dc2-7ec8-afbe-a94a28314550) con --max-llamadas 0: 0 llamadas.
+- Estable según el criterio: 4 de 4 grupos idénticos (miembros, G0 y su nota, nombre, veredicto
+  y regla).
+- Impagos: «Tener que reclamar facturas impagadas» / «Chasing down unpaid overdue invoices»,
+  INVESTIGAR MÁS (regla 9).
+- No medido: la estabilidad propia del modelo sin caché (haría falta repetir llamadas).
+- Gemini: 40 de 40; presupuesto agotado. El dossier no se regenera (costaría una llamada); su
+  nombre sale del veredicto (test).
