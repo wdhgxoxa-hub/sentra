@@ -49,9 +49,10 @@ class TestCalibracion(unittest.TestCase):
         self.assertEqual([str(i) for i in datos["ids"]], [i["id"] for i in dorado["items"]])
 
     def test_clustering_v2_elegido_por_la_metrica(self):
-        # v3 (AUD2-001) cambia qué entra (solo dolor pertinente), no el método ni el umbral.
+        # v3 (AUD2-001) cambia qué entra (solo dolor pertinente) y v4 (AUD2-006) cómo
+        # se nombran los grupos; ninguna el método ni el umbral.
         self.assertEqual((CLUSTERING_VERSION, CLUSTERING_METHOD, CLUSTER_MIN_SIMILARITY),
-                         ("clustering-v3", "average_linkage", 0.82))
+                         ("clustering-v4", "average_linkage", 0.82))
 
     def test_la_agrupacion_del_juez_no_baja_de_lo_logrado(self):
         datos, dorado = cargar()

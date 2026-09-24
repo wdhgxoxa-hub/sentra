@@ -16,6 +16,7 @@ nuevo recibe un UUID determinista (uuid5 de sus miembros).
 
 from __future__ import annotations
 
+import math
 import re
 import uuid
 from collections import Counter
@@ -33,7 +34,7 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
 #: v3 (AUD2-001): solo agrupa evidencia con dolor pertinente y el tema del
 #: escaneo no nombra nichos. El método y el umbral son los de v2.
-CLUSTERING_VERSION = "clustering-v3"
+CLUSTERING_VERSION = "clustering-v4"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
@@ -87,15 +88,48 @@ def _unitario(vector: Sequence[float] | np.ndarray) -> np.ndarray:
     return v / norma if norma else v
 
 
-def _palabras_clave(textos: Sequence[str], excluir: Sequence[str] = ()) -> list[str]:
-    """Las más frecuentes del grupo; `excluir` son los términos del tema del
-    escaneo, que están en todos los grupos y no distinguen ninguno."""
+#: Una palabra nombra un grupo solo si sale en al menos este número de sus
+#: piezas (AUD2-006): en grupos pequeños casi todo sale una vez, y el desempate
+#: alfabético elegía «already · between». Sin bastantes, no se rellena.
+MIN_KEYWORD_SUPPORT = 2
+
+
+def _raiz(palabra: str) -> str:
+    """Singular y plural cuentan como una («send»/«sends», «invoice»/«invoices»)."""
+    return palabra[:-1] if len(palabra) > 4 and palabra.endswith("s") and not palabra.endswith("ss") else palabra
+
+
+def _palabras_de(texto: str, vacias: frozenset[str] | set[str]) -> set[str]:
+    limpio = _ETIQUETA_HN.sub(" ", _CONTRACCION.sub(" ", _URL.sub(" ", texto.casefold())))
+    return {p for p in _PALABRA.findall(limpio) if p not in vacias}
+
+
+def _palabras_clave(textos: Sequence[str], excluir: Sequence[str] = (),
+                    fondo: Sequence[str] | None = None) -> list[str]:
+    """Las que distinguen al grupo: salen en al menos MIN_KEYWORD_SUPPORT de sus
+    piezas y, con `fondo` (todo lo agrupado en el escaneo), pesan menos cuanto
+    más comunes son fuera de él (idea de c-TF-IDF). `excluir` son los términos
+    del tema del escaneo, que están en todos los grupos y no distinguen ninguno."""
     vacias = STOPWORDS | {p for termino in excluir for p in _PALABRA.findall(termino.casefold())}
-    conteo: Counter[str] = Counter()
+    soporte: Counter[str] = Counter()
+    formas: dict[str, Counter[str]] = {}
     for texto in textos:
-        limpio = _ETIQUETA_HN.sub(" ", _CONTRACCION.sub(" ", _URL.sub(" ", texto.casefold())))
-        conteo.update({p for p in _PALABRA.findall(limpio) if p not in vacias})
-    return [p for p, _ in sorted(conteo.items(), key=lambda kv: (-kv[1], kv[0]))][:KEYWORDS_PER_CLUSTER]
+        palabras = _palabras_de(texto, vacias)
+        soporte.update({_raiz(p) for p in palabras})
+        for p in palabras:
+            formas.setdefault(_raiz(p), Counter())[p] += 1
+    minimo = min(MIN_KEYWORD_SUPPORT, len(textos))
+    raices = [r for r, n in soporte.items() if n >= minimo]
+    if fondo:
+        en_fondo: Counter[str] = Counter()
+        for texto in fondo:
+            en_fondo.update({_raiz(p) for p in _palabras_de(texto, vacias)})
+        peso = {r: soporte[r] * math.log((len(fondo) + 1) / (en_fondo[r] + 1)) for r in raices}
+    else:
+        peso = {r: float(soporte[r]) for r in raices}
+    elegidas = sorted(raices, key=lambda r: (-peso[r], -soporte[r], r))[:KEYWORDS_PER_CLUSTER]
+    # Se enseña la forma más usada en el grupo (en empate, la más corta).
+    return [min(formas[r].items(), key=lambda kv: (-kv[1], len(kv[0]), kv[0]))[0] for r in elegidas]
 
 
 def leader_partition(vectores: Sequence[Sequence[float]], umbral: float) -> list[int]:
@@ -172,12 +206,13 @@ def cluster_evidence(
         miembros.append(item)
         vs.append(_unitario(vectors[item.id]))
     grupos = [por_etiqueta[e] for e in sorted(por_etiqueta)]
+    fondo = [i.text for i in con_vector]
 
     candidatos: list[tuple[Candidato, list[EvidenceItem], np.ndarray]] = []
     for miembros, vs in grupos:
         if len(miembros) < MIN_CLUSTER_SIZE:
             continue
-        palabras = _palabras_clave([m.text for m in miembros], excluir)
+        palabras = _palabras_clave([m.text for m in miembros], excluir, fondo)
         ids = sorted(m.id for m in miembros)
         clave = "-".join(palabras[:3]) or ids[0]
         candidatos.append((Candidato(clave=f"{clave}#{ids[0]}", miembros=set(ids),
@@ -191,6 +226,6 @@ def cluster_evidence(
         nuevo = str(uuid.uuid5(_NAMESPACE, ",".join(ids)))
         resultado.append(EvidenceCluster(
             key=candidato.clave, opportunity_id=heredados.get(candidato.clave) or nuevo,
-            member_ids=ids, keywords=_palabras_clave([m.text for m in miembros], excluir),
+            member_ids=ids, keywords=_palabras_clave([m.text for m in miembros], excluir, fondo),
             centroid=[float(x) for x in centroide]))
     return sorted(resultado, key=lambda g: g.key)

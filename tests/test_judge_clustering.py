@@ -96,6 +96,37 @@ class TestAgrupacion(unittest.TestCase):
             self.assertNotIn(resto, palabras)
         self.assertEqual(palabras[:2], ["alerts", "email"])
 
+    def test_una_palabra_de_un_solo_texto_no_nombra_el_grupo(self):
+        """AUD2-006 (causa raíz): en grupos de 3 a 10 piezas casi todo sale una
+        vez y el desempate alfabético elegía «already · between»."""
+        from core.judge.clustering import _palabras_clave
+
+        palabras = _palabras_clave([
+            "It already fails between retries: email alerts arrive late",
+            "Email alerts never arrive for our domain",
+            "Our domain email alerts are delayed",
+        ])
+        for suelta in ("already", "between", "fails", "retries", "late", "never", "delayed"):
+            self.assertNotIn(suelta, palabras)
+        self.assertEqual(set(palabras), {"alerts", "email", "domain", "arrive", "our"} & set(palabras))
+
+    def test_singular_y_plural_cuentan_como_una(self):
+        from core.judge.clustering import _palabras_clave
+
+        palabras = _palabras_clave(["send invoices by email", "it sends invoice twice",
+                                    "sends the invoices late"])
+        self.assertFalse({"send", "sends"} <= set(palabras), palabras)
+        self.assertFalse({"invoice", "invoices"} <= set(palabras), palabras)
+
+    def test_lo_que_esta_en_todo_el_escaneo_no_distingue_al_grupo(self):
+        from core.judge.clustering import _palabras_clave
+
+        grupo = ["email bounces from our domain", "domain email bounces", "email to domain bounces"]
+        otros = [f"email problem number {n}" for n in range(20)]
+        palabras = _palabras_clave(grupo, fondo=grupo + otros)
+        self.assertLess(palabras.index("domain"), palabras.index("email"))
+        self.assertLess(palabras.index("bounces"), palabras.index("email"))
+
     def test_las_etiquetas_de_hacker_news_no_nombran_nichos(self):
         from core.judge.clustering import _palabras_clave
 

@@ -124,7 +124,7 @@ class TestJuezCoherente(unittest.TestCase):
         self.assertFalse({"invoice", "export"} & set(veredicto["keywords"]))
 
     def test_versiones_nuevas(self):
-        self.assertEqual(CLUSTERING_VERSION, "clustering-v3")
+        self.assertEqual(CLUSTERING_VERSION, "clustering-v4")
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v3")
 
 
