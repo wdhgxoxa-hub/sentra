@@ -47,6 +47,8 @@ class GeminiModelsResponse(BaseModel):
     models: list[GeminiModel] = Field(default_factory=list)
     general: str | None = None
     documents: str | None = None
+    #: Cuándo se pidió la lista a Google (ISO, UTC): la interfaz lo dice (AUD2-019).
+    listedAt: str | None = None
 
 
 class ProbeResponse(BaseModel):

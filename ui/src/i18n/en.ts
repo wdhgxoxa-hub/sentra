@@ -112,6 +112,7 @@ export const en: Dictionary = {
     modelsNeedKey:
       "Save the key to see the models it can use. The list comes from Google; it is not written into the app.",
     modelsLoading: "Asking which models your key can use…",
+    modelsListedAt: "Model list requested from Google {ago}; reused for a day. “Test key” requests it again.",
     modelsFailed: "The model list could not be fetched.",
     saveModels: "Save models",
     keySaved: "Key saved",

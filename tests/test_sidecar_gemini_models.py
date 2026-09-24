@@ -214,5 +214,69 @@ class TestResolucionAlUsar(ConCatalogo):
             self.resolver("defecto")
 
 
+class TestListaPersistente(ConCatalogo):
+    """AUD2-019: abrir Configuración pedía la lista a Google en cada arranque
+    (22 peticiones en el log de la release), sin que la interfaz lo dijera.
+    Ahora la lista se guarda en disco por huella de la clave (nunca la clave)
+    un día, y la respuesta dice cuándo se pidió a Google."""
+
+    def app_con_cache(self):
+        from fastapi.testclient import TestClient
+
+        from core.orchestration.sidecar_server import create_app
+
+        app = create_app(insecure_dev=True, persist_default=False, env_path=str(self.env_path),
+                         cache_modelos=self.tmpdir / "cache" / "gemini_models.json")
+        return TestClient(app)
+
+    def test_un_arranque_nuevo_reutiliza_la_lista_guardada(self):
+        self.guardar()
+        self.app_con_cache().get("/api/gemini/models")
+        self.app_con_cache().get("/api/gemini/models")
+        self.assertEqual(ClienteConCatalogo.llamadas_a_list, 1)
+
+    def test_la_respuesta_dice_cuando_se_pidio_a_google(self):
+        from datetime import UTC, datetime, timedelta
+
+        self.guardar()
+        cuerpo = self.app_con_cache().get("/api/gemini/models").json()
+        pedida = datetime.fromisoformat(cuerpo["listedAt"])
+        self.assertLess(abs(datetime.now(UTC) - pedida), timedelta(minutes=1))
+
+    def test_caducada_se_vuelve_a_pedir(self):
+        import json
+
+        from core.orchestration.sidecar.context import MODELOS_TTL_S
+
+        self.guardar()
+        self.app_con_cache().get("/api/gemini/models")
+        fichero = self.tmpdir / "cache" / "gemini_models.json"
+        datos = json.loads(fichero.read_text("utf-8"))
+        for entrada in datos.values():
+            entrada["listed_at"] -= MODELOS_TTL_S + 1
+        fichero.write_text(json.dumps(datos), "utf-8")
+        self.app_con_cache().get("/api/gemini/models")
+        self.assertEqual(ClienteConCatalogo.llamadas_a_list, 2)
+
+    def test_probar_la_clave_siempre_pregunta_a_google(self):
+        self.guardar()
+        self.app_con_cache().get("/api/gemini/models")
+        self.app_con_cache().post("/api/gemini/test")
+        self.assertEqual(ClienteConCatalogo.llamadas_a_list, 2)
+
+    def test_el_fichero_no_guarda_la_clave(self):
+        self.guardar()
+        self.app_con_cache().get("/api/gemini/models")
+        self.assertNotIn(CLAVE, (self.tmpdir / "cache" / "gemini_models.json").read_text("utf-8"))
+
+    def test_guardar_la_clave_olvida_tambien_la_lista_en_disco(self):
+        cliente = self.app_con_cache()
+        cliente.post("/api/gemini", json={"apiKey": CLAVE})
+        cliente.get("/api/gemini/models")
+        cliente.post("/api/gemini", json={"apiKey": CLAVE})
+        self.app_con_cache().get("/api/gemini/models")
+        self.assertEqual(ClienteConCatalogo.llamadas_a_list, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import logging
 import time
 from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.envfile import default_env_path
@@ -30,8 +33,12 @@ if TYPE_CHECKING:
     from core.llm.gemini import UsoDeModelo
 
 #: Cuánto se reutiliza la lista de modelos de una clave antes de volver a
-#: pedirla: cada petición a models.list es una llamada real a la API.
-MODELOS_TTL_S = 600.0
+#: pedirla: cada petición a models.list es una llamada real a la API. Se
+#: guarda en disco (AUD2-019): abrir Configuración tras un arranque no la
+#: vuelve a pedir. «Probar» sí pregunta siempre.
+MODELOS_TTL_S = 24 * 3600.0
+
+logger = logging.getLogger(__name__)
 
 SERVICE_NAME = "sentra-sidecar"
 SERVICE_VERSION = "0.1.0"
@@ -61,20 +68,61 @@ class SidecarContext:
     # Dossier y plan ya generados, por (veredicto, documento, idioma, modelo,
     # forzado): exportar el otro formato no vuelve a llamar al modelo (Fase E).
     documentos: dict[tuple[str, str, str, str, bool], DocumentModel] = field(default_factory=dict)
-    # Modelos de Gemini por huella de la clave (nunca la clave): (hora, lista).
+    # Modelos de Gemini por huella de la clave (nunca la clave): (hora epoch, lista).
     modelos_gemini: dict[str, tuple[float, list[ModelInfo]]] = field(default_factory=dict)
+    # Fichero donde sobrevive esa lista entre arranques; None = solo en memoria.
+    cache_modelos: Path | None = None
 
     def listar_modelos(self, key: str, *, refrescar: bool = False) -> list[ModelInfo]:
-        """Modelos que la clave puede usar, reutilizando la lista un rato."""
+        """Modelos que la clave puede usar, reutilizando la lista un día."""
+        return self.listar_modelos_con_hora(key, refrescar=refrescar)[1]
+
+    def listar_modelos_con_hora(self, key: str, *, refrescar: bool = False) -> tuple[float, list[ModelInfo]]:
+        """(cuándo se pidió a Google, en epoch; lista)."""
         from core.llm.gemini import GeminiProvider
 
-        huella = hashlib.sha256(key.encode()).hexdigest()
-        guardada = self.modelos_gemini.get(huella)
-        if guardada and not refrescar and time.monotonic() - guardada[0] < MODELOS_TTL_S:
-            return guardada[1]
-        modelos = GeminiProvider(key).list_models()
-        self.modelos_gemini[huella] = (time.monotonic(), modelos)
-        return modelos
+        huella = hashlib.sha256(key.encode()).hexdigest()[:32]
+        if not refrescar:
+            guardada = self.modelos_gemini.get(huella) or self._leer_cache_modelos(huella)
+            if guardada and time.time() - guardada[0] < MODELOS_TTL_S:
+                self.modelos_gemini[huella] = guardada
+                return guardada
+        self.modelos_gemini[huella] = (time.time(), GeminiProvider(key).list_models())
+        self._escribir_cache_modelos()
+        return self.modelos_gemini[huella]
+
+    def olvidar_modelos(self) -> None:
+        """La lista era de otra clave (o de la misma antes de guardarla otra vez)."""
+        self.modelos_gemini.clear()
+        if self.cache_modelos is not None:
+            self.cache_modelos.unlink(missing_ok=True)
+
+    def _leer_cache_modelos(self, huella: str) -> tuple[float, list[ModelInfo]] | None:
+        from core.llm.base import ModelInfo
+
+        if self.cache_modelos is None or not self.cache_modelos.is_file():
+            return None
+        try:
+            entrada = json.loads(self.cache_modelos.read_text("utf-8")).get(huella)
+            if not entrada:
+                return None
+            return float(entrada["listed_at"]), [ModelInfo(**m) for m in entrada["models"]]
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            logger.warning("Caché de modelos de Gemini ilegible; se volverá a pedir: %s", type(exc).__name__)
+            return None
+
+    def _escribir_cache_modelos(self) -> None:
+        if self.cache_modelos is None:
+            return
+        datos = {huella: {"listed_at": hora, "models": [asdict(m) for m in modelos]}
+                 for huella, (hora, modelos) in self.modelos_gemini.items()}
+        try:
+            self.cache_modelos.parent.mkdir(parents=True, exist_ok=True)
+            temporal = self.cache_modelos.with_suffix(".tmp")
+            temporal.write_text(json.dumps(datos), "utf-8")
+            temporal.replace(self.cache_modelos)
+        except OSError as exc:
+            logger.warning("No se pudo guardar la caché de modelos de Gemini: %s", type(exc).__name__)
 
     def resolver_modelo(self, uso: UsoDeModelo) -> tuple[str, str]:
         """Clave y modelo de Gemini para un uso («defecto» o «documentos»).

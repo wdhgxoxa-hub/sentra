@@ -4,6 +4,7 @@ por cluster se retiraron con la ficha de oportunidad (C2, D-C3)."""
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -41,7 +42,7 @@ def router(ctx: SidecarContext) -> APIRouter:
                 ok=False, code="gemini_not_configured", detail="No hay clave de Gemini guardada."
             )
         try:
-            lista = ctx.listar_modelos(credenciales.key, refrescar=refrescar)
+            pedida, lista = ctx.listar_modelos_con_hora(credenciales.key, refrescar=refrescar)
         except LLMError as exc:
             return GeminiModelsResponse(ok=False, code=exc.code, detail=f"{_causa(exc)}: {exc}")
 
@@ -56,6 +57,7 @@ def router(ctx: SidecarContext) -> APIRouter:
             models=[GeminiModel(id=m.id, displayName=m.display_name) for m in lista],
             general=elegido("defecto", credenciales.general_model),
             documents=elegido("documentos", credenciales.documents_model),
+            listedAt=datetime.fromtimestamp(pedida, UTC).isoformat(),
         )
 
     @rutas.post("/api/gemini")
@@ -77,7 +79,7 @@ def router(ctx: SidecarContext) -> APIRouter:
             },
             ctx.env_path,
         )
-        ctx.modelos_gemini.clear()  # la lista era de la clave anterior
+        ctx.olvidar_modelos()  # la lista era de la clave anterior
         logger.info("Clave de Gemini guardada")
         return {"gemini": gemini_summary(ctx)}
 

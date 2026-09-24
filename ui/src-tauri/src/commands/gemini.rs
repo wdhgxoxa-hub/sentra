@@ -60,6 +60,9 @@ pub struct GeminiModelsResult {
     pub models: Vec<GeminiModel>,
     pub general: Option<String>,
     pub documents: Option<String>,
+    /// Cuando se pidio la lista a Google (ISO, UTC); None sin lista (AUD2-019).
+    #[serde(default)]
+    pub listed_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -135,4 +138,26 @@ pub async fn test_gemini_key(state: State<'_, AppState>) -> RadarResult<ProbeRes
     .map_err(transport_error)?;
 
     como_json(response, "Gemini").await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// AUD2-019: la interfaz dice cuándo se pidió la lista a Google; el puente
+    /// no puede tirar ese campo al pasar la respuesta del motor.
+    #[test]
+    fn la_hora_de_la_lista_llega_a_la_interfaz() {
+        let motor = r#"{"ok":true,"code":null,"detail":"","models":[],"general":null,"documents":null,"listedAt":"2026-09-24T08:00:00+00:00"}"#;
+        let r: GeminiModelsResult = serde_json::from_str(motor).unwrap();
+        let v = serde_json::to_value(&r).unwrap();
+        assert_eq!(v["listedAt"], "2026-09-24T08:00:00+00:00");
+    }
+
+    #[test]
+    fn un_motor_sin_ese_campo_sigue_valiendo() {
+        let motor = r#"{"ok":false,"code":"gemini_not_configured","detail":"x","models":[],"general":null,"documents":null}"#;
+        let r: GeminiModelsResult = serde_json::from_str(motor).unwrap();
+        assert!(serde_json::to_value(&r).unwrap()["listedAt"].is_null());
+    }
 }

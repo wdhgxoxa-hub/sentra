@@ -418,6 +418,8 @@ export interface GeminiModelsResult {
   general: string | null;
   /** Modelo de documentos que se usaría ahora. */
   documents: string | null;
+  /** Cuándo se pidió la lista a Google (ISO, UTC); se reutiliza un día (AUD2-019). */
+  listedAt: string | null;
 }
 
 /** Estado del motor de arquitectura. La clave entera no sale del sidecar. */

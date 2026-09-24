@@ -15,6 +15,7 @@ import { useState } from "react";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError } from "@/lib/errors";
 import { useGeminiModels, useSaveGeminiKey, useSettings, useTestGeminiKey } from "@/lib/queries";
+import { haceCuanto } from "@/lib/tiempo";
 import {
   useSettingsStore,
   useT,
@@ -248,6 +249,15 @@ export function SettingsView() {
                 onChange={setGeneralElegido}
                 clase={campo}
               />
+              {/* AUD2-019: la llamada a Google no es invisible. */}
+              {haceCuanto(modelos.data.listedAt, new Date(), language) && (
+                <p className="text-[11px] leading-relaxed text-ink-faint">
+                  {t.settings.modelsListedAt.replace(
+                    "{ago}",
+                    haceCuanto(modelos.data.listedAt, new Date(), language) ?? "",
+                  )}
+                </p>
+              )}
             </>
           )}
 

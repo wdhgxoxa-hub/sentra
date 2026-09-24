@@ -38,6 +38,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -45,6 +46,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
 from core.envfile import EnvValueInvalid
+from core.rutas import ruta_cache_modelos_gemini
 from core.sources.registry import (
     InMemorySourcesState,
     PostgresSourcesState,
@@ -115,6 +117,7 @@ def create_app(
     postgres_dsn: str | None = None,
     env_path: str | None = None,
     insecure_dev: bool = False,
+    cache_modelos: Path | None = None,
 ) -> FastAPI:
     """
     Construye la aplicación.
@@ -128,6 +131,8 @@ def create_app(
             con ello si hay juez, búsqueda y vectores de la evidencia).
         postgres_dsn: cadena de conexión para esa persistencia.
         env_path: archivo de configuración que gestiona la vista de ajustes.
+        cache_modelos: fichero donde la lista de modelos de Gemini sobrevive
+            entre arranques (AUD2-019); None = solo en memoria.
     """
     if token is not None and len(token) < MIN_TOKEN_LENGTH:
         raise SidecarSinToken(f"El token debe tener al menos {MIN_TOKEN_LENGTH} caracteres.")
@@ -143,6 +148,7 @@ def create_app(
         started_at=time.monotonic(),
         sources_state=_estado_de_fuentes(persist_default, postgres_dsn),
         evidence_vectors=_vectores_de_evidencia() if persist_default else None,
+        cache_modelos=cache_modelos,
     )
 
     def require_token(authorization: str | None = Header(default=None)) -> None:
@@ -248,7 +254,7 @@ def run(
         )
 
     uvicorn.run(
-        create_app(token=token, insecure_dev=insecure_dev),
+        create_app(token=token, insecure_dev=insecure_dev, cache_modelos=ruta_cache_modelos_gemini()),
         host=host,
         port=port,
         log_level="info",

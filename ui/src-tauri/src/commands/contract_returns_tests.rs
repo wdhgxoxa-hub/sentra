@@ -89,6 +89,7 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
         models: vec![gemini::GeminiModel { id: texto(), display_name: texto() }],
         general: Some(texto()),
         documents: Some(texto()),
+        listed_at: Some(texto()),
     };
     cumple(&lista, "GeminiModelsResult");
     let json_lista = serde_json::to_value(&lista).unwrap();

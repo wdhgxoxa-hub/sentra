@@ -111,6 +111,8 @@ export const es = {
     modelsNeedKey:
       "Guarda la clave para ver los modelos que puede usar. La lista se pide a Google, no está escrita en la aplicación.",
     modelsLoading: "Consultando los modelos de tu clave…",
+    modelsListedAt:
+      "Lista de modelos pedida a Google {ago}; se reutiliza un día. «Probar clave» la vuelve a pedir.",
     modelsFailed: "No se pudo obtener la lista de modelos.",
     saveModels: "Guardar modelos",
     keySaved: "Clave guardada",

@@ -37,16 +37,25 @@ def raiz_datos() -> Path:
     return Path(valor) if valor else RAIZ_CODIGO
 
 
+def carpeta_local() -> Path:
+    """Carpeta local de SENTRA fuera del repositorio: %LOCALAPPDATA%/SENTRA,
+    o ~/.cache/sentra sin esa variable."""
+    local = os.environ.get("LOCALAPPDATA", "").strip()
+    if local:
+        return Path(local) / "SENTRA"
+    return Path.home() / ".cache" / "sentra"
+
+
 def ruta_modelos() -> Path:
     """Caché de los modelos de embeddings (AUD2-010, DP9 A): fuera de %TEMP%,
     donde una limpieza de temporales se llevaba los 2,1 GB de e5."""
     explicita = os.environ.get(MODELS_DIR_ENV_VAR, "").strip()
-    if explicita:
-        return Path(explicita)
-    local = os.environ.get("LOCALAPPDATA", "").strip()
-    if local:
-        return Path(local) / "SENTRA" / "models"
-    return Path.home() / ".cache" / "sentra" / "models"
+    return Path(explicita) if explicita else carpeta_local() / "models"
+
+
+def ruta_cache_modelos_gemini() -> Path:
+    """Lista de modelos de Gemini entre arranques (AUD2-019)."""
+    return carpeta_local() / "cache" / "gemini_models.json"
 
 
 def fnv1a64(datos: bytes) -> str:
