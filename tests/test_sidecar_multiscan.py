@@ -187,6 +187,26 @@ class TestEscaneoMultifuente(ConfigTestCase):
         self.assertIn("scan:done", [e["type"] for e in recibidos])
         self.assertEqual((recibidos[-1]["type"], recibidos[-1]["code"]), ("judge:error", "internal_error"))
 
+    def test_mientras_no_hay_eventos_el_flujo_da_senales_de_vida(self):
+        # AUD2-025: el juez puede tardar minutos sin emitir nada. El flujo manda
+        # un comentario SSE cada KEEPALIVE_S para que la interfaz distinga un
+        # escaneo largo y vivo de un motor colgado, sin un límite total.
+        from core.orchestration.sidecar import multiscan
+
+        def juez_lento(*_args, **_kwargs):
+            time.sleep(0.4)
+            return {"clusters": 0}
+
+        with con_transporte(hn_con_una_queja), \
+                mock.patch.object(multiscan, "KEEPALIVE_S", 0.05), \
+                mock.patch.object(multiscan, "_abrir_ejecucion", return_value=("run-9", None)), \
+                mock.patch.object(multiscan, "_guardar", return_value=None), \
+                mock.patch.object(multiscan, "_juzgar", side_effect=juez_lento):
+            respuesta = self.client.post("/api/sources/scan/stream",
+                                         json={"profile": PERFIL, "persist": True})
+        self.assertGreaterEqual(respuesta.text.count(": keepalive"), 3)
+        self.assertEqual(eventos(respuesta)[-1]["type"], "judge:done")
+
     def test_sin_guardar_no_hay_juez_y_se_dice(self):
         from core.orchestration.sidecar import multiscan
 

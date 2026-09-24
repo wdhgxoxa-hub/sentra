@@ -18,9 +18,6 @@ use tauri::{AppHandle, Emitter, State};
 use crate::db::{AppState, RadarError, RadarResult};
 
 
-/// Un escaneo puede recorrer varios ciclos y analizar decenas de posts;
-/// el timeout corto de una API web no sirve aqui.
-pub(crate) const SCAN_TIMEOUT: Duration = Duration::from_secs(600);
 const SEARCH_TIMEOUT: Duration = Duration::from_secs(60);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -143,28 +140,58 @@ pub async fn search_hybrid(
     Ok(envelope.hits)
 }
 
+/// Silencio maximo del flujo de un escaneo (AUD2-025). El motor manda una
+/// senal de vida cada 15 s (KEEPALIVE_S en multiscan.py); sin nada en 60 s
+/// esta colgado. No hay limite total: un escaneo largo y vivo no se corta.
+pub(crate) const SILENCIO_MAX: Duration = Duration::from_secs(60);
+
 /// Reenvia cada evento SSE del sidecar por `channel` y devuelve el ultimo.
 pub(crate) async fn relay_sse(
     app: &AppHandle,
     response: reqwest::Response,
     channel: &str,
 ) -> RadarResult<serde_json::Value> {
-    let mut stream = response.bytes_stream();
+    reenviar(response.bytes_stream(), SILENCIO_MAX, |evento| {
+        let _ = app.emit(channel, evento);
+    })
+    .await
+}
+
+/// Lee el flujo SSE, entrega cada evento a `emitir` y devuelve el ultimo.
+/// Falla con `SidecarTimeout` si pasa `silencio` sin recibir nada.
+pub(crate) async fn reenviar<S, B>(
+    stream: S,
+    silencio: Duration,
+    mut emitir: impl FnMut(&serde_json::Value),
+) -> RadarResult<serde_json::Value>
+where
+    S: futures_util::Stream<Item = Result<B, reqwest::Error>>,
+    B: AsRef<[u8]>,
+{
+    let mut stream = std::pin::pin!(stream);
     // Los trozos de red no respetan los limites de los eventos: un evento
     // puede llegar partido en dos y dos eventos en un mismo trozo.
     let mut buffer = String::new();
     let mut last_event = serde_json::Value::Null;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(transport_error)?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
+    loop {
+        let chunk = match tokio::time::timeout(silencio, stream.next()).await {
+            Ok(Some(chunk)) => chunk.map_err(transport_error)?,
+            Ok(None) => break,
+            Err(_) => {
+                return Err(RadarError::SidecarTimeout(format!(
+                    "{}: el motor no da senales desde hace {} s",
+                    sidecar_url(),
+                    silencio.as_secs()
+                )))
+            }
+        };
+        buffer.push_str(&String::from_utf8_lossy(chunk.as_ref()));
 
-        while let Some(position) = buffer.find("
-
-") {
+        while let Some(position) = buffer.find("\n\n") {
             let block: String = buffer.drain(..position + 2).collect();
             if let Some(event) = parse_sse_block(&block) {
-                let _ = app.emit(channel, &event);
+                emitir(&event);
                 last_event = event;
             }
         }
@@ -343,5 +370,38 @@ mod tests {
         let url = servidor("200 OK", r#"{"ok": true}"#);
         let valor: serde_json::Value = como_json(pedir(url).await, "x").await.unwrap();
         assert_eq!(valor["ok"], true);
+    }
+
+    /// Flujo SSE de prueba: cada trozo llega tras su espera.
+    fn flujo(
+        trozos: Vec<(u64, &'static str)>,
+    ) -> impl futures_util::Stream<Item = Result<&'static [u8], reqwest::Error>> {
+        futures_util::stream::unfold(trozos.into_iter(), |mut resto| async move {
+            let (espera, texto) = resto.next()?;
+            tokio::time::sleep(Duration::from_millis(espera)).await;
+            Some((Ok(texto.as_bytes()), resto))
+        })
+    }
+
+    #[tokio::test]
+    async fn un_escaneo_vivo_no_se_corta_por_durar_mucho() {
+        // AUD2-025: con un límite total, un escaneo que seguía emitiendo se
+        // cortaba y la interfaz daba error mientras el motor lo terminaba.
+        let mut trozos = vec![(0, "data: {\"type\":\"scan:started\"}\n\n")];
+        trozos.extend((0..8).map(|_| (40, ": keepalive\n\n")));
+        trozos.push((40, "data: {\"type\":\"judge:done\"}\n\n"));
+        let mut vistos = Vec::new();
+        let ultimo = reenviar(flujo(trozos), Duration::from_millis(150), |e| vistos.push(e.clone()))
+            .await
+            .unwrap();
+        assert_eq!(ultimo["type"], "judge:done");
+        assert_eq!(vistos.len(), 2, "los keepalive no son eventos");
+    }
+
+    #[tokio::test]
+    async fn un_motor_callado_se_corta_por_silencio() {
+        let trozos = vec![(0, "data: {\"type\":\"scan:started\"}\n\n"), (400, "data: {}\n\n")];
+        let error = reenviar(flujo(trozos), Duration::from_millis(100), |_| {}).await.unwrap_err();
+        assert!(matches!(error, RadarError::SidecarTimeout(_)), "{error}");
     }
 }

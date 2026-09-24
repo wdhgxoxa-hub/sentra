@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::commands::engine::{
-    como_json, rechazo, relay_sse, sidecar_url, transport_error, with_token_pub, SCAN_TIMEOUT,
+    como_json, rechazo, relay_sse, sidecar_url, transport_error, with_token_pub,
 };
 use crate::db::{AppState, RadarError, RadarResult};
 
@@ -221,7 +221,7 @@ pub async fn trigger_multiscan(
         state
             .http
             .post(format!("{}/api/sources/scan/stream", sidecar_url()))
-            .timeout(SCAN_TIMEOUT)
+            // Sin timeout total (AUD2-025): relay_sse corta solo tras SILENCIO_MAX.
             .json(&cuerpo_del_escaneo(&profile)),
     )
     .send()

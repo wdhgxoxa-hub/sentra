@@ -31,6 +31,10 @@ from .sources import commercial_mode
 logger = logging.getLogger(__name__)
 
 TRIGGER_SOURCE = "multifuente"
+#: Sin eventos durante este rato (el juez puede tardar minutos), el flujo manda
+#: un comentario SSE: la interfaz corta solo tras un silencio largo, nunca por
+#: la duración total de un escaneo vivo (AUD2-025).
+KEEPALIVE_S = 15.0
 
 
 def _sse(payload: dict[str, Any]) -> str:
@@ -254,7 +258,14 @@ def router(ctx: SidecarContext) -> APIRouter:
 
             yield _sse({"type": "scan:started", "scanId": scan_id, "runId": run_id,
                         "sources": [f.id for f in activas]})
-            while (evento := await cola.get()) is not None:
+            while True:
+                try:
+                    evento = await asyncio.wait_for(cola.get(), timeout=KEEPALIVE_S)
+                except TimeoutError:
+                    yield ": keepalive\n\n"
+                    continue
+                if evento is None:
+                    break
                 yield _sse(evento)
 
         return StreamingResponse(emitir(), media_type="text/event-stream",
