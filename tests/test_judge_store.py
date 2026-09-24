@@ -15,7 +15,12 @@ from typing import ClassVar
 
 from core.evidence.model import EvidenceItem
 from core.judge.labels import VerifiedLabel
-from core.judge.store import PostgresLabelCache, recent_evidence, top_verdicts
+from core.judge.store import (
+    PostgresLabelCache,
+    recent_evidence,
+    top_verdicts,
+    verdict_detail,
+)
 from core.storage.postgres_store import PostgresStore, run_async
 from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
@@ -125,6 +130,39 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(evidencia["hackernews:4"]["attribution"],
                          {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4"})
         self.assertEqual(evidencia["hackernews:4"]["excerpt"], "queja inventada número 4")
+
+    def test_el_detalle_de_un_veredicto_trae_toda_su_evidencia_para_los_documentos(self):
+        # E2: el dossier y el plan citan por id; el modelo ve el texto entero.
+        largo = "queja inventada muy larga " * 60
+        items = [pieza(n) for n in (70, 71)]
+        items[1] = items[1].model_copy(update={"text": largo, "title": "Título de la 71"})
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            run_id = await store.start_run("perfil", trigger_source="multifuente", data_source="real",
+                                           parameters={"topic": "facturas"})
+            ids = await store.save_verdicts(run_id, [
+                veredicto("detalle", "CONSTRUIR", 70.0, ["hackernews:70", "hackernews:71"])])
+            return run_id, ids[0]
+
+        run_id, verdict_id = self.run_store(guardar)
+        detalle = presente(self.run_store(lambda store: verdict_detail(store, verdict_id)))
+        self.assertEqual((detalle["id"], detalle["run_id"], detalle["verdict"]),
+                         (verdict_id, run_id, "CONSTRUIR"))
+        self.assertEqual(detalle["run"]["parameters"], {"topic": "facturas"})
+        self.assertEqual(detalle["current_versions"]["clustering"], "clustering-v2")
+        por_id = {e["id"]: e for e in detalle["evidence"]}
+        self.assertEqual(set(por_id), {"hackernews:70", "hackernews:71"})
+        self.assertEqual(por_id["hackernews:71"]["text"], largo, "el texto entero, no el extracto")
+        self.assertEqual(por_id["hackernews:71"]["title"], "Título de la 71")
+        self.assertEqual(por_id["hackernews:71"]["data_source"], "real")
+        self.assertEqual(por_id["hackernews:70"]["attribution"]["badge"], "Hacker News")
+        self.assertNotIn("author_hash", por_id["hackernews:70"], "sin autores (R9)")
+
+    def test_un_veredicto_que_no_existe_o_un_id_que_no_es_uuid_da_none(self):
+        self.assertIsNone(self.run_store(
+            lambda store: verdict_detail(store, "00000000-0000-0000-0000-00000000dead")))
+        self.assertIsNone(self.run_store(lambda store: verdict_detail(store, "no-es-un-uuid")))
 
     def test_mas_alla_del_top_6_el_resto_va_aparte_en_el_mismo_orden(self):
         # C1 (D-C2): el Radar enseña el Top 6 y la lista completa desde la misma lectura.

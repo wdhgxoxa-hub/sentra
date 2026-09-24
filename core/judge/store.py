@@ -11,11 +11,14 @@ Persistencia del juez (F3.8)
   dice cuántos hay y por qué; no se rellena (AUD-007).
 - recent_evidence: el feed de evidencia más reciente, sin duplicados y con
   atribución; sin autores (R9).
+- verdict_detail: un veredicto con toda su evidencia (texto entero) y su
+  ejecución, para el dossier y el plan de la Fase E.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from typing import TYPE_CHECKING, Any
 
@@ -94,10 +97,10 @@ async def previous_identities(store: PostgresStore) -> list[Previo]:
             for f in filas]
 
 
-async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
-    filas = await store._fetchall(
-        """
-        SELECT v.id::text AS id, v.opportunity_id::text AS opportunity_id, v.cluster_key,
+#: Columnas de un veredicto con sus miembros (Top 6 y detalle leen lo mismo).
+_VEREDICTO = """
+        SELECT v.id::text AS id, v.run_id::text AS run_id,
+               v.opportunity_id::text AS opportunity_id, v.cluster_key,
                v.keywords, v.verdict, v.rule, v.score::float8 AS score, v.weights_version,
                v.missing, v.gates, v.dimensions, v.advocate, v.member_count,
                v.labeler_version, v.clustering_version,
@@ -105,6 +108,47 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
                         FILTER (WHERE ce.evidence_id IS NOT NULL), '{}') AS member_ids
           FROM niche_verdicts v
           LEFT JOIN cluster_evidence ce ON ce.verdict_id = v.id
+"""
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+
+async def verdict_detail(store: PostgresStore, verdict_id: str) -> dict[str, Any] | None:
+    """El veredicto con toda su evidencia (texto entero, sin autor) y su
+    ejecución; None si no existe o el id no es un uuid."""
+    if not _UUID.fullmatch(verdict_id):
+        return None
+    fila = await store._fetchone(
+        _VEREDICTO + " WHERE v.tenant_id = %s AND v.id = %s GROUP BY v.id",
+        (store.tenant_id, verdict_id),
+    )
+    if fila is None:
+        return None
+    detalle = dict(fila)
+    run = await store._fetchone(
+        "SELECT id::text AS id, started_at, parameters, data_source, trigger_source"
+        " FROM pipeline_runs WHERE tenant_id = %s AND id = %s",
+        (store.tenant_id, detalle["run_id"]),
+    )
+    detalle["run"] = dict(run) if run else None
+    evidencia = await store._fetchall(
+        """
+        SELECT id, source, community, kind, title, content AS text, url, created_at, data_source
+          FROM evidence_items WHERE tenant_id = %s AND id = ANY(%s)
+         ORDER BY created_at DESC, id
+        """,
+        (store.tenant_id, list(detalle["member_ids"])),
+    )
+    detalle["evidence"] = [
+        {**dict(e), "attribution": attribution_fields(e["source"], e["community"], e["url"])}
+        for e in evidencia
+    ]
+    detalle["current_versions"] = current_versions()
+    return detalle
+
+
+async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
+    filas = await store._fetchall(
+        _VEREDICTO + """
          WHERE v.tenant_id = %s AND v.run_id = %s
          GROUP BY v.id
          ORDER BY CASE v.verdict WHEN 'CONSTRUIR' THEN 0 WHEN 'INVESTIGAR MÁS' THEN 1 ELSE 2 END,

@@ -302,6 +302,8 @@ export interface JudgeEvidence {
 
 export interface JudgeVerdict {
   id: string;
+  /** Ejecución que lo juzgó (el Top y los documentos la citan). */
+  runId: string;
   opportunityId: string | null;
   clusterKey: string;
   keywords: string[];

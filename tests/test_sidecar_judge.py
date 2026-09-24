@@ -17,7 +17,7 @@ LEIDO = {
     "run_id": "run-1", "target": 6, "build_count": 1,
     "reason": "Solo 1 de 6 nichos pasan todas las compuertas y el abogado del diablo; el resto no se rellena.",
     "verdicts": [{
-        "id": "v1", "opportunity_id": "o1", "cluster_key": "invoices-export#hackernews:1",
+        "id": "v1", "run_id": "run-1", "opportunity_id": "o1", "cluster_key": "invoices-export#hackernews:1",
         "keywords": ["invoices"], "verdict": "CONSTRUIR", "rule": "7: pasan todas", "score": 61.5,
         "weights_version": "judge-weights-v1", "missing": [], "member_count": 3,
         "labeler_version": None, "clustering_version": "clustering-v1",
