@@ -169,7 +169,10 @@ class FastEmbedEmbedder:
                 ) from exc
 
             try:
-                self._model = TextEmbedding(model_name=_nombre_fastembed(model_name))
+                from core.rutas import ruta_modelos
+
+                self._model = TextEmbedding(model_name=_nombre_fastembed(model_name),
+                                            cache_dir=str(ruta_modelos()))
             except Exception as exc:
                 raise EmbeddingError(
                     f"No se pudo inicializar el modelo '{model_name}': {exc}"

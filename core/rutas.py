@@ -19,6 +19,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 DATA_DIR_ENV_VAR = "RIR_DATA_DIR"
+MODELS_DIR_ENV_VAR = "RIR_MODELS_DIR"
 #: La aplicación la pone a "1" al lanzar el motor desde su copia versionada.
 VERSIONADO_ENV_VAR = "RIR_MOTOR_VERSIONADO"
 
@@ -34,6 +35,18 @@ def raiz_datos() -> Path:
     """Carpeta del proyecto con el `.env` y `data/`."""
     valor = os.environ.get(DATA_DIR_ENV_VAR, "").strip()
     return Path(valor) if valor else RAIZ_CODIGO
+
+
+def ruta_modelos() -> Path:
+    """Caché de los modelos de embeddings (AUD2-010, DP9 A): fuera de %TEMP%,
+    donde una limpieza de temporales se llevaba los 2,1 GB de e5."""
+    explicita = os.environ.get(MODELS_DIR_ENV_VAR, "").strip()
+    if explicita:
+        return Path(explicita)
+    local = os.environ.get("LOCALAPPDATA", "").strip()
+    if local:
+        return Path(local) / "SENTRA" / "models"
+    return Path.home() / ".cache" / "sentra" / "models"
 
 
 def fnv1a64(datos: bytes) -> str:
