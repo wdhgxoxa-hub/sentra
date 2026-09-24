@@ -121,3 +121,19 @@ ya estaba escrito en scripts/calibrar_agrupacion.py desde B3.
   conseguir clientes). No cumple el criterio: E8 no se hace. No se prueba otro
   umbral con este caso (sería calibrar con la validación).
 - Gemini de este presupuesto: 29 de 40; quedan 11.
+
+## Opción 1: dorado con subproblemas vecinos — diseño fijado ANTES de medir (2026-09-24)
+
+- Se añade al dorado un segundo tema inventado (R8), «dinero del freelance», con
+  cuatro subproblemas vecinos de 10 ítems (5 en, 5 es), mismo formato que los
+  existentes: impagos (clientes que no pagan / perseguir facturas), impuestos
+  (IVA, trimestrales, cuotas), captar clientes, y herramientas contables
+  (conciliación bancaria, software que falla). Textos escritos de cero, no
+  parafraseados de piezas reales. Los 68 ítems actuales no se tocan.
+- Vectores con scripts/embed_golden_clusters.py (mismo embedder que en ejecución).
+- Criterio del umbral: el mismo de siempre (ARI máximo; a igualdad, más pureza;
+  a igualdad, el umbral más alto), enlace promedio, rejilla 0,78–0,94 de 0,01,
+  sobre el dorado entero (108 ítems).
+- Validación: la misma de antes (grupo que pasa G0 con ≥ 3 autores cuyo dolor es
+  un impago). Si falla, opción 2 (G0 separa el problema dominante) con ≤ 8
+  llamadas. Presupuesto: 11; E8 va con lo que quede (dossier primero).
