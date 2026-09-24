@@ -68,3 +68,25 @@ que no pagan, el tedio administrativo del freelance, facturas recurrentes y
 extraer PDF a Excel. DESCARTAR «sin problema común». 6 llamadas a Gemini.
 
 E8: no hay nicho coherente, no se genera ningún documento.
+
+## Tema estrecho: «clientes que no pagan facturas a freelancers» (2026-09-24)
+
+Presupuesto nuevo: 40 llamadas. En dos fases para etiquetar todo bajo un tope duro:
+
+1. Escaneo desde la release sin etiquetar (RIR_JUEZ_MAX_ETIQUETAS=0), ejecución
+   01a0d4b7-01b1-7163-af6b-51472b5f2e8e: 679 piezas, 547 pasan el filtro. 0 llamadas.
+2. `rejuzgar.py --max-llamadas 32 --max-etiquetas 547` (6d129bf), ejecución
+   01a0d4c1-3093-783b-8030-0416a68ffdbb: 547 etiquetadas, 82 con dolor
+   (YouTube 41, Bluesky 17, Mastodon 16, Discourse 5, GitHub 3). 28 llamadas.
+   El informe de tokens se perdió: el script reventó al imprimirlo (8f5be0d lo arregla).
+
+8 grupos, todos DESCARTAR: 7 no son un mismo problema (G0) y el único coherente
+son 4 comentarios de YouTube sobre un vídeo con música alta (fallan G1 y G2).
+Sin nicho: E8 no se hace. Quedan 12 de 40.
+
+Diagnóstico (0 llamadas): hay ~15 quejas claras de impago de autores distintos,
+sobre todo en Bluesky y Mastodon, y sus frases se parecen (similitud e5 mediana
+0,842; mín. 0,783) por encima del umbral 0,82; pero en e5 frases sin relación
+rondan 0,78, y con 41 dolores de YouTube que hablan del vídeo, los grupos salen
+mezclados y G0 los rechaza. Causas candidatas: ruido de comentarios de YouTube
+etiquetados como dolor y un umbral de agrupación poco discriminante.
