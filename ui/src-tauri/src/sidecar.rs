@@ -235,9 +235,16 @@ impl SidecarManager {
         vec![(TOKEN_ENV_VAR, sidecar_token().to_string())]
     }
 
-    /// Argumentos del proceso hijo.
+    /// Argumentos del proceso hijo. `--exit-with-parent`: el motor termina
+    /// cuando se cierra su entrada estándar (ver `spawn`).
     fn argumentos(&self) -> Vec<String> {
-        vec!["-m".into(), MODULE.into(), "--port".into(), self.config.port.clone()]
+        vec![
+            "-m".into(),
+            MODULE.into(),
+            "--port".into(),
+            self.config.port.clone(),
+            "--exit-with-parent".into(),
+        ]
     }
 
     /// Log de la salida del hijo, o `None` si no se puede abrir (D-E).
@@ -257,6 +264,12 @@ impl SidecarManager {
     /// Su stdout y stderr van, filtrados, al log rotativo de `log_dir`
     /// (D-E): antes se descartaban y un sidecar que moria al arrancar no
     /// dejaba rastro de por que.
+    ///
+    /// Su stdin es una tubería que nunca se escribe y cuyo extremo queda
+    /// dentro de `Child`: mientras la aplicación vive, sigue abierta. Si la
+    /// aplicación muere de golpe (y `Drop` no llega a ejecutarse), el sistema
+    /// la cierra y el motor, lanzado con `--exit-with-parent`, termina en vez
+    /// de quedarse huérfano con el puerto.
     fn spawn(&self, python: &Path, log_dir: Option<&Path>) -> std::io::Result<Child> {
         let log = Self::abrir_log(log_dir);
         let salida = || if log.is_some() { Stdio::piped() } else { Stdio::null() };
@@ -267,7 +280,7 @@ impl SidecarManager {
             .envs(Self::entorno())
             .stdout(salida())
             .stderr(salida())
-            .stdin(Stdio::null());
+            .stdin(Stdio::piped());
 
         if let Some(dir) = &self.config.project_dir {
             command.current_dir(dir);
@@ -419,7 +432,8 @@ impl Default for SidecarManager {
     }
 }
 
-/// Recoge el proceso tambien si la aplicacion termina de forma abrupta.
+/// Recoge el proceso al cerrarse la aplicación con normalidad. Si muere de
+/// golpe, esto no se ejecuta: de ese caso se ocupa `--exit-with-parent`.
 impl Drop for SidecarManager {
     fn drop(&mut self) {
         self.shutdown();
@@ -442,6 +456,8 @@ mod tests {
     const TEST_PORT: &str = "8799";
     /// Puerto donde no escucha nadie, para el test sin intérprete.
     const PUERTO_SIN_SIDECAR: &str = "8798";
+    /// Propio del test de la vigilancia: los tests corren en paralelo.
+    const PUERTO_VIGILIA: &str = "8797";
 
     fn config(python: Option<String>, project_dir: Option<PathBuf>, port: &str) -> SidecarConfig {
         SidecarConfig {
@@ -603,6 +619,68 @@ mod tests {
                 assert!(bloque.contains(&format!("\n    {codigo}:")), "falta {codigo}");
             }
         }
+    }
+
+    /// Mata al hijo al soltarse, también si el test entra en pánico.
+    struct HijoDelTest(Child);
+
+    impl Drop for HijoDelTest {
+        fn drop(&mut self) {
+            if let Ok(None) = self.0.try_wait() {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+    }
+
+    #[test]
+    fn el_motor_se_lanza_atado_a_la_vida_de_la_aplicacion() {
+        let manager = SidecarManager::with_config(config(None, None, TEST_PORT));
+        assert!(manager.argumentos().contains(&"--exit-with-parent".to_string()));
+    }
+
+    /// Si la aplicación muere de golpe, `Drop` no se ejecuta: el motor tiene
+    /// que terminar solo. Aquí se simula soltando el extremo de la tubería de
+    /// entrada que la aplicación mantiene abierto, que es lo que hace el
+    /// sistema al morir el proceso.
+    #[tokio::test]
+    async fn si_la_aplicacion_muere_el_motor_termina() {
+        let raiz = project_root_for_tests();
+        let python = raiz
+            .as_deref()
+            .map(interprete_del_venv)
+            .filter(|p| p.is_file())
+            .unwrap_or_else(|| PathBuf::from("python"));
+        let manager = SidecarManager::with_config(config(None, raiz, PUERTO_VIGILIA));
+        let client = reqwest::Client::new();
+        let url = manager.config.base_url();
+
+        // Un test que falla no puede dejar su propio motor huérfano.
+        let mut hijo = HijoDelTest(manager.spawn(&python, None).expect("no se pudo lanzar el motor"));
+        let mut listo = false;
+        for _ in 0..READY_ATTEMPTS {
+            tokio::time::sleep(READY_INTERVAL).await;
+            if sondear_en(&client, &url).await == Sonda::Responde {
+                listo = true;
+                break;
+            }
+        }
+        assert!(listo, "el motor no llegó a responder");
+
+        let entrada = hijo.0.stdin.take();
+        assert!(entrada.is_some(), "la aplicación tiene que guardar la tubería de entrada");
+        drop(entrada);
+
+        let mut termino = None;
+        for _ in 0..30 {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            termino = hijo.0.try_wait().expect("try_wait");
+            if termino.is_some() {
+                break;
+            }
+        }
+        assert!(termino.is_some(), "el motor sigue vivo sin la aplicación");
+        assert!(sondear_en(&client, &url).await == Sonda::NoResponde, "el puerto sigue ocupado");
     }
 
     #[test]

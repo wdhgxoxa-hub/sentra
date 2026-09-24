@@ -35,9 +35,10 @@ import hmac
 import logging
 import os
 import sys
+import threading
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, BinaryIO
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -190,6 +191,29 @@ def create_app(
     return app
 
 
+def vigilar_padre(entrada: BinaryIO | None, salir: Callable[[int], object]) -> threading.Thread:
+    """Termina el proceso cuando se cierra `entrada`, la tubería de la aplicación.
+
+    La aplicación lanza el motor con su entrada estándar conectada a una
+    tubería que nunca escribe. Si la aplicación muere, de la forma que sea, el
+    sistema cierra su extremo y la lectura devuelve fin de archivo: el motor
+    sale en lugar de quedarse huérfano con el puerto y un token que nadie
+    conoce. Sin entrada, la aplicación ya no está. `salir` es `os._exit` en
+    producción: sale aunque uvicorn tenga hilos o peticiones en curso.
+    """
+
+    def esperar() -> None:
+        if entrada is not None:
+            while entrada.read(4096):
+                pass
+        logger.info("La aplicación ya no está (entrada cerrada): el motor se detiene")
+        salir(0)
+
+    hilo = threading.Thread(target=esperar, name="vigilar-padre", daemon=True)
+    hilo.start()
+    return hilo
+
+
 def run(
     host: str = DEFAULT_HOST,
     port: int | None = None,
@@ -242,9 +266,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="servir sin token (solo desarrollo: cualquier proceso local podra invocarlo)",
     )
+    parser.add_argument(
+        "--exit-with-parent",
+        action="store_true",
+        help="terminar cuando se cierre la entrada estandar (la aplicacion la mantiene abierta)",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if args.exit_with_parent:
+        vigilar_padre(sys.stdin.buffer if sys.stdin is not None else None, os._exit)
     run(host=args.host, port=args.port, insecure_dev=args.insecure_dev)
     return 0
 
