@@ -411,6 +411,9 @@ export type RadarEvent =
 /** De dónde salen los datos de una ejecución. */
 export type DataSource = "demo" | "reddit";
 
+/** Origen de la evidencia multifuente (CHECK de `evidence_items.data_source`). */
+export type EvidenceDataSource = "real" | "demo";
+
 /** Por qué una ejecución no llegó a su objetivo (ENUM `top_n_reason`). */
 export type TopReason =
   | "fuentes_agotadas"
@@ -889,7 +892,7 @@ export interface EvidenceFeedEntry {
   excerpt: string;
   url: string;
   createdAt: string;
-  dataSource: DataSource;
+  dataSource: EvidenceDataSource;
   attribution: EvidenceAttribution;
 }
 

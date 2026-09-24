@@ -52,6 +52,10 @@ export default function App() {
       if (evento.type === "judge:done") {
         void queryClient.invalidateQueries({ queryKey: ["radar", "judge"] });
       }
+      // La evidencia se guarda aunque el juez falle o el escaneo se corte.
+      if (evento.type === "scan:done" || evento.type === "error") {
+        void queryClient.invalidateQueries({ queryKey: ["radar", "evidence"] });
+      }
     });
     return () => {
       void unlisten.then((stop) => stop());

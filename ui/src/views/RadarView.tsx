@@ -1,129 +1,124 @@
 import { Radar as RadarIcon } from "lucide-react";
 
-import { Explain } from "@/components/Explain";
-import { OpportunityCard } from "@/components/OpportunityCard";
-import { TopSix } from "@/components/TopSix";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { EvidenceAttributionLine } from "@/components/EvidenceAttributionLine";
+import { VERDICT_COLOR, VerdictCard } from "@/components/JudgePanel";
 import { SourceBadge } from "@/components/SourceBadge";
-import { UrgencyBadge } from "@/components/UrgencyBadge";
 import { comoError } from "@/lib/errors";
-import { useOpportunityBoard, useRadarFeed } from "@/lib/queries";
+import { useEvidenceFeed, useJudgeTop, useSources } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
-import { useUiStore } from "@/stores/uiStore";
+
+/** Piezas del feed: las más recientes, sin duplicados. */
+const FEED_LIMIT = 40;
 
 /**
- * Dashboard principal.
+ * Radar en vivo (D-C2): todo sale del juez.
  *
- * Dos niveles, deliberadamente separados: arriba los problemas consolidados
- * (lo que merece construir algo) y abajo el goteo de quejas sueltas (lo que
- * está pasando). Mezclarlos fue el error que dejó el radar vacío durante
- * varias fases, porque el corte de una oportunidad no es alcanzable por un
- * mensaje solo.
+ * Arriba el Top 6 con el mismo detalle y la misma consulta que el panel del
+ * juez en Fuentes, así que no puede contar otra cosa. Debajo, el resto de
+ * veredictos de esa ejecución en el mismo orden. Al final, la evidencia
+ * más reciente, siempre con su atribución. Lo que no está juzgado no se
+ * presenta como oportunidad.
  */
 export function RadarViewPage() {
   const t = useT();
-  const urgencyFilter = useUiStore((state) => state.urgencyFilter);
-  const minScore = useUiStore((state) => state.minScore);
-  const qualifiedOnly = useUiStore((state) => state.qualifiedOnly);
-  const selectClusterKey = useUiStore((state) => state.selectClusterKey);
-  const setView = useUiStore((state) => state.setView);
-
-  const tiers = urgencyFilter.length ? urgencyFilter : undefined;
-  const board = useOpportunityBoard({ limit: 24, qualifiedOnly, urgencyTiers: tiers });
-  const feed = useRadarFeed({ limit: 40, minScore, urgencyTiers: tiers });
-
-  const abrir = (clusterKey: string) => {
-    selectClusterKey(clusterKey);
-    setView("opportunity");
-  };
+  const top = useJudgeTop(null);
+  const feed = useEvidenceFeed(FEED_LIMIT);
+  const fuentes = useSources();
+  const nombre = (id: string) =>
+    fuentes.data?.sources.find((c) => c.source === id)?.displayName ?? id;
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Lo primero que se ve: las mejores oportunidades de la última
-          ejecución, o por qué no hay tantas (AUD-007). */}
-      <TopSix />
-
-      <section aria-labelledby="oportunidades">
-        <header className="mb-3">
-          <h2
-            id="oportunidades"
-            className="flex items-center gap-2 text-base font-semibold"
-          >
+      <section aria-labelledby="top-juez" className="flex flex-col gap-3">
+        <header>
+          <h2 id="top-juez" className="flex items-center gap-2 text-base font-semibold">
             <RadarIcon className="size-4 text-accent" aria-hidden="true" />
-            {t.radar.title}
-            <Explain
-              title={t.explain.signalVsCluster.title}
-              body={t.explain.signalVsCluster.body}
-            />
+            {t.radar.title.replace("{target}", String(top.data?.target ?? 6))}
           </h2>
-          <p className="mt-0.5 text-xs text-ink-soft">
-            {t.radar.subtitle}
-          </p>
+          <p className="mt-0.5 text-xs text-ink-soft">{t.radar.subtitle}</p>
         </header>
 
-        {board.isPending && (
-          <p className="text-sm text-ink-faint">{t.radar.loading}</p>
-        )}
-        {board.isError && <ErrorNotice {...comoError(board.error)} title={t.radar.error} />}
-
-        {board.data?.length === 0 && (
+        {top.isPending && <p className="text-sm text-ink-faint">{t.radar.loading}</p>}
+        {top.isError && <ErrorNotice {...comoError(top.error)} title={t.radar.error} />}
+        {top.data && top.data.verdicts.length === 0 && (
           <div className="rounded-card border border-dashed border-border p-8 text-center">
-            <p className="text-sm font-medium">{t.radar.empty}</p>
+            <p className="text-sm font-medium">{top.data.reason ?? t.radar.empty}</p>
             <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-soft">
               {t.radar.emptyHint}
             </p>
           </div>
         )}
-
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {board.data?.map((cluster) => (
-            <OpportunityCard
-              key={cluster.id}
-              cluster={cluster}
-              onOpen={() => abrir(cluster.clusterKey)}
-            />
-          ))}
-        </div>
+        {top.data && top.data.verdicts.length > 0 && (
+          <>
+            <p className="text-xs text-ink-soft">
+              {t.judge.buildCount
+                .replace("{count}", String(top.data.buildCount))
+                .replace("{target}", String(top.data.target))}
+              {top.data.reason && <span className="block text-ink-faint">{top.data.reason}</span>}
+            </p>
+            {top.data.verdicts.map((v) => (
+              <VerdictCard key={v.id} v={v} t={t} nombre={nombre} actuales={top.data.currentVersions} />
+            ))}
+          </>
+        )}
       </section>
+
+      {top.data && top.data.rest.length > 0 && (
+        <section aria-labelledby="resto-veredictos">
+          <header className="mb-3">
+            <h2 id="resto-veredictos" className="text-base font-semibold">
+              {t.radar.restTitle.replace("{n}", String(top.data.rest.length))}
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-soft">{t.radar.restSubtitle}</p>
+          </header>
+          <ul className="divide-y divide-border rounded-card border border-border bg-surface">
+            {top.data.rest.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+                <span className={`rounded-lg border px-2 py-0.5 text-[11px] font-semibold ${VERDICT_COLOR[v.verdict]}`}>
+                  {t.judge.verdict[v.verdict]}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {v.keywords.slice(0, 3).join(" · ") || v.clusterKey}
+                </span>
+                <span className="text-[11px] text-ink-faint">
+                  {t.radar.members.replace("{n}", String(v.memberCount))}
+                  {v.missing.length > 0 && ` · ${t.judge.missing.replace("{gates}", v.missing.join(", "))}`}
+                </span>
+                <span className="font-mono text-xs tabular-nums">
+                  {t.judge.score.replace("{score}", v.score.toFixed(1))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-labelledby="feed">
         <header className="mb-3">
           <h2 id="feed" className="text-base font-semibold">
             {t.radar.feedTitle}
           </h2>
-          <p className="mt-0.5 text-xs text-ink-soft">
-            {t.radar.feedSubtitle}
-          </p>
+          <p className="mt-0.5 text-xs text-ink-soft">{t.radar.feedSubtitle}</p>
         </header>
 
         {feed.isPending && <p className="text-sm text-ink-faint">{t.radar.loading}</p>}
         {feed.isError && <ErrorNotice {...comoError(feed.error)} title={t.radar.feedError} />}
-        {feed.data?.length === 0 && (
+        {feed.data?.items.length === 0 && (
           <p className="rounded-card border border-dashed border-border p-6 text-center text-sm text-ink-soft">
             {t.radar.feedEmpty}
           </p>
         )}
-
-        {feed.data && feed.data.length > 0 && (
+        {feed.data && feed.data.items.length > 0 && (
           <ul className="divide-y divide-border rounded-card border border-border bg-surface">
-            {feed.data.map((entry) => (
-              <li
-                key={entry.signalId}
-                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
-              >
-                <UrgencyBadge tier={entry.urgencyTier} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">
-                    {entry.postTitle ?? entry.content}
-                  </p>
-                  <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
-                    <span className="font-mono">r/{entry.subredditName}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono tabular-nums">
-                      {entry.finalScore.toFixed(1)} {t.radar.points}
-                    </span>
-                    <SourceBadge source={entry.dataSource} />
-                  </p>
+            {feed.data.items.map((e) => (
+              <li key={e.id} className="flex flex-col gap-1 px-4 py-3">
+                <p className="line-clamp-2 text-sm">{e.title ?? e.excerpt}</p>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">
+                  <EvidenceAttributionLine attribution={e.attribution} />
+                  <span aria-hidden="true">·</span>
+                  <time dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleDateString()}</time>
+                  <SourceBadge source={e.dataSource} />
                 </div>
               </li>
             ))}

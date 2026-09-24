@@ -8,7 +8,7 @@ import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import type { JudgeVerdict, JudgeVersions, NicheVerdict, SourceCard } from "@/types/radar";
 
-const COLOR: Record<NicheVerdict, string> = {
+export const VERDICT_COLOR: Record<NicheVerdict, string> = {
   CONSTRUIR: "border-ok text-ok",
   "INVESTIGAR MÁS": "border-warn text-warn",
   DESCARTAR: "border-danger text-danger",
@@ -30,7 +30,7 @@ export function versionesAntiguas(v: JudgeVerdict, actuales: JudgeVersions, t: T
   return antiguas;
 }
 
-function VerdictCard({
+export function VerdictCard({
   v,
   t,
   nombre,
@@ -46,7 +46,7 @@ function VerdictCard({
   return (
     <article className="rounded-card border border-border bg-surface p-4">
       <header className="flex flex-wrap items-center gap-3">
-        <span className={`rounded-lg border-2 px-3 py-1 text-base font-bold ${COLOR[v.verdict]}`}>
+        <span className={`rounded-lg border-2 px-3 py-1 text-base font-bold ${VERDICT_COLOR[v.verdict]}`}>
           {t.judge.verdict[v.verdict]}
         </span>
         <span className="text-sm font-semibold">{v.keywords.slice(0, 3).join(" · ") || v.clusterKey}</span>

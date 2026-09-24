@@ -48,17 +48,19 @@ export const es = {
   },
 
   radar: {
-    title: "Oportunidades detectadas",
-    subtitle: "Problemas que se repiten en varias comunidades",
-    empty: "Todavía no hay ningún problema que supere el corte.",
-    emptyHint:
-      "Un dolor necesita repetirse en varias comunidades para convertirse en oportunidad. Lanza un escaneo desde Control del pipeline.",
+    title: "Top {target} del juez",
+    subtitle: "Los nichos de la última ejecución juzgada: CONSTRUIR primero, sin rellenar",
+    empty: "Todavía no hay ningún escaneo juzgado.",
+    emptyHint: "Lanza un escaneo desde Fuentes: el juez agrupa la evidencia y decide cada nicho.",
     loading: "Cargando…",
-    error: "No se pudo cargar el tablero.",
-    feedEmpty: "Todavía no hay señales que superen el corte. Lanza un escaneo desde Pipeline.",
-    feedError: "No se pudo leer el feed de señales.",
-    feedTitle: "Actividad reciente",
-    feedSubtitle: "Quejas sueltas, aún sin consolidar",
+    error: "No se pudo leer el juez.",
+    restTitle: "Resto de veredictos ({n})",
+    restSubtitle: "Mismo escaneo y mismo orden; el detalle completo está en el Top",
+    members: "{n} piezas",
+    feedEmpty: "Todavía no hay evidencia. Lanza un escaneo desde Fuentes.",
+    feedError: "No se pudo leer la evidencia reciente.",
+    feedTitle: "Evidencia reciente",
+    feedSubtitle: "Lo último que han traído las fuentes, con su atribución",
     mentions: "menciones",
     communities: "comunidades",
     intensity: "Intensidad",
@@ -421,6 +423,7 @@ export const es = {
   source: {
     demo: "Datos de demostración",
     reddit: "Datos de Reddit",
+    real: "Datos reales",
     unknown: "Fuente desconocida",
   },
 

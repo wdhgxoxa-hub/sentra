@@ -50,17 +50,19 @@ export const en: Dictionary = {
   },
 
   radar: {
-    title: "Detected opportunities",
-    subtitle: "Problems that repeat across several communities",
-    empty: "No problem clears the bar yet.",
-    emptyHint:
-      "A pain must repeat across several communities to become an opportunity. Start a scan from Pipeline control.",
+    title: "Judge's top {target}",
+    subtitle: "Niches from the latest judged run: BUILD first, never padded",
+    empty: "No scan has been judged yet.",
+    emptyHint: "Start a scan from Sources: the judge groups the evidence and rules on each niche.",
     loading: "Loading…",
-    error: "Could not load the board.",
-    feedEmpty: "No signal clears the cut yet. Start a scan from Pipeline.",
-    feedError: "The signal feed could not be read.",
-    feedTitle: "Recent activity",
-    feedSubtitle: "Individual complaints, not yet consolidated",
+    error: "The judge could not be read.",
+    restTitle: "Other verdicts ({n})",
+    restSubtitle: "Same scan and same order; full detail is in the top",
+    members: "{n} items",
+    feedEmpty: "No evidence yet. Start a scan from Sources.",
+    feedError: "Recent evidence could not be read.",
+    feedTitle: "Recent evidence",
+    feedSubtitle: "The latest the sources brought in, with attribution",
     mentions: "mentions",
     communities: "communities",
     intensity: "Intensity",
@@ -421,6 +423,7 @@ export const en: Dictionary = {
   source: {
     demo: "Demo data",
     reddit: "Reddit data",
+    real: "Real data",
     unknown: "Unknown source",
   },
 
