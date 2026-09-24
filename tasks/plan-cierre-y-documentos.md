@@ -21,17 +21,17 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 - [x] B4 Veredictos con versiones (etiquetador, agrupación, pesos); los antiguos, marcados (migración 011 si hace falta, R12).
 
 ## Fase C — Una sola verdad (D-C2)
-- [ ] C1 Radar en vivo: Top 6 del juez + veredictos + feed de evidencia, desde la misma fuente que el panel.
-- [ ] C2 Inventario de la pipeline antigua; retirar lo que no tiene usuarios (commits propios, tests de «nadie lo usa»); documentar lo que queda.
-- [ ] C3 Vite: división de código hasta que ningún chunk supere 500 kB.
+- [x] C1 Radar en vivo: Top 6 del juez + veredictos + feed de evidencia, desde la misma fuente que el panel.
+- [x] C2 Inventario de la pipeline antigua; retirar lo que no tiene usuarios (commits propios, tests de «nadie lo usa»); documentar lo que queda.
+- [x] C3 Vite: división de código hasta que ningún chunk supere 500 kB.
 
 ## Fase D — Deuda residual
-- [ ] D1 Prueba de clave de Gemini: fallo de red ≠ clave rechazada.
-- [ ] D2 tearDown de entorno/logging → addCleanup, con test de guardia.
-- [ ] D3 Una sola `postgres_available` compartida.
-- [ ] D4 `check_untyped_defs` en tests/ a 0 errores (commit propio).
-- [ ] D5 Rutas de generate_index.py y demo_ingestion.py; nada generado sin .gitignore.
-- [ ] D6 Triaje AUD-032…AUD-071 y cierre de los abiertos.
+- [x] D1 Prueba de clave de Gemini: fallo de red ≠ clave rechazada.
+- [x] D2 tearDown de entorno/logging → addCleanup, con test de guardia.
+- [x] D3 Una sola `postgres_available` compartida.
+- [x] D4 `check_untyped_defs` en tests/ a 0 errores (commit propio).
+- [x] D5 Rutas de generate_index.py y demo_ingestion.py; nada generado sin .gitignore.
+- [x] D6 Triaje AUD-032…AUD-071 y cierre de los abiertos.
 
 ## Fase E — Del nicho al MVP
 - [ ] E1 Esquemas del dossier y del plan (JSON estricto) y validación de citas.
