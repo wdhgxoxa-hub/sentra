@@ -180,6 +180,10 @@ export const en: Dictionary = {
     python_not_found: "There is no Python environment for the engine. Run scripts/setup_env.ps1 in the project folder (or set RIR_PYTHON) and restart the app.",
     sidecar_spawn_failed: "The analysis engine could not be started with the configured Python.",
     sidecar_port_in_use: "The engine's port is taken by another process. Close it or set RIR_SIDECAR_PORT and restart the app.",
+    sidecar_version_mismatch:
+      "The engine that answers is from a different version than this window. Press “Retry engine”; if it persists, rebuild the app.",
+    sidecar_unpack_failed:
+      "The engine for this version could not be prepared in the app data folder (disk full or no permissions). The detail says why.",
     sidecar_unresponsive: "The analysis engine was started but never answered. The details are in sidecar.log.",
     invalid_input: "The data sent is not valid.",
     file: "The file could not be saved.",

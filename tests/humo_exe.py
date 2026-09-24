@@ -88,6 +88,11 @@ class Observado:
     puerto_libre_tras_matar: bool = False
     preferencias_antes: dict[str, Any] | None = None
     preferencias_despues: dict[str, Any] | None = None
+    #: AUD2-003: huella con la que se compiló la interfaz, la del motor que
+    #: contesta y la carpeta desde la que corre.
+    huella_compilada: str | None = None
+    huella_motor: str | None = None
+    raiz_motor: str | None = None
 
 
 def esperado(verdad: Verdad) -> Esperado:
@@ -131,9 +136,20 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"cierre forzado: {obs.huerfanos_tras_matar} motores huérfanos")
     if not obs.puerto_libre_tras_matar:
         fallos.append(f"cierre forzado: el puerto {PUERTO_MOTOR} sigue ocupado")
+    if not obs.huella_motor or obs.huella_motor != obs.huella_compilada:
+        fallos.append(f"motor: huella {obs.huella_motor}; la interfaz se compiló con {obs.huella_compilada}")
+    if obs.raiz_motor is None or _dentro_del_repo(obs.raiz_motor):
+        fallos.append(f"motor: corre desde el repositorio ({obs.raiz_motor}), no desde su copia versionada")
     if obs.preferencias_antes != obs.preferencias_despues:
         fallos.append(f"preferencias del usuario cambiadas: {obs.preferencias_antes} → {obs.preferencias_despues}")
     return fallos
+
+
+def _dentro_del_repo(ruta: str) -> bool:
+    try:
+        return Path(ruta).resolve().is_relative_to(RAIZ.resolve())
+    except OSError:
+        return False
 
 
 # --- Verdad de la base (solo lectura) ---------------------------------------
@@ -291,6 +307,10 @@ def recorrer(exe: Path) -> Observado:
 
     app.ir("Configuración", "Settings")
     obs.config_carga = app.esperar("document.querySelectorAll('main select').length >= 1", 20)
+
+    salud = app.js("window.__TAURI_INTERNALS__.invoke('get_app_health')") or {}
+    info = salud.get("sidecarInfo") or {}
+    obs.huella_compilada, obs.huella_motor, obs.raiz_motor = salud.get("motorBuild"), info.get("build"), info.get("codeRoot")
 
     obs.preferencias_despues = app.js(PREFERENCIAS)
     obs.excepciones, obs.errores_csp = list(app.excepciones), app.errores_csp

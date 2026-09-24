@@ -30,6 +30,8 @@ def observado(**cambios: Any) -> Observado:
         motor_activo_s=4.2, radar_top=6, radar_resto=3, radar_feed=40,
         feed_fechas=["2026-09-23", "2026-05-29"], busqueda_filas=20, fuentes_tarjetas=10,
         config_carga=True, cierre_normal=True, puerto_libre_tras_matar=True,
+        huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
+        raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
         preferencias_antes={"lang": "es", "tema": "system"},
         preferencias_despues={"lang": "es", "tema": "system"}), **cambios)
 
@@ -69,6 +71,12 @@ class TestEvaluar(unittest.TestCase):
                        {"puerto_libre_tras_matar": False}, {"cierre_normal": False}):
             with self.subTest(cambio):
                 self.assertTrue(evaluar(observado(**cambio), verdad(), ahora=AHORA))
+
+    def test_el_motor_tiene_que_ser_el_de_esta_interfaz_y_no_el_del_repo(self):
+        self.assertTrue(evaluar(observado(huella_motor="ffffffffffffffff"), verdad(), ahora=AHORA))
+        self.assertTrue(evaluar(observado(huella_motor=None), verdad(), ahora=AHORA))
+        dentro = observado(raiz_motor="F:/reddit_intelligence_radar")
+        self.assertTrue(any("repositorio" in f for f in evaluar(dentro, verdad(), ahora=AHORA)))
 
     def test_la_prueba_no_puede_tocar_las_preferencias_del_usuario(self):
         cambiado = observado(preferencias_despues={"lang": "es", "tema": "dark"})

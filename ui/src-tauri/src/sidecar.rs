@@ -76,6 +76,8 @@ pub const CODIGO_SIN_PYTHON: &str = "python_not_found";
 pub const CODIGO_NO_LANZA: &str = "sidecar_spawn_failed";
 pub const CODIGO_PUERTO_AJENO: &str = "sidecar_port_in_use";
 pub const CODIGO_NO_RESPONDE: &str = "sidecar_unresponsive";
+pub const CODIGO_VERSION: &str = "sidecar_version_mismatch";
+pub const CODIGO_MOTOR_ROTO: &str = "sidecar_unpack_failed";
 
 /// Todos los anteriores, para exigir su traduccion.
 pub const CODIGOS_DE_ARRANQUE: &[&str] = &[
@@ -83,7 +85,21 @@ pub const CODIGOS_DE_ARRANQUE: &[&str] = &[
     CODIGO_NO_LANZA,
     CODIGO_PUERTO_AJENO,
     CODIGO_NO_RESPONDE,
+    CODIGO_VERSION,
+    CODIGO_MOTOR_ROTO,
 ];
+
+/// De dónde sale el código del motor (AUD2-003, DP1 B).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Motor {
+    /// El repositorio: desarrollo y tests. Sin huella que comparar.
+    Repo,
+    /// La copia versionada que la interfaz desempaquetó (`motor::preparar`),
+    /// con la huella con la que se compiló.
+    Versionado { dir: PathBuf, huella: String },
+    /// No se pudo desempaquetar: no se lanza nada (nunca el del repo).
+    Fallo(String),
+}
 
 /// Interprete de la `.venv` del proyecto, donde lo deja `scripts/setup_env.ps1`.
 fn interprete_del_venv(proyecto: &Path) -> PathBuf {
@@ -207,6 +223,8 @@ pub enum SidecarStatus {
     /// En el puerto contesta un sidecar que rechaza nuestro token: es de
     /// otro proceso. No se lanza otro encima ni se usa.
     PortInUse,
+    /// Contesta un motor cuyo código no es el de esta interfaz (AUD2-003).
+    VersionMismatch,
 }
 
 pub struct SidecarManager {
@@ -215,6 +233,8 @@ pub struct SidecarManager {
     child: Mutex<Option<Child>>,
     /// Por que fallo el ultimo arranque; `None` si fue bien o no se intento.
     fallo: Mutex<Option<LaunchFailure>>,
+    /// De dónde sale el código del motor; lo fija la aplicación al arrancar.
+    motor: Mutex<Motor>,
 }
 
 impl SidecarManager {
@@ -227,12 +247,60 @@ impl SidecarManager {
             config,
             child: Mutex::new(None),
             fallo: Mutex::new(None),
+            motor: Mutex::new(Motor::Repo),
         }
     }
 
+    /// Fija de dónde sale el código del motor (la aplicación, al arrancar).
+    pub fn usar_motor(&self, motor: Motor) {
+        *self.motor.lock().unwrap_or_else(PoisonError::into_inner) = motor;
+    }
+
     /// Variables de entorno del proceso hijo.
-    fn entorno() -> Vec<(&'static str, String)> {
-        vec![(TOKEN_ENV_VAR, sidecar_token().to_string())]
+    ///
+    /// Los datos (`.env`, vectores) están en la carpeta del proyecto aunque el
+    /// código corra desde la copia versionada: `RIR_DATA_DIR` (core/rutas.py).
+    fn entorno(&self) -> Vec<(&'static str, String)> {
+        let mut entorno = vec![(TOKEN_ENV_VAR, sidecar_token().to_string())];
+        if let Some(proyecto) = &self.config.project_dir {
+            entorno.push(("RIR_DATA_DIR", proyecto.display().to_string()));
+        }
+        if matches!(self.motor(), Motor::Versionado { .. }) {
+            entorno.push(("RIR_MOTOR_VERSIONADO", "1".into()));
+        }
+        entorno
+    }
+
+    fn motor(&self) -> Motor {
+        self.motor.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// Carpeta desde la que se ejecuta el módulo del motor: su copia
+    /// versionada o, en desarrollo, el repositorio.
+    fn directorio_de_trabajo(&self) -> Option<PathBuf> {
+        match self.motor() {
+            Motor::Versionado { dir, .. } => Some(dir),
+            _ => self.config.project_dir.clone(),
+        }
+    }
+
+    /// Con la copia versionada, el motor que contesta tiene que ser el de
+    /// esta interfaz: si su huella no es la compilada, es de otra versión.
+    async fn comprobar_version(&self, client: &reqwest::Client, url: &str) -> Option<LaunchFailure> {
+        let Motor::Versionado { huella, .. } = self.motor() else {
+            return None;
+        };
+        let salud = crate::commands::engine::sidecar_health_en(client, url).await;
+        let build = salud.as_ref().and_then(|s| s.get("build")).and_then(serde_json::Value::as_str).map(str::to_owned);
+        if build.as_deref() == Some(huella.as_str()) {
+            return None;
+        }
+        let detalle = format!(
+            "El motor de {url} es de otra versión ({}) que esta interfaz ({huella})",
+            build.as_deref().unwrap_or("sin huella")
+        );
+        log::error!("{detalle}");
+        Some(LaunchFailure { code: CODIGO_VERSION.into(), detail: detalle })
     }
 
     /// Argumentos del proceso hijo. `--exit-with-parent`: el motor termina
@@ -277,12 +345,12 @@ impl SidecarManager {
         let mut command = Command::new(python);
         command
             .args(self.argumentos())
-            .envs(Self::entorno())
+            .envs(self.entorno())
             .stdout(salida())
             .stderr(salida())
             .stdin(Stdio::piped());
 
-        if let Some(dir) = &self.config.project_dir {
+        if let Some(dir) = self.directorio_de_trabajo() {
             command.current_dir(dir);
         }
 
@@ -331,9 +399,17 @@ impl SidecarManager {
             })
         };
 
+        if let Motor::Fallo(detalle) = self.motor() {
+            log::error!("No se pudo preparar el motor de esta versión: {detalle}");
+            return (SidecarStatus::FailedToSpawn, fallo(CODIGO_MOTOR_ROTO, detalle));
+        }
+
         let url = self.config.base_url();
         match sondear_en(client, &url).await {
             Sonda::Responde => {
+                if let Some(error) = self.comprobar_version(client, &url).await {
+                    return (SidecarStatus::VersionMismatch, Some(error));
+                }
                 log::info!("Sidecar ya activo en {url}");
                 return (SidecarStatus::AlreadyRunning, None);
             }
@@ -390,6 +466,11 @@ impl SidecarManager {
             }
 
             if sondear_en(client, &url).await == Sonda::Responde {
+                if let Some(error) = self.comprobar_version(client, &url).await {
+                    // Lo lanzamos nosotros y no es el que toca: fuera.
+                    self.shutdown();
+                    return (SidecarStatus::VersionMismatch, Some(error));
+                }
                 log::info!("Sidecar listo tras {} intentos", intento);
                 return (SidecarStatus::Started, None);
             }
@@ -458,6 +539,8 @@ mod tests {
     const PUERTO_SIN_SIDECAR: &str = "8798";
     /// Propio del test de la vigilancia: los tests corren en paralelo.
     const PUERTO_VIGILIA: &str = "8797";
+    /// Propio del test del motor versionado.
+    const PUERTO_MOTOR_VERSIONADO: &str = "8796";
 
     fn config(python: Option<String>, project_dir: Option<PathBuf>, port: &str) -> SidecarConfig {
         SidecarConfig {
@@ -541,8 +624,66 @@ mod tests {
 
     #[test]
     fn el_hijo_recibe_el_token_del_proceso() {
-        let entorno = SidecarManager::entorno();
+        let entorno = SidecarManager::with_config(config(None, None, TEST_PORT)).entorno();
         assert!(entorno.contains(&(TOKEN_ENV_VAR, sidecar_token().to_string())));
+    }
+
+    #[test]
+    fn el_motor_versionado_corre_desde_su_copia_con_los_datos_del_proyecto() {
+        let proyecto = PathBuf::from("F:/proyecto");
+        let manager = SidecarManager::with_config(config(None, Some(proyecto.clone()), TEST_PORT));
+        let copia = PathBuf::from("C:/datos/motor/0123456789abcdef");
+        manager.usar_motor(Motor::Versionado { dir: copia.clone(), huella: "0123456789abcdef".into() });
+        let entorno = manager.entorno();
+        assert!(entorno.contains(&("RIR_DATA_DIR", proyecto.display().to_string())));
+        assert!(entorno.contains(&("RIR_MOTOR_VERSIONADO", "1".to_string())));
+        assert_eq!(manager.directorio_de_trabajo(), Some(copia));
+    }
+
+    #[test]
+    fn desde_el_repo_no_hay_marca_de_version() {
+        let manager = SidecarManager::with_config(config(None, Some(PathBuf::from("F:/p")), TEST_PORT));
+        assert!(!manager.entorno().iter().any(|(k, _)| *k == "RIR_MOTOR_VERSIONADO"));
+        assert_eq!(manager.directorio_de_trabajo(), Some(PathBuf::from("F:/p")));
+    }
+
+    #[tokio::test]
+    async fn sin_motor_desempaquetado_no_se_lanza_nada_y_se_dice() {
+        let manager = SidecarManager::with_config(config(None, project_root_for_tests(), PUERTO_SIN_SIDECAR));
+        manager.usar_motor(Motor::Fallo("disco lleno".into()));
+        let status = manager.ensure_running(&reqwest::Client::new(), None).await;
+        assert_eq!(status, SidecarStatus::FailedToSpawn);
+        assert!(manager.child.lock().unwrap().is_none());
+        assert_eq!(manager.ultimo_fallo().unwrap().code, CODIGO_MOTOR_ROTO);
+    }
+
+    /// El motor real, desde su copia versionada, devuelve la huella con la que
+    /// se compiló esta interfaz: Rust la calcula al empaquetar y Python al
+    /// arrancar sobre lo desempaquetado. Si otra huella se esperaba, se dice.
+    #[tokio::test]
+    async fn el_motor_versionado_devuelve_la_huella_compilada_y_otra_se_rechaza() {
+        let raiz = project_root_for_tests();
+        let python = raiz.as_deref().map(interprete_del_venv).filter(|p| p.is_file())
+            .map(|p| p.display().to_string()).unwrap_or_else(|| "python".into());
+        let base = std::env::temp_dir().join(format!("sentra_motor_real_{}", std::process::id()));
+        let copia = crate::motor::preparar(&base).expect("preparar");
+        let client = reqwest::Client::new();
+
+        let bueno = SidecarManager::with_config(config(Some(python.clone()), raiz.clone(), PUERTO_MOTOR_VERSIONADO));
+        bueno.usar_motor(Motor::Versionado { dir: copia.clone(), huella: crate::motor::HUELLA.into() });
+        assert_eq!(bueno.ensure_running(&client, None).await, SidecarStatus::Started);
+        let salud = sidecar_health_en(&client, &bueno.config.base_url()).await.expect("salud");
+        assert_eq!(salud["build"], crate::motor::HUELLA);
+        assert_eq!(salud["codeRoot"].as_str().map(PathBuf::from), Some(copia.clone()));
+
+        // Mismo motor, otra huella esperada: el puerto contesta, pero no es el nuestro.
+        let otro = SidecarManager::with_config(config(Some(python), raiz, PUERTO_MOTOR_VERSIONADO));
+        otro.usar_motor(Motor::Versionado { dir: copia, huella: "0000000000000000".into() });
+        assert_eq!(otro.ensure_running(&client, None).await, SidecarStatus::VersionMismatch);
+        assert_eq!(otro.ultimo_fallo().unwrap().code, CODIGO_VERSION);
+
+        bueno.shutdown();
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

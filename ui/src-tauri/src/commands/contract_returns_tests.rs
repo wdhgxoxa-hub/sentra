@@ -121,6 +121,7 @@ fn get_app_health_devuelve_app_health() {
                 code: "python_not_found".into(),
                 detail: texto(),
             }),
+            motor_build: texto(),
         },
         "AppHealth",
     );

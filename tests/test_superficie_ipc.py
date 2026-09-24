@@ -86,7 +86,8 @@ class TestEstadoDelArranque(unittest.TestCase):
         tipos = (UI / "types" / "radar.ts").read_text("utf-8")
         union = tipos.split("export type SidecarStatus =", 1)[1].split(";", 1)[0]
         self.assertEqual(set(re.findall(r'"(\w+)"', union)), rust)
-        self.assertEqual(len(rust), 6)
+        # Seis de AUD-056/059 y versionMismatch (AUD2-003: motor de otra versión).
+        self.assertEqual(len(rust), 7)
 
 
 if __name__ == "__main__":

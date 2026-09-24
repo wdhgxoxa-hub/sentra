@@ -185,6 +185,10 @@ export const es = {
     python_not_found: "No hay entorno de Python para el motor. Ejecuta scripts/setup_env.ps1 en la carpeta del proyecto (o define RIR_PYTHON) y reinicia la aplicación.",
     sidecar_spawn_failed: "No se pudo lanzar el motor de análisis con el Python configurado.",
     sidecar_port_in_use: "El puerto del motor lo ocupa otro proceso. Ciérralo o define RIR_SIDECAR_PORT y reinicia la aplicación.",
+    sidecar_version_mismatch:
+      "El motor que contesta es de otra versión que esta ventana. Pulsa «Reintentar motor»; si sigue, recompila la aplicación.",
+    sidecar_unpack_failed:
+      "No se pudo preparar el motor de esta versión en la carpeta de datos de la aplicación (disco lleno o sin permisos). El detalle lo dice.",
     sidecar_unresponsive: "El motor de análisis se lanzó pero no llegó a responder. El detalle está en sidecar.log.",
     invalid_input: "Los datos enviados no son válidos.",
     file: "No se pudo guardar el archivo.",

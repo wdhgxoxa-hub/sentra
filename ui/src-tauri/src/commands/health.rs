@@ -34,6 +34,9 @@ pub struct AppHealth {
     pub sidecar_info: Option<serde_json::Value>,
     /// Por qué no se pudo arrancar el sidecar (D-D), con código traducible.
     pub sidecar_launch: Option<LaunchFailure>,
+    /// Huella del código del motor con el que se compiló esta interfaz; el
+    /// motor devuelve la suya en `sidecarInfo.build` (AUD2-003).
+    pub motor_build: String,
 }
 
 /// Lo que se dice del motor cuando no responde. Lo lee el usuario: nada de
@@ -128,6 +131,7 @@ pub async fn get_app_health(
         sidecar,
         sidecar_info: info,
         sidecar_launch: manager.ultimo_fallo(),
+        motor_build: crate::motor::HUELLA.to_string(),
     })
 }
 

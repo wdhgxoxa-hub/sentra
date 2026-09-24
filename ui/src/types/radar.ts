@@ -67,7 +67,8 @@ export type SidecarStatus =
   | "unresponsive"
   | "failedToSpawn"
   | "noInterpreter"
-  | "portInUse";
+  | "portInUse"
+  | "versionMismatch";
 
 /** Canal por el que Rust avisa del arranque del motor (y de cada reintento). */
 export const SIDECAR_EVENT_CHANNEL = "sentra:sidecar";
@@ -83,9 +84,15 @@ export interface AppHealth {
   sidecarInfo: {
     uptimeSeconds: number;
     persistence: { enabled: boolean; target: string | null };
+    /** Huella del código que corre; null si corre desde el repositorio (desarrollo). */
+    build: string | null;
+    /** Carpeta desde la que corre el motor. */
+    codeRoot: string;
   } | null;
   /** Por qué no arrancó el motor; null si arrancó o ya estaba. */
   sidecarLaunch: LaunchFailure | null;
+  /** Huella del motor con el que se compiló esta interfaz (AUD2-003). */
+  motorBuild: string;
 }
 
 export interface CancelResult {

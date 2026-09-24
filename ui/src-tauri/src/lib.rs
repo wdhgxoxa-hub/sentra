@@ -16,6 +16,8 @@ pub mod commands;
 pub mod db;
 pub mod sidecar;
 pub mod sidecar_log;
+pub mod empaquetado;
+pub mod motor;
 
 #[cfg(test)]
 mod test_support;
@@ -58,6 +60,18 @@ pub fn run() {
             move |app| {
                 // La salida del sidecar va al directorio de logs de la app (D-E).
                 let log_dir = app.path().app_log_dir().ok();
+                // El motor corre desde la copia de su código que lleva esta
+                // interfaz, no desde el repositorio (AUD2-003, DP1 B).
+                manager.usar_motor(match app.path().app_local_data_dir() {
+                    Ok(base) => match motor::preparar(&base) {
+                        Ok(dir) => {
+                            log::info!("Motor {} en {}", motor::HUELLA, dir.display());
+                            sidecar::Motor::Versionado { dir, huella: motor::HUELLA.into() }
+                        }
+                        Err(err) => sidecar::Motor::Fallo(format!("{}: {err}", base.display())),
+                    },
+                    Err(err) => sidecar::Motor::Fallo(err.to_string()),
+                });
                 // El arranque del sidecar no bloquea la ventana: cargar el
                 // modelo de embeddings tarda, y mas vale ensenar la interfaz
                 // con el indicador en rojo que una pantalla congelada.
