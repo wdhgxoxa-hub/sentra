@@ -333,3 +333,100 @@ Formato: severidad · dimensión · estado · evidencia · impacto · causa raí
 - **Contraste WCAG (D01).** No hay herramienta de medición instalada; se revisó foco y teclado.
 - **Historial de compuerta de cada commit anterior (D10).** No se re-ejecutó commit a commit; se usaron los mensajes y la memoria verificada contra git.
 - **Transcripción.** El audio es silencio total.
+
+---
+
+## 7. Estado tras la PARTE 2 (cierre de la deuda)
+
+Rama `feat/cierre-y-documentos`, commits `ef1522b`…`95a578b` (código) y el commit de este informe. Decisiones del
+usuario: DP1 B, DP2–DP11 A. Cada commit pasó la compuerta; desde `0ac08f6` la
+exige el hook de pre-commit del repositorio. La evidencia de antes y después
+sobre la app real está en el scratchpad de la sesión (`evidencia/`: capturas
+CDP, JSON y consultas de solo lectura).
+
+**Compuerta de release** (`CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh`, release compilada con `npm run tauri build` desde el código de `95a578b`, SENTRA cerrada): ruff, mypy, Python (731 tests), tsc, node (9), cargo (81), clippy, pip-audit, cargo-audit y humo en OK; `COMPUERTA OK`, código de salida 0.
+
+### 7.1 Hallazgos
+
+| Hallazgo | Estado | Commits | Evidencia de después sobre la app real |
+|---|---|---|---|
+| AUD2-001 CRÍTICO juez | **CERRADO en sus causas estructurales · residuo ABIERTO** | d77128d 3ff8ab4 4841c40 c68cbbc 7cccbce 0d92081 | Re-juicio del escaneo 01a0d086: 22 lanzamientos excluidos, 37 dolores pertinentes, G2 = 4 (relativo), 5 grupos. **Abierto:** el LLM aún etiqueta opiniones genéricas como dolor y deja 1 grupo DESCARTAR incoherente; 0 CONSTRUIR. Es calidad del etiquetado, no se arregla sin más llamadas ni un conjunto dorado mayor. |
+| AUD2-002 ALTO fixtures 2099 | CERRADO | 6254260 | Migración 012 aplicada tras respaldo y ensayo: 0 filas sin procedencia, URL `https://` obligatoria; humo: 0 evidencias con fecha futura o fuente desconocida. |
+| AUD2-003 ALTO release atada al repo | CERRADO | 0d20c9c c04488b 22901f9 | Humo: el motor corre desde `%LOCALAPPDATA%\com.sentra.desktop\motor\<huella>` con la huella compilada; un motor de otra versión se rechaza. |
+| AUD2-004 ALTO sin tests del exe | CERRADO | ef1522b 3f517b0 a2062e0 | `python -m tests.humo_exe` (y `HUMO=1` en la compuerta): `HUMO OK` sobre la release final. Detecta además un exe sin interfaz embebida. |
+| AUD2-005 ALTO G7 verde sin datos | CERRADO (reabierto y cerrado) | 3d50e97 16d9d25 | 1.ª evidencia: G7 medida y la dimensión «hueco» decía «no medido» en el mismo veredicto (la dimensión no veía el contexto de G7). Tras 16d9d25: G7 medida y «Hueco de competencia: 12 (100 %)». |
+| AUD2-006 MEDIO palabras basura | **CERRADO en la causa raíz · residuo** (reabierto) | 7308843 8c41c91 | 7308843 solo amplió la lista de vacías (síntoma); la release seguía nombrando «already · between». Causa: frecuencia sin distinción y desempate alfabético. Tras 8c41c91 (soporte ≥ 2, c-TF-IDF sobre el escaneo, singular = plural): «domain…», «feedback · outlook · sent…», «duplicate · job…», «templates…». **Residuo:** verbos genéricos en las posiciones 3–5 de grupos de 3–5 piezas. |
+| AUD2-007 MEDIO textos | CERRADO | a6616b9 | Captura: regla G2 con su umbral, marcador sin demo, ejemplos de búsqueda de los nichos actuales. |
+| AUD2-008 MEDIO Top repetido en Fuentes | CERRADO | 81cb5d9 | Fuentes: «0 para construir · 4 para investigar más · 1 descartados» + «Ver los veredictos en el Radar»; 0 listas de veredictos. |
+| AUD2-009 MEDIO búsqueda sin umbral | CERRADO | 1441ba8 | «zzzz», «Facturación», «precios»: 20 → 0 resultados; «email notifications»: 20. |
+| AUD2-010 MEDIO e5 en %TEMP% | CERRADO | 60b66c3 | 9 ficheros y 2 252 997 322 B copiados a `%LOCALAPPDATA%\SENTRA\models`; carga sin red con el mismo vector (huella b12659f45b22e881); copia de %TEMP% borrada; búsqueda 20 filas en la release. |
+| AUD2-011 MEDIO dos DSN | CERRADO | f58dffd | `migrate.py status` real: 12 aplicadas con `RIR_PG_URL`. |
+| AUD2-012 MEDIO fuente en error activa | CERRADO | 16103a5 | La tarjeta en error dice que no entra en el escaneo hasta probarla. |
+| AUD2-013 MEDIO log de un minuto | CERRADO | 02b6a86 | 2 MB × 5 copias, INFO. |
+| AUD2-014 BAJO aviso del enlazador | CERRADO | cebecc8 | `npm run tauri build`: 0 avisos (las tres builds de hoy). |
+| AUD2-015 BAJO carpeta antigua | **ABIERTO: falta tu confirmación para borrar** | — | Preferencias migradas sobre la app real: antes `es`/`system` (sin elegir), después `es`/`dark` (tu última elección en la app antigua), tema aplicado. Queda `%LOCALAPPDATA%\com.reddit-intelligence-radar.desktop` (EBWebView 76 MB + logs 42 KB). |
+| AUD2-016 BAJO esquema legacy | CERRADO · `subreddits` ABIERTO | fcc4f6f 6254260 | 7 tablas y 2 columnas legacy fuera; `subreddits` sigue: la referencia `pipeline_runs.subreddit_id` y DP4 no la incluía. |
+| AUD2-017 BAJO restos de otro proyecto | CERRADO · scripts de la biblioteca ABIERTOS | c2abc36 | `repos/` → `F:\archivo_sentra\repos` (29 639 ficheros, 1 624 306 693 B, 57 clones); 5 documentos en `docs/historico/` con nota. Los 6 scripts de clonado y `logs/repo_catalog.json` siguen: DP11 no decidió sobre ellos. |
+| AUD2-018 MEDIO licencia de Stack Exchange | CERRADO | 260940a | Búsqueda: 13 de 13 filas de Stack Exchange con «CC BY-SA 4.0» y su URL; dossier y plan también. Las 30 piezas guardadas son de 2025-09-25 o después (4.0); Stack Exchange usa 3.0/2.5 antes de 2018-05-02. |
+| AUD2-019 BAJO llamada invisible | CERRADO | adf85bd 14d67af | «Lista de modelos pedida a Google hace 2 minutos»; arranque nuevo: 0 peticiones; el re-juicio tampoco lista. |
+| AUD2-020 BAJO aviso doble | CERRADO | 22b2da1 | 0 alertas anidadas en la release. |
+| AUD2-021 BAJO dependencias sin auditar | CERRADO | 314687c | pip-audit: 0; cargo audit: 0 con RUSTSEC-2023-0071 ignorado con motivo (rsa no entra en el grafo; un test lo vigila). |
+| AUD2-022 MEDIO proceso | CERRADO · ver 7.3 | 3f517b0 0ac08f6 | La compuerta vive en el repo; el hook rechazó un commit con un paso en rojo (HEAD sin cambios). `docs/proceso.md`. |
+| AUD2-023 BAJO Discourse | CERRADO | 88f84d8 | Tarjeta explicada. |
+| AUD2-024 BAJO «Guardar modelos» sin clave | FALSO POSITIVO | — | El botón está deshabilitado sin clave (comprobado en la app). |
+| AUD2-025 BAJO escaneo > 600 s | CERRADO (confirmado por código) | 00a0b43 | El timeout de reqwest era total: cortaba un escaneo vivo mientras el motor lo terminaba. Ahora keepalive cada 15 s y corte solo tras 60 s de silencio; tests con flujos reales de bytes. Sin escaneo real (R3). |
+| AUD2-026 BAJO memoria de WebView2 | CERRADO: no se reproduce | a2062e0 | 12 min reales en el Radar sobre la release (lector CDP corregido en a2062e0): WebView2 486 → 462 MB (privada 289 → 260 MB), heap JS 3,2–3,9 MB, nodos 2 508–2 604, 0 excepciones. No hay crecimiento. La medida de la PARTE 1 era de otra release y de otro arnés. |
+| **AUD2-027 MEDIO (nuevo)** · un cierre a la ventana interna de tao deja SENTRA colgada | CERRADO | 95a578b | Hallado al medir AUD2-026: tras 12 min, un cierre normal no cerraba la app (reproducido sin CDP). Causa verificada en tao 0.35.3: «Tao Thread Event Target» es visible a propósito; un WM_CLOSE que le llega (taskkill, el Restart Manager, un gestor de ventanas) la destruía, y al cerrar después el proceso quedaba vivo sin ventana. Tras 95a578b: WM_CLOSE a esa ventana → proceso terminado y 0 motores; la prueba de humo lo comprueba en cada release. **Hipótesis sin probar:** con GlazeWM, que gestiona ventanas visibles de nivel superior, esto pudo intervenir en la «pantalla negra tras un rato» del principio. |
+
+### 7.2 Notas D01–D14, antes y después
+
+| Dimensión | Antes | Después | Por qué |
+|---|---|---|---|
+| D01 Producto | 5 | 7 | Fuentes con resumen, textos corregidos, G7 coherente, un solo aviso, licencia y hora del listado visibles. Nombres de nicho aún con verbos genéricos; los motivos del motor solo en español. |
+| D02 Corrección | 6 | 8 | Sin fixtures, búsqueda con umbral, humo contra SQL en cada release. |
+| D03 Arquitectura | 4 | 7 | Motor versionado con huella, un solo DSN, esquema legacy retirado (salvo `subreddits`). |
+| D04 Juez | 2 | 5 | Lanzamientos fuera, solo dolor pertinente, G2 relativo, G7 y hueco coherentes, nombres por distinción. El etiquetado del LLM sigue mezclando opiniones; sin validar con 300 ítems. |
+| D05 Integridad | 6 | 8 | Procedencia obligatoria, URL válida, tablas legacy fuera. |
+| D06 Seguridad | 8 | 9 | pip-audit y cargo audit en 0 y en la compuerta de release. |
+| D07 Fiabilidad | 7 | 8 | Log útil, e5 fuera de %TEMP%, fuentes en error excluidas, escaneos largos sin corte, el cierre por la ventana interna de tao ya no deja el proceso colgado (AUD2-027). |
+| D08 Rendimiento | 7 | 8 | Motor activo en 3,2–3,7 s, WebView2 estable en 12 min, búsqueda 20 filas con e5 fuera de %TEMP%. El juez con 300 ítems sigue sin medir. |
+| D09 Tests | 4 | 7 | Humo del exe real en la compuerta; lógica de la interfaz con node --test; contratos Py↔Rust↔TS. Sigue habiendo muchas guardas que leen código como texto. |
+| D10 Proceso | 5 | 6 | Compuerta y hook en el repo. Pero en esta PARTE 2 cometí errores nuevos (7.3). |
+| D11 Build y release | 3 | 7 | Release autocontenida sin avisos; el humo detecta un exe de desarrollo. Falta borrar la carpeta antigua (AUD2-015), la versión sigue 0.1.0 y la release sale de la rama de trabajo (F). |
+| D12 Documentación | 4 | 8 | Históricos archivados con nota, README con compuerta, humo y auditorías, `docs/proceso.md`. |
+| D13 Costes | 7 | 8 | Listado de modelos guardado un día y visible; re-juicio con 0 llamadas. |
+| D14 Cumplimiento | 6 | 8 | CC BY-SA 4.0 y enlace en toda cita de Stack Exchange, R9 intacta. |
+
+### 7.3 Errores míos en la PARTE 2 (R6)
+
+- **Rompí el acceso del escritorio de 03:18 a ~03:32.** Para evidenciar AUD2-014 compilé con `cargo build --release`, que dejó en `target/release/sentra.exe` un exe sin interfaz (abría `localhost:5173`). Lo detecté al migrar las preferencias; recompilé con `npm run tauri build` y la prueba de humo ahora lo detecta (3f517b0).
+- **Mi script de evidencias disparó 2 generaciones de dossier.** Pulsaba el primer botón de la tarjeta del Radar, que en esa disposición era «Dossier». Las 2 llegaron a `generate_content`; se cerró la app antes de ninguna respuesta, pero no puedo asegurar que Google no las procesara: las cuento como 2 llamadas posibles. El script ya no pulsa nada y `docs/proceso.md` lo prohíbe.
+- **Di por cerrados AUD2-005 y AUD2-006 antes de tiempo.** La evidencia sobre la release los reabrió; ambos se cerraron después en su causa (16d9d25, 8c41c91).
+- **El mensaje de 3f517b0 dice «GREEN: 13/13»; eran 11 tests.**
+- **La prueba de humo cerraba con `taskkill` sin /F**, cuyo destino cambia entre las dos ventanas de SENTRA: su «cierre normal» dependía del azar. Ahora cierra por la ventana de la app, como la X (95a578b).
+- **La primera medida larga de AUD2-026 no vale.** El lector CDP moría en reposo (a2062e0) y cada «minuto» duraba ~100 s; la paré y repetí la medida.
+- **Llamadas de listado de modelos.** Mis pruebas de humo y capturas abrieron Configuración y listaron modelos en Google (12 listados en el log de la app) hasta que adf85bd los guardó.
+
+### 7.4 Gemini en la PARTE 2
+
+| Momento | Generación | Listado de modelos |
+|---|---|---|
+| Re-juicio v3 (DP2 A, run 01a0d264) | 4 (9 732→3 963, 19 474→3 589, 10 168→3 741, 3 803→2 771 tokens) | 1 |
+| Mi script de evidencias (no permitido) | 2 posibles, sin respuesta recibida | — |
+| Re-juicio de AUD2-005 (run 01a0d295) | 0 | 1 |
+| Re-juicio de AUD2-006 (run 01a0d2c3) | 0 | 0 |
+| Pruebas de humo y capturas | 0 | 12 hasta adf85bd; 1 después |
+
+Total de generación en la misión: 6 contadas antes de este cierre + 2 posibles = **hasta 8 de 15**. Reddit y X: 0. Escaneos: 0.
+
+### 7.5 Pendiente
+
+- **AUD2-015:** borrar `%LOCALAPPDATA%\com.reddit-intelligence-radar.desktop` cuando lo confirmes.
+- **AUD2-001 (residuo):** calidad del etiquetado del LLM; se ve en E8/F con un escaneo real y más datos dorados.
+- **AUD2-006 (residuo):** verbos genéricos en nombres de grupos pequeños.
+- **AUD2-016:** la tabla `subreddits` (decisión aparte).
+- **AUD2-017:** los scripts de la biblioteca de clones (decisión aparte).
+- **AUD2-022 (salvaguarda no hecha):** la prueba de humo sigue usando el perfil de WebView real. No tiene uno aparte: en su lugar falla si cambian tus preferencias.
+- **E8:** verificar dossier y plan con Gemini real (llamadas, tokens y secciones).
+- **F:** F1 instalación limpia; F2 migraciones; F3 release desde `main`; F4 fusión (esta rama no se ha fusionado).
+- **G:** G1 Product Hunt.
