@@ -137,3 +137,24 @@ ya estaba escrito en scripts/calibrar_agrupacion.py desde B3.
 - Validación: la misma de antes (grupo que pasa G0 con ≥ 3 autores cuyo dolor es
   un impago). Si falla, opción 2 (G0 separa el problema dominante) con ≤ 8
   llamadas. Presupuesto: 11; E8 va con lo que quede (dossier primero).
+
+### Resultado de la opción 1, la opción 2 y E8
+
+- Anuncios (eef1705, clustering-v9): «problema → solución» en el texto es
+  autopromoción: competencia, nunca dolor. Los dos anuncios de Bluesky, fuera.
+- Opción 1 (0f725ce): dorado v2 con 40 ítems vecinos inventados; el criterio de
+  siempre vuelve a elegir 0,82 (ARI 0,268). Validación (01a0d4e0…, 1 llamada):
+  4 grupos, los 4 fallan G0. Falla.
+- Opción 2 (9c193fd, coherence-v2, clustering-v10): G0 señala el problema
+  dominante de una mezcla (≥ 3 frases), se separa y se confirma en otra llamada.
+  Validación (01a0d4e6-b533-7d3e-a03a-4dd9580cba8d, 2 llamadas): 2 mezclas
+  separadas; el subgrupo de impagos (9 autores; GitHub, Bluesky, Mastodon) pasa
+  G0 en la confirmación. PASA. El juez lo deja en DESCARTAR por G7 (saturación),
+  decidida por una sola pieza: un lanzamiento de HN de un asistente que «persigue
+  facturas» (cuota 1/1 = 100 %).
+- E8 (dossier; el plan exige CONSTRUIR): 1 llamada, gemini-3.1-pro-preview
+  (Automático), 1293 → 1057 tokens (+2445 razonamiento), 11 secciones, 7 citas
+  reales. Problemas: nombre «week, morning» (las palabras del tema se excluyen);
+  prosa sin tildes; afirmaciones que generalizan una cita; riesgos vacíos; no
+  explica G7 ni cita el lanzamiento que la decide.
+- Gemini de este presupuesto: 33 de 40; quedan 7.
