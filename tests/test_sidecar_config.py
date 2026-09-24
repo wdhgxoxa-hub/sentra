@@ -91,6 +91,12 @@ class TestGeminiEndpoints(ConfigTestCase):
         self.assertNotIn(self.CLAVE, cuerpo)
         self.assertIn("…", self.client.get("/api/config").json()["gemini"]["keyMasked"])
 
+    def test_la_mascara_solo_deja_ver_los_cuatro_ultimos(self):
+        # AUD-062: enseñaba los 6 primeros y los 4 últimos.
+        self.client.post("/api/gemini", json={"apiKey": self.CLAVE})
+        mascara = self.client.get("/api/config").json()["gemini"]["keyMasked"]
+        self.assertEqual(mascara, "…" + self.CLAVE[-4:])
+
     def test_guardar_sin_clave_se_rechaza(self):
         self.assertEqual(self.client.post("/api/gemini", json={"apiKey": "  "}).status_code, 400)
 

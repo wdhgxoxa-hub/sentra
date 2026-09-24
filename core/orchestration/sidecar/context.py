@@ -144,7 +144,8 @@ def gemini_summary(ctx: SidecarContext) -> dict[str, Any]:
     key = credenciales.key
     masked = ""
     if key:
-        masked = key[:6] + "…" + key[-4:] if len(key) > 12 else "…"
+        # AUD-062: solo los 4 últimos, lo justo para reconocer cuál es.
+        masked = "…" + key[-4:] if len(key) > 12 else "…"
     return {
         "configured": bool(key),
         "keyMasked": masked,
