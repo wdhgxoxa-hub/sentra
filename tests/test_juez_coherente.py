@@ -103,6 +103,20 @@ class TestJuezCoherente(unittest.TestCase):
         self.assertNotIn(lejos.id, g7["evidence_ids"])
         self.assertEqual(veredicto["verdict"], "DESCARTAR")
 
+    def test_la_dimension_de_competencia_ve_la_misma_evidencia_que_g7(self):
+        # En la release, G7 salía medida con el contexto y la dimensión «hueco»
+        # decía «sin datos de competencia» en el mismo veredicto.
+        quejas = [pieza(n) for n in range(6)]
+        opiniones = [pieza(n, texto=f"TallyBird does this for free and works great ({n})") for n in (20, 21, 22)]
+        lejos = pieza(30, texto="TallyBird is fine for something else entirely")
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas + opiniones)}
+        vectores[lejos.id] = [0.0, 0.0, 1.0]
+        [veredicto] = juzgar(quejas + opiniones + [lejos], vectores).verdicts
+        g7 = next(g for g in veredicto["gates"] if g["gate"] == "G7")
+        hueco = next(d for d in veredicto["dimensions"] if d["name"] == "hueco")
+        self.assertNotEqual(hueco["note"], "sin_datos")
+        self.assertEqual(set(hueco["item_ids"]), set(g7["evidence_ids"]))
+
     def test_el_tema_del_escaneo_no_nombra_los_nichos(self):
         quejas = [pieza(n) for n in range(6)]
         vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas)}
@@ -111,7 +125,7 @@ class TestJuezCoherente(unittest.TestCase):
 
     def test_versiones_nuevas(self):
         self.assertEqual(CLUSTERING_VERSION, "clustering-v3")
-        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v2")
+        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v3")
 
 
 if __name__ == "__main__":

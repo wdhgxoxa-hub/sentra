@@ -196,4 +196,4 @@ def judge_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLa
     compuertas = evaluate_gates(items, labels, now=now, min_authors=min_authors, contexto=contexto)
     veredicto, regla = decide(compuertas, min_authors=min_authors)
     return ClusterJudgement(veredicto, [g.gate for g in compuertas if not g.passed], regla,
-                            compuertas, score_cluster(items, labels, now=now))
+                            compuertas, score_cluster(items, labels, now=now, contexto=contexto))

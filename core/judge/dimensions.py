@@ -32,7 +32,7 @@ from .labels import VerifiedLabel
 
 #: v2 (AUD2-001): mismos pesos; cambian las reglas que alimentan el puntaje
 #: (lanzamientos fuera del dolor, G2 relativo al escaneo).
-WEIGHTS_VERSION = "judge-weights-v2"
+WEIGHTS_VERSION = "judge-weights-v3"
 #: D-M3. Suman 1.
 WEIGHTS: dict[str, float] = {"frecuencia": 0.25, "pago": 0.25, "parches": 0.20,
                              "hueco": 0.15, "tendencia": 0.15}
@@ -123,7 +123,9 @@ def _tendencia(dolores: Sequence[EvidenceItem], now: datetime) -> DimensionScore
 
 
 def score_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
-                  now: datetime) -> NicheScore:
+                  now: datetime, contexto: Sequence[EvidenceItem] = ()) -> NicheScore:
+    """`contexto`: la evidencia sin dolor cercana al grupo. Como en G7, cuenta
+    para la competencia (hueco): la dimensión y la compuerta leen lo mismo."""
     dolores = pain_items(items, labels)
     fuentes = sorted({i.source for i in dolores})
     pago, parches = payment_items(items, labels), workaround_items(items, labels)
@@ -137,7 +139,7 @@ def score_cluster(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLa
                        sorted(i.id for i in pago)),
         DimensionScore("parches", len(parches), _saturada(len(parches), WORKAROUND_SATURATION),
                        sorted(i.id for i in parches)),
-        _hueco(items, labels),
+        _hueco([*items, *contexto], labels),
         _tendencia(dolores, now),
         DimensionScore("viabilidad", None, None, [], "undetermined"),
     ]
