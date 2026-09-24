@@ -130,7 +130,8 @@ class TestDossier(unittest.TestCase):
     def test_los_riesgos_empiezan_por_las_compuertas_que_fallan_con_su_evidencia(self):
         # E8: «Riesgos» salía vacío y nada explicaba G7 ni citaba la pieza que la decide.
         compuertas = [{"gate": "G7", "passed": False, "value": 1.0, "threshold": 0.5,
-                       "evidence_ids": ["hackernews:99"], "measured": True, "note": None}]
+                       "evidence_ids": ["hackernews:99"], "measured": True,
+                       "note": "TallyBird: 3 de 3 autores lo dan por bueno"}]
         lanzamiento = {**pieza("hackernews:99"), "text": "Presentamos un asistente gratuito que persigue facturas."}
         llm = dossier_llm(risks=[cita("inventado:1", texto="Riesgo sin respaldo")])
         doc = compose_dossier(detalle(verdict="DESCARTAR", gates=compuertas, gate_evidence=[lanzamiento]),
@@ -138,10 +139,30 @@ class TestDossier(unittest.TestCase):
         riesgos = next(s for s in doc.sections if s.id == "riesgos")
         texto = "\n".join(b.text + " ".join(b.items) for b in riesgos.blocks)
         self.assertIn("G7 (saturación)", texto)
+        # Pendiente de E8: en palabras, qué exige la compuerta, y su nota.
+        self.assertIn("exige que ningún competidor gratuito", texto)
+        self.assertIn("TallyBird: 3 de 3 autores lo dan por bueno", texto)
         self.assertIn("[hackernews:99]", texto)
         self.assertNotIn("Sin afirmaciones verificables", texto)
         evidencia = next(s for s in doc.sections if s.id == "evidencia")
         self.assertIn("hackernews:99", "\n".join(b.signature for b in evidencia.blocks))
+
+    def test_lo_que_exige_cada_compuerta_sigue_a_los_umbrales_del_juez(self):
+        from core.documents.compose import ROTULOS
+        from core.judge.gates import (
+            CONCENTRATION_MAX_SHARE,
+            MIN_AUTORES_COMPETIDOR,
+            MIN_DISTINCT_SOURCES,
+            RECENCY_DAYS,
+        )
+
+        numeros = {1: "dos", 2: "dos", 3: "tres"}
+        es = ROTULOS["es"]["gate_rules"]
+        self.assertIn(numeros[MIN_DISTINCT_SOURCES], es["G1"])
+        self.assertIn(f"{round(CONCENTRATION_MAX_SHARE * 100)} %", es["G5"])
+        self.assertIn(f"{RECENCY_DAYS} días", es["G6"])
+        self.assertIn(numeros[MIN_AUTORES_COMPETIDOR], es["G7"])
+        self.assertEqual(set(es), set(ROTULOS["en"]["gate_rules"]), "las mismas compuertas en los dos idiomas")
 
     def test_una_seccion_sin_afirmaciones_validas_no_se_rellena(self):
         doc = compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA)

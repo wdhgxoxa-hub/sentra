@@ -72,6 +72,19 @@ ROTULOS: dict[str, dict[str, Any]] = {
         "gate_names": {"G0": "coherencia", "G1": "fuentes distintas", "G2": "autores distintos",
                        "G3": "parche casero", "G4": "señal de pago", "G5": "concentración",
                        "G6": "recencia", "G7": "saturación", "G8": "datos reales"},
+        # Qué exige cada compuerta, en palabras (core/judge/gates.py).
+        "gate_rules": {
+            "G0": "exige que las frases del grupo cuenten un mismo problema concreto",
+            "G1": "exige quejas de al menos dos fuentes distintas",
+            "G2": "exige suficientes autores distintos para el tamaño del escaneo",
+            "G3": "exige al menos un parche casero descrito",
+            "G4": "exige al menos una señal de pago o de búsqueda de herramienta",
+            "G5": "exige que ningún hilo ni autor aporte más del 40 % de las quejas",
+            "G6": "exige que al menos la mitad de las quejas sea de los últimos 180 días",
+            "G7": ("exige que ningún competidor gratuito, nombrado por al menos tres autores, "
+                   "sea dado por bueno por la mayoría de quienes lo nombran"),
+            "G8": "exige que toda la evidencia sea real (API oficial)"},
+        "gate_rule_sep": "; ",
         "advocate_before": "Veredicto antes y después", "advocate_reason": "Motivo de la bajada",
         "advocate_none": "El abogado del diablo no aportó argumentos.",
         "in": "Dentro", "out": "Fuera", "step": "Paso", "files": "Archivos",
@@ -111,6 +124,18 @@ ROTULOS: dict[str, dict[str, Any]] = {
         "gate_names": {"G0": "coherence", "G1": "distinct sources", "G2": "distinct authors",
                        "G3": "workaround", "G4": "payment signal", "G5": "concentration",
                        "G6": "recency", "G7": "saturation", "G8": "real data"},
+        "gate_rules": {
+            "G0": "requires the group's sentences to tell one concrete problem",
+            "G1": "requires complaints from at least two distinct sources",
+            "G2": "requires enough distinct authors for the size of the scan",
+            "G3": "requires at least one described workaround",
+            "G4": "requires at least one payment or tool-seeking signal",
+            "G5": "requires that no thread or author contributes more than 40% of complaints",
+            "G6": "requires at least half of the complaints to be from the last 180 days",
+            "G7": ("requires that no free competitor, named by at least three authors, "
+                   "is deemed good enough by most of those who name it"),
+            "G8": "requires all evidence to be real (official API)"},
+        "gate_rule_sep": "; ",
         "advocate_before": "Verdict before and after", "advocate_reason": "Reason for the downgrade",
         "advocate_none": "The devil's advocate raised no arguments.",
         "in": "In", "out": "Out", "step": "Step", "files": "Files",
@@ -229,8 +254,10 @@ def _riesgos_de_compuertas(detalle: Mapping[str, Any], r: Mapping[str, Any], cit
         citas.citados += [i for i in ids if i not in citas.citados]
         nota = f" — {g['note']}" if g.get("note") else ""
         cita = f" [{', '.join(ids)}]" if ids else ""
+        exige = r["gate_rules"].get(g["gate"])
         lineas.append(f"{g['gate']} ({r['gate_names'].get(g['gate'], g['gate'])}): {_estado_compuerta(g, r)} · "
-                      + r["value_vs"].format(value=g.get("value"), threshold=g.get("threshold")) + nota + cita)
+                      + r["value_vs"].format(value=g.get("value"), threshold=g.get("threshold"))
+                      + (f"{r['gate_rule_sep']}{exige}" if exige else "") + nota + cita)
     return (Block("bullets", items=tuple(lineas)),) if lineas else ()
 
 
