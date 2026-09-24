@@ -48,7 +48,7 @@ class ProveedorDoble:
 
 class TestDecision(unittest.TestCase):
     def test_un_grupo_que_mezcla_problemas_se_descarta(self):
-        g0 = compuerta_coherencia(comprobar_coherencia({"a": ["x", "y"]}, provider=ProveedorDoble(
+        g0 = compuerta_coherencia(comprobar_coherencia({"a": {"p:1": "x", "p:2": "y"}}, provider=ProveedorDoble(
             CoherenceReport(groups=[CoherenceGroup(group_id="a", same_problem=False, reason="mezcla")])),
             model="m")["a"])
         veredicto, regla = decide(compuertas(g0))
@@ -56,7 +56,7 @@ class TestDecision(unittest.TestCase):
         self.assertTrue(regla.startswith("0:"), regla)
 
     def test_un_mismo_problema_puede_ser_construir(self):
-        g0 = compuerta_coherencia(comprobar_coherencia({"a": ["x", "y"]}, provider=ProveedorDoble(
+        g0 = compuerta_coherencia(comprobar_coherencia({"a": {"p:1": "x", "p:2": "y"}}, provider=ProveedorDoble(
             CoherenceReport(groups=[CoherenceGroup(group_id="a", same_problem=True, reason="igual")])),
             model="m")["a"])
         self.assertEqual(decide(compuertas(g0))[0], "CONSTRUIR")
@@ -64,10 +64,10 @@ class TestDecision(unittest.TestCase):
 
     def test_sin_comprobar_nunca_es_construir(self):
         for motivo, resultado in (
-                ("sin proveedor", comprobar_coherencia({"a": ["x"]}, provider=None, model=None)),
-                ("error", comprobar_coherencia({"a": ["x"]}, provider=ProveedorDoble(
+                ("sin proveedor", comprobar_coherencia({"a": {"p:1": "x"}}, provider=None, model=None)),
+                ("error", comprobar_coherencia({"a": {"p:1": "x"}}, provider=ProveedorDoble(
                     error=LLMError("caído")), model="m")),
-                ("omitido", comprobar_coherencia({"a": ["x"]}, provider=ProveedorDoble(
+                ("omitido", comprobar_coherencia({"a": {"p:1": "x"}}, provider=ProveedorDoble(
                     CoherenceReport(groups=[])), model="m"))):
             with self.subTest(motivo):
                 g0 = compuerta_coherencia(resultado["a"])
@@ -90,10 +90,12 @@ class TestLectura(unittest.TestCase):
 class TestLlamada(unittest.TestCase):
     def test_una_sola_llamada_con_todos_los_grupos_y_solo_sus_frases(self):
         doble = ProveedorDoble(CoherenceReport(groups=[]))
-        comprobar_coherencia({"a": ["frase uno", "frase dos"], "b": ["frase tres"]}, provider=doble, model="m")
+        comprobar_coherencia({"a": {"x:1": "frase uno", "x:2": "frase dos"}, "b": {"x:3": "frase tres"}},
+                             provider=doble, model="m")
         self.assertEqual(len(doble.prompts), 1)
         enviado = json.loads(doble.prompts[0][doble.prompts[0].index("{"):])
-        self.assertEqual(enviado, {"a": ["frase uno", "frase dos"], "b": ["frase tres"]})
+        # Claves cortas por grupo (f1, f2…): los ids reales no le dicen nada al modelo.
+        self.assertEqual(enviado, {"a": {"f1": "frase uno", "f2": "frase dos"}, "b": {"f1": "frase tres"}})
 
     def test_sin_grupos_no_hay_llamada(self):
         doble = ProveedorDoble(CoherenceReport(groups=[]))
@@ -101,7 +103,35 @@ class TestLlamada(unittest.TestCase):
         self.assertEqual(doble.prompts, [])
 
     def test_version(self):
-        self.assertEqual(COHERENCE_VERSION, "coherence-v1")
+        self.assertEqual(COHERENCE_VERSION, "coherence-v2")
+
+
+MEZCLA = {"a": {"x:1": "el cliente no paga", "x:2": "factura sin cobrar", "x:3": "me deben mayo",
+                "x:4": "el IVA trimestral"}}
+
+
+class TestProblemaDominante(unittest.TestCase):
+    """coherence-v2 (escaneo de impagos): una mezcla con un problema claramente
+    repetido lo señala, para separarlo en vez de tirar el grupo entero."""
+
+    def informe(self, **campos):
+        return ProveedorDoble(CoherenceReport(groups=[CoherenceGroup(group_id="a", reason="r", **campos)]))
+
+    def test_una_mezcla_senala_sus_frases_dominantes_con_ids_reales(self):
+        doble = self.informe(same_problem=False, dominant_ids=["f1", "f2", "f3", "f9"], dominant_problem="impagos")
+        [resultado] = comprobar_coherencia(MEZCLA, provider=doble, model="m").values()
+        self.assertEqual((resultado.estado, resultado.dominantes, resultado.problema_dominante),
+                         ("distinto", ("x:1", "x:2", "x:3"), "impagos"), "f9 no existe: se ignora")
+
+    def test_menos_de_tres_frases_no_son_un_problema_dominante(self):
+        doble = self.informe(same_problem=False, dominant_ids=["f1", "f2"], dominant_problem="impagos")
+        [resultado] = comprobar_coherencia(MEZCLA, provider=doble, model="m").values()
+        self.assertEqual(resultado.dominantes, ())
+
+    def test_un_mismo_problema_no_tiene_dominantes(self):
+        doble = self.informe(same_problem=True, dominant_ids=["f1", "f2", "f3"], dominant_problem="x")
+        [resultado] = comprobar_coherencia(MEZCLA, provider=doble, model="m").values()
+        self.assertEqual((resultado.estado, resultado.dominantes), ("mismo", ()))
 
 
 class TestEnElJuez(unittest.TestCase):

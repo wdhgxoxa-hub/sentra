@@ -30,6 +30,7 @@ from .clustering import (
     CLUSTERING_VERSION,
     _unitario,
     cluster_evidence,
+    subgrupo,
 )
 from .coherencia import comprobar_coherencia, compuerta_coherencia
 from .dimensions import es_lanzamiento, pain_items
@@ -128,15 +129,25 @@ def run_judge(
     dolor = pain_items(calidad.kept, etiquetas)
     ids_dolor = {i.id for i in dolor}
     frases = {i.id: frase_del_problema(etiquetas[i.id]) for i in dolor}
-    grupos = cluster_evidence(dolor, vectores_frase(frases), previous=previous, excluir=tema,
-                              frases=frases)
+    vectores_de_frase = vectores_frase(frases)
+    grupos = cluster_evidence(dolor, vectores_de_frase, previous=previous, excluir=tema, frases=frases)
     min_autores = umbral_autores(len(dolor))
     sin_dolor = [i for i in calidad.kept if i.id not in ids_dolor and i.id in vectors]
     por_id = {i.id: i for i in calidad.kept}
 
     # G0 (residuos de AUD2-001 y 006): una sola llamada con las frases de todos los grupos.
-    coherencias = comprobar_coherencia({g.key: [frases[m] for m in g.member_ids] for g in grupos},
+    coherencias = comprobar_coherencia({g.key: {m: frases[m] for m in g.member_ids} for g in grupos},
                                        provider=provider, model=model)
+    # G0 v2: una mezcla con un problema dominante se separa (el resto vuelve a ser
+    # piezas sueltas) y el subgrupo se comprueba otra vez, todos en una llamada.
+    separados = {g.key: subgrupo(g, coherencias[g.key].dominantes, vectores_de_frase, frases=frases,
+                                 fondo=list(frases.values()), previous=previous, excluir=tema)
+                 for g in grupos if coherencias[g.key].dominantes}
+    if separados:
+        coherencias.update(comprobar_coherencia(
+            {s.key: {m: frases[m] for m in s.member_ids} for s in separados.values()},
+            provider=provider, model=model))
+        grupos = [separados.get(g.key, g) for g in grupos]
 
     veredictos: list[dict[str, Any]] = []
     for grupo in grupos:
@@ -189,7 +200,8 @@ def run_judge(
         "launches_excluded": sum(1 for i in calidad.kept if es_lanzamiento(i)),
         "min_authors": min_autores,
         "clusters": len(grupos),
-        "incoherent": sum(1 for c in coherencias.values() if c.estado == "distinto"),
-        "coherence_unchecked": sum(1 for c in coherencias.values() if c.estado == "sin_comprobar"),
+        "split": len(separados),
+        "incoherent": sum(1 for g in grupos if coherencias[g.key].estado == "distinto"),
+        "coherence_unchecked": sum(1 for g in grupos if coherencias[g.key].estado == "sin_comprobar"),
         "verdicts": dict(Counter(v["verdict"] for v in veredictos)),
     })

@@ -13,13 +13,18 @@ herramienta, y por qué. El código decide con eso (gates.decide):
 
 - medido y distinto → DESCARTAR (regla 0): una mezcla no es un nicho;
 - sin comprobar (sin proveedor, con error o grupo omitido) → nunca CONSTRUIR.
+
+coherence-v2 (escaneo de impagos): una mezcla con un problema claramente
+repetido (al menos MIN_DOMINANTES frases) lo señala, y el juez lo separa como
+grupo propio y lo vuelve a comprobar en otra llamada, en vez de tirar el grupo
+entero. Las frases van con claves cortas por grupo (f1, f2…).
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -31,7 +36,9 @@ from .gates import GateResult
 
 logger = logging.getLogger(__name__)
 
-COHERENCE_VERSION = "coherence-v1"
+COHERENCE_VERSION = "coherence-v2"
+#: Por debajo, no hay problema dominante que separar (el tamaño mínimo de un grupo).
+MIN_DOMINANTES = 3
 MAX_OUTPUT_TOKENS = 4_000
 TIMEOUT_MS = 120_000
 
@@ -43,7 +50,10 @@ SYSTEM_PROMPT = (
     "contraseña caen en spam» y «los de confirmación los rechaza Outlook» son el mismo problema "
     "(entregabilidad); «las alertas de DNS» y «demasiadas notificaciones en el móvil» no lo son, "
     "aunque las dos hablen de notificaciones. Devuelve same_problem y una razón breve en "
-    "español (una frase). No inventes grupos: responde solo con los group_id recibidos."
+    "español (una frase). Si NO son el mismo problema, pon en dominant_ids las claves (f1, f2…) "
+    "de las frases que comparten el problema concreto más repetido del grupo, solo si son al "
+    "menos tres, y nómbralo en dominant_problem; si no lo hay, deja la lista vacía. No inventes "
+    "grupos ni claves: responde solo con los group_id y las claves recibidas."
 )
 
 
@@ -51,6 +61,8 @@ class CoherenceGroup(BaseModel):
     group_id: str
     same_problem: bool
     reason: str = Field(max_length=400)
+    dominant_ids: list[str] = Field(default_factory=list)
+    dominant_problem: str = Field(default="", max_length=200)
 
 
 class CoherenceReport(BaseModel):
@@ -64,16 +76,31 @@ Estado = Literal["mismo", "distinto", "sin_comprobar"]
 class ResultadoCoherencia:
     estado: Estado
     motivo: str
+    #: Ids reales de las frases del problema dominante de una mezcla (≥ MIN_DOMINANTES).
+    dominantes: tuple[str, ...] = ()
+    problema_dominante: str = ""
 
 
-def comprobar_coherencia(grupos: Mapping[str, Sequence[str]], *, provider: JsonGenerator | None,
+def _resultado(respuesta: CoherenceGroup, claves: Mapping[str, str]) -> ResultadoCoherencia:
+    if respuesta.same_problem:
+        return ResultadoCoherencia("mismo", respuesta.reason)
+    dominantes = tuple(dict.fromkeys(claves[c] for c in respuesta.dominant_ids if c in claves))
+    if len(dominantes) < MIN_DOMINANTES:
+        dominantes = ()
+    return ResultadoCoherencia("distinto", respuesta.reason, dominantes,
+                               respuesta.dominant_problem if dominantes else "")
+
+
+def comprobar_coherencia(grupos: Mapping[str, Mapping[str, str]], *, provider: JsonGenerator | None,
                          model: str | None) -> dict[str, ResultadoCoherencia]:
-    """{id del grupo: frases del problema} → resultado por grupo, en una sola llamada."""
+    """{id del grupo: {id de la pieza: frase del problema}} → resultado por grupo,
+    en una sola llamada."""
     if not grupos:
         return {}
     if provider is None or not model:
         return {g: ResultadoCoherencia("sin_comprobar", "sin proveedor del juez") for g in grupos}
-    entrada = {g: list(frases) for g, frases in grupos.items()}
+    claves = {g: {f"f{n}": i for n, i in enumerate(frases, 1)} for g, frases in grupos.items()}
+    entrada = {g: {c: grupos[g][i] for c, i in claves[g].items()} for g in grupos}
     try:
         informe = provider.generate_json(
             "¿Describe cada grupo un mismo problema?\n" + json.dumps(entrada, ensure_ascii=False),
@@ -84,8 +111,7 @@ def comprobar_coherencia(grupos: Mapping[str, Sequence[str]], *, provider: JsonG
         return {g: ResultadoCoherencia("sin_comprobar", f"coherencia no disponible: {exc.code}")
                 for g in grupos}
     respuesta = {r.group_id: r for r in informe.groups if r.group_id in grupos}
-    return {g: (ResultadoCoherencia("mismo" if respuesta[g].same_problem else "distinto",
-                                    respuesta[g].reason)
+    return {g: (_resultado(respuesta[g], claves[g])
                 if g in respuesta else ResultadoCoherencia("sin_comprobar", "el modelo no respondió"))
             for g in grupos}
 

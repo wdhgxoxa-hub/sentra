@@ -37,7 +37,8 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: v8: con tema, los comentarios que no lo nombran no entran (pipeline); el
 #: barrido del dorado, con el mismo criterio, vuelve a dar 0,82.
 #: v9: los anuncios «problema → solución» en el texto son competencia, no dolor.
-CLUSTERING_VERSION = "clustering-v9"
+#: v10: una mezcla con problema dominante se separa en un subgrupo (G0 v2).
+CLUSTERING_VERSION = "clustering-v10"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
@@ -190,6 +191,22 @@ def average_linkage_partition(vectores: Sequence[Sequence[float]], umbral: float
         for i in grupo:
             etiquetas[i] = numero
     return etiquetas
+
+
+def subgrupo(grupo: EvidenceCluster, ids: Sequence[str], vectors: Mapping[str, Sequence[float]], *,
+             frases: Mapping[str, str], fondo: Sequence[str], previous: Sequence[Previo] = (),
+             excluir: Sequence[str] = ()) -> EvidenceCluster:
+    """El problema dominante de una mezcla (G0 v2) como grupo propio, con nombre e
+    identidad estable como los de cluster_evidence."""
+    miembros = sorted(set(ids) & set(grupo.member_ids))
+    palabras = _palabras_clave([frases[m] for m in miembros], excluir, fondo)
+    candidato = Candidato(clave=f"{'-'.join(palabras[:3]) or miembros[0]}#{miembros[0]}",
+                          miembros=set(miembros), palabras=set(palabras))
+    heredado = asignar_identidades([candidato], previous).get(candidato.clave)
+    centro = _unitario(np.mean([_unitario(vectors[m]) for m in miembros if m in vectors], axis=0))
+    return EvidenceCluster(key=candidato.clave,
+                           opportunity_id=heredado or str(uuid.uuid5(_NAMESPACE, ",".join(miembros))),
+                           member_ids=miembros, keywords=palabras, centroid=[float(x) for x in centro])
 
 
 def cluster_evidence(

@@ -159,6 +159,48 @@ class TestJuezCompleto(unittest.TestCase):
                               model="m", cache=InMemoryLabelCache(), now=AHORA)
         self.assertEqual(resultado.summary["discarded"], {"too_short": 1})
 
+    def _juzgar_con_mezcla(self, confirma):
+        """Un grupo de 10 que G0 ve mezclado con 4 frases del mismo problema; la
+        segunda llamada confirma (o no) el subgrupo."""
+        from core.judge.coherencia import CoherenceGroup, CoherenceReport
+
+        items, vectores = escenario()
+
+        class Doble(LLMDoble):
+            def generate_json(self, prompt, schema, **kwargs):
+                if schema is not CoherenceReport:
+                    return super().generate_json(prompt, schema, **kwargs)
+                import json as _json
+
+                self.llamadas["coherencia"] = self.llamadas.get("coherencia", 0) + 1
+                grupos = _json.loads(prompt[prompt.index("{"):])
+                primera = self.llamadas["coherencia"] == 1
+                return CoherenceReport(groups=[CoherenceGroup(
+                    group_id=g, same_problem=not primera and confirma, reason="r",
+                    dominant_ids=["f1", "f2", "f3", "f4"] if primera else [],
+                    dominant_problem="impagos" if primera else "") for g in grupos])
+
+        llm = Doble()
+        resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=llm, model="m",
+                              cache=InMemoryLabelCache(), now=AHORA)
+        return resultado, llm
+
+    def test_una_mezcla_con_problema_dominante_se_separa_y_se_confirma(self):
+        resultado, llm = self._juzgar_con_mezcla(confirma=True)
+        [veredicto] = resultado.verdicts
+        esperados = sorted(pieza(n).id for n in range(10))[:4]
+        self.assertEqual(veredicto["member_ids"], esperados, "solo las frases del problema dominante")
+        g0 = veredicto["gates"][0]
+        self.assertEqual((g0["gate"], g0["passed"]), ("G0", True))
+        self.assertEqual(llm.llamadas["coherencia"], 2, "separar + confirmar")
+        self.assertEqual(resultado.summary["split"], 1)
+
+    def test_un_subgrupo_que_no_se_confirma_se_descarta(self):
+        resultado, _ = self._juzgar_con_mezcla(confirma=False)
+        [veredicto] = resultado.verdicts
+        self.assertEqual((veredicto["verdict"], veredicto["rule"][:2], len(veredicto["member_ids"])),
+                         ("DESCARTAR", "0:", 4))
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",
