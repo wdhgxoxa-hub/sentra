@@ -13,7 +13,8 @@ automatizar ya lo están; el resto se cumple a mano y se revisa en cada informe.
   hagan pasar la compuerta (`git status` limpio salvo lo que se commitea).
 - **Prueba de humo antes de cada release** (`HUMO=1`). Detecta un exe sin la
   interfaz embebida, un motor que no es el de esa interfaz, vistas vacías con
-  datos en la base, motores huérfanos y preferencias del usuario cambiadas.
+  datos en la base, motores huérfanos y cierres que dejan la app colgada. Corre
+  con un perfil de WebView aislado: falla si el perfil real cambia un byte.
 - **Dependencias auditadas antes de cada release** (`AUDIT=1`).
 
 ## A mano
@@ -27,8 +28,8 @@ automatizar ya lo están; el resto se cumple a mano y se revisa en cada informe.
   --release` suelto sobrescribe el exe del acceso directo con uno sin
   interfaz.
 - **Los arneses sobre la app real no pulsan botones** que llamen a servicios
-  externos (un botón del Radar genera documentos con Gemini) y restauran las
-  preferencias por estado, nunca por el texto de un menú.
+  externos (un botón del Radar genera documentos con Gemini) y usan un perfil
+  de WebView aislado (`WEBVIEW2_USER_DATA_FOLDER`), nunca el del usuario.
 - **Ediciones con herramientas de edición**, no con heredoc ni `sed`: las
   barras invertidas se corrompen.
 - **Llamadas a Gemini contadas.** Cada llamada real (generación o listado de

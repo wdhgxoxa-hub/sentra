@@ -9,8 +9,9 @@ cada vista y lo compara con PostgreSQL en solo lectura: arranque en frío,
 Radar, Búsqueda, Fuentes y Configuración con sus datos, sin excepciones ni
 errores de CSP, cierre normal sin motores huérfanos y cierre forzado (como
 un cuelgue) con el motor terminando solo y el puerto libre. No pulsa nada
-que gaste Gemini o consulte fuentes, y comprueba que las preferencias del
-usuario (idioma y tema, en el mismo perfil que usa él) no cambian.
+que gaste Gemini o consulte fuentes. La app corre con un perfil de WebView
+aislado y temporal (WEBVIEW2_USER_DATA_FOLDER): el perfil real del usuario
+(idioma, tema) no se toca, y la prueba falla si cambiara un solo byte.
 
 Sale con 0 solo si no hay ningún fallo. Es el paso obligatorio previo a
 toda release (README) y la compuerta lo ejecuta con HUMO=1: los 660 tests
@@ -21,12 +22,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import io
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -50,6 +54,8 @@ ARRANQUE_MAX_S = 30.0
 FIN_MOTOR_MAX_S = 10.0
 #: Orígenes de la interfaz embebida en un exe de Tauri 2 (Windows usa el primero).
 ORIGENES_EMBEBIDOS = ("http://tauri.localhost", "https://tauri.localhost", "tauri://localhost")
+#: El perfil de WebView que usa SENTRA de verdad (idioma y tema en su Local Storage).
+PERFIL_REAL = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "com.sentra.desktop" / "EBWebView"
 
 
 @dataclass(frozen=True)
@@ -88,8 +94,11 @@ class Observado:
     huerfanos_tras_cierre: int = 0
     huerfanos_tras_matar: int = 0
     puerto_libre_tras_matar: bool = False
-    preferencias_antes: dict[str, Any] | None = None
-    preferencias_despues: dict[str, Any] | None = None
+    #: Huella del Local Storage del perfil real antes y después, y si la app
+    #: escribió en el perfil aislado (si no, habría vuelto al real).
+    perfil_real_antes: str | None = None
+    perfil_real_despues: str | None = None
+    perfil_aislado_usado: bool = False
     #: AUD2-003: huella con la que se compiló la interfaz, la del motor que
     #: contesta y la carpeta desde la que corre.
     huella_compilada: str | None = None
@@ -155,9 +164,31 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"motor: huella {obs.huella_motor}; la interfaz se compiló con {obs.huella_compilada}")
     if obs.raiz_motor is None or _dentro_del_repo(obs.raiz_motor):
         fallos.append(f"motor: corre desde el repositorio ({obs.raiz_motor}), no desde su copia versionada")
-    if obs.preferencias_antes != obs.preferencias_despues:
-        fallos.append(f"preferencias del usuario cambiadas: {obs.preferencias_antes} → {obs.preferencias_despues}")
+    if obs.perfil_real_antes != obs.perfil_real_despues:
+        fallos.append(f"perfil real del usuario cambiado: {obs.perfil_real_antes} → {obs.perfil_real_despues}")
+    if not obs.perfil_aislado_usado:
+        fallos.append("perfil aislado: la app no lo usó (¿WEBVIEW2_USER_DATA_FOLDER ignorada?)")
     return fallos
+
+
+def huella_perfil(carpeta: Path = PERFIL_REAL) -> str:
+    """Huella de todo el Local Storage de un perfil de WebView ("" si no hay)."""
+    h = hashlib.sha256()
+    for f in sorted((carpeta / "Default" / "Local Storage").rglob("*")):
+        if f.is_file():
+            h.update(str(f.relative_to(carpeta)).encode())
+            h.update(f.read_bytes())
+    return h.hexdigest()[:16]
+
+
+def entorno(perfil: Path | None, *, cdp: bool = False) -> dict[str, str]:
+    """El entorno de la app: perfil de WebView aislado y, si se pide, depuración remota."""
+    valores = dict(os.environ)
+    if perfil is not None:
+        valores["WEBVIEW2_USER_DATA_FOLDER"] = str(perfil)
+    if cdp:
+        valores["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"--remote-debugging-port={PUERTO_CDP}"
+    return valores
 
 
 def _dentro_del_repo(ruta: str) -> bool:
@@ -213,12 +244,11 @@ def _puerto_ocupado(puerto: int = PUERTO_MOTOR) -> bool:
 
 
 class _Cdp:
-    def __init__(self, exe: Path) -> None:
+    def __init__(self, exe: Path, perfil: Path | None = None) -> None:
         import websocket
 
-        entorno = dict(os.environ, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={PUERTO_CDP}")
         self.t0 = time.time()
-        self.proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=entorno)
+        self.proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=entorno(perfil, cdp=True))
         pagina = None
         for _ in range(120):
             time.sleep(0.25)
@@ -322,14 +352,10 @@ def _cerrar_ventana(pid: int, clase: str) -> bool:
     return bool(hwnd) and bool(ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0))
 
 
-PREFERENCIAS = "(() => { try { return JSON.parse(localStorage.getItem('sentra.preferences')); } catch (e) { return null; } })()"
-
-
-def recorrer(exe: Path) -> Observado:
+def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     obs = Observado()
-    app = _Cdp(exe)
+    app = _Cdp(exe, perfil)
     obs.url_interfaz = app.js("location.href")
-    obs.preferencias_antes = app.js(PREFERENCIAS)
     if app.esperar("[...document.querySelectorAll('nav [title]')].some(d => /^(Motor|Engine)/.test(d.innerText.trim()) "
                    "&& /(activo|up)$/.test(d.innerText.replace(/\\s+/g, ' ').trim()))", ARRANQUE_MAX_S + 5):
         obs.motor_activo_s = round(time.time() - app.t0, 1)
@@ -367,7 +393,6 @@ def recorrer(exe: Path) -> Observado:
     info = salud.get("sidecarInfo") or {}
     obs.huella_compilada, obs.huella_motor, obs.raiz_motor = salud.get("motorBuild"), info.get("build"), info.get("codeRoot")
 
-    obs.preferencias_despues = app.js(PREFERENCIAS)
     obs.excepciones, obs.errores_csp = list(app.excepciones), app.errores_csp
 
     _cerrar_ventana(app.proceso.pid, VENTANA_APP)
@@ -381,9 +406,9 @@ def recorrer(exe: Path) -> Observado:
     return obs
 
 
-def cerrar_por_ventana_interna(exe: Path, obs: Observado) -> None:
+def cerrar_por_ventana_interna(exe: Path, obs: Observado, perfil: Path | None = None) -> None:
     """AUD2-027: el cierre que llega a la ventana interna de tao también cierra."""
-    proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+    proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=entorno(perfil))
     fin = time.time() + ARRANQUE_MAX_S + 5
     while not _puerto_ocupado() and time.time() < fin:
         time.sleep(0.25)
@@ -398,9 +423,9 @@ def cerrar_por_ventana_interna(exe: Path, obs: Observado) -> None:
     obs.huerfanos_tras_ventana_interna = _motores()
 
 
-def matar_de_golpe(exe: Path, obs: Observado) -> None:
+def matar_de_golpe(exe: Path, obs: Observado, perfil: Path | None = None) -> None:
     """Como un cuelgue: se mata solo el exe; el motor tiene que terminar solo."""
-    proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+    proceso = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=entorno(perfil))
     fin = time.time() + ARRANQUE_MAX_S + 5
     while not _puerto_ocupado() and time.time() < fin:
         time.sleep(0.25)
@@ -428,9 +453,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     verdad = verdad_de_la_base()
-    obs = recorrer(args.exe)
-    cerrar_por_ventana_interna(args.exe, obs)
-    matar_de_golpe(args.exe, obs)
+    perfil = Path(tempfile.mkdtemp(prefix="sentra_humo_webview_"))
+    antes = huella_perfil()
+    try:
+        obs = recorrer(args.exe, perfil)
+        cerrar_por_ventana_interna(args.exe, obs, perfil)
+        matar_de_golpe(args.exe, obs, perfil)
+        obs.perfil_real_antes, obs.perfil_real_despues = antes, huella_perfil()
+        obs.perfil_aislado_usado = (perfil / "EBWebView").is_dir() or any(perfil.iterdir())
+    finally:
+        shutil.rmtree(perfil, ignore_errors=True)
     fallos = evaluar(obs, verdad, ahora=datetime.now(UTC))
     informe = {"verdad": asdict(verdad), "esperado": asdict(esperado(verdad)), "observado": asdict(obs), "fallos": fallos}
     if args.salida:

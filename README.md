@@ -111,12 +111,15 @@ python -m tests.humo_exe          # --exe RUTA para otro ejecutable
 
 Lanza `sentra.exe`, espera al motor, comprueba que Radar, Búsqueda, Fuentes y
 Configuración pintan lo que dice la base (leída en solo lectura), que no hay
-excepciones ni errores de CSP, que el cierre normal no deja motores y que,
-matando la aplicación de golpe, el motor termina solo y libera el puerto. No
+excepciones ni errores de CSP, que el cierre normal (y el que llega a la ventana
+interna de tao, AUD2-027) no deja motores y que, matando la aplicación de
+golpe, el motor termina solo y libera el puerto. No
 genera texto con Gemini ni consulta fuentes, y no pulsa ningún botón (uno
 genera documentos). Al abrir Configuración, el motor pide a Google la lista de
-modelos solo si la guardada tiene más de un día (AUD2-019). Falla si cambian
-las preferencias del usuario. Tarda ~40 s; la compuerta la ejecuta con
+modelos solo si la guardada tiene más de un día (AUD2-019). La app corre con
+un perfil de WebView aislado y temporal (`WEBVIEW2_USER_DATA_FOLDER`): falla
+si el perfil real del usuario cambia un solo byte o si la app no usa el
+aislado. Tarda ~40 s; la compuerta la ejecuta con
 `HUMO=1`. Una release no se da por buena sin `humo OK` en la compuerta de
 release.
 

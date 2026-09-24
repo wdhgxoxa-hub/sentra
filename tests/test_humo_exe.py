@@ -33,8 +33,8 @@ def observado(**cambios: Any) -> Observado:
         url_interfaz="http://tauri.localhost/", cierre_ventana_interna=True,
         huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
         raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
-        preferencias_antes={"lang": "es", "tema": "system"},
-        preferencias_despues={"lang": "es", "tema": "system"}), **cambios)
+        perfil_real_antes="0123abcd", perfil_real_despues="0123abcd", perfil_aislado_usado=True),
+        **cambios)
 
 
 class TestEsperado(unittest.TestCase):
@@ -95,9 +95,16 @@ class TestEvaluar(unittest.TestCase):
         fallos = evaluar(observado(huerfanos_tras_ventana_interna=2), verdad(), ahora=AHORA)
         self.assertTrue(any("ventana interna" in f for f in fallos), fallos)
 
-    def test_la_prueba_no_puede_tocar_las_preferencias_del_usuario(self):
-        cambiado = observado(preferencias_despues={"lang": "es", "tema": "dark"})
-        self.assertTrue(any("preferencias" in f for f in evaluar(cambiado, verdad(), ahora=AHORA)))
+    def test_la_prueba_no_puede_tocar_el_perfil_del_usuario(self):
+        # Perfil de WebView aislado (pedido por el usuario): el Local Storage real
+        # (idioma, tema) no puede cambiar ni un byte.
+        cambiado = observado(perfil_real_despues="ffff0000")
+        self.assertTrue(any("perfil real" in f for f in evaluar(cambiado, verdad(), ahora=AHORA)))
+
+    def test_si_la_app_no_usa_el_perfil_aislado_es_un_fallo(self):
+        # Si WEBVIEW2_USER_DATA_FOLDER dejara de mandar, la app volvería al perfil real.
+        fallos = evaluar(observado(perfil_aislado_usado=False), verdad(), ahora=AHORA)
+        self.assertTrue(any("perfil aislado" in f for f in fallos), fallos)
 
 
 class TestLectorCdp(unittest.TestCase):
