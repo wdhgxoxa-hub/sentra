@@ -14,6 +14,7 @@ Los textos llegan en HTML y se limpian.
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -22,7 +23,7 @@ from core.evidence.model import Engagement, EvidenceItem, SearchQuery
 
 from .base import CostModel, ProbeResult, SourceAdapter
 from .errors import SourceError
-from .profile import term_pairs
+from .profile import menciona_el_tema, term_pairs
 from .text import html_to_text
 
 API = "https://hn.algolia.com/api/v1"
@@ -30,6 +31,9 @@ ITEM_URL = "https://news.ycombinator.com/item?id={id}"
 
 #: Resultados por búsqueda: uno solo pide la página más relevante de cada término.
 HITS_PER_PAGE = 50
+#: Hilos de empleo: perfiles y ofertas, no dolores.
+_HILO_DE_EMPLEO = re.compile(r"who is hiring|who wants to be hired|seeking freelancer",
+                             re.IGNORECASE)
 
 
 class HackerNewsSource(SourceAdapter):
@@ -62,10 +66,21 @@ class HackerNewsSource(SourceAdapter):
             datos = await self._get(f"{API}/search", params=params)
             for hit in datos.get("hits") or []:
                 item = self._convertir(hit)
-                if item is None or item.id in vistos:
+                if item is None or item.id in vistos or not self._del_tema(hit, query):
                     continue
                 vistos.add(item.id)
                 yield item
+
+    @staticmethod
+    def _del_tema(hit: dict[str, Any], query: SearchQuery) -> bool:
+        """Un comentario entra si no es de un hilo de empleo y habla del tema, él
+        o el título de su hilo (medido: Algolia casaba palabras sueltas)."""
+        if "comment" not in set(hit.get("_tags") or []) or not query.keywords:
+            return True
+        hilo = str(hit.get("story_title") or "")
+        if _HILO_DE_EMPLEO.search(hilo):
+            return False
+        return menciona_el_tema(hilo, query) or menciona_el_tema(html_to_text(hit.get("comment_text")), query)
 
     def _convertir(self, hit: dict[str, Any]) -> EvidenceItem | None:
         nativo = str(hit.get("objectID") or "")

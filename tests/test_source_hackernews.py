@@ -101,6 +101,27 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(comentario.community, "Hacker News")
         self.assertNotIn("inventada_dos", comentario.model_dump_json(), "autor solo como hash (R9)")
 
+    async def comentarios(self, *hits):
+        return await todos(fuente(lambda _r: httpx.Response(200, json=respuesta(*hits))).search(
+            SearchQuery(keywords=["freelance invoicing"])))
+
+    async def test_un_comentario_fuera_de_tema_no_entra(self):
+        # Escaneo de facturación: comentarios sobre Walz o el impuesto de la
+        # propiedad entraban porque Algolia casa palabras sueltas.
+        fuera = {**COMENTARIO, "objectID": "40000077", "story_title": "25 years of mass surveillance",
+                 "comment_text": "Walz was never part of the Biden administration, as I said before."}
+        self.assertEqual(await self.comentarios(fuera), [])
+
+    async def test_un_comentario_que_habla_del_tema_entra_aunque_el_hilo_no(self):
+        dentro = {**COMENTARIO, "objectID": "40000078", "story_title": "I charged $18k for a static page",
+                  "comment_text": "As a freelancer my invoicing was a mess until I automated it."}
+        self.assertEqual(len(await self.comentarios(dentro)), 1)
+
+    async def test_los_hilos_de_empleo_no_son_evidencia(self):
+        empleo = {**COMENTARIO, "objectID": "40000079", "story_title": "Ask HN: Who wants to be hired? (May 2026)",
+                  "comment_text": "Freelancer. Invoicing, billing and freelance invoicing systems."}
+        self.assertEqual(await self.comentarios(empleo), [])
+
     async def test_el_mismo_hit_en_dos_busquedas_sale_una_vez(self):
         consulta = SearchQuery(keywords=["invoice", "billing"])
         items = await todos(fuente(lambda _r: httpx.Response(200, json=respuesta(HISTORIA))).search(consulta))

@@ -13,6 +13,7 @@ previstos.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -81,6 +82,36 @@ def idioma_de(texto: str) -> str:
     if _TILDES.search(minusculas) or set(re.findall(r"[a-z]+", minusculas)) & _ES:
         return "es"
     return "en"
+
+
+#: Palabras del tema demasiado genéricas para decir, solas, que un texto es del tema.
+_GENERICAS = frozenset({"small", "business", "businesses", "software", "tool", "tools", "online",
+                        "service", "services", "company", "companies", "best", "free", "negocio",
+                        "negocios", "pequenos", "pequenas", "empresa", "empresas", "para"})
+#: Una mención cuenta si está en el arranque del texto; más adelante hacen falta dos.
+_ARRANQUE = 300
+_RAIZ = 6
+
+
+def _sin_tildes(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", texto)
+                   if unicodedata.category(c) != "Mn").casefold()
+
+
+def menciona_el_tema(texto: str, query: SearchQuery) -> bool:
+    """Si un texto habla del tema del perfil: raíces de sus palabras distintivas
+    (sin tildes, 6 letras) en el arranque del texto, o al menos dos veces.
+    Algolia devolvía comentarios de HN que solo compartían una palabra suelta."""
+    raices = {_sin_tildes(p)[:_RAIZ] for palabra in query.keywords
+              for p in re.findall(r"\w+", palabra) if len(p) >= 4 and _sin_tildes(p) not in _GENERICAS}
+    if not raices:
+        return True
+    limpio = _sin_tildes(texto)
+
+    def menciones(t: str) -> int:
+        return sum(1 for p in re.findall(r"\w+", t) if any(p.startswith(r) for r in raices))
+
+    return menciones(limpio[:_ARRANQUE]) > 0 or menciones(limpio) >= 2
 
 
 def term_pairs(query: SearchQuery, limit: int, *,

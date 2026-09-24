@@ -112,6 +112,19 @@ class TestCombinaciones(unittest.TestCase):
         consulta = ScanProfile(name="x", keywords=["a", "b"]).to_query()
         self.assertEqual(term_pairs(consulta, limit=5, solo_tema=True), [("a", None), ("b", None)])
 
+    def test_si_un_texto_nombra_el_tema(self):
+        from core.sources.profile import menciona_el_tema
+
+        consulta = ScanProfile(name="x", keywords=["small business invoicing", "facturación autónomos"]).to_query()
+        self.assertTrue(menciona_el_tema("Invoices take me hours every month", consulta))
+        self.assertTrue(menciona_el_tema("la facturacion de los autonomos es un lío", consulta), "sin tildes")
+        # «small» y «business» son genéricas: solas no son el tema.
+        self.assertFalse(menciona_el_tema("Our small business sells bikes", consulta))
+        # Una mención perdida al final de un texto largo no basta; dos sí.
+        largo = "x " * 400
+        self.assertFalse(menciona_el_tema(largo + "invoice", consulta))
+        self.assertTrue(menciona_el_tema(largo + "invoice and another invoice", consulta))
+
     def test_nunca_mas_que_el_limite(self):
         consulta = ScanProfile(name="x", keywords=["a"]).to_query()
         self.assertLessEqual(len(term_pairs(consulta, limit=2)), 2)
