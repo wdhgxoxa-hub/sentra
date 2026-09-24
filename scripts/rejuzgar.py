@@ -14,7 +14,6 @@ guardados. Gasta llamadas reales a Gemini: dice cuántas y con cuántos tokens.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -46,13 +45,13 @@ def _vectores() -> Callable[[Sequence[str]], Mapping[str, Sequence[float]]]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+    from core.storage.postgres_store import resolver_dsn
 
     parser = argparse.ArgumentParser(description="Re-juzga un escaneo guardado con el juez actual")
     parser.add_argument("--run", required=True, help="id del escaneo de origen (pipeline_runs.id)")
     parser.add_argument("--dsn", default=None)
     args = parser.parse_args(argv)
-    dsn = args.dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    dsn = resolver_dsn(args.dsn)
 
     proveedor, modelo, motivo = _proveedor(dsn)
     if proveedor is None:

@@ -55,10 +55,6 @@ MIGRATIONS_TABLE = "public.schema_migrations"
 
 MIGRATION_FILENAME = re.compile(r"^(\d{3,})_([a-z0-9_]+)\.sql$")
 
-DEFAULT_DSN = (
-    "host=localhost port=5432 user=postgres dbname=reddit_intelligence_radar"
-)
-DSN_ENV_VAR = "RIR_PG_DSN"
 
 
 class MigrationError(RuntimeError):
@@ -301,24 +297,33 @@ def status(
     return migrate(dsn=dsn, directory=directory, dry_run=True)
 
 
-def _default_dsn() -> str:
-    import os
+def _raiz_en_la_ruta() -> None:
+    """Ejecutado como `python scripts/migrate.py`, la raíz no está en la ruta:
+    se pone antes de importar nada de `core`."""
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
 
-    return os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+
+def _default_dsn() -> str:
+    """La misma resolución que el resto de la aplicación (AUD2-011)."""
+    _raiz_en_la_ruta()
+    from core.storage.postgres_store import resolver_dsn
+
+    return resolver_dsn()
 
 
 def _author_salt() -> str:
-    # Ejecutado como `python scripts/migrate.py`, la raíz no está en la ruta.
-    if str(PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(PROJECT_ROOT))
+    _raiz_en_la_ruta()
     from core.evidence.author import load_or_create_salt
 
     return load_or_create_salt()
 
 
 def _redact(dsn: str) -> str:
-    """Oculta la contraseña del DSN antes de imprimirlo."""
-    return re.sub(r"password=\S+", "password=***", dsn)
+    """Oculta la contraseña del DSN antes de imprimirlo: `password=` y la de
+    una URL (`postgresql://usuario:clave@…`), la forma canónica (AUD2-011)."""
+    sin_clave = re.sub(r"password=\S+", "password=***", dsn)
+    return re.sub(r"(://[^:/@\s]+:)[^@\s]+@", r"\1***@", sin_clave)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

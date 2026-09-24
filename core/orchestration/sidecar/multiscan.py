@@ -102,19 +102,17 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             tema: Sequence[str] = ()) -> dict[str, Any]:
     """Juez completo sobre lo guardado; devuelve su resumen. En un hilo aparte.
     `tema`: palabras clave del perfil; no nombran nichos (AUD2-001)."""
-    import os
     from datetime import UTC, datetime
 
     from core.judge.pipeline import run_judge
     from core.judge.store import PostgresLabelCache, marcar_juzgada, previous_identities
     from core.storage.postgres_store import (
-        DEFAULT_DSN,
-        DSN_ENV_VAR,
         PostgresStore,
+        resolver_dsn,
         run_async,
     )
 
-    dsn = ctx.postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    dsn = resolver_dsn(ctx.postgres_dsn)
     proveedor, modelo, motivo = _proveedor_del_juez(ctx)
 
     async def juzgar() -> dict[str, Any]:

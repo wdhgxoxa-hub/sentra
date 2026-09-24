@@ -11,7 +11,6 @@ fuerce (y entonces lleva la franja).
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -49,13 +48,12 @@ def _cargar(ctx: SidecarContext, verdict_id: str) -> dict[str, Any] | None:
     el ProactorEventLoop de Windows."""
     from core.judge.store import verdict_detail
     from core.storage.postgres_store import (
-        DEFAULT_DSN,
-        DSN_ENV_VAR,
         PostgresStore,
+        resolver_dsn,
         run_async,
     )
 
-    dsn = ctx.postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    dsn = resolver_dsn(ctx.postgres_dsn)
 
     async def leer() -> dict[str, Any] | None:
         async with PostgresStore(dsn=dsn) as store:

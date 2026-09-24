@@ -8,7 +8,6 @@ consulta.
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -28,15 +27,14 @@ def _buscar(ctx: SidecarContext, query: str, limit: int) -> list[dict[str, Any]]
     vez, y psycopg no funciona sobre el ProactorEventLoop de Windows."""
     from core.evidence.search import dense_ids, evidence_hits, fuse_rrf, lexical_ids
     from core.storage.postgres_store import (
-        DEFAULT_DSN,
-        DSN_ENV_VAR,
         PostgresStore,
+        resolver_dsn,
         run_async,
     )
 
     assert ctx.evidence_vectors is not None
     densos = dense_ids(ctx.evidence_vectors(), query, limit)
-    dsn = ctx.postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    dsn = resolver_dsn(ctx.postgres_dsn)
 
     async def leer() -> list[dict[str, Any]]:
         async with PostgresStore(dsn=dsn) as store:

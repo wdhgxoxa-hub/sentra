@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 from fastapi import APIRouter
@@ -17,9 +16,9 @@ FEED_MAX = 200
 
 
 def _dsn(ctx: SidecarContext) -> str:
-    from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+    from core.storage.postgres_store import resolver_dsn
 
-    return ctx.postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+    return resolver_dsn(ctx.postgres_dsn)
 
 
 def _leer_top(ctx: SidecarContext, run_id: str | None) -> dict[str, Any]:

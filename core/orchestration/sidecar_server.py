@@ -92,9 +92,9 @@ def _estado_de_fuentes(persist: bool, postgres_dsn: str | None) -> SourcesStateR
     """sources_state en PostgreSQL si se persiste; en memoria si no (tests, demo sin base)."""
     if not persist:
         return InMemorySourcesState()
-    from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+    from core.storage.postgres_store import resolver_dsn
 
-    return PostgresSourcesState(postgres_dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN)
+    return PostgresSourcesState(resolver_dsn(postgres_dsn))
 
 
 def _vectores_de_evidencia() -> Callable[[], EvidenceVectorStore]:

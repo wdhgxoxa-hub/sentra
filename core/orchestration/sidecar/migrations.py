@@ -12,7 +12,6 @@ la 009.
 from __future__ import annotations
 
 import logging
-import os
 
 import psycopg
 from fastapi import FastAPI, Request
@@ -28,10 +27,10 @@ MIGRATIONS_PENDING = "migrations_pending"
 def pending_migration_names(dsn: str | None) -> list[str]:
     """Migraciones del repo sin aplicar en la base (solo lectura). [] si no se sabe."""
     try:
-        from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+        from core.storage.postgres_store import resolver_dsn
         from scripts.migrate import MIGRATIONS_TABLE, discover_migrations
 
-        with psycopg.connect(dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN,
+        with psycopg.connect(resolver_dsn(dsn),
                              connect_timeout=5) as conn:
             conn.read_only = True
             aplicadas = {int(fila[0]) for fila in conn.execute(

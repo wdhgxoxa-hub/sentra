@@ -159,10 +159,10 @@ def verdad_de_la_base() -> Verdad:
     import psycopg
 
     from core.sources.catalog import SOURCES
-    from core.storage.postgres_store import DEFAULT_DSN, DSN_ENV_VAR
+    from core.storage.postgres_store import resolver_dsn
 
     async def leer() -> Verdad:
-        dsn = os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+        dsn = resolver_dsn()
         async with await psycopg.AsyncConnection.connect(dsn) as con:
             await con.set_read_only(True)
             cur = await con.execute(

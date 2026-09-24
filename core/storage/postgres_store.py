@@ -54,10 +54,30 @@ def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
 # Tenant de la instalación local: lo crea la migración 001 (sql/migrations/001_initial_schema.sql).
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
-DEFAULT_DSN = (
-    "host=localhost port=5432 user=postgres dbname=reddit_intelligence_radar"
-)
-DSN_ENV_VAR = "RIR_PG_DSN"
+#: Base por defecto: la misma URL que ui/src-tauri/src/db.rs (sqlx solo entiende
+#: URL; psycopg, URL o palabras clave).
+DEFAULT_DSN = "postgresql://postgres@localhost:5432/reddit_intelligence_radar"
+#: AUD2-011: una sola variable para Rust y Python. Antes Rust leía RIR_PG_URL
+#: y Python RIR_PG_DSN: con una puesta, solo media aplicación iba a otra base.
+DSN_ENV_VAR = "RIR_PG_URL"
+#: Nombre antiguo de Python: se acepta un tiempo, con aviso.
+DSN_ENV_VAR_ANTIGUA = "RIR_PG_DSN"
+
+
+def resolver_dsn(explicito: str | None = None) -> str:
+    """La base a la que conectar: la indicada, RIR_PG_URL, RIR_PG_DSN (antigua,
+    con aviso) o la de por defecto. El único sitio que la resuelve."""
+    if explicito:
+        return explicito
+    valor = os.environ.get(DSN_ENV_VAR, "").strip()
+    if valor:
+        return valor
+    antigua = os.environ.get(DSN_ENV_VAR_ANTIGUA, "").strip()
+    if antigua:
+        logger.warning("%s está obsoleta: usa %s (la lee también la interfaz)",
+                       DSN_ENV_VAR_ANTIGUA, DSN_ENV_VAR)
+        return antigua
+    return DEFAULT_DSN
 
 # El adaptador fija el search_path en la conexión, no por sentencia: así
 # sobrevive a los rollbacks, que revierten cualquier SET hecho dentro de
@@ -83,7 +103,7 @@ class PostgresStore:
     """
 
     def __init__(self, dsn: str | None = None, tenant_id: str = DEFAULT_TENANT_ID) -> None:
-        self.dsn = dsn or os.environ.get(DSN_ENV_VAR) or DEFAULT_DSN
+        self.dsn = resolver_dsn(dsn)
         self.tenant_id = tenant_id
         self._conn: AsyncConnection[dict[str, Any]] | None = None
 
@@ -221,7 +241,7 @@ class PostgresStore:
 
     @classmethod
     def from_env(cls) -> PostgresStore:
-        return cls(dsn=os.environ.get(DSN_ENV_VAR))
+        return cls(dsn=resolver_dsn())
 
     # -- Ciclo de vida -----------------------------------------------------
 
