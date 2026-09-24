@@ -46,6 +46,31 @@ from .labels import (
 from .quality import QualityResult, QualityVerdict, filter_quality
 
 
+def contexto_de_g7(grupos: Mapping[str, Sequence[str]], sin_dolor: Sequence[EvidenceItem],
+                   vectors: Mapping[str, Sequence[float]]) -> dict[str, list[EvidenceItem]]:
+    """Lo que no es dolor pero está tan cerca como para caber en el grupo informa a
+    G7 (quién habla bien de un competidor gratuito). Se compara en el espacio del
+    texto entero: el de las frases no sirve para piezas sin dolor.
+
+    Cada pieza va al contexto de un solo grupo, el de centro más cercano, y solo si
+    lo supera CLUSTER_MIN_SIMILARITY: en un escaneo de un solo tema casi todas
+    superaban el umbral con todos los grupos y G7 era el mismo para todos."""
+    centros: dict[str, np.ndarray] = {}
+    for clave, ids in grupos.items():
+        textos = [_unitario(vectors[m]) for m in ids if m in vectors]
+        if textos:
+            centros[clave] = _unitario(np.mean(textos, axis=0))
+    contextos: dict[str, list[EvidenceItem]] = {clave: [] for clave in grupos}
+    for item in sin_dolor:
+        if item.id not in vectors or not centros:
+            continue
+        vector = _unitario(vectors[item.id])
+        similitud, clave = max((float(vector @ centro), clave) for clave, centro in centros.items())
+        if similitud >= CLUSTER_MIN_SIMILARITY:
+            contextos[clave].append(item)
+    return contextos
+
+
 def sin_comentarios_fuera_de_tema(calidad: QualityResult, tema: Sequence[str]) -> QualityResult:
     """Con tema, un comentario cuyo texto propio no lo nombra no se etiqueta
     («off_topic»). En el escaneo de impagos, la mitad del «dolor» eran
@@ -149,17 +174,12 @@ def run_judge(
             provider=provider, model=model))
         grupos = [separados.get(g.key, g) for g in grupos]
 
+    contextos = contexto_de_g7({g.key: g.member_ids for g in grupos}, sin_dolor, vectors)
     veredictos: list[dict[str, Any]] = []
     for grupo in grupos:
         miembros = [por_id[m] for m in grupo.member_ids]
-        # Lo que no es dolor pero está tan cerca como para caber en el grupo
-        # informa a G7 (quién habla bien de un competidor gratuito). Se compara en
-        # el espacio del texto entero: el de las frases no sirve para piezas sin dolor.
-        textos = [_unitario(vectors[m]) for m in grupo.member_ids if m in vectors]
-        centro = _unitario(np.mean(textos, axis=0)) if textos else None
-        contexto = [] if centro is None else [
-            i for i in sin_dolor if float(_unitario(vectors[i.id]) @ centro) >= CLUSTER_MIN_SIMILARITY]
-        juicio = judge_cluster(miembros, etiquetas, now=now, min_authors=min_autores, contexto=contexto,
+        juicio = judge_cluster(miembros, etiquetas, now=now, min_authors=min_autores,
+                               contexto=contextos[grupo.key],
                                coherencia=compuerta_coherencia(coherencias[grupo.key]))
         abogado = run_advocate(juicio, miembros, provider=provider, model=model)
         veredictos.append({

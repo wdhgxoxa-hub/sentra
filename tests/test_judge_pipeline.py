@@ -201,6 +201,19 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual((veredicto["verdict"], veredicto["rule"][:2], len(veredicto["member_ids"])),
                          ("DESCARTAR", "0:", 4))
 
+    def test_el_contexto_de_g7_de_cada_pieza_es_solo_su_grupo_mas_cercano(self):
+        # Impagos: 179 de 197 piezas de contexto estaban en el de varios grupos a la
+        # vez, así que G7 era casi el mismo para todos (pendiente del dossier de E8).
+        from core.judge.pipeline import contexto_de_g7
+
+        vectores = {"a1": [1.0, 0.0, 0.0], "b1": [0.9, 0.436, 0.0],
+                    "cerca_de_a": [0.99, 0.14, 0.0], "lejos": [0.0, 0.0, 1.0]}
+        piezas = [pieza(n, texto=f"texto {n}").model_copy(update={"id": clave})
+                  for n, clave in enumerate(("cerca_de_a", "lejos"))]
+        contextos = contexto_de_g7({"A": ["a1"], "B": ["b1"]}, piezas, vectores)
+        self.assertEqual({k: [i.id for i in v] for k, v in contextos.items()},
+                         {"A": ["cerca_de_a"], "B": []}, "supera 0,82 con los dos: solo el más cercano")
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",

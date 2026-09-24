@@ -34,7 +34,8 @@ from .quality import es_autopromocion
 #: v2 (AUD2-001): mismos pesos; cambian las reglas que alimentan el puntaje
 #: (lanzamientos fuera del dolor, G2 relativo al escaneo).
 #: v5: G7 solo cuenta competidores nombrados por al menos 3 autores (regla 9).
-WEIGHTS_VERSION = "judge-weights-v5"
+#: v6: el contexto de G7 de cada pieza es solo su grupo más cercano.
+WEIGHTS_VERSION = "judge-weights-v6"
 #: D-M3. Suman 1.
 WEIGHTS: dict[str, float] = {"frecuencia": 0.25, "pago": 0.25, "parches": 0.20,
                              "hueco": 0.15, "tendencia": 0.15}

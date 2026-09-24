@@ -203,3 +203,13 @@ mismo para los cuatro grupos; no se ha tocado.
    contexto de UN solo grupo, el de centro más cercano, y solo si supera 0,82 (el
    umbral no cambia; no se calibra nada). Medida antes/después sin llamadas: piezas
    de contexto por grupo y cuántas comparten grupos, en el escaneo de impagos.
+
+### Resultado (sin llamadas)
+
+1. Riesgos en palabras (bf74e66): cada compuerta dice qué exige, con su nota.
+2. Contexto de G7 (judge-weights-v6), impagos, antes → después:
+   piezas de contexto por grupo 127/154/172/188 → 18/45/71/63; en más de un grupo
+   179 de 197 → 0. G7 del grupo de impagos: sigue «insuficiente» (regla 9, INVESTIGAR
+   MÁS), ahora solo por duevero.com (1 de 3); Clawbolt pasa al grupo de conciliación.
+   Los veredictos guardados se calcularon con el contexto anterior; re-juzgar costaría
+   2 llamadas y no cambia ningún veredicto (cambia la nota de G7).

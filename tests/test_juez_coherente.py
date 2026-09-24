@@ -173,7 +173,7 @@ class TestJuezCoherente(unittest.TestCase):
 
     def test_versiones_nuevas(self):
         self.assertEqual(CLUSTERING_VERSION, "clustering-v10")
-        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v5")
+        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v6")
 
 
 if __name__ == "__main__":

@@ -166,7 +166,7 @@ class TestEnElJuez(unittest.TestCase):
         # Decisión del usuario: un grupo mezclado no lleva puntuación, solo «sin problema común».
         self.assertIsNone(veredicto["score"])
         self.assertNotIn(AdvocateReport, doble.esquemas)
-        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v5")
+        self.assertEqual(WEIGHTS_VERSION, "judge-weights-v6")
 
 
 if __name__ == "__main__":
