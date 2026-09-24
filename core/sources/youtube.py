@@ -2,11 +2,15 @@
 Fuente: YouTube (Data API v3 oficial)
 =====================================
 
-search.list (100 unidades) encuentra vídeos del tema en la ventana; de los
-primeros, commentThreads.list (1 unidad) trae los comentarios, que es donde
-está la queja. La cuota se cuenta en unidades con el presupuesto de D-M4
-(2.000 por escaneo); una cuota diaria agotada (quotaExceeded) para la
-fuente sin reintentar.
+search.list (100 unidades) encuentra vídeos del tema en la ventana;
+videos.list con estadísticas (1 unidad por hasta 50) los ordena por número
+de comentarios, y commentThreads.list (1 unidad) trae los de los que más
+tienen, que es donde está la queja. Solo los comentarios son evidencia: el
+vídeo (título y descripción) casi siempre es promoción (103 de 115 piezas
+en el escaneo de facturación) y su título va como contexto del comentario.
+La cuota se cuenta en unidades con el presupuesto de D-M4 (2.000 por
+escaneo); una cuota diaria agotada (quotaExceeded) para la fuente sin
+reintentar.
 
 - La clave (RIR_YOUTUBE_API_KEY) va en la URL como `key=`; el filtro de
   core/sources/http.py la tapa en el log.
@@ -45,9 +49,11 @@ SEARCH_UNITS = 100
 LIST_UNITS = 1
 #: D-M4: unidades de cuota por escaneo.
 SCAN_MAX_UNITS = 2000
-#: Vídeos por búsqueda y vídeos de los que se leen comentarios.
+#: Vídeos por búsqueda y vídeos (los de más comentarios) de los que se leen.
 MAX_RESULTS = 25
-VIDEOS_WITH_COMMENTS = 5
+VIDEOS_WITH_COMMENTS = 8
+#: Peticiones por escaneo: las unidades son las que acotan (búsqueda 100).
+SCAN_MAX_REQUESTS = 200
 COMMENTS_PER_VIDEO = 50
 #: La cuota diaria se repone a medianoche (hora del Pacífico): no se reintenta.
 QUOTA_RESET_S = 3600.0
@@ -72,7 +78,7 @@ class YouTubeSource(SourceAdapter):
 
     @classmethod
     def default_budget(cls) -> SourceBudget:
-        return SourceBudget(source=cls.id, max_units=SCAN_MAX_UNITS)
+        return SourceBudget(source=cls.id, max_units=SCAN_MAX_UNITS, max_requests=SCAN_MAX_REQUESTS)
 
     async def _api(self, metodo: str, params: dict[str, Any], unidades: int) -> Any:
         return await self._get(f"{API}/{metodo}", units=unidades,
@@ -106,7 +112,7 @@ class YouTubeSource(SourceAdapter):
     async def search(self, query: SearchQuery) -> AsyncIterator[EvidenceItem]:
         vistos: set[str] = set()
         unidades = self.budget.max_units or SCAN_MAX_UNITS
-        busquedas = max(1, int(unidades // (SEARCH_UNITS + VIDEOS_WITH_COMMENTS)))
+        busquedas = max(1, int(unidades // (SEARCH_UNITS + LIST_UNITS + VIDEOS_WITH_COMMENTS)))
         for palabra, frase in term_pairs(query, limit=busquedas):
             params: dict[str, Any] = {
                 "part": "snippet", "type": "video", "maxResults": MAX_RESULTS,
@@ -115,20 +121,25 @@ class YouTubeSource(SourceAdapter):
             if query.since is not None:
                 params["publishedAfter"] = query.since.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             datos = await self._api("search", params, SEARCH_UNITS)
-            videos = [v for v in datos.get("items") or [] if (v.get("id") or {}).get("videoId")]
-            for n, video in enumerate(videos):
-                item = self._video(video)
-                if item is None or item.id in vistos:
-                    continue
-                vistos.add(item.id)
-                yield item
-                if n < VIDEOS_WITH_COMMENTS:
-                    async for comentario in self._comentarios(video["id"]["videoId"]):
-                        if comentario.id not in vistos:
-                            vistos.add(comentario.id)
-                            yield comentario
+            titulos = {v["id"]["videoId"]: html.unescape(str((v.get("snippet") or {}).get("title") or "")).strip()
+                       for v in datos.get("items") or [] if (v.get("id") or {}).get("videoId")}
+            for video_id in await self._mas_comentados(list(titulos)):
+                async for comentario in self._comentarios(video_id, titulos[video_id]):
+                    if comentario.id not in vistos:
+                        vistos.add(comentario.id)
+                        yield comentario
 
-    async def _comentarios(self, video_id: str) -> AsyncIterator[EvidenceItem]:
+    async def _mas_comentados(self, ids: list[str]) -> list[str]:
+        """Los VIDEOS_WITH_COMMENTS vídeos con más comentarios (sin los que no tienen)."""
+        if not ids:
+            return []
+        datos = await self._api("videos", {"part": "statistics", "id": ",".join(ids)}, LIST_UNITS)
+        cuenta = {str(v.get("id")): int((v.get("statistics") or {}).get("commentCount") or 0)
+                  for v in datos.get("items") or []}
+        con_comentarios = [i for i in ids if cuenta.get(i, 0) > 0]
+        return sorted(con_comentarios, key=lambda i: -cuenta[i])[:VIDEOS_WITH_COMMENTS]
+
+    async def _comentarios(self, video_id: str, titulo: str) -> AsyncIterator[EvidenceItem]:
         try:
             datos = await self._api("commentThreads", {
                 "part": "snippet", "videoId": video_id, "maxResults": COMMENTS_PER_VIDEO,
@@ -136,25 +147,11 @@ class YouTubeSource(SourceAdapter):
         except (SourceForbidden, SourceNotFound):
             return  # comentarios desactivados o vídeo retirado: se sigue con el resto
         for hilo in datos.get("items") or []:
-            item = self._comentario(hilo, video_id)
+            item = self._comentario(hilo, video_id, titulo)
             if item is not None:
                 yield item
 
-    def _video(self, video: dict[str, Any]) -> EvidenceItem | None:
-        video_id = video["id"]["videoId"]
-        snippet = video.get("snippet") or {}
-        titulo = html.unescape(str(snippet.get("title") or "")).strip()
-        descripcion = html.unescape(str(snippet.get("description") or "")).strip()
-        publicado = snippet.get("publishedAt")
-        if not publicado or not (titulo or descripcion):
-            return None
-        return self._item(
-            nativo=video_id, community="YouTube", kind="post", title=titulo or None,
-            text=descripcion or titulo, url=WATCH.format(video=video_id),
-            author=snippet.get("channelId"), created_at=datetime.fromisoformat(str(publicado)),
-        )
-
-    def _comentario(self, hilo: dict[str, Any], video_id: str) -> EvidenceItem | None:
+    def _comentario(self, hilo: dict[str, Any], video_id: str, titulo: str) -> EvidenceItem | None:
         snippet = hilo.get("snippet") or {}
         raiz = snippet.get("topLevelComment") or {}
         datos = raiz.get("snippet") or {}
@@ -169,4 +166,5 @@ class YouTubeSource(SourceAdapter):
             created_at=datetime.fromisoformat(str(publicado)), thread=video_id,
             engagement=Engagement(reactions=datos.get("likeCount"),
                                   replies=snippet.get("totalReplyCount")),
+            native={"video_title": titulo or None},
         )
