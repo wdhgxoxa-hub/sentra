@@ -7,7 +7,9 @@ rust-version = "1.77"
 
 [lib]
 name = "sentra_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Solo escritorio: staticlib y cdylib eran de la plantilla para móvil y en
+# Windows cdylib hacía avisar al enlazador en cada release (AUD2-014).
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
