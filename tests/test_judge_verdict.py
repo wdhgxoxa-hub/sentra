@@ -154,6 +154,36 @@ class TestVeredictos(unittest.TestCase):
         self.assertEqual(resultado.verdict, "DESCARTAR")
         self.assertIn("G7", resultado.missing)
 
+    def _g7_favorable(self, autores):
+        """Menciones favorables de un competidor gratuito por las piezas 2, 3…,
+        con los autores dados (uno por pieza)."""
+        items, etiquetas = grupo_construir()
+        gratis = VerifiedCompetitor(name="TallyBird", stance="satisfecho", free=True,
+                                    evidence_span="TallyBird")
+        for n, autor in enumerate(autores, start=2):
+            items[n] = items[n].model_copy(update={"author_hash": autor})
+            etiquetas[items[n].id] = etiqueta(items[n].id, dolor="no", intent="mencion_competidor",
+                                              competidores=[gratis])
+        return items, self.veredicto(items, etiquetas)
+
+    def test_g7_un_autor_favorable_no_descarta_pero_no_construye(self):
+        # Impagos (E8): un solo lanzamiento de HN decidía G7 al 100 % y DESCARTAR.
+        # Regla aprobada: un competidor cuenta con al menos 3 autores distintos.
+        items, resultado = self._g7_favorable([f"{900:064x}"])
+        g7 = next(g for g in resultado.gates if g.gate == "G7")
+        self.assertEqual((g7.passed, g7.measured, g7.evidence_ids), (True, False, [items[2].id]))
+        self.assertIn("TallyBird", g7.note or "")
+        self.assertEqual(resultado.verdict, "INVESTIGAR MÁS")
+        self.assertTrue(resultado.rule.startswith("9:"), resultado.rule)
+
+    def test_g7_dos_piezas_del_mismo_autor_son_un_autor(self):
+        _, resultado = self._g7_favorable([f"{900:064x}", f"{900:064x}", f"{901:064x}"])
+        self.assertEqual(resultado.verdict, "INVESTIGAR MÁS", "2 autores: aún no cuenta")
+
+    def test_g7_tres_autores_con_mayoria_favorable_descarta(self):
+        _, resultado = self._g7_favorable([f"{900 + n:064x}" for n in range(3)])
+        self.assertEqual((resultado.verdict, resultado.rule), ("DESCARTAR", "1: falla G7"))
+
     def test_g2_menos_de_la_mitad_de_autores_descartar(self):
         items, etiquetas = grupo_construir()
         items = [i.model_copy(update={"author_hash": f"{n % 3:064x}"}) for n, i in enumerate(items)]

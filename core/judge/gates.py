@@ -12,7 +12,9 @@ medido, umbral e ids de la evidencia que la sostienen.
   G5 Concentración: ningún hilo ni autor aporta más de CONCENTRATION_MAX_SHARE.
   G6 Recencia: al menos RECENCY_MIN_SHARE de la evidencia en RECENCY_DAYS días.
   G7 Saturación: ningún competidor gratuito mencionado mayoritariamente como
-     solución satisfactoria.
+     solución satisfactoria. Un competidor cuenta si lo nombran al menos
+     MIN_AUTORES_COMPETIDOR autores distintos; con menos y alguna mención
+     favorable, G7 queda «sin datos suficientes» (regla 9).
   G8 Solo datos reales: todos los miembros con data_source 'real' (demo y
      legacy sin procedencia no cuentan, D-M5).
 
@@ -24,6 +26,9 @@ Tabla de veredictos D-M3, en este orden:
   5. Fallan G1, G2 (con al menos N/2) o G5 -> INVESTIGAR MÁS.
   6. Fallan G3, G4 o G6 -> INVESTIGAR MÁS, diciendo qué falta.
   7. Pasan todas -> CONSTRUIR.
+  8. G0 sin comprobar -> como máximo INVESTIGAR MÁS.
+  9. G7 con menciones favorables de menos de MIN_AUTORES_COMPETIDOR autores ->
+     como máximo INVESTIGAR MÁS (señal sin resolver).
 """
 
 from __future__ import annotations
@@ -53,6 +58,10 @@ MIN_PAYMENT_SIGNALS = 1
 CONCENTRATION_MAX_SHARE = 0.40
 RECENCY_DAYS = 180
 RECENCY_MIN_SHARE = 0.50
+#: Autores distintos que tienen que nombrar a un competidor para que cuente en G7
+#: (aprobado tras E8: un solo lanzamiento de HN descartaba el grupo de impagos).
+#: Es el mínimo con el que el juez llama patrón a algo (MIN_CLUSTER_SIZE).
+MIN_AUTORES_COMPETIDOR = 3
 
 Verdict = Literal["CONSTRUIR", "INVESTIGAR MÁS", "DESCARTAR"]
 #: Orden de los veredictos, del mejor al peor.
@@ -105,20 +114,34 @@ def _concentracion(dolores: Sequence[EvidenceItem]) -> GateResult:
 
 
 def _saturacion(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> GateResult:
-    menciones: dict[str, list[tuple[str, str, bool | None]]] = defaultdict(list)
+    menciones: dict[str, list[tuple[str, str, bool | None, str]]] = defaultdict(list)
+    nombres: dict[str, str] = {}
     for item in items:
         etiqueta = labels.get(item.id)
         for c in etiqueta.competitors if etiqueta else []:
-            menciones[c.name.casefold()].append((item.id, c.stance, c.free))
+            nombres.setdefault(c.name.casefold(), c.name)
+            menciones[c.name.casefold()].append((item.id, c.stance, c.free, item.author_hash or item.id))
     peores: list[str] = []
     cuota_max = 0.0
-    for lista in menciones.values():
+    medida = False
+    pocos: list[tuple[str, int, list[str]]] = []
+    for clave, lista in menciones.items():
+        if not any(m[2] for m in lista):
+            continue
         satisfechos = [m for m in lista if m[1] == "satisfecho"]
-        gratis = any(m[2] for m in lista)
+        autores = len({m[3] for m in lista})
+        if autores < MIN_AUTORES_COMPETIDOR:
+            if satisfechos:
+                pocos.append((nombres[clave], autores, sorted({m[0] for m in satisfechos})))
+            continue
+        medida = True
         cuota = len(satisfechos) / len(lista)
-        if gratis and cuota > cuota_max:
+        if cuota > cuota_max:
             cuota_max, peores = cuota, sorted({m[0] for m in satisfechos})
-    medida = any(m[2] for lista in menciones.values() for m in lista)
+    if not medida and pocos:
+        nota = "; ".join(f"{nombre}: {n} de {MIN_AUTORES_COMPETIDOR} autores" for nombre, n, _ in pocos)
+        return GateResult("G7", True, 0.0, 0.5, sorted({i for *_, ids in pocos for i in ids}),
+                          measured=False, note=f"menciones favorables insuficientes ({nota})")
     return GateResult("G7", cuota_max <= 0.5, cuota_max, 0.5, peores, measured=medida)
 
 
@@ -195,6 +218,11 @@ def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHO
         return "INVESTIGAR MÁS", "4: falla G8 (como máximo INVESTIGAR MÁS)"
     if coherencia is not None and not coherencia.measured:
         return "INVESTIGAR MÁS", "8: G0 sin comprobar (como máximo INVESTIGAR MÁS)"
+    saturacion = por.get("G7")
+    if saturacion is not None and not saturacion.measured and saturacion.evidence_ids:
+        regla = (f"9: G7 con menciones favorables de menos de {MIN_AUTORES_COMPETIDOR} autores "
+                 "(como máximo INVESTIGAR MÁS)")
+        return "INVESTIGAR MÁS", regla
     return "CONSTRUIR", "7: pasan todas"
 
 

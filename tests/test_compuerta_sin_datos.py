@@ -31,12 +31,23 @@ class TestG7Medida(unittest.TestCase):
         self.assertFalse(g7(resultado).measured)
         self.assertEqual(resultado.verdict, "CONSTRUIR", "la falta de datos no castiga")
 
-    def test_con_un_competidor_gratuito_si_mide(self):
+    def test_con_un_competidor_gratuito_de_tres_autores_si_mide(self):
+        # Regla de 3 autores (aprobada tras E8): con menos, el competidor no cuenta.
         items, etiquetas = grupo_construir()
         gratis = VerifiedCompetitor(name="TallyBird", stance="queja", free=True, evidence_span="TallyBird")
-        etiquetas[items[0].id] = etiqueta(items[0].id, competidores=[gratis])
+        for i in items[4:7]:
+            etiquetas[i.id] = etiqueta(i.id, competidores=[gratis])
         resultado = judge_cluster(items, etiquetas, now=AHORA)
         self.assertTrue(g7(resultado).measured)
+        self.assertEqual(resultado.verdict, "CONSTRUIR", "quejas del competidor: no satura")
+
+    def test_un_solo_autor_que_se_queja_de_un_competidor_no_mide_ni_frena(self):
+        items, etiquetas = grupo_construir()
+        gratis = VerifiedCompetitor(name="TallyBird", stance="queja", free=True, evidence_span="TallyBird")
+        etiquetas[items[4].id] = etiqueta(items[4].id, competidores=[gratis])
+        resultado = judge_cluster(items, etiquetas, now=AHORA)
+        self.assertFalse(g7(resultado).measured)
+        self.assertEqual(resultado.verdict, "CONSTRUIR", "sin menciones favorables no hay señal que resolver")
 
     def test_las_demas_compuertas_siempre_miden(self):
         resultado = judge_cluster(*grupo_construir(), now=AHORA)
