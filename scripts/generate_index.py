@@ -11,7 +11,8 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-BASE_DIR = Path(r"F:\reddit_intelligence_radar")
+# La raíz del repositorio, desde aquí: funciona en cualquier unidad y copia (D5).
+BASE_DIR = Path(__file__).resolve().parents[1]
 LOGS_DIR = BASE_DIR / "logs"
 CATALOG_FILE = LOGS_DIR / "repo_catalog.json"
 INDEX_FILE = BASE_DIR / "INDEX.md"
@@ -45,7 +46,7 @@ def generate_index():
     lines.append("")
     lines.append("> Repositorio local de referencia e ingeniería inversa para extracción masiva de datos en Reddit, minería semántica de puntos de dolor (*pain points*), detección algorítmica de demanda (*leads & buying intent*), bases de datos vectoriales y aceleración de micro-SaaS.")
     lines.append("")
-    lines.append("- **Ubicación en disco**: `F:\\reddit_intelligence_radar\\repos\\`")
+    lines.append("- **Ubicación en disco**: `repos/` en la raíz del repositorio")
     lines.append(f"- **Total de proyectos investigados y activos**: {total_repos}")
     lines.append(f"- **Lote 1 (Base + Expansión Inicial)**: {len(batch1_repos)} repositorios")
     lines.append(f"- **Lote 2 (Nueva Expansión Diferencial)**: {len(batch2_repos)} repositorios")

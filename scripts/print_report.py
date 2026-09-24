@@ -1,6 +1,10 @@
 import json
+from pathlib import Path
 
-with open(r"F:\reddit_intelligence_radar\logs\integrity_audit.json", encoding="utf-8") as f:
+# La raíz del repositorio, desde aquí (D5).
+AUDITORIA = Path(__file__).resolve().parents[1] / "logs" / "integrity_audit.json"
+
+with open(AUDITORIA, encoding="utf-8") as f:
     d = json.load(f)
 
 for b in ["Lote 1", "Lote 2"]:

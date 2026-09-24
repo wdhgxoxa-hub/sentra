@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-BASE_DIR = Path(r"F:\reddit_intelligence_radar")
+# La raíz del repositorio, desde aquí: funciona en cualquier unidad y copia (D5).
+BASE_DIR = Path(__file__).resolve().parents[1]
 REPOS_DIR = BASE_DIR / "repos"
 LOGS_DIR = BASE_DIR / "logs"
 INDEX_FILE = BASE_DIR / "INDEX.md"

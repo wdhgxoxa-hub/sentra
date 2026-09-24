@@ -47,10 +47,13 @@ chroma.sqlite3
 *.sqlite3
 *.duckdb
 
-# Logs de depuración (se conservan los artefactos .json/.md del pipeline)
+# Salidas de los scripts: nada generado se versiona (D5). Se exceptúa el
+# catálogo de repos, que es la entrada de scripts/clone_manager.py y no se
+# puede regenerar sin los clones.
 *.log
-logs/*.log
-logs/debug/
+logs/*
+!logs/repo_catalog.json
+INDEX.md
 
 # Secretos y configuración local
 .env

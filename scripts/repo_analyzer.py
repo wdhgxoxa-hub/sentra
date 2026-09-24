@@ -9,7 +9,8 @@ y extrae las rutas relativas exactas para ingenieria inversa.
 import json
 from pathlib import Path
 
-BASE_DIR = Path(r"F:\reddit_intelligence_radar")
+# La raíz del repositorio, desde aquí: funciona en cualquier unidad y copia (D5).
+BASE_DIR = Path(__file__).resolve().parents[1]
 REPOS_DIR = BASE_DIR / "repos"
 LOGS_DIR = BASE_DIR / "logs"
 RESULTS_FILE = LOGS_DIR / "clone_results.json"
