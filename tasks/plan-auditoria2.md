@@ -24,6 +24,22 @@ después sobre la app real (prueba de humo / arnés), no solo con tests.
 - [ ] T5 · AUD2-005 · G7 sin datos ≠ aprobada (estado neutral explicado).
 - [ ] T6 · AUD2-001 (DP2 A) · Pertinencia por ítem, coherencia por grupo, prompt con
       negativos, G2 relativo al tamaño; fixtures; re-juicio real con presupuesto.
+      Causa raíz (pipeline.py:52): se agrupaba TODO lo que pasa el filtro de calidad, así
+      que los grupos salían por tema («email») y mezclaban lanzamientos y comentarios
+      sueltos; el etiquetador contaba «Show HN: I built X» como parche casero.
+      Diseño:
+      6.1 Pertinencia (código): un lanzamiento propio («Show HN/Launch HN») no cuenta como
+          dolor, parche ni señal de pago aunque la etiqueta lo diga.
+      6.2 Etiquetador: ejemplos negativos en el prompt (anunciar lo que uno construyó no
+          es dolor ni parche; parche = cómo se apaña hoy el autor); LABELER_VERSION v3.
+      6.3 Juez: se agrupa solo la evidencia con dolor pertinente; lo demás cercano al
+          centroide del grupo solo sirve de contexto para G7 (competidores). G2 relativo:
+          N = min(8, max(3, ⌈10 % del dolor pertinente del escaneo⌉)). Los términos del
+          tema del escaneo no nombran nichos. CLUSTERING_VERSION v3 y pesos/reglas v2.
+      6.4 scripts/rejuzgar.py: re-juicio reproducible de un escaneo guardado (nueva
+          ejecución «rejuicio»), sin escaneo nuevo.
+      6.5 Re-juicio real del escaneo 01a0d086 con respaldo previo; llamadas a Gemini
+          contadas (quedan 13 de 15).
 - [ ] T7 · AUD2-007, 008 (DP6 A), 009, 012 (DP10 A), 020, 023, 024 · Interfaz.
 - [ ] T8 · AUD2-011, 013, 014, 010 (DP9 A), 015 (DP8 A) · Fiabilidad y build.
 - [ ] T9 · AUD2-017 (DP11 A), 018 (DP5 A), 019, 021 (DP7 A) · Documentos, cumplimiento,

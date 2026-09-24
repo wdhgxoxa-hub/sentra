@@ -21,6 +21,7 @@ puntaje = 100 · base · (0,5 + 0,5 · convergencia), con base la suma ponderada
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -60,19 +61,32 @@ class NicheScore:
     dimensions: list[DimensionScore]
 
 
+#: «Show HN: …» / «Launch HN: …»: alguien anuncia lo que ha construido.
+_LANZAMIENTO = re.compile(r"^\s*(?:show|launch)\s+hn\b", re.IGNORECASE)
+
+
+def es_lanzamiento(item: EvidenceItem) -> bool:
+    """Anuncio de un producto propio (AUD2-001): no es un dolor del mercado,
+    ni una forma de apañárselas con él, ni una señal de pago, lo etiquete el
+    LLM como lo etiquete. Sigue siendo evidencia (puede nombrar competidores)."""
+    return bool(_LANZAMIENTO.match(item.title or ""))
+
+
 def pain_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    """La evidencia que cuenta: miembros con dolor verificado."""
-    return [i for i in items if labels.get(i.id) is not None and labels[i.id].is_pain == "yes"]
+    """La evidencia que cuenta: miembros con dolor verificado que no son un lanzamiento."""
+    return [i for i in items if labels.get(i.id) is not None and labels[i.id].is_pain == "yes"
+            and not es_lanzamiento(i)]
 
 
 def payment_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    return [i for i in items if (e := labels.get(i.id)) is not None
+    return [i for i in items if (e := labels.get(i.id)) is not None and not es_lanzamiento(i)
             and (e.wtp_signal == "yes" or e.intent == "busca_herramienta")]
 
 
 def workaround_items(items: Sequence[EvidenceItem],
                      labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    return [i for i in items if (e := labels.get(i.id)) is not None and e.workaround_described == "yes"]
+    return [i for i in items if (e := labels.get(i.id)) is not None and not es_lanzamiento(i)
+            and e.workaround_described == "yes"]
 
 
 def _saturada(valor: float, tope: float) -> float:
