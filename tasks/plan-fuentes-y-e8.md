@@ -172,3 +172,14 @@ del usuario; no se implementa ni se prueba contra datos hasta entonces):
   suficientes» (no medida) con la nota y las piezas; no descarta, pero el
   veredicto no puede pasar de INVESTIGAR MÁS (señal sin resolver).
 - Sin menciones: como hoy (aprueba por ausencia).
+
+### Dossier corregido (debef47) y regenerado (1 llamada)
+
+- 1 llamada, gemini-3.1-pro-preview, 1418 → 1096 tokens (+2321 razonamiento), 11 secciones.
+- Título «Autónomos persiguiendo facturas impagadas» (propuesto por el modelo, dicho en la portada).
+- Tildes correctas (0 palabras comunes sin tilde en la prosa).
+- 4 afirmaciones marcadas «Anécdota (1 autor)» por el código; las generales citan ≥ 2 autores.
+- Riesgos: G7 con la pieza que la decide (hackernews:47545486), citada en la evidencia.
+- Queda: la línea de G7 da valor y umbral pero no lo explica en palabras; una
+  afirmación que junta dos ideas puede colar la parte de un solo autor.
+- Gemini: 34 de 40; quedan 6.

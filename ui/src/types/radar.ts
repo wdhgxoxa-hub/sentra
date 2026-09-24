@@ -428,7 +428,7 @@ export interface GeminiModelsResult {
   listedAt: string | null;
 }
 
-/** Estado del motor de arquitectura. La clave entera no sale del sidecar. */
+/** Clave de Gemini y modelos elegidos (general y de documentos). La clave entera no sale del sidecar. */
 export interface GeminiSummary {
   configured: boolean;
   keyMasked: string;

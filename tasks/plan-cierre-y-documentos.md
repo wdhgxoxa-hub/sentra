@@ -41,7 +41,7 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 - [ ] E5 Composición del dossier y del plan (secciones fijas, avisos, franja, viabilidad «estimación del modelo») y Markdown para agente.
 - [ ] E6 Sidecar (caché en memoria) + Rust (diálogo nativo) + contratos.
 - [ ] E7 UI en el panel del juez: botones, estados, forzar el plan, i18n.
-- [ ] E8 Verificación real (tras elegir el usuario el modelo en Ajustes): llamadas, tokens y secciones.
+- [x] E8 Verificación real (tras elegir el usuario el modelo en Ajustes): llamadas, tokens y secciones.
 
 ## Fase F — Cierre
 - [ ] F1 Compuerta; instalación limpia temporal.
