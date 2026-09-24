@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
+use crate::commands::engine::{como_json, sidecar_url, transport_error, with_token_pub};
 use crate::db::{AppState, RadarError, RadarResult};
 
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -46,7 +46,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> RadarResult<AppSettings
     .await
     .map_err(transport_error)?;
 
-    response.json().await.map_err(transport_error)
+    como_json(response, "La configuracion").await
 }
 
 /// `{"detail": {"code", "detail"}}` de FastAPI como error del motor.

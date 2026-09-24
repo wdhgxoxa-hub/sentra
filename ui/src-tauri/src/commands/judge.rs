@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use tauri::State;
 
-use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
-use crate::db::{AppState, RadarError, RadarResult};
+use crate::commands::engine::{como_json, sidecar_url, transport_error, with_token_pub};
+use crate::db::{AppState, RadarResult};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -59,14 +59,7 @@ async fn leer(state: &AppState, url: String) -> RadarResult<serde_json::Value> {
         .await
         .map_err(transport_error)?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        return Err(crate::commands::settings::rechazo_con_codigo(&detail).unwrap_or_else(|| {
-            RadarError::Sidecar(format!("No se pudo leer el juez ({status}): {detail}"))
-        }));
-    }
-    response.json().await.map_err(transport_error)
+    como_json(response, "No se pudo leer el juez").await
 }
 
 #[cfg(test)]

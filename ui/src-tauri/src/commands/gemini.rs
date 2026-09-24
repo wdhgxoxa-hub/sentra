@@ -10,9 +10,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::commands::engine::{sidecar_url, transport_error, with_token_pub};
+use crate::commands::engine::{como_json, sidecar_url, transport_error, with_token_pub};
 use crate::commands::settings::GeminiSummary;
-use crate::db::{AppState, RadarError, RadarResult};
+use crate::db::{AppState, RadarResult};
 
 const SHORT_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -95,19 +95,12 @@ pub async fn save_gemini_key(
     .await
     .map_err(transport_error)?;
 
-    if !response.status().is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        return Err(RadarError::Sidecar(format!(
-            "No se pudo guardar la clave: {detail}"
-        )));
-    }
-
     #[derive(Deserialize)]
     struct Envelope {
         gemini: GeminiSummary,
     }
 
-    let envelope: Envelope = response.json().await.map_err(transport_error)?;
+    let envelope: Envelope = como_json(response, "No se pudo guardar la clave").await?;
     Ok(envelope.gemini)
 }
 
@@ -125,7 +118,7 @@ pub async fn list_gemini_models(state: State<'_, AppState>) -> RadarResult<Gemin
     .await
     .map_err(transport_error)?;
 
-    response.json().await.map_err(transport_error)
+    como_json(response, "Gemini").await
 }
 
 /// Comprueba contra Google que la clave guardada sirve.
@@ -141,5 +134,5 @@ pub async fn test_gemini_key(state: State<'_, AppState>) -> RadarResult<ProbeRes
     .await
     .map_err(transport_error)?;
 
-    response.json().await.map_err(transport_error)
+    como_json(response, "Gemini").await
 }

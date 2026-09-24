@@ -57,6 +57,33 @@ pub fn transport_error(err: reqwest::Error) -> RadarError {
     }
 }
 
+/// Respuesta del sidecar como `T`, solo si el estado es 2xx (AUD-035).
+///
+/// Sin esta comprobación, un 401 o un 503 se decodificaba como si fuera el
+/// cuerpo esperado y el usuario veía «error decoding response body» en lugar
+/// del motivo. Un rechazo con código (`{"detail": {"code", "detail"}}`) llega
+/// con ese código para que la interfaz lo traduzca; sin código, dice `que`,
+/// el estado y el cuerpo.
+pub(crate) async fn como_json<T: serde::de::DeserializeOwned>(
+    response: reqwest::Response,
+    que: &str,
+) -> RadarResult<T> {
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        return Err(rechazo(que, &status.to_string(), &detail));
+    }
+    response.json().await.map_err(transport_error)
+}
+
+/// Un rechazo del motor con código (`{"detail": {"code", "detail"}}`, p. ej.
+/// migrations_pending) llega con ese código para que la interfaz lo traduzca;
+/// sin código, como fallo genérico del motor con su estado y su cuerpo.
+pub(crate) fn rechazo(que: &str, status: &str, cuerpo: &str) -> RadarError {
+    crate::commands::settings::rechazo_con_codigo(cuerpo)
+        .unwrap_or_else(|| RadarError::Sidecar(format!("{que} ({status}): {cuerpo}")))
+}
+
 // ---------------------------------------------------------------------
 // Contratos
 // ---------------------------------------------------------------------
@@ -112,15 +139,7 @@ pub async fn search_hybrid(
     .await
     .map_err(transport_error)?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        return Err(crate::commands::settings::rechazo_con_codigo(&detail).unwrap_or_else(|| {
-            RadarError::Sidecar(format!("El sidecar respondio {status} a la busqueda: {detail}"))
-        }));
-    }
-
-    let envelope: SearchEnvelope = response.json().await.map_err(transport_error)?;
+    let envelope: SearchEnvelope = como_json(response, "La busqueda").await?;
     Ok(envelope.hits)
 }
 
@@ -217,5 +236,77 @@ pub async fn sidecar_health_en(client: &reqwest::Client, base: &str) -> Option<s
         response.json().await.ok()
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    use super::*;
+
+    /// Servidor HTTP de una sola respuesta en loopback: devuelve `status` y
+    /// `cuerpo` a la primera petición. Sin dependencias: std y un hilo.
+    fn servidor(status: &'static str, cuerpo: &'static str) -> String {
+        let escucha = TcpListener::bind("127.0.0.1:0").unwrap();
+        let direccion = escucha.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut conexion, _) = escucha.accept().unwrap();
+            let mut leido = [0u8; 4096];
+            let _ = conexion.read(&mut leido);
+            let respuesta = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{cuerpo}",
+                cuerpo.len()
+            );
+            conexion.write_all(respuesta.as_bytes()).unwrap();
+        });
+        format!("http://{direccion}")
+    }
+
+    async fn pedir(url: String) -> reqwest::Response {
+        reqwest::Client::new().get(url).send().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn un_rechazo_con_codigo_llega_con_su_codigo_y_no_como_json_ilegible() {
+        let url = servidor("503 Service Unavailable", r#"{"detail": {"code": "search_unavailable", "detail": "sin vectores"}}"#);
+        let error = como_json::<serde_json::Value>(pedir(url).await, "La busqueda")
+            .await
+            .unwrap_err();
+        assert_eq!(error.code(), "search_unavailable");
+    }
+
+    #[tokio::test]
+    async fn un_401_sin_codigo_dice_su_estado_y_no_error_decoding() {
+        let url = servidor("401 Unauthorized", r#"{"detail": "Token invalido o ausente"}"#);
+        let error = como_json::<serde_json::Value>(pedir(url).await, "La configuracion")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("401"), "{error}");
+        assert!(!error.contains("decoding"), "{error}");
+    }
+
+    #[test]
+    fn un_rechazo_con_codigo_del_motor_conserva_el_codigo() {
+        let cuerpo = r#"{"detail": {"code": "migrations_pending", "detail": "Faltan migraciones: 009_evidence_items"}}"#;
+        let error = rechazo("No se pudieron leer las fuentes", "503 Service Unavailable", cuerpo);
+        assert_eq!(error.code(), "migrations_pending");
+        assert!(error.to_string().contains("009_evidence_items"));
+    }
+
+    #[test]
+    fn un_rechazo_sin_codigo_sigue_siendo_del_sidecar() {
+        let error = rechazo("No se pudo probar la fuente", "500", "Internal Server Error");
+        assert_eq!(error.code(), "sidecar");
+        assert!(error.to_string().contains("Internal Server Error"));
+    }
+
+    #[tokio::test]
+    async fn un_200_se_decodifica() {
+        let url = servidor("200 OK", r#"{"ok": true}"#);
+        let valor: serde_json::Value = como_json(pedir(url).await, "x").await.unwrap();
+        assert_eq!(valor["ok"], true);
     }
 }
