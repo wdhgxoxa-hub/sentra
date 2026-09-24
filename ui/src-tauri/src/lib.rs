@@ -18,6 +18,7 @@ pub mod sidecar;
 pub mod sidecar_log;
 pub mod empaquetado;
 pub mod motor;
+pub mod registro;
 
 #[cfg(test)]
 mod test_support;
@@ -49,7 +50,19 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(
+            // AUD2-013: sin esto, 40 KB en un solo fichero y todo en TRACE.
+            registro::RUIDOSOS
+                .iter()
+                .fold(
+                    tauri_plugin_log::Builder::new()
+                        .level(registro::nivel())
+                        .max_file_size(registro::MAX_BYTES)
+                        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(registro::COPIAS)),
+                    |b, m| b.level_for(*m, log::LevelFilter::Warn),
+                )
+                .build(),
+        )
         .manage(AppState {
             db,
             http: http.clone(),
