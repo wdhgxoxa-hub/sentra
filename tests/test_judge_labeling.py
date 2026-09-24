@@ -49,10 +49,12 @@ def etiqueta_perfecta(item_id, dorado):
         item_id=item_id, is_pain=esperado["is_pain"], pain_confidence=0.9,
         intent=esperado["intent"], workaround_described=esperado["workaround_described"],
         wtp_signal=esperado["wtp_signal"],
+        affected="author" if esperado["is_pain"] else "none",
         competitors_mentioned=[CompetitorMention(name=c["name"], stance=c["stance"],
                                                  evidence_span=spans[f"competitors.{c['name']}"])
                                for c in esperado["competitors"]],
-        evidence_spans={k: v for k, v in spans.items() if not k.startswith("competitors.")})
+        evidence_spans={**{k: v for k, v in spans.items() if not k.startswith("competitors.")},
+                        **({"affected": spans["is_pain"]} if esperado["is_pain"] else {})})
 
 
 class LLMDoble:
@@ -83,10 +85,11 @@ class TestVerificacion(unittest.TestCase):
 
     def etiqueta(self, **cambios):
         base: dict[str, Any] = {"item_id": "x", "is_pain": True, "pain_confidence": 0.8, "intent": "parche_casero",
-                "workaround_described": True, "wtp_signal": False,
+                "workaround_described": True, "wtp_signal": False, "affected": "author",
                 "evidence_spans": {"is_pain": "scrapes our CRM export",
                                    "intent": "I wrote a Python script",
-                                   "workaround_described": "I wrote a Python script"}}
+                                   "workaround_described": "I wrote a Python script",
+                                   "affected": "I wrote a Python script"}}
         base.update(cambios)
         return LLMItemLabel(**base)
 
@@ -115,9 +118,28 @@ class TestVerificacion(unittest.TestCase):
             {"name": "LedgerLoop", "stance": "queja", "evidence_span": "LedgerLoop is awful"}]), self.TEXTO)
         self.assertEqual(verificada.competitors, [])
 
+    def test_el_dolor_de_otros_o_de_nadie_no_es_dolor(self):
+        # Residuo de AUD2-001: opiniones («reflects my own opinions»), consejos
+        # («You should definitely try it») e ideas de negocio salían como dolor.
+        for quien in ("others", "none"):
+            with self.subTest(quien=quien):
+                verificada = verify_label(self.etiqueta(affected=quien), self.TEXTO)
+                self.assertEqual((verificada.is_pain, verificada.affected), ("no", quien))
+
+    def test_el_dolor_del_autor_necesita_su_fragmento(self):
+        sin_prueba = self.etiqueta(evidence_spans={"is_pain": "scrapes our CRM export",
+                                                   "intent": "I wrote a Python script",
+                                                   "workaround_described": "I wrote a Python script"})
+        verificada = verify_label(sin_prueba, self.TEXTO)
+        self.assertEqual((verificada.is_pain, verificada.affected), ("undetermined", "undetermined"))
+
+    def test_el_dolor_del_autor_con_su_fragmento_cuenta(self):
+        verificada = verify_label(self.etiqueta(), self.TEXTO)
+        self.assertEqual((verificada.is_pain, verificada.affected), ("yes", "author"))
+
     def test_una_pregunta_neutra_no_necesita_fragmento(self):
         neutra = self.etiqueta(is_pain=False, intent="pregunta_neutra", workaround_described=False,
-                               evidence_spans={})
+                               affected="none", evidence_spans={})
         verificada = verify_label(neutra, self.TEXTO)
         self.assertEqual((verificada.is_pain, verificada.intent), ("no", "pregunta_neutra"))
 
@@ -129,22 +151,24 @@ class TestInstrucciones(unittest.TestCase):
     def test_el_prompt_y_el_esquema_nombran_las_claves_de_los_fragmentos(self):
         from core.judge.labels import SPAN_KEYS, SYSTEM_PROMPT
 
-        self.assertEqual(SPAN_KEYS, ("is_pain", "intent", "workaround_described", "wtp_signal"))
+        self.assertEqual(SPAN_KEYS, ("is_pain", "intent", "workaround_described", "wtp_signal",
+                                     "affected"))
         descripcion = LLMItemLabel.model_json_schema()["properties"]["evidence_spans"]["description"]
         for clave in SPAN_KEYS:
             self.assertIn(clave, SYSTEM_PROMPT)
             self.assertIn(clave, descripcion)
 
     def test_la_version_cambia_con_el_prompt(self):
-        # v3: ejemplos negativos de AUD2-001 (lanzamientos y relleno no son dolor).
-        self.assertEqual(LABELER_VERSION, "labels-v3")
+        # v3: ejemplos negativos de AUD2-001; v4: quién sufre el problema (affected).
+        self.assertEqual(LABELER_VERSION, "labels-v4")
 
     def test_el_prompt_dice_que_no_es_dolor_ni_parche(self):
         """AUD2-001: el etiquetador tomaba «Show HN: I built X» por un parche casero."""
         from core.judge.labels import SYSTEM_PROMPT
 
         for regla in ("Show HN", "no es un dolor", "no es un parche casero",
-                      "cómo se apaña hoy", "opinión general"):
+                      "cómo se apaña hoy", "opinión general", "affected", "author", "others",
+                      "none", "recomendación", "idea de negocio"):
             self.assertIn(regla, SYSTEM_PROMPT)
 
 

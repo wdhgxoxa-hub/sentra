@@ -43,7 +43,7 @@ class DobleQueSeEquivoca:
             if "TallyBird" in e["text"]:
                 etiquetas.append(LLMItemLabel(
                     item_id=e["id"], is_pain=False, pain_confidence=0.9, intent="mencion_competidor",
-                    workaround_described=False, wtp_signal=False,
+                    workaround_described=False, wtp_signal=False, affected="none",
                     competitors_mentioned=[CompetitorMention(name="TallyBird", stance="satisfecho", free=True,
                                                              evidence_span="TallyBird")],
                     evidence_spans={"intent": "TallyBird"}))
@@ -51,8 +51,9 @@ class DobleQueSeEquivoca:
             span = e["text"][:20]
             etiquetas.append(LLMItemLabel(
                 item_id=e["id"], is_pain=True, pain_confidence=0.9, intent="parche_casero",
-                workaround_described=True, wtp_signal=False,
-                evidence_spans={"is_pain": span, "intent": span, "workaround_described": span}))
+                workaround_described=True, wtp_signal=False, affected="author",
+                evidence_spans={"is_pain": span, "intent": span, "workaround_described": span,
+                                "affected": span}))
         return LLMLabelBatch(labels=etiquetas)
 
 

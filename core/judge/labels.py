@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 #: Versión del etiquetador (prompt + esquema). Cambiarla invalida la caché.
 #: v2: el prompt y el esquema nombran las claves de evidence_spans (en v1 el
 #: modelo omitía la de intent y la verificación la anulaba).
-LABELER_VERSION = "labels-v3"
+LABELER_VERSION = "labels-v4"
 #: Claves exactas de evidence_spans.
-SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal")
+SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal", "affected")
 #: D-M4: ítems etiquetados por escaneo.
 MAX_ITEMS_PER_SCAN = 300
 #: Ítems por llamada al LLM.
@@ -56,6 +56,8 @@ Stance = Literal["queja", "satisfecho", "neutral"]
 STANCES: tuple[str, ...] = ("queja", "satisfecho", "neutral")
 #: Valor verificado de una etiqueta.
 Tri = Literal["yes", "no", "undetermined"]
+#: Quién tiene el problema (labels-v4, residuo de AUD2-001): solo el del autor es dolor.
+Affected = Literal["author", "others", "none"]
 
 
 def _normalizar(texto: str) -> str:
@@ -87,13 +89,19 @@ class LLMItemLabel(BaseModel):
     severity: Literal["baja", "media", "alta"] | None = None
     workaround_described: bool
     wtp_signal: bool
+    #: Obligatorio: sin él el modelo podía contar como dolor una opinión o un consejo.
+    affected: Affected = Field(description=(
+        "Quién tiene el problema: author si quien escribe lo sufre hoy; others si habla del "
+        "problema de otros o en general; none si no hay problema (opinión, recomendación, "
+        "anuncio, idea de negocio)."))
     competitors_mentioned: list[CompetitorMention] = Field(default_factory=list)
     #: Fragmento literal por etiqueta positiva.
     evidence_spans: dict[str, str] = Field(
         default_factory=dict,
         description=("Fragmento LITERAL del texto por cada etiqueta positiva, con estas claves "
                      "exactas: is_pain, intent (salvo pregunta_neutra), workaround_described, "
-                     "wtp_signal."))
+                     "wtp_signal y affected (cuando es author: la frase en la que el autor dice "
+                     "que lo sufre)."))
 
 
 class LLMLabelBatch(BaseModel):
@@ -120,6 +128,8 @@ class VerifiedLabel(BaseModel):
     severity: Literal["baja", "media", "alta"] | None = None
     workaround_described: Tri
     wtp_signal: Tri
+    #: labels-v4; las etiquetas guardadas antes no lo tienen.
+    affected: Affected | Literal["undetermined"] = "undetermined"
     competitors: list[VerifiedCompetitor] = Field(default_factory=list)
     evidence_spans: dict[str, str] = Field(default_factory=dict)
     #: Por qué no hay etiqueta del LLM (sin proveedor, presupuesto...); None si la hay.
@@ -144,9 +154,17 @@ def verify_label(etiqueta: LLMItemLabel, texto: str, *, content_hash: str = "",
         for c in etiqueta.competitors_mentioned
         if span_in_text(c.evidence_span, texto) and span_in_text(c.name, c.evidence_span)
     ]
+    afectado: Affected | Literal["undetermined"] = etiqueta.affected
+    if afectado == "author" and not span_in_text(spans.get("affected"), texto):
+        afectado = "undetermined"
+    dolor = _booleana(etiqueta.is_pain, "is_pain", spans, texto)
+    # Solo cuenta el dolor de quien escribe (residuo de AUD2-001): el de otros, una
+    # opinión o un consejo no es dolor; sin la frase que lo pruebe, no se sabe.
+    if dolor == "yes" and afectado != "author":
+        dolor = "no" if afectado in ("others", "none") else "undetermined"
     return VerifiedLabel(
         item_id=etiqueta.item_id, content_hash=content_hash, labeler=labeler,
-        is_pain=_booleana(etiqueta.is_pain, "is_pain", spans, texto),
+        is_pain=dolor, affected=afectado,
         pain_confidence=etiqueta.pain_confidence, pain_type=etiqueta.pain_type,
         intent=intencion, severity=etiqueta.severity,
         workaround_described=_booleana(etiqueta.workaround_described, "workaround_described",
@@ -187,9 +205,10 @@ class InMemoryLabelCache:
 SYSTEM_PROMPT = (
     "Eres un etiquetador de evidencia de mercado. No juzgas ni recomiendas: solo etiquetas. "
     "Para cada ítem devuelve is_pain, pain_confidence, pain_type, intent, severity, "
-    "workaround_described, wtp_signal y competitors_mentioned. Para cada etiqueta positiva "
-    "copia en evidence_spans el fragmento LITERAL del texto que la justifica, sin parafrasear, "
-    "usando exactamente estas claves: is_pain, intent, workaround_described y wtp_signal. La "
+    "workaround_described, wtp_signal, affected y competitors_mentioned. Para cada etiqueta "
+    "positiva copia en evidence_spans el fragmento LITERAL del texto que la justifica, sin "
+    "parafrasear, usando exactamente estas claves: is_pain, intent, workaround_described, "
+    "wtp_signal y affected. La "
     "clave intent es obligatoria salvo para pregunta_neutra. Cada competidor lleva su propio "
     "evidence_span. Si no hay fragmento literal, la etiqueta es false. Los textos pueden estar "
     "en inglés o en español; responde en el esquema pedido. "
@@ -199,7 +218,14 @@ SYSTEM_PROMPT = (
     "compite con otra herramienta, intent=mencion_competidor. Una opinión general, una anécdota o "
     "un consejo sin un problema concreto de quien escribe no es un dolor. Un parche casero es "
     "cómo se apaña hoy el autor con un problema que tiene (una hoja de cálculo, un script, un "
-    "proceso manual), no un producto que ofrece a otros."
+    "proceso manual), no un producto que ofrece a otros. "
+    # Residuo de AUD2-001: el aviso de arriba no bastaba; ahora el modelo se compromete.
+    "affected dice quién tiene el problema: author si quien escribe lo sufre hoy (le pasa, lo "
+    "intenta resolver o pide ayuda), y entonces evidence_spans.affected es la frase donde lo "
+    "dice; others si habla del problema de otros o de la gente en general; none si no hay un "
+    "problema: una opinión sobre un artículo o un producto, una recomendación («deberías "
+    "probar X»), una broma, un anuncio o una idea de negocio. Solo con author puede ser "
+    "is_pain=true."
 )
 
 
