@@ -20,7 +20,6 @@ from core.storage.postgres_store import PostgresStore, run_async
 
 ADMIN_DSN = os.environ.get("RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres")
 TEST_DB = "rir_evidence_search_test"
-SAL = "5d" * 32
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 
 
@@ -102,7 +101,7 @@ class TestBusquedaEnLaBase(unittest.TestCase):
     @classmethod
     def _ejecutar(cls, funcion):
         async def main():
-            async with PostgresStore(dsn=cls.dsn, author_salt=SAL) as store:
+            async with PostgresStore(dsn=cls.dsn) as store:
                 return await funcion(store)
 
         return run_async(main())

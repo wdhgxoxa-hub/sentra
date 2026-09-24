@@ -182,20 +182,5 @@ class TestDocumentoPdf(unittest.TestCase):
         self.assertNotIn("Cuando los profesionales", todo)
 
 
-class TestEvidenciaFechada(unittest.TestCase):
-
-    def test_la_agregacion_guarda_la_fecha_de_cada_cita(self):
-        from core.intelligence import IntelligenceEngine
-        from core.orchestration.aggregation import build_clusters, cluster_to_dict
-
-        engine = IntelligenceEngine(use_transformers_if_available=False)
-        senal = engine.analyze_signal(
-            item_id="t3_x", title="The invoice export is broken", body="manual work",
-            author="u", subreddit="SaaS", created_utc=1758000000.0,
-        )
-        cita = cluster_to_dict(build_clusters([senal])[0])["evidence"][0]
-        self.assertEqual(cita["created_utc"], 1758000000.0)
-
-
 if __name__ == "__main__":
     unittest.main()

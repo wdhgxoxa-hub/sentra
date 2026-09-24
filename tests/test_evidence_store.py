@@ -74,7 +74,7 @@ class TestUpsertEvidence(unittest.TestCase):
 
     def guardar(self, *items, run_id=None):
         async def main():
-            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+            async with PostgresStore(dsn=self.dsn) as store:
                 return await store.upsert_evidence(list(items), run_id=run_id)
 
         return run_async(main())
@@ -130,7 +130,7 @@ class TestUpsertEvidence(unittest.TestCase):
         self.guardar(item("20"), item("21"), item("22"))
 
         async def main():
-            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+            async with PostgresStore(dsn=self.dsn) as store:
                 return await store.save_duplicates([
                     Duplicate("stackexchange:21", "stackexchange:20", "fingerprint", None),
                     Duplicate("stackexchange:22", "stackexchange:20", "embedding", 0.9712),
@@ -159,7 +159,7 @@ class TestUpsertEvidence(unittest.TestCase):
                      item("42", fetched_at=viejo))
 
         async def main():
-            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+            async with PostgresStore(dsn=self.dsn) as store:
                 return await store.purge_expired_evidence("youtube", days=30, now=AHORA)
 
         self.assertEqual(run_async(main()), ["youtube:v40"])
@@ -169,11 +169,12 @@ class TestUpsertEvidence(unittest.TestCase):
 
     def test_una_ejecucion_multifuente_se_marca_real(self):
         async def main():
-            async with PostgresStore(dsn=self.dsn, author_salt=SAL) as store:
+            async with PostgresStore(dsn=self.dsn) as store:
                 run_id = await store.start_run("perfil-facturas", trigger_source="multifuente",
                                                parameters={"keywords": ["invoice"]},
                                                data_source="real")
-                return await store.get_run(run_id)
+                return await store._fetchone(
+                    "SELECT * FROM pipeline_runs WHERE id = %s", (run_id,))
 
         run = run_async(main())
         self.assertEqual((run["data_source"], run["trigger_source"]), ("real", "multifuente"))

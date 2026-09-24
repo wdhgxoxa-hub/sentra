@@ -19,7 +19,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from core.ingestion.synthetic import SyntheticFetcher, total_posts
 from core.orchestration.sidecar_server import create_app
 from tests._sin_red import prohibir_red_real
 
@@ -41,45 +40,6 @@ class ConfigTestCase(unittest.TestCase):
         self.env_path = self.tmpdir / ".env"
         self.app = create_app(insecure_dev=True, persist_default=False, env_path=str(self.env_path))
         self.client = TestClient(self.app)
-
-
-class TestSyntheticSource(unittest.TestCase):
-    """La fuente de demostración, que sustituye a Reddit."""
-
-    def test_serves_the_first_page_without_a_cursor(self):
-        items, cursor = SyntheticFetcher()("cualquiera", limit=25, sort="new")
-        self.assertEqual(len(items), 8)
-        self.assertEqual(cursor, "1")
-
-    def test_follows_the_cursor_to_the_second_page(self):
-        fetcher = SyntheticFetcher()
-        _, cursor = fetcher("x", limit=25, sort="new")
-        items, next_cursor = fetcher("x", limit=25, sort="new", cursor=cursor)
-        self.assertEqual(len(items), 7)
-        self.assertIsNone(next_cursor, "dos paginas y se acaba")
-
-    def test_honours_the_limit(self):
-        items, _ = SyntheticFetcher()("x", limit=3, sort="new")
-        self.assertEqual(len(items), 3)
-
-    def test_an_exhausted_source_returns_nothing(self):
-        items, cursor = SyntheticFetcher()("x", limit=25, sort="new", cursor="9")
-        self.assertEqual(items, [])
-        self.assertIsNone(cursor)
-
-    def test_items_carry_the_fields_the_graph_needs(self):
-        items, _ = SyntheticFetcher()("x", limit=1, sort="new")
-        for field in ("id", "subreddit", "title", "selftext", "author",
-                      "score", "created_utc", "url"):
-            self.assertIn(field, items[0])
-
-    def test_the_corpus_spans_several_communities(self):
-        """Sin varias comunidades, ningun cluster podria cualificar."""
-        items, _ = SyntheticFetcher()("x", limit=25, sort="new")
-        self.assertGreaterEqual(len({item["subreddit"] for item in items}), 4)
-
-    def test_total_posts_is_reported(self):
-        self.assertEqual(total_posts(), 15)
 
 
 class TestConfigEndpoint(ConfigTestCase):

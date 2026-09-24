@@ -21,10 +21,7 @@ from pathlib import Path
 import lancedb
 import pyarrow as pa
 
-from core.ingestion.synthetic import SyntheticFetcher
-from core.orchestration import RadarDependencies, RadarPipeline
-from core.orchestration.graph import data_source_of
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
+from core.storage import HashEmbedder, LanceDBStore
 from core.storage.lancedb_store import OpportunityRecord
 from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes
 
@@ -36,45 +33,12 @@ def almacen(ruta: Path) -> LanceDBStore:
     return LanceDBStore(db_path=str(ruta), embedder=HashEmbedder(dim=32))
 
 
-class TestFuenteDelFetcher(unittest.TestCase):
-
-    def test_el_corpus_sintetico_es_demo(self):
-        self.assertEqual(data_source_of(SyntheticFetcher()), "demo")
-
-    def test_el_fetcher_de_reddit_es_reddit(self):
-        class RedditFetcher:  # el sidecar lo reconoce por el nombre de la clase
-            pass
-
-        self.assertEqual(data_source_of(RedditFetcher()), "reddit")
-
-
 class TestLanceDB(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuente_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
 
-
-    def test_un_escaneo_demo_marca_cada_fila_como_demo(self):
-        store = almacen(self.tmp / "lance")
-        RadarPipeline(deps=RadarDependencies(
-            fetcher=SyntheticFetcher(), store=store,
-            search_engine=HybridSearchEngine(store=store),
-        )).run_state("SaaS")
-        fuentes = store._table.to_arrow().column("data_source").to_pylist()
-        self.assertTrue(fuentes)
-        self.assertEqual(set(fuentes), {"demo"})
-
-    def test_la_busqueda_entrega_la_fuente_de_cada_resultado(self):
-        store = almacen(self.tmp / "lance")
-        store.insert_opportunities([
-            OpportunityRecord(id="t3_a", text="invoice export broken", data_source="demo"),
-            OpportunityRecord(id="t3_b", text="invoice export broken again"),
-        ])
-        buscador = HybridSearchEngine(store=store)
-        hits = {h.id: h for h in buscador.search("invoice export", limit=5)}
-        self.assertEqual(hits["t3_a"].data_source, "demo")
-        self.assertIsNone(hits["t3_b"].data_source)
 
     def test_una_tabla_anterior_gana_la_columna_vacia_al_abrirse(self):
         # Una tabla escrita antes de D-J: sin columna data_source.
@@ -169,28 +133,6 @@ class TestPostgres(unittest.TestCase):
 
         with psycopg.connect(self.dsn) as conn:
             return conn.execute(sql).fetchall()
-
-    def test_tras_un_escaneo_demo_todo_registro_persistido_es_demo(self):
-        from core.storage.postgres_store import PostgresStore, run_async
-        from scripts.migrate import migrate
-
-        migrate(self.dsn, MIGRACIONES)
-        store = almacen(self.tmp / "lance")
-        estado = RadarPipeline(deps=RadarDependencies(
-            fetcher=SyntheticFetcher(), store=store,
-            search_engine=HybridSearchEngine(store=store),
-        )).run_state("SaaS")
-
-        async def escribir():
-            async with PostgresStore(dsn=self.dsn, author_salt="6d" * 32) as pg:
-                return await pg.persist_state(estado, data_source="demo")
-
-        run_async(escribir())
-        for tabla in ("raw_posts", "analyzed_signals", "v_radar_feed"):
-            fuentes = {f[0] for f in self._filas(f"SELECT data_source FROM radar.{tabla}")}
-            self.assertEqual(fuentes, {"demo"}, tabla)
-        salud = self._filas("SELECT last_run_data_source FROM radar.v_subreddit_health")
-        self.assertEqual({f[0] for f in salud}, {"demo"})
 
     def test_la_migracion_hereda_la_fuente_de_la_ejecucion(self):
         from scripts.migrate import migrate

@@ -14,11 +14,8 @@ import asyncio
 import json
 import logging
 import os
-import shutil
-import tempfile
 import unittest
 from functools import partial
-from pathlib import Path
 from typing import ClassVar
 from unittest import mock
 
@@ -35,7 +32,6 @@ from core.ingestion.errors import (
     RedditRateLimited,
     RedditUnavailable,
 )
-from core.orchestration.pipeline import RedditFetcher
 
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
@@ -207,22 +203,6 @@ class TestClienteDeIngesta(ConRedDoble):
         for tipo in (RedditCredentialsMissing, RedditAuthFailed, RedditForbidden,
                      RedditNotFound, RedditRateLimited, RedditUnavailable):
             self.assertTrue(issubclass(tipo, RedditAccessError), tipo)
-
-
-class TestFetcherSinCredenciales(ConRedDoble):
-
-    def test_falla_sin_anunciar_una_caida_al_endpoint_publico(self):
-        # El log tampoco puede prometer una via que ya no existe.
-        tmp = Path(tempfile.mkdtemp(prefix="rir_fetcher_"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        fetcher = RedditFetcher(env_path=str(tmp / ".env"))
-        logging.disable(logging.NOTSET)
-        with (
-            self.assertNoLogs("core.orchestration.pipeline", level="WARNING"),
-            self.assertRaises(RedditCredentialsMissing),
-        ):
-            fetcher("SaaS")
-        self.assertEqual(SesionDoble.peticiones, [])
 
 
 class TestTokenOAuth(unittest.TestCase):

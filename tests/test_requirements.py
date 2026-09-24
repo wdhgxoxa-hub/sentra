@@ -33,7 +33,6 @@ OPCIONALES = {"transformers", "torch"}
 MODULO_A_DISTRIBUCION = {
     "google": "google-genai",
     "sklearn": "scikit-learn",
-    "rank_bm25": "rank-bm25",
 }
 
 LINEA = re.compile(r"^([A-Za-z0-9_.\-]+)(\[[^\]]+\])?==([^\s#]+)")

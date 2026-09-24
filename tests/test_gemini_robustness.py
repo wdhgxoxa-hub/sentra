@@ -9,13 +9,14 @@ código se ejercite contra lo mismo que devuelve Google.
 
 Lo que se comprueba:
 
-- timeout por petición y `max_output_tokens` explícitos;
 - reintentos con espera creciente SOLO ante errores transitorios, y nunca
-  después de haber entregado texto (repetiría el documento);
+  después de haber entregado texto (repetiría lo ya entregado);
 - respuesta bloqueada, vacía o cortada por longitud → error tipado, nunca un
-  documento vacío dado por bueno;
-- el plan sin alguna sección exigida → error tipado con la lista de las que
-  faltan, antes de darlo por terminado.
+  texto vacío dado por bueno;
+- cada código de error del proveedor tiene texto en es y en.
+
+Se ejercita el proveedor directamente; el plan de arquitectura por cluster,
+por el que antes se probaba, se retiró en C2.
 """
 
 import unittest
@@ -23,19 +24,12 @@ from unittest import mock
 
 from google.genai import errors, types
 
-from core.intelligence import gemini_architect
-from core.intelligence.gemini_architect import (
-    AVISO_DEMO,
-    AVISO_DESCONOCIDA,
-    SECCIONES_OBLIGATORIAS,
-    secciones_ausentes,
-    stream_architecture,
-)
 from core.llm import gemini as gemini_client
 
 CLAVE = "clave-de-prueba"
 
-CLUSTER = {"label": "invoice + manual", "mentionCount": 3, "dataSource": "reddit"}
+#: Un texto cualquiera que el modelo entrega entero.
+COMPLETO = "Lógica central: un texto que llega entero."
 
 
 def trozo(texto=None, fin=None, bloqueo=None):
@@ -53,12 +47,6 @@ def trozo(texto=None, fin=None, bloqueo=None):
         if bloqueo else None
     )
     return types.GenerateContentResponse(candidates=candidatos, prompt_feedback=feedback)
-
-
-def plan_completo(idioma="es"):
-    return "\n\n".join(
-        f"{'#' if s.startswith('FASE') else '##'} {s}\n\ncontenido" for s in SECCIONES_OBLIGATORIAS[idioma]
-    )
 
 
 def servidor(codigo):
@@ -106,9 +94,11 @@ class Guion:
         return self._siguiente(kwargs)
 
 
-def generar(guion, cluster=CLUSTER, idioma="es"):
-    return "".join(stream_architecture(cluster, api_key=CLAVE, model="m", language=idioma,
-                                       client_factory=guion))
+def generar(guion):
+    """Texto en streaming del proveedor (antes se probaba a través del plan de
+    arquitectura, retirado en C2): reintentos y respuestas inservibles."""
+    proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=guion)
+    return "".join(proveedor.stream_text("x", model="m", max_output_tokens=64, timeout_ms=1))
 
 
 class ConEsperaFalsa(unittest.TestCase):
@@ -119,21 +109,10 @@ class ConEsperaFalsa(unittest.TestCase):
         self.addCleanup(parche.stop)
 
 
-class TestConfiguracion(ConEsperaFalsa):
-
-    def test_cada_peticion_lleva_timeout_y_limite_de_salida(self):
-        guion = Guion([trozo(plan_completo(), "STOP")])
-        generar(guion)
-        config = guion.llamadas[0]["config"]
-        self.assertEqual(config.max_output_tokens, gemini_architect.MAX_OUTPUT_TOKENS)
-        self.assertEqual(config.http_options.timeout, gemini_architect.TIMEOUT_MS)
-        self.assertTrue(config.system_instruction)
-
-
 class TestReintentos(ConEsperaFalsa):
 
     def test_un_error_transitorio_se_reintenta_con_espera_creciente(self):
-        guion = Guion(servidor(503), cliente(429), [trozo(plan_completo(), "STOP")])
+        guion = Guion(servidor(503), cliente(429), [trozo(COMPLETO, "STOP")])
         self.assertIn("Lógica central", generar(guion))
         self.assertEqual(len(guion.llamadas), 3)
         esperas = [c.args[0] for c in self.esperas.call_args_list]
@@ -154,7 +133,7 @@ class TestReintentos(ConEsperaFalsa):
         self.assertEqual(ctx.exception.code, "gemini_rate_limited")
 
     def test_un_error_permanente_no_se_reintenta(self):
-        guion = Guion(cliente(400), [trozo(plan_completo(), "STOP")])
+        guion = Guion(cliente(400), [trozo(COMPLETO, "STOP")])
         with self.assertRaises(gemini_client.GeminiError) as ctx:
             generar(guion)
         self.assertEqual(ctx.exception.code, "gemini_error")
@@ -171,8 +150,8 @@ class TestReintentos(ConEsperaFalsa):
         self.assertEqual(len(guion.llamadas), gemini_client.MAX_RETRIES + 1)
 
     def test_no_se_reintenta_despues_de_haber_entregado_texto(self):
-        # Reintentar repetiría el principio del documento en pantalla.
-        guion = Guion([trozo("# FASE 1\n"), servidor(503)], [trozo(plan_completo(), "STOP")])
+        # Reintentar repetiría el principio del texto ya entregado.
+        guion = Guion([trozo("Lógica\n"), servidor(503)], [trozo(COMPLETO, "STOP")])
         with self.assertRaises(gemini_client.GeminiUnavailable):
             generar(guion)
         self.assertEqual(len(guion.llamadas), 1)
@@ -188,7 +167,7 @@ class TestRespuestasInservibles(ConEsperaFalsa):
 
     def test_una_respuesta_cortada_por_seguridad_es_error_tipado(self):
         with self.assertRaises(gemini_client.GeminiBlocked):
-            generar(Guion([trozo("# FASE 1\n"), trozo(fin="SAFETY")]))
+            generar(Guion([trozo("Lógica\n"), trozo(fin="SAFETY")]))
 
     def test_una_respuesta_vacia_no_se_da_por_buena(self):
         for vacia in ([], [trozo(""), trozo(fin="STOP")]):
@@ -198,7 +177,7 @@ class TestRespuestasInservibles(ConEsperaFalsa):
 
     def test_un_documento_cortado_por_longitud_es_error_tipado(self):
         with self.assertRaises(gemini_client.GeminiTruncated) as ctx:
-            generar(Guion([trozo(plan_completo(), "MAX_TOKENS")]))
+            generar(Guion([trozo(COMPLETO, "MAX_TOKENS")]))
         self.assertEqual(ctx.exception.code, "gemini_truncated")
 
     def test_la_traduccion_tambien_detecta_el_bloqueo(self):
@@ -206,72 +185,6 @@ class TestRespuestasInservibles(ConEsperaFalsa):
         with self.assertRaises(gemini_client.GeminiBlocked):
             gemini_client.GeminiProvider(CLAVE, client_factory=guion).generate_text(
                 "x", model="m", max_output_tokens=64, timeout_ms=1)
-
-
-class TestEstructura(ConEsperaFalsa):
-
-    def test_un_plan_completo_pasa(self):
-        for idioma in ("es", "en"):
-            texto = generar(Guion([trozo(plan_completo(idioma), "STOP")]), idioma=idioma)
-            self.assertEqual(secciones_ausentes(texto, idioma, "reddit"), [])
-
-    def test_si_faltan_secciones_se_dice_cuales(self):
-        incompleto = plan_completo().replace("## Esquema SQL inicial", "## Otra cosa")
-        incompleto = incompleto.replace("## Monetización", "")
-        with self.assertRaises(gemini_client.GeminiIncomplete) as ctx:
-            generar(Guion([trozo(incompleto, "STOP")]))
-        self.assertEqual(ctx.exception.code, "gemini_incomplete")
-        self.assertEqual(ctx.exception.missing, ["Esquema SQL inicial", "Monetización"])
-
-    def test_los_titulos_se_reconocen_sin_importar_mayusculas_ni_sufijos(self):
-        texto = plan_completo().replace("# FASE 1", "# Fase 1: MVP EXPRESS (24-48 h)")
-        self.assertEqual(secciones_ausentes(texto, "es", "reddit"), [])
-
-    def test_una_seccion_citada_en_el_cuerpo_no_cuenta_como_titulo(self):
-        texto = plan_completo().replace("## Hoja de ruta", "Hoja de ruta")
-        self.assertEqual(secciones_ausentes(texto, "es", "reddit"), ["Hoja de ruta"])
-
-    def test_con_demo_el_aviso_inicial_lo_pone_la_aplicacion(self):
-        """Con Gemini real, el modelo no copió el aviso letra a letra y el
-        plan (43 s, 10/10 secciones) se rechazó. El aviso no puede depender
-        de que el modelo obedezca: lo escribe el código."""
-        demo = dict(CLUSTER, dataSource="demo")
-        for idioma in ("es", "en"):
-            texto = generar(Guion([trozo(plan_completo(idioma), "STOP")]), demo, idioma)
-            self.assertTrue(texto.startswith(AVISO_DEMO[idioma] + "\n\n"), idioma)
-            self.assertEqual(texto.count(AVISO_DEMO[idioma]), 1, idioma)
-            self.assertEqual(secciones_ausentes(texto, idioma, "demo"), [], idioma)
-
-    def test_aunque_el_modelo_abra_con_un_titulo_el_aviso_va_delante(self):
-        demo = dict(CLUSTER, dataSource="demo")
-        con_titulo = "# Plan de arquitectura\n\n" + plan_completo()
-        texto = generar(Guion([trozo(con_titulo, "STOP")]), cluster=demo)
-        self.assertTrue(texto.startswith(AVISO_DEMO["es"]))
-
-    def test_sin_procedencia_el_aviso_es_el_de_origen_desconocido(self):
-        sin_fuente = {k: v for k, v in CLUSTER.items() if k != "dataSource"}
-        texto = generar(Guion([trozo(plan_completo(), "STOP")]), cluster=sin_fuente)
-        self.assertTrue(texto.startswith(AVISO_DESCONOCIDA["es"] + "\n\n"))
-
-    def test_con_datos_de_reddit_no_hay_aviso(self):
-        texto = generar(Guion([trozo(plan_completo(), "STOP")]))
-        self.assertEqual(texto, plan_completo())
-
-    def test_si_el_modelo_falla_antes_de_escribir_no_sale_el_aviso_suelto(self):
-        demo = dict(CLUSTER, dataSource="demo")
-        emitido = []
-        with self.assertRaises(gemini_client.GeminiError):
-            # extend conserva lo recibido antes de la excepción.
-            emitido.extend(stream_architecture(
-                demo, api_key=CLAVE, model="m", client_factory=Guion(cliente(400)),
-            ))
-        self.assertEqual(emitido, [])
-
-    def test_las_secciones_exigidas_son_las_que_pide_el_sistema(self):
-        for idioma in ("es", "en"):
-            sistema, _ = gemini_architect.build_prompt(CLUSTER, idioma)
-            for seccion in SECCIONES_OBLIGATORIAS[idioma]:
-                self.assertRegex(sistema, rf"(?m)^#+ {seccion}", seccion)
 
 
 class TestCodigosTraducidos(unittest.TestCase):
@@ -290,7 +203,7 @@ class TestCodigosTraducidos(unittest.TestCase):
 
         python = {
             clase.code
-            for modulo in (base, gemini_client, gemini_architect)
+            for modulo in (base, gemini_client)
             for clase in vars(modulo).values()
             if isinstance(clase, type) and issubclass(clase, base.LLMError)
         } | {"internal_error"}

@@ -4,8 +4,8 @@ La clave de Gemini no sale en ningún texto (AUD-031)
 
 El SDK devuelve la clave dentro del detalle de algunos errores. Ninguna
 salida de SENTRA puede contenerla: ni la respuesta de un endpoint, ni el
-documento en streaming, ni la traducción, ni la prueba de clave, ni los
-logs (con traza incluida).
+texto en streaming o en JSON, ni la prueba de clave, ni los logs (con traza
+incluida).
 
 La clave de prueba tiene la forma real de una clave de Google, pero se
 construye en tiempo de ejecución: ningún literal con esa forma llega al
@@ -22,7 +22,6 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
-from core.intelligence import gemini_architect, translator
 from core.llm import gemini as gemini_client
 from core.orchestration.sidecar_server import create_app
 from tests._sin_red import prohibir_red_real
@@ -96,8 +95,8 @@ class TestFrontera(ConLogs):
 
     def test_el_error_del_streaming_no_arrastra_la_clave(self):
         with self.assertRaises(gemini_client.GeminiError) as ctx:
-            list(gemini_architect.stream_architecture(
-                {"label": "x"}, api_key=CLAVE, model="m", client_factory=cliente_que_filtra))
+            list(gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra).stream_text(
+                "x", model="m", max_output_tokens=64, timeout_ms=1))
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
         # La excepción original (con la clave) no viaja encadenada.
         self.assertIsNone(ctx.exception.__cause__)
@@ -109,13 +108,11 @@ class TestFrontera(ConLogs):
             proveedor.list_models()
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
 
-    def test_la_traduccion_no_la_deja_en_el_log(self):
-        translator.clear_cache()
-        resultado = translator.translate(
-            ["texto nuevo sin traducir"], "es", api_key=CLAVE, model="m",
-            client_factory=cliente_que_filtra)
-        self.assertEqual(resultado[0].engine, "offline")
-        self.assertSinClaves(resultado[0].text)
+    def test_el_error_del_texto_completo_tampoco_la_arrastra(self):
+        proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra)
+        with self.assertRaises(gemini_client.GeminiError) as ctx:
+            proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1)
+        self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
 
 
 class TestSidecar(ConLogs):

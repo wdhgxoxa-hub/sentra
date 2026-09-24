@@ -17,8 +17,6 @@ el grafo, con un fetcher falso; PostgreSQL, en una base desechable.
 
 import asyncio
 import os
-import shutil
-import tempfile
 import unittest
 from functools import partial
 from pathlib import Path
@@ -29,8 +27,6 @@ import httpx
 from core.ingestion import RedditIngestionClient
 from core.ingestion.auth import RedditOAuth
 from core.ingestion.client import MAX_COMMENT_DEPTH, MAX_COMMENTS_PER_POST
-from core.orchestration import RadarDependencies, RadarPipeline
-from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 
 RAIZ = Path(__file__).resolve().parents[1]
 UA = "python:sentra-tests:1.0 (by /u/sentra_ci)"
@@ -121,62 +117,6 @@ POST_RUIDO = {"id": "p2", "title": "Hello everyone", "selftext": "nice day",
               "author": "bob", "subreddit": "SaaS", "created_utc": 1758000000.0, "score": 1}
 
 
-class FetcherConComentarios:
-    """Fetcher falso: dos posts (uno con dolor, otro ruido) y sus comentarios."""
-
-    def __init__(self):
-        self.pedidos: list[tuple[str, str]] = []
-
-    def __call__(self, subreddit, limit=25, sort="hot", cursor=None):
-        return [POST_DOLOR, POST_RUIDO], None
-
-    def fetch_comments(self, subreddit, post_id):
-        self.pedidos.append((subreddit, post_id))
-        return [
-            {"id": "t1_c1", "kind": "comment", "post_id": post_id, "depth": 0, "score": 7,
-             "body": "Same here, the invoice export breaks every month and it is so frustrating",
-             "author": "carla", "subreddit": subreddit, "created_utc": 1758000100.0,
-             "permalink": "https://reddit.com/r/SaaS/comments/p1/x/c1/"},
-            {"id": "t1_c2", "kind": "comment", "post_id": post_id, "depth": 1, "score": 1,
-             "body": "lol", "author": "dan", "subreddit": subreddit,
-             "created_utc": 1758000200.0, "permalink": ""},
-        ]
-
-
-class ConGrafo(unittest.TestCase):
-
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="rir_comentarios_"))
-        self.addCleanup(shutil.rmtree, self.tmp, True)
-        self.store = LanceDBStore(db_path=str(self.tmp / "lance"), embedder=HashEmbedder(dim=32))
-        self.fetcher = FetcherConComentarios()
-        self.estado = RadarPipeline(deps=RadarDependencies(
-            fetcher=self.fetcher, store=self.store,
-            search_engine=HybridSearchEngine(store=self.store),
-        )).run_state("SaaS")
-
-
-
-class TestGrafo(ConGrafo):
-
-    def test_solo_se_piden_comentarios_de_los_posts_que_pasaron_el_filtro(self):
-        self.assertEqual(self.fetcher.pedidos, [("SaaS", "p1")])
-
-    def test_los_comentarios_se_guardan_todos_y_se_analizan_los_que_pasan_el_filtro(self):
-        self.assertEqual({c["id"] for c in self.estado["all_comments"]}, {"t1_c1", "t1_c2"})
-        analizadas = {s.id for s in self.estado["all_signals"]}
-        self.assertIn("t1_c1", analizadas)
-        self.assertNotIn("t1_c2", analizadas)
-
-    def test_un_comentario_no_se_confunde_con_un_post(self):
-        self.assertNotIn("t1_c1", {i["id"] for i in self.estado["all_items"]})
-
-    def test_el_comentario_analizado_llega_a_lancedb_con_su_fuente(self):
-        fila = self.store.get_by_id("t1_c1")
-        self.assertIsNotNone(fila)
-        self.assertEqual(fila["data_source"], "demo")
-
-
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
 )
@@ -193,46 +133,6 @@ def _postgres_available() -> bool:
             return True
     except psycopg.Error:
         return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
-class TestPersistencia(ConGrafo):
-
-    def test_los_comentarios_se_persisten_con_su_post_su_fuente_y_su_senal(self):
-        import psycopg
-
-        from core.storage.postgres_store import PostgresStore, run_async
-        from scripts.migrate import migrate
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-            conn.execute(f'CREATE DATABASE "{TEST_DB}"')
-        dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
-        try:
-            migrate(dsn, RAIZ / "sql" / "migrations")
-
-            async def escribir():
-                async with PostgresStore(dsn=dsn, author_salt="6d" * 32) as pg:
-                    return await pg.persist_state(self.estado, data_source="reddit")
-
-            resultado = run_async(escribir())
-            self.assertEqual(resultado["comments"], 2)
-            with psycopg.connect(dsn) as conn:
-                conn.execute("SET search_path = radar, public")
-                comentarios = conn.execute(
-                    "SELECT c.reddit_id, p.reddit_id, c.data_source, c.depth "
-                    "FROM raw_comments c JOIN raw_posts p ON p.id = c.post_id ORDER BY 1"
-                ).fetchall()
-                senal = conn.execute(
-                    "SELECT source_kind::text, comment_id IS NOT NULL, data_source "
-                    "FROM analyzed_signals WHERE reddit_id = 't1_c1'"
-                ).fetchone()
-            self.assertEqual(comentarios, [("t1_c1", "p1", "reddit", 0),
-                                           ("t1_c2", "p1", "reddit", 1)])
-            self.assertEqual(senal, ("comment", True, "reddit"))
-        finally:
-            with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-                conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
 
 
 if __name__ == "__main__":

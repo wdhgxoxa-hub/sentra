@@ -23,17 +23,12 @@ google-genai==2.19.0
 lancedb==0.38.0
 pyarrow==25.0.1
 pydantic==2.12.5
-rank-bm25==0.2.2
 
 # Embeddings semánticos reales (ONNX en CPU, sin PyTorch).
 # Sin este paquete, core.storage.get_embedder() falla de forma explícita en
 # lugar de degradar en silencio al generador por hash, que NO es semántico.
 fastembed==0.8.0
 onnxruntime==1.30.0  # implícita: motor de inferencia de fastembed, fijado al verificado
-
-# --- Fase 5: orquestación y exposición ---
-langgraph==1.2.11
-mcp==1.29.0
 
 # --- Sidecar HTTP local (lo que Rust no puede resolver) ---
 fastapi==0.141.1

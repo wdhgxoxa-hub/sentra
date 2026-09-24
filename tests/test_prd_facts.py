@@ -11,14 +11,9 @@ gravedad que el clasificador no pudo determinar.
 
 import os
 import re
-import shutil
-import tempfile
 import unittest
-from pathlib import Path
 
-from core.intelligence import IntelligenceEngine
 from core.intelligence.blueprint import build_blueprint
-from core.orchestration.aggregation import build_clusters, cluster_to_dict
 
 ABSOLUTAS = re.compile(r"\b(todas?|todos?|siempre|nunca|all|always|never)\b", re.IGNORECASE)
 
@@ -129,45 +124,6 @@ class TestFuenteDeLosDatos(unittest.TestCase):
         self.assertIn("no registrada", md.splitlines()[0])
 
 
-class TestEstadisticasDeLaAgregacion(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.engine = IntelligenceEngine(use_transformers_if_available=False)
-
-    def _senal(self, ident, sub, cuerpo):
-        return self.engine.analyze_signal(
-            item_id=ident, title="The export is broken", body=cuerpo, author=ident,
-            subreddit=sub, created_utc=1758000000.0,
-        )
-
-    def test_los_recuentos_salen_de_todas_las_quejas(self):
-        senales = [
-            self._senal("a", "SaaS", "manual invoice work"),
-            self._senal("b", "accounting", "manual invoice work"),
-            self._senal("c", "smallbusiness", "manual work every day"),
-        ]
-        cluster = cluster_to_dict(build_clusters(senales)[0])
-        stats = cluster["stats"]
-        self.assertEqual(stats["mentions"], 3)
-        self.assertEqual(stats["distinct_texts"], 2)
-        recuento = {k["keyword"]: k["count"] for k in stats["keywords"]}
-        self.assertEqual(recuento, {"manual": 3, "invoice": 2, "every day": 1})
-        self.assertEqual(stats["keywords"][0]["keyword"], "manual")
-        pares = {(p["a"], p["b"]): p["count"] for p in stats["pairs"]}
-        self.assertEqual(pares[("manual", "invoice")], 2)
-        self.assertEqual(stats["severity_undetermined"], 3)
-
-    def test_cuenta_con_que_motor_se_clasifico_cada_queja(self):
-        # El dossier de Gemini lo declara (AUD-017): no es lo mismo una
-        # etiqueta del NLI que una de la heurística de palabras.
-        senales = [self._senal("a", "SaaS", "manual invoice work"),
-                   self._senal("b", "SaaS", "manual invoice work again")]
-        senales[1].classifier_engine = "transformers"
-        stats = cluster_to_dict(build_clusters(senales)[0])["stats"]
-        self.assertEqual(stats["classifier_engines"], {"heuristic": 1, "transformers": 1})
-
-
 ADMIN_DSN = os.environ.get(
     "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
 )
@@ -184,53 +140,6 @@ def _postgres_available() -> bool:
             return True
     except psycopg.Error:
         return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
-class TestLlegaHastaLaVista(unittest.TestCase):
-    """Las estadísticas y la fuente llegan a v_opportunity_board, que es lo
-    que lee Rust para pedir el PRD."""
-
-    def test_la_vista_expone_estadisticas_y_fuente(self):
-        import psycopg
-
-        from core.ingestion.synthetic import SyntheticFetcher
-        from core.orchestration import RadarDependencies, RadarPipeline
-        from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
-        from core.storage.postgres_store import PostgresStore, run_async
-        from scripts.migrate import migrate
-
-        tmp = Path(tempfile.mkdtemp(prefix="rir_prd_"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
-            conn.execute(f'CREATE DATABASE "{TEST_DB}"')
-        dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
-        try:
-            migrate(dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
-            store = LanceDBStore(db_path=str(tmp / "lance"), embedder=HashEmbedder(dim=32))
-            estado = RadarPipeline(deps=RadarDependencies(
-                fetcher=SyntheticFetcher(), store=store,
-                search_engine=HybridSearchEngine(store=store),
-            )).run_state("SaaS")
-
-            async def escribir():
-                async with PostgresStore(dsn=dsn, author_salt="6d" * 32) as pg:
-                    return await pg.persist_state(estado, data_source="demo")
-
-            run_async(escribir())
-            with psycopg.connect(dsn) as conn:
-                filas = conn.execute(
-                    "SELECT cluster_stats, data_source, mention_count "
-                    "FROM radar.v_opportunity_board"
-                ).fetchall()
-            self.assertTrue(filas)
-            for stats, fuente, menciones in filas:
-                self.assertEqual(fuente, "demo")
-                self.assertEqual(stats["mentions"], menciones)
-        finally:
-            with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-                conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
 
 
 if __name__ == "__main__":

@@ -65,11 +65,10 @@ def _guardar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> st
     try:
         from core.storage.postgres_store import PostgresStore, run_async
 
-        salt = load_or_create_salt(ctx.env_path)
         vectores = ctx.evidence_vectors() if ctx.evidence_vectors else None
 
         async def guardar() -> None:
-            async with PostgresStore(dsn=ctx.postgres_dsn, author_salt=salt) as store:
+            async with PostgresStore(dsn=ctx.postgres_dsn) as store:
                 await persist_multiscan(
                     store, run_id, resultado, vector_store=vectores,
                     retention={c.id: c.retention_days for c in SOURCES if c.retention_days})

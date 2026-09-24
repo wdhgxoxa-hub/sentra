@@ -11,15 +11,12 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import ClassVar
 
 from core.storage import (
     DEFAULT_VECTOR_DIM,
     EmbeddingError,
     FastEmbedEmbedder,
     HashEmbedder,
-    HybridSearchEngine,
-    HybridSearchResult,
     LanceDBStore,
     OpportunityRecord,
     get_embedder,
@@ -51,7 +48,6 @@ class StoreTestCase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.embedder = HashEmbedder(dim=TEST_DIM)
         self.store = LanceDBStore(db_path=self.tmpdir, embedder=self.embedder)
-
 
 
 class TestResolveDbPath(unittest.TestCase):
@@ -174,13 +170,6 @@ class TestSinAutor(StoreTestCase):
         filas = reabierto._table.to_arrow().to_pylist()
         self.assertEqual([f["id"] for f in filas], ["t3_viejo"])
         self.assertNotIn("nombre_real", str(filas))
-
-    def test_la_busqueda_no_devuelve_autor(self):
-        self.store.insert_opportunities([_record("a1", "conciliacion bancaria a mano")])
-        motor = HybridSearchEngine(store=self.store)
-        resultados = motor.search("conciliacion", limit=1)
-        self.assertTrue(resultados)
-        self.assertFalse(hasattr(resultados[0], "author"))
 
 
 class TestReopening(StoreTestCase):
@@ -337,88 +326,6 @@ class TestVectorSearch(StoreTestCase):
         )
 
 
-class TestHybridSearch(StoreTestCase):
-    """Fusion Reciprocal Rank Fusion entre la rama densa y la lexica BM25."""
-
-    CORPUS: ClassVar[list[dict]] = [
-        {"id": "a1", "text": "no consigo exportar las facturas a csv desde la app",
-         "subreddit": "smallbusiness", "urgency_tier": "HIGH", "opportunity_score": 0.9},
-        {"id": "b2", "text": "busco una alternativa a notion para equipos grandes",
-         "subreddit": "productivity", "urgency_tier": "LOW", "opportunity_score": 0.4},
-        {"id": "c3", "text": "pgpool se cae bajo carga y pierdo conexiones",
-         "subreddit": "devops", "urgency_tier": "HIGH", "opportunity_score": 0.8},
-    ]
-
-    def setUp(self):
-        super().setUp()
-        self.store.insert_opportunities([OpportunityRecord(**d) for d in self.CORPUS])
-        self.engine = HybridSearchEngine(store=self.store)
-        self.engine.index_corpus(self.CORPUS)
-
-    def test_index_corpus_reports_document_count(self):
-        self.assertEqual(self.engine.index_corpus(self.CORPUS), 3)
-
-    def test_indexing_an_empty_corpus_clears_the_index(self):
-        self.assertEqual(self.engine.index_corpus([]), 0)
-
-    def test_extend_corpus_keeps_the_previously_indexed_documents(self):
-        self.engine.index_corpus([self.CORPUS[0]])
-        self.assertEqual(self.engine.extend_corpus([self.CORPUS[1]]), 2)
-        self.assertEqual(self.engine.search("facturas csv", limit=3)[0].id, "a1")
-
-    def test_extend_corpus_replaces_a_document_with_the_same_id(self):
-        self.engine.index_corpus([self.CORPUS[0]])
-        updated = {**self.CORPUS[0], "text": "texto corregido"}
-        self.assertEqual(self.engine.extend_corpus([updated]), 1)
-
-    def test_extend_corpus_with_nothing_leaves_the_index_untouched(self):
-        self.engine.index_corpus(self.CORPUS)
-        self.assertEqual(self.engine.extend_corpus([]), 3)
-
-    def test_blank_query_returns_no_results(self):
-        self.assertEqual(self.engine.search("   "), [])
-
-    def test_results_are_hybrid_search_results(self):
-        results = self.engine.search("facturas csv", limit=3)
-        self.assertTrue(results)
-        self.assertTrue(all(isinstance(r, HybridSearchResult) for r in results))
-
-    def test_rare_lexical_term_is_retrieved_by_the_bm25_branch(self):
-        results = self.engine.search("pgpool", limit=3)
-        self.assertEqual(results[0].id, "c3")
-        self.assertEqual(results[0].bm25_rank, 1)
-
-    def test_rrf_score_follows_the_weighted_reciprocal_formula(self):
-        results = self.engine.search("facturas csv", limit=3)
-        self.assertTrue(results)
-        for r in results:
-            expected = 0.0
-            if r.dense_rank is not None:
-                expected += self.engine.dense_weight / (self.engine.rrf_k + r.dense_rank)
-            if r.bm25_rank is not None:
-                expected += self.engine.bm25_weight / (self.engine.rrf_k + r.bm25_rank)
-            self.assertAlmostEqual(r.rrf_score, round(expected, 6), places=6)
-
-    def test_results_are_ordered_by_descending_rrf_score(self):
-        scores = [r.rrf_score for r in self.engine.search("facturas csv", limit=3)]
-        self.assertEqual(scores, sorted(scores, reverse=True))
-
-    def test_limit_caps_the_fused_result_set(self):
-        self.assertEqual(len(self.engine.search("facturas", limit=1)), 1)
-
-    def test_sql_filter_is_enforced_on_both_branches(self):
-        """Un documento excluido por el filtro no debe colarse por la rama BM25."""
-        results = self.engine.search(
-            "notion", limit=5, filter_sql="urgency_tier = 'HIGH'"
-        )
-        self.assertNotIn("b2", {r.id for r in results})
-
-    def test_metadata_travels_from_the_corpus_to_the_result(self):
-        top = next(r for r in self.engine.search("pgpool", limit=3) if r.id == "c3")
-        self.assertEqual(top.subreddit, "devops")
-        self.assertEqual(top.urgency_tier, "HIGH")
-
-
 class TestEmbeddingPolicy(unittest.TestCase):
     """El hash MD5 es un recurso de emergencia, jamas el camino por defecto."""
 
@@ -502,8 +409,7 @@ class TestPublicApi(unittest.TestCase):
         from core import storage
 
         for name in (
-            "LanceDBStore", "OpportunityRecord", "HybridSearchEngine",
-            "HybridSearchResult", "HashEmbedder", "FastEmbedEmbedder",
+            "LanceDBStore", "OpportunityRecord", "HashEmbedder", "FastEmbedEmbedder",
             "get_embedder", "resolve_db_path", "EmbeddingError",
             "DEFAULT_VECTOR_DIM",
         ):

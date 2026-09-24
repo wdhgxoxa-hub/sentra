@@ -13,7 +13,6 @@ import os
 import unittest
 from pathlib import Path
 
-from core.ingestion.synthetic import PAGES
 from core.intelligence import IntelligenceEngine
 from core.intelligence.zeroshot_nli import (
     INTENT_CANDIDATE_LABELS,
@@ -21,13 +20,6 @@ from core.intelligence.zeroshot_nli import (
     SENTIMENT_CANDIDATE_LABELS,
     UNDETERMINED_LABEL,
     ZeroShotNLIClassifier,
-)
-from core.orchestration.aggregation import aggregate_metrics
-from core.storage.postgres_store import (
-    normalize_buying_intent,
-    normalize_pain_severity,
-    normalize_sentiment,
-    signal_to_row,
 )
 
 SIN_EVIDENCIA = [
@@ -110,27 +102,9 @@ class TestPuntuacion(unittest.TestCase):
         self.assertEqual(senal.pain_severity, UNDETERMINED_LABEL)
         self.assertEqual(senal.score_breakdown.severity_factor, 0.0)
 
-    def test_en_el_cluster_la_indeterminada_tampoco_suma(self):
-        senal = self._senal("Happy friday everyone", "Hope you all have a great weekend.")
-        metricas = aggregate_metrics([senal, senal])
-        self.assertEqual(metricas.average_severity, 1.0)  # 1.0 -> factor 0
-
     def test_la_senal_persiste_el_motor_real(self):
         senal = self._senal("Happy friday everyone", "Hope you all have a great weekend.")
         self.assertEqual(senal.classifier_engine, "heuristic")
-        self.assertEqual(signal_to_row(senal)["classifier_engine"], "heuristic")
-
-    def test_la_normalizacion_conserva_undetermined(self):
-        self.assertEqual(normalize_buying_intent(UNDETERMINED_LABEL), "undetermined")
-        self.assertEqual(normalize_pain_severity(UNDETERMINED_LABEL), "undetermined")
-        self.assertEqual(normalize_sentiment(UNDETERMINED_LABEL), "undetermined")
-
-    def test_el_corpus_demo_ya_no_sale_entero_como_bloqueante_grave(self):
-        severidades = [
-            self._senal(titulo, cuerpo).pain_severity
-            for pagina in PAGES for (_id, _sub, titulo, cuerpo) in pagina
-        ]
-        self.assertLess(severidades.count("severe blocker"), len(severidades))
 
 
 ADMIN_DSN = os.environ.get(
