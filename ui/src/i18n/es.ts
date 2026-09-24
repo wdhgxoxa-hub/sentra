@@ -302,6 +302,7 @@ export const es = {
     },
     buildCount: "{count} de {target} nichos para construir",
     score: "Puntaje {score}/100",
+    noCommonProblem: "Sin problema común",
     rule: "Regla {rule}",
     missing: "Falta: {gates}",
     corroboration: "Corroboración por fuente",

@@ -137,6 +137,13 @@ class TestDossier(unittest.TestCase):
         self.assertIn("https://stackoverflow.com/q/2", firmas[0])
         self.assertNotIn("a" * 64, firmas[0])
 
+    def test_un_grupo_sin_problema_comun_no_lleva_puntuacion(self):
+        doc = compose_dossier(detalle(verdict="DESCARTAR", score=None, rule="0: no es un mismo problema (G0)"),
+                              dossier_llm(), "es", model="m", generated_at=AHORA)
+        texto = textos_de(doc)
+        self.assertIn("sin problema común", texto)
+        self.assertNotIn("None", texto)
+
     def test_la_viabilidad_es_una_estimacion_del_modelo(self):
         doc = compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA)
         viabilidad = next(s for s in doc.sections if s.id == "viabilidad")

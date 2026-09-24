@@ -7,6 +7,7 @@ import { SourceBadge } from "@/components/SourceBadge";
 import { comoError } from "@/lib/errors";
 import { useEvidenceFeed, useJudgeTop, useSources } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
+import { nombreDelGrupo, puntuacionDelGrupo } from "@/lib/veredicto";
 
 /** Piezas del feed: las más recientes, sin duplicados. */
 const FEED_LIMIT = 40;
@@ -79,15 +80,15 @@ export function RadarViewPage() {
                   {t.judge.verdict[v.verdict]}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">
-                  {v.keywords.slice(0, 3).join(" · ") || v.clusterKey}
+                  {nombreDelGrupo(v, t.judge.noCommonProblem)}
                 </span>
                 <span className="text-[11px] text-ink-faint">
                   {t.radar.members.replace("{n}", String(v.memberCount))}
                   {v.missing.length > 0 && ` · ${t.judge.missing.replace("{gates}", v.missing.join(", "))}`}
                 </span>
-                <span className="font-mono text-xs tabular-nums">
-                  {t.judge.score.replace("{score}", v.score.toFixed(1))}
-                </span>
+                {puntuacionDelGrupo(v, t.judge.score) && (
+                  <span className="font-mono text-xs tabular-nums">{puntuacionDelGrupo(v, t.judge.score)}</span>
+                )}
               </li>
             ))}
           </ul>

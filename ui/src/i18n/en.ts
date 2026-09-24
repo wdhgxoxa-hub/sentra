@@ -296,6 +296,7 @@ export const en: Dictionary = {
     },
     buildCount: "{count} of {target} niches to build",
     score: "Score {score}/100",
+    noCommonProblem: "No common problem",
     rule: "Rule {rule}",
     missing: "Missing: {gates}",
     corroboration: "Corroboration by source",

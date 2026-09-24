@@ -324,7 +324,8 @@ export interface JudgeVerdict {
   verdict: NicheVerdict;
   /** Regla de la tabla D-M3 que decidió. */
   rule: string;
-  score: number;
+  /** null = grupo mezclado (G0 fallida): sin problema común, sin puntuación. */
+  score: number | null;
   weightsVersion: string;
   /** Etiquetador (versión/modelo); null = desconocido (veredicto anterior a la 011). */
   labelerVersion: string | null;

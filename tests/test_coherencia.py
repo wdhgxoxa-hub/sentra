@@ -133,6 +133,8 @@ class TestEnElJuez(unittest.TestCase):
         g0 = next(g for g in veredicto["gates"] if g["gate"] == "G0")
         self.assertEqual((g0["passed"], g0["measured"], g0["note"]), (False, True, "mezcla"))
         self.assertEqual(doble.esquemas.count(CoherenceReport), 1)
+        # Decisión del usuario: un grupo mezclado no lleva puntuación, solo «sin problema común».
+        self.assertIsNone(veredicto["score"])
         self.assertNotIn(AdvocateReport, doble.esquemas)
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v4")
 

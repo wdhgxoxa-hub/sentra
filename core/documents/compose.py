@@ -46,6 +46,7 @@ ROTULOS: dict[str, dict[str, Any]] = {
         "plan_sections": ["Qué se construye y para quién", "Alcance del MVP", "Stack",
                           "Arquitectura", "Modelo de datos", "Pasos", "Validación tras el lanzamiento",
                           "Plan de publicación", "Procedencia"],
+        "no_common_problem": "sin problema común",
         "verdict": "Veredicto", "score": "Puntuación", "rule": "Regla", "missing": "Compuertas que faltan",
         "none": "ninguna", "niche": "Nicho", "run": "Ejecución", "generated": "Generado",
         "model": "Modelo de documentos", "source": "Fuente de los datos", "verdict_id": "Veredicto (id)",
@@ -79,6 +80,7 @@ ROTULOS: dict[str, dict[str, Any]] = {
         "plan_sections": ["What is built and for whom", "MVP scope", "Stack", "Architecture",
                           "Data model", "Steps", "Post-launch validation", "Publication plan",
                           "Provenance"],
+        "no_common_problem": "no common problem",
         "verdict": "Verdict", "score": "Score", "rule": "Rule", "missing": "Failing gates",
         "none": "none", "niche": "Niche", "run": "Run", "generated": "Generated",
         "model": "Documents model", "source": "Data source", "verdict_id": "Verdict (id)",
@@ -160,7 +162,7 @@ def _portada_y_aviso(detalle: Mapping[str, Any], r: Mapping[str, Any], model: st
     aviso = {"real": r["notice_real"], "demo": r["notice_demo"]}.get(origen or "", r["notice_unknown"])
     portada = (
         (r["niche"], ", ".join(detalle.get("keywords") or [])),
-        (r["verdict"], f"{detalle.get('verdict')} · {detalle.get('score')}"),
+        (r["verdict"], f"{detalle.get('verdict')} · {_puntuacion(detalle, r)}"),
         (r["run"], str(detalle.get("run_id") or "")),
         (r["generated"], generated_at.isoformat(timespec="minutes")),
         (r["model"], model),
@@ -211,7 +213,7 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
 
     resumen = (Block("table", rows=(
         (r["verdict"], str(detalle.get("verdict"))),
-        (r["score"], str(detalle.get("score"))),
+        (r["score"], _puntuacion(detalle, r)),
         (r["rule"], str(detalle.get("rule"))),
         (r["missing"], ", ".join(detalle.get("missing") or []) or r["none"]),
     )),) + citas.aviso()
@@ -256,6 +258,11 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     return DocumentModel(language=language, kind="dossier", title=_titulo("dossier", detalle, r),
                          data_source=origen, cover=portada, source_notice=aviso,
                          sections=_secciones(ids, r["dossier_sections"], bloques))
+
+
+def _puntuacion(detalle: Mapping[str, Any], r: Mapping[str, str]) -> str:
+    """La puntuación, o «sin problema común» si G0 la descartó como mezcla."""
+    return r["no_common_problem"] if detalle.get("score") is None else str(detalle.get("score"))
 
 
 def _firma(pieza: Mapping[str, Any]) -> str:

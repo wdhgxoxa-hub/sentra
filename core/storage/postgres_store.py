@@ -180,7 +180,8 @@ class PostgresStore:
                 (
                     self.tenant_id, run_id, v.get("opportunity_id"), v["cluster_key"],
                     list(v.get("keywords") or []), v["verdict"], v["rule"],
-                    round(float(v["score"]), 2), v["weights_version"], list(v.get("missing") or []),
+                    None if v["score"] is None else round(float(v["score"]), 2), v["weights_version"],
+                    list(v.get("missing") or []),
                     json.dumps(v["gates"], default=str), json.dumps(v["dimensions"], default=str),
                     json.dumps(v.get("advocate") or {}, default=str), len(v["member_ids"]),
                     v.get("labeler_version"), v["clustering_version"],

@@ -9,6 +9,7 @@ import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { JudgeVerdict, JudgeVersions, NicheVerdict } from "@/types/radar";
+import { nombreDelGrupo, puntuacionDelGrupo } from "@/lib/veredicto";
 
 export const VERDICT_COLOR: Record<NicheVerdict, string> = {
   CONSTRUIR: "border-ok text-ok",
@@ -51,10 +52,10 @@ export function VerdictCard({
         <span className={`rounded-lg border-2 px-3 py-1 text-base font-bold ${VERDICT_COLOR[v.verdict]}`}>
           {t.judge.verdict[v.verdict]}
         </span>
-        <span className="text-sm font-semibold">{v.keywords.slice(0, 3).join(" · ") || v.clusterKey}</span>
-        <span className="ml-auto text-xs text-ink-soft">
-          {t.judge.score.replace("{score}", v.score.toFixed(1))}
-        </span>
+        <span className="text-sm font-semibold">{nombreDelGrupo(v, t.judge.noCommonProblem)}</span>
+        {puntuacionDelGrupo(v, t.judge.score) && (
+          <span className="ml-auto text-xs text-ink-soft">{puntuacionDelGrupo(v, t.judge.score)}</span>
+        )}
       </header>
       {antiguas.length > 0 && (
         <p className="mt-1 text-[11px] text-warn">

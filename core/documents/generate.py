@@ -105,7 +105,8 @@ def build_prompt(kind: DocKind, verdict: Mapping[str, Any], language: str) -> tu
     cabecera = (
         f"Nicho: {', '.join(verdict.get('keywords') or [])}\n"
         f"Veredicto del juez: {verdict.get('verdict')} (regla: {verdict.get('rule')}; "
-        f"puntuación: {verdict.get('score')}; compuertas que faltan: "
+        f"puntuación: {'sin problema común' if verdict.get('score') is None else verdict.get('score')}; "
+        f"compuertas que faltan: "
         f"{', '.join(verdict.get('missing') or []) or 'ninguna'})\n"
         f"Dimensiones: {dimensiones or 'sin datos'}\n"
     )

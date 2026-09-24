@@ -106,7 +106,8 @@ def run_judge(
             "keywords": grupo.keywords,
             "verdict": abogado.verdict_after,
             "rule": juicio.rule,
-            "score": juicio.score.score,
+            # Una mezcla (G0 fallida) no tiene problema común que puntuar (decisión del usuario).
+            "score": None if juicio.rule.startswith("0:") else juicio.score.score,
             "weights_version": juicio.score.weights_version,
             "labeler_version": f"{LABELER_VERSION}/{model}" if model else LABELER_VERSION,
             "clustering_version": CLUSTERING_VERSION,

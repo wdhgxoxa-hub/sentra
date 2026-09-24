@@ -195,6 +195,23 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(por_id["hackernews:70"]["attribution"]["badge"], "Hacker News")
         self.assertNotIn("author_hash", por_id["hackernews:70"], "sin autores (R9)")
 
+    def test_un_grupo_mezclado_se_guarda_sin_puntuacion_y_va_al_final(self):
+        # G0 fallida: sin problema común no hay nada que puntuar (decisión del usuario).
+        items = [pieza(n) for n in (80, 81)]
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            run_id = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            mezcla = {**veredicto("mezcla", "DESCARTAR", None, ["hackernews:80"]),
+                      "rule": "0: no es un mismo problema (G0)"}
+            await store.save_verdicts(run_id, [mezcla, veredicto("otro", "DESCARTAR", 10.0, ["hackernews:81"])])
+            return run_id
+
+        run_id = self.run_store(guardar)
+        top = self.run_store(lambda store: top_verdicts(store, run_id))
+        todos = top["verdicts"] + top["rest"]
+        self.assertEqual([(v["cluster_key"], v["score"]) for v in todos], [("otro", 10.0), ("mezcla", None)])
+
     def test_un_veredicto_que_no_existe_o_un_id_que_no_es_uuid_da_none(self):
         self.assertIsNone(self.run_store(
             lambda store: verdict_detail(store, "00000000-0000-0000-0000-00000000dead")))

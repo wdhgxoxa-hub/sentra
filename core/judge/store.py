@@ -180,7 +180,7 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
          WHERE v.tenant_id = %s AND v.run_id = %s
          GROUP BY v.id
          ORDER BY CASE v.verdict WHEN 'CONSTRUIR' THEN 0 WHEN 'INVESTIGAR MÁS' THEN 1 ELSE 2 END,
-                  v.score DESC, v.cluster_key
+                  v.score DESC NULLS LAST, v.cluster_key
         """,
         (store.tenant_id, run_id),
     )
