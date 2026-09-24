@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 #: Versión del etiquetador (prompt + esquema). Cambiarla invalida la caché.
 #: v2: el prompt y el esquema nombran las claves de evidence_spans (en v1 el
 #: modelo omitía la de intent y la verificación la anulaba).
-LABELER_VERSION = "labels-v2"
+LABELER_VERSION = "labels-v3"
 #: Claves exactas de evidence_spans.
 SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal")
 #: D-M4: ítems etiquetados por escaneo.
@@ -192,7 +192,14 @@ SYSTEM_PROMPT = (
     "usando exactamente estas claves: is_pain, intent, workaround_described y wtp_signal. La "
     "clave intent es obligatoria salvo para pregunta_neutra. Cada competidor lleva su propio "
     "evidence_span. Si no hay fragmento literal, la etiqueta es false. Los textos pueden estar "
-    "en inglés o en español; responde en el esquema pedido."
+    "en inglés o en español; responde en el esquema pedido. "
+    # AUD2-001: ejemplos negativos. Los grupos reales mezclaban lanzamientos y opiniones.
+    "Qué NO es: anunciar o lanzar algo que uno ha construido («Show HN: I built X», «we launched "
+    "Y») no es un dolor y no es un parche casero: is_pain=no, workaround_described=false, y si "
+    "compite con otra herramienta, intent=mencion_competidor. Una opinión general, una anécdota o "
+    "un consejo sin un problema concreto de quien escribe no es un dolor. Un parche casero es "
+    "cómo se apaña hoy el autor con un problema que tiene (una hoja de cálculo, un script, un "
+    "proceso manual), no un producto que ofrece a otros."
 )
 
 

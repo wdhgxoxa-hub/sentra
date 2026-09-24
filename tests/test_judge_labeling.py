@@ -136,7 +136,16 @@ class TestInstrucciones(unittest.TestCase):
             self.assertIn(clave, descripcion)
 
     def test_la_version_cambia_con_el_prompt(self):
-        self.assertEqual(LABELER_VERSION, "labels-v2")
+        # v3: ejemplos negativos de AUD2-001 (lanzamientos y relleno no son dolor).
+        self.assertEqual(LABELER_VERSION, "labels-v3")
+
+    def test_el_prompt_dice_que_no_es_dolor_ni_parche(self):
+        """AUD2-001: el etiquetador tomaba «Show HN: I built X» por un parche casero."""
+        from core.judge.labels import SYSTEM_PROMPT
+
+        for regla in ("Show HN", "no es un dolor", "no es un parche casero",
+                      "cómo se apaña hoy", "opinión general"):
+            self.assertIn(regla, SYSTEM_PROMPT)
 
 
 class TestEtiquetado(unittest.TestCase):
