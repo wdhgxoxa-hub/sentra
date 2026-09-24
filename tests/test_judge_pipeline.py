@@ -137,6 +137,28 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual(len({i.source for i in orden[:3]}), 3, "por turnos entre fuentes")
         self.assertEqual(len(orden), 6, "no se pierde nada")
 
+    def test_con_tema_un_comentario_que_no_lo_nombra_no_se_etiqueta(self):
+        # Escaneo de impagos: 41 de 82 «dolores» eran comentarios de YouTube sobre
+        # el propio vídeo («la música está muy alta») y mezclaban los grupos.
+        items, vectores = escenario()
+        ruido = [pieza(n, texto=f"The background music is too loud, I cannot hear you, video {n}")
+                 .model_copy(update={"kind": "comment"}) for n in (60, 61)]
+        del_tema = pieza(62).model_copy(update={"kind": "comment"})  # QUEJA nombra «invoice»
+        post_sin_tema = pieza(63, texto="The background music is too loud, I cannot hear you at all")
+        resultado = run_judge([*items, *ruido, del_tema, post_sin_tema], vectores, vectores_frase=por_id(vectores),
+                              provider=LLMDoble(), model="m", cache=InMemoryLabelCache(), now=AHORA,
+                              tema=["invoice"])
+        self.assertEqual(resultado.summary["discarded"], {"too_short": 1, "off_topic": 2})
+        self.assertEqual(resultado.summary["kept"], 12, "el comentario del tema y el post siguen")
+
+    def test_sin_tema_los_comentarios_no_se_filtran_por_tema(self):
+        items, vectores = escenario()
+        ruido = pieza(60, texto="The background music is too loud, I cannot hear you").model_copy(
+            update={"kind": "comment"})
+        resultado = run_judge([*items, ruido], vectores, vectores_frase=por_id(vectores), provider=LLMDoble(),
+                              model="m", cache=InMemoryLabelCache(), now=AHORA)
+        self.assertEqual(resultado.summary["discarded"], {"too_short": 1})
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",

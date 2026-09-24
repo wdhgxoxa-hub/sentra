@@ -172,7 +172,7 @@ class TestJuezCoherente(unittest.TestCase):
         self.assertEqual(frase_del_problema(etiqueta), "the emails land in spam")
 
     def test_versiones_nuevas(self):
-        self.assertEqual(CLUSTERING_VERSION, "clustering-v7")
+        self.assertEqual(CLUSTERING_VERSION, "clustering-v8")
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v4")
 
 

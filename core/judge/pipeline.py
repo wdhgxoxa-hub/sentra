@@ -42,7 +42,24 @@ from .labels import (
     VerifiedLabel,
     label_items,
 )
-from .quality import filter_quality
+from .quality import QualityResult, QualityVerdict, filter_quality
+
+
+def sin_comentarios_fuera_de_tema(calidad: QualityResult, tema: Sequence[str]) -> QualityResult:
+    """Con tema, un comentario cuyo texto propio no lo nombra no se etiqueta
+    («off_topic»). En el escaneo de impagos, la mitad del «dolor» eran
+    comentarios de YouTube sobre el propio vídeo y mezclaban los grupos. Los
+    posts no cambian: su título ya es parte de su texto."""
+    if not tema:
+        return calidad
+    consulta = SearchQuery(keywords=list(tema))
+    fuera = {i.id for i in calidad.kept if i.kind == "comment" and not menciona_el_tema(i.text, consulta)}
+    if not fuera:
+        return calidad
+    return QualityResult(
+        kept=[i for i in calidad.kept if i.id not in fuera],
+        discarded=[*calidad.discarded, *(QualityVerdict(i, False, "off_topic", False) for i in sorted(fuera))],
+        competition=[v for v in calidad.competition if v.item_id not in fuera])
 
 
 def orden_de_etiquetado(items: Sequence[EvidenceItem], tema: Sequence[str]) -> list[EvidenceItem]:
@@ -103,7 +120,7 @@ def run_judge(
     `vectores_frase` vectoriza {id: frase del problema verificada}: se agrupa por
     el problema que cada autor cuenta, no por el post entero (clustering-v5/v6).
     `vectors` (texto entero) solo sirve para el contexto de G7."""
-    calidad = filter_quality(items)
+    calidad = sin_comentarios_fuera_de_tema(filter_quality(items), tema)
     etiquetas = label_items(orden_de_etiquetado(calidad.kept, tema), provider=provider, model=model, cache=cache,
                             batch_size=label_batch_size, max_items=label_max_items)
     # AUD2-001: solo la evidencia con dolor pertinente forma nichos. Antes se
