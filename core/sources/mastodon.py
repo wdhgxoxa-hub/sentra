@@ -82,7 +82,8 @@ class MastodonSource(SourceAdapter):
         instancia = self._instancia()
         restantes = self.budget.max_requests - self.budget.spent_requests
         vistos: set[str] = set()
-        for palabra, frase in term_pairs(query, limit=restantes):
+        # Solo el tema: con la frase entre comillas, 0 resultados (medido; F2).
+        for palabra, frase in term_pairs(query, limit=restantes, solo_tema=True):
             partes = [palabra] if palabra else []
             if frase:
                 partes.append(f'"{frase}"')

@@ -54,6 +54,15 @@ PHRASES: dict[Intent, dict[str, tuple[str, ...]]] = {
 }
 
 
+def idioma_de_frase(frase: str) -> str | None:
+    """El idioma de una frase de la biblioteca (None si no es de la biblioteca)."""
+    for por_idioma in PHRASES.values():
+        for idioma, frases in por_idioma.items():
+            if frase in frases:
+                return idioma
+    return None
+
+
 def phrases_for(intents: Iterable[Intent], languages: Iterable[str]) -> list[str]:
     """Las frases de esas intenciones en esos idiomas, sin repetir y en orden."""
     idiomas = list(languages)

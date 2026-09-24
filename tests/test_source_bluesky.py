@@ -162,7 +162,8 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         url = urlparse(str(peticiones[1].url))
         params = parse_qs(url.query)
         self.assertEqual(url.path, "/xrpc/app.bsky.feed.searchPosts")
-        self.assertEqual(params["q"], ['invoice "is there a tool"'])
+        # Solo el tema: con la frase entre comillas devolvía 0 (49 consultas medidas).
+        self.assertEqual(params["q"], ["invoice"])
         self.assertEqual(params["sort"], ["latest"])
         self.assertEqual(params["since"], ["2026-01-01T00:00:00Z"])
 

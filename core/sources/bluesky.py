@@ -103,7 +103,8 @@ class BlueskySource(SourceAdapter):
         restantes = self.budget.max_requests - self.budget.spent_requests
         vistos: set[str] = set()
         # La sesión también gasta una petición.
-        for palabra, frase in term_pairs(query, limit=max(1, restantes - 1)):
+        # Solo el tema: con la frase entre comillas, 0 resultados (medido; F2).
+        for palabra, frase in term_pairs(query, limit=max(1, restantes - 1), solo_tema=True):
             partes = [palabra] if palabra else []
             if frase:
                 partes.append(f'"{frase}"')

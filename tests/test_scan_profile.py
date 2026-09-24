@@ -84,6 +84,34 @@ class TestCombinaciones(unittest.TestCase):
         self.assertTrue(all(p[0] is None for p in pares))
         self.assertEqual(len({p[1] for p in pares}), 3)
 
+    def test_una_palabra_solo_se_une_a_frases_de_su_idioma(self):
+        # Medido en el escaneo de facturación: «facturación autónomos is there a tool»
+        # no encuentra nada en ninguna fuente.
+        from core.sources.phrases import idioma_de_frase
+        from core.sources.profile import idioma_de
+
+        consulta = ScanProfile(name="x", keywords=["freelance invoicing", "facturación autónomos"],
+                               languages=["en", "es"]).to_query()
+        pares = term_pairs(consulta, limit=100)
+        self.assertTrue(pares)
+        for palabra, frase in pares:
+            with self.subTest(palabra=palabra, frase=frase):
+                self.assertEqual(idioma_de(palabra or ""), idioma_de_frase(frase or ""))
+        self.assertIn("facturación autónomos", {p for p, _ in pares})
+
+    def test_el_idioma_de_una_palabra_del_tema(self):
+        from core.sources.profile import idioma_de
+
+        for texto, idioma in (("freelance invoicing", "en"), ("facturación pymes", "es"),
+                              ("facturas para autonomos", "es"), ("small business invoicing", "en")):
+            with self.subTest(texto=texto):
+                self.assertEqual(idioma_de(texto), idioma)
+
+    def test_solo_el_tema_para_las_fuentes_que_exigen_todas_las_palabras(self):
+        # Bluesky y Mastodon: tema + frase entre comillas = 0 resultados (49 consultas).
+        consulta = ScanProfile(name="x", keywords=["a", "b"]).to_query()
+        self.assertEqual(term_pairs(consulta, limit=5, solo_tema=True), [("a", None), ("b", None)])
+
     def test_nunca_mas_que_el_limite(self):
         consulta = ScanProfile(name="x", keywords=["a"]).to_query()
         self.assertLessEqual(len(term_pairs(consulta, limit=2)), 2)

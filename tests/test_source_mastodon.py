@@ -82,7 +82,8 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((url.scheme, url.netloc, url.path),
                          ("https", "mastodon.social", "/api/v2/search"))
         self.assertEqual((params["type"], params["resolve"]), (["statuses"], ["false"]))
-        self.assertEqual(params["q"], ['invoice "is there a tool"'])
+        # Solo el tema: con la frase entre comillas devolvía 0 (49 consultas medidas).
+        self.assertEqual(params["q"], ["invoice"])
         self.assertEqual(peticiones[0].headers["Authorization"], "Bearer tok-inventado")
 
     async def test_un_estado_sin_usuario_en_url_ni_comunidad(self):
