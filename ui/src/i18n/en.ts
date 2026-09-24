@@ -63,7 +63,7 @@ export const en: Dictionary = {
   search: {
     title: "Semantic search",
     subtitle: "Search by meaning, not just exact words. Compare both.",
-    placeholder: "I can't export my invoices",
+    placeholder: "describe a problem in your own words",
     error: "The search failed.",
     searching: "Searching…",
     empty: "No results for that query.",
@@ -76,18 +76,12 @@ export const en: Dictionary = {
     onlySemantic: "By meaning only",
     onlyExact: "By words only",
     both: "By both routes",
-    examples: {
-      billing: "Broken billing",
-      migration: "Slow migration",
-      support: "Repetitive support",
-      pricing: "Confusing pricing",
-    },
   },
 
   settings: {
     saving: "Saving…",
     title: "Settings",
-    subtitle: "Credentials, language and data source",
+    subtitle: "Language, theme and AI engine",
     appearance: "Appearance",
     language: "Language",
     theme: "Theme",
@@ -99,7 +93,7 @@ export const en: Dictionary = {
     notConfigured: "Not configured",
     loading: "Asking the engine…",
     unreachable:
-      "Could not read the engine settings. Language and theme still work; the data source and credentials need the engine running.",
+      "Could not read the engine settings. Language and theme still work; the Gemini key and models need the engine running.",
     aiEngine: "AI engine (Google Gemini)",
     aiHint:
       "The key comes from aistudio.google.com and is stored in the project .env. Without it, the judge does not label the evidence (nothing comes out as Build) and the dossier and plan cannot be generated.",
@@ -135,7 +129,7 @@ export const en: Dictionary = {
     semantic: {
       title: "Meaning-based search",
       body:
-        "Finds similar texts even when they share no words. «Broken billing» finds «I can't export my receipts». It struggles with unusual proper nouns.",
+        "Finds similar texts even when they share no words: «alerts arrive late» finds «notifications take hours». It struggles with unusual proper nouns.",
     },
     exact: {
       title: "Word-based search",
@@ -159,7 +153,7 @@ export const en: Dictionary = {
     search_unavailable: "Search needs PostgreSQL and the evidence vectors; check the engine health.",
     source_error: "The source rejected the request.",
     source_credentials_missing: "This source needs credentials: set them up in the Sources section.",
-    source_auth_failed: "The source rejected the credentials. Check them in the Sources section.",
+    source_auth_failed: "The source rejected the saved credentials: check them and test it again.",
     source_forbidden: "The source denied access to what was asked.",
     source_not_found: "The source could not find what was asked (missing community, site or resource).",
     source_unavailable: "The source is not responding right now. It was retried; try again later.",
@@ -304,7 +298,7 @@ export const en: Dictionary = {
     gates: "Gates",
     gateNames: {
       G1: "At least 2 distinct sources",
-      G2: "At least N distinct authors",
+      G2: "At least {n} distinct authors",
       G3: "At least 1 homemade workaround",
       G4: "At least 1 payment or tool-seeking signal",
       G5: "No thread or author contributes more than 40%",
@@ -315,6 +309,8 @@ export const en: Dictionary = {
     valueVsThreshold: "{value} · threshold {threshold}",
     notMeasured: "no data: not measured",
     evidenceCount: "{n} pieces of evidence",
+    evidenceCountOne: "1 piece of evidence",
+    trend: "{pct} vs the previous period",
     dimensions: "Dimensions",
     dimensionNames: {
       frecuencia: "Frequency",
@@ -327,7 +323,7 @@ export const en: Dictionary = {
     },
     noData: "no data",
     noCompetitionData: "no competition data (neutral 0.5, not measured)",
-    undetermined: "undetermined (Phase 4)",
+    undetermined: "undetermined",
     advocate: "Devil's advocate",
     advocateDowngraded: "Lowered the verdict: {reason}",
     advocateUnavailable: "Could not review: an unreviewed Build drops to Investigate further.",

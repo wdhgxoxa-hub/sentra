@@ -46,7 +46,7 @@ class XSource(SourceAdapter):
         note="De pago; tarifa estimada no verificada; tope de 1 USD por escaneo",
     )
     pending_approval: ClassVar[str | None] = (
-        "Deshabilitada: X es de pago y la misión prohíbe cualquier llamada real (R7).")
+        "Apagada: X es de pago y SENTRA no hace llamadas reales a X.")
     disabled_by_default = True
 
     @classmethod

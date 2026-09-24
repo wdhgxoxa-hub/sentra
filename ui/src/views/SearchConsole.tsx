@@ -6,7 +6,8 @@ import { EvidenceAttributionLine } from "@/components/EvidenceAttributionLine";
 import { SourceBadge } from "@/components/SourceBadge";
 import { comoError } from "@/lib/errors";
 import { useDebouncedValue } from "@/lib/debounce";
-import { useHybridSearch } from "@/lib/queries";
+import { ejemplosDeBusqueda } from "@/lib/ejemplos";
+import { useHybridSearch, useJudgeTop } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { EvidenceSearchHit } from "@/types/radar";
@@ -32,12 +33,9 @@ export function SearchConsole() {
   const consulta = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
   const results = useHybridSearch({ query: consulta, limit: 20 });
 
-  const examples = [
-    t.search.examples.billing,
-    t.search.examples.migration,
-    t.search.examples.support,
-    t.search.examples.pricing,
-  ];
+  // AUD2-007: los ejemplos salen de los nichos actuales, no de la demostración.
+  const top = useJudgeTop(null);
+  const examples = ejemplosDeBusqueda([...(top.data?.verdicts ?? []), ...(top.data?.rest ?? [])]);
 
   const routeOf = (hit: EvidenceSearchHit) => {
     if (hit.denseRank !== null && hit.lexicalRank !== null) return "both";
@@ -68,6 +66,7 @@ export function SearchConsole() {
         />
       </div>
 
+      {examples.length > 0 && (
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-ink-faint">
           {t.search.suggestions}
@@ -83,6 +82,7 @@ export function SearchConsole() {
           </button>
         ))}
       </div>
+      )}
 
       {results.isError && !results.isFetching && (
         <ErrorNotice {...comoError(results.error)} title={t.search.error} />

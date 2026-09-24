@@ -62,7 +62,7 @@ export const es = {
     title: "Búsqueda semántica",
     subtitle:
       "Busca por significado, no solo por palabras exactas. Compara ambas.",
-    placeholder: "no puedo exportar mis facturas",
+    placeholder: "describe un problema con tus palabras",
     error: "La búsqueda falló.",
     searching: "Buscando…",
     empty: "Sin resultados para esa consulta.",
@@ -75,18 +75,12 @@ export const es = {
     onlySemantic: "Solo por significado",
     onlyExact: "Solo por palabras",
     both: "Por ambas vías",
-    examples: {
-      billing: "Facturación rota",
-      migration: "Migración lenta",
-      support: "Soporte repetitivo",
-      pricing: "Precios confusos",
-    },
   },
 
   settings: {
     saving: "Guardando…",
     title: "Configuración",
-    subtitle: "Credenciales, idioma y fuente de datos",
+    subtitle: "Idioma, tema y motor de IA",
     appearance: "Apariencia",
     language: "Idioma",
     theme: "Tema",
@@ -94,11 +88,11 @@ export const es = {
     themeDark: "Oscuro",
     themeSystem: "Automático",
     testing: "Probando…",
-    configured: "Configuradas",
+    configured: "Configurada",
     notConfigured: "Sin configurar",
     loading: "Consultando al motor…",
     unreachable:
-      "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la fuente de datos y las credenciales necesitan que el motor esté en marcha.",
+      "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la clave y los modelos de Gemini necesitan que el motor esté en marcha.",
     aiEngine: "Motor de IA (Google Gemini)",
     aiHint:
       "La clave se pide en aistudio.google.com y se guarda en el .env del proyecto. Sin ella, el juez no etiqueta la evidencia (nada sale Construir) y no se pueden generar el dossier ni el plan.",
@@ -135,7 +129,7 @@ export const es = {
     semantic: {
       title: "Búsqueda por significado",
       body:
-        "Encuentra textos parecidos aunque no compartan ni una palabra. «Facturación rota» encuentra «no puedo exportar mis recibos». Falla con nombres propios raros.",
+        "Encuentra textos parecidos aunque no compartan ni una palabra: «los avisos llegan tarde» encuentra «las notificaciones tardan horas». Falla con nombres propios raros.",
     },
     exact: {
       title: "Búsqueda por palabras",
@@ -164,7 +158,7 @@ export const es = {
     search_unavailable: "La búsqueda necesita PostgreSQL y los vectores de la evidencia; revisa la salud del motor.",
     source_error: "La fuente rechazó la petición.",
     source_credentials_missing: "Esta fuente necesita credenciales: configúralas en la sección Fuentes.",
-    source_auth_failed: "La fuente rechazó las credenciales. Revísalas en la sección Fuentes.",
+    source_auth_failed: "La fuente rechazó las credenciales guardadas: revísalas y vuelve a probarla.",
     source_forbidden: "La fuente denegó el acceso a lo pedido.",
     source_not_found: "La fuente no encontró lo pedido (comunidad, sitio o recurso inexistente).",
     source_unavailable: "La fuente no responde ahora mismo. Se reintentó; prueba más tarde.",
@@ -309,7 +303,7 @@ export const es = {
     gates: "Compuertas",
     gateNames: {
       G1: "Al menos 2 fuentes distintas",
-      G2: "Al menos N autores distintos",
+      G2: "Al menos {n} autores distintos",
       G3: "Al menos 1 parche casero",
       G4: "Al menos 1 señal de pago o de búsqueda de herramienta",
       G5: "Ningún hilo ni autor aporta más del 40 %",
@@ -320,6 +314,8 @@ export const es = {
     valueVsThreshold: "{value} · umbral {threshold}",
     notMeasured: "sin datos: no se midió",
     evidenceCount: "{n} evidencias",
+    evidenceCountOne: "1 evidencia",
+    trend: "{pct} frente al periodo anterior",
     dimensions: "Dimensiones",
     dimensionNames: {
       frecuencia: "Frecuencia",
@@ -332,7 +328,7 @@ export const es = {
     },
     noData: "sin datos",
     noCompetitionData: "sin datos de competencia (valor neutro 0,5, no medido)",
-    undetermined: "sin determinar (Fase 4)",
+    undetermined: "sin determinar",
     advocate: "Abogado del diablo",
     advocateDowngraded: "Bajó el veredicto: {reason}",
     advocateUnavailable: "No se pudo revisar: un Construir sin revisar baja a Investigar más.",

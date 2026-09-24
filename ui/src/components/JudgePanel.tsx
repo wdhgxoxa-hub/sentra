@@ -91,14 +91,19 @@ export function VerdictCard({
               )}
               <span>
                 <span className="font-medium">{g.gate}</span>{" "}
-                {t.judge.gateNames[g.gate as keyof T["judge"]["gateNames"]] ?? g.gate}
+                {(t.judge.gateNames[g.gate as keyof T["judge"]["gateNames"]] ?? g.gate).replace(
+                  "{n}",
+                  cifra(g.threshold),
+                )}
                 <span className="block text-ink-faint">
                   {!g.measured && `${t.judge.notMeasured} · `}
                   {t.judge.valueVsThreshold
                     .replace("{value}", cifra(g.value))
                     .replace("{threshold}", cifra(g.threshold))}
                   {" · "}
-                  {t.judge.evidenceCount.replace("{n}", String(g.evidenceIds.length))}
+                  {g.evidenceIds.length === 1
+                    ? t.judge.evidenceCountOne
+                    : t.judge.evidenceCount.replace("{n}", String(g.evidenceIds.length))}
                 </span>
               </span>
             </li>
@@ -114,6 +119,9 @@ export function VerdictCard({
               {t.judge.dimensionNames[d.name as keyof T["judge"]["dimensionNames"]] ?? d.name}:{" "}
               {d.note === "undetermined"
                 ? t.judge.undetermined
+                : d.name === "tendencia" && d.value !== null
+                  ? // Crecimiento relativo: -1 es «cae un 100 %», no «-1 (0 %)».
+                    t.judge.trend.replace("{pct}", `${d.value > 0 ? "+" : ""}${Math.round(d.value * 100)} %`)
                 : d.note === "sin_datos"
                   ? // D-M9: el hueco sin menciones es un valor neutro, nunca una cifra medida.
                     d.name === "hueco"

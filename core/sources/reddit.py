@@ -56,7 +56,7 @@ class RedditSource(SourceAdapter):
         CredentialField(name="user_agent", env_var="RIR_REDDIT_USER_AGENT", secret=False),
     )
     cost_model = CostModel(unit="request", note="100 peticiones/min por cliente OAuth")
-    pending_approval: ClassVar[str | None] = "Pendiente de aprobación: la misión no permite llamadas reales a Reddit (R7)."
+    pending_approval: ClassVar[str | None] = "Pendiente de aprobación: SENTRA todavía no hace llamadas reales a Reddit."
 
     def _comprobar_aprobacion(self) -> None:
         if self.pending_approval:

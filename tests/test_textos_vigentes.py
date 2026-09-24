@@ -20,14 +20,49 @@ RETIRADAS = re.compile(
     r"arquitect|architect|oportunidad|opportunit|blueprint|traduce|translat", re.IGNORECASE)
 
 
+#: AUD2-007: texto sin terminar o de proceso interno que el usuario veía:
+#: «Al menos N autores», «(Fase 4)», «la misión no permite… (R7)» y ejemplos
+#: de búsqueda de facturas sobre un corpus que no habla de facturas.
+SIN_TERMINAR = re.compile(
+    r"\bN autores\b|\bN authors\b|\bN/2\b|Fase 4|Phase 4|misi[oó]n|\bmission\b|\(R\d+\)|factura|invoice",
+    re.IGNORECASE)
+
+RAIZ = I18N.parents[2]
+
+
+def literales(fuente: str) -> list[str]:
+    """Solo lo que se ve: los literales de texto, no los tipos ni los comentarios."""
+    return re.findall(r'"((?:[^"\\]|\\.)*)"', fuente)
+
+
 class TestTextosVigentes(unittest.TestCase):
     def test_ningun_texto_ofrece_funciones_retiradas(self):
         for idioma in ("es", "en"):
-            fuente = (I18N / f"{idioma}.ts").read_text("utf-8")
-            # Solo lo que se ve: los literales de texto, no los tipos ni los comentarios.
-            textos = re.findall(r'"((?:[^"\\]|\\.)*)"', fuente)
+            textos = literales((I18N / f"{idioma}.ts").read_text("utf-8"))
             restos = [t[:90] for t in textos if RETIRADAS.search(t)]
             self.assertEqual(restos, [], idioma)
+
+    def test_ningun_texto_esta_sin_terminar_ni_habla_del_proceso(self):
+        for idioma in ("es", "en"):
+            textos = literales((I18N / f"{idioma}.ts").read_text("utf-8"))
+            self.assertEqual([t[:90] for t in textos if SIN_TERMINAR.search(t)], [], idioma)
+
+    def test_los_avisos_de_las_fuentes_hablan_al_usuario(self):
+        """pending_approval y los textos de las fuentes llegan tal cual a su tarjeta."""
+        from core.sources.catalog import SOURCES
+
+        avisos = [a for fuente in SOURCES for a in (fuente.pending_approval, fuente.cost_model.note) if a]
+        self.assertEqual([a for a in avisos if SIN_TERMINAR.search(a)], [])
+
+    def test_las_reglas_del_juez_dicen_sus_numeros(self):
+        """La regla del veredicto se enseña tal cual: «G2 por debajo de N/2» no dice nada."""
+        from core.judge.gates import decide, evaluate_gates
+        from tests.test_judge_verdict import AHORA, grupo_construir
+
+        items, etiquetas = grupo_construir(n=2)
+        _, regla = decide(evaluate_gates(items, etiquetas, now=AHORA, min_authors=6), min_authors=6)
+        self.assertNotRegex(regla, r"\bN\b")
+        self.assertIn("3", regla, "la mitad de 6")
 
 
 if __name__ == "__main__":

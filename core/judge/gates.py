@@ -178,7 +178,7 @@ def decide(gates: Sequence[GateResult], *, min_authors: int = MIN_DISTINCT_AUTHO
     if "G7" in falla:
         return "DESCARTAR", "1: falla G7"
     if por["G2"].value < min_authors / 2:
-        return "DESCARTAR", "2: G2 por debajo de N/2"
+        return "DESCARTAR", f"2: G2 por debajo de {min_authors / 2:g} (la mitad de {min_authors} autores)"
     if {"G1", "G2"} <= falla:
         return "DESCARTAR", "3: fallan G1 y G2"
     if falla & {"G1", "G2", "G5"}:
