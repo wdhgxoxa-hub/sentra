@@ -102,6 +102,7 @@ pub fn run() {
             commands::sources::trigger_multiscan,
             // Juez de nichos (F3)
             commands::judge::get_judge_top,
+            commands::judge::get_evidence_feed,
             // Especificacion de proyecto
             commands::blueprint::generate_blueprint,
             // Documento entregable (AUD-008)

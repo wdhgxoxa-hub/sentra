@@ -516,6 +516,7 @@ class TestSurface(SidecarTestCase):
                 "/api/sources/commercial-mode",
                 "/api/sources/scan/stream",
                 "/api/judge/top",
+                "/api/evidence/recent",
             },
         )
 

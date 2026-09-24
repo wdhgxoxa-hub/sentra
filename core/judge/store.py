@@ -6,8 +6,11 @@ Persistencia del juez (F3.8)
   `evidence_labels`, por (hash de contenido, etiquetador). Síncrona, como
   el etiquetado, que corre en un hilo aparte.
 - top_verdicts: el Top 6 de una ejecución, ordenado por veredicto
-  (CONSTRUIR primero) y luego por puntaje. Si hay menos de 6 CONSTRUIR se
+  (CONSTRUIR primero) y luego por puntaje, y aparte el resto en el mismo
+  orden (C1: Radar y panel leen lo mismo). Si hay menos de 6 CONSTRUIR se
   dice cuántos hay y por qué; no se rellena (AUD-007).
+- recent_evidence: el feed de evidencia más reciente, sin duplicados y con
+  atribución; sin autores (R9).
 """
 
 from __future__ import annotations
@@ -106,19 +109,44 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
          GROUP BY v.id
          ORDER BY CASE v.verdict WHEN 'CONSTRUIR' THEN 0 WHEN 'INVESTIGAR MÁS' THEN 1 ELSE 2 END,
                   v.score DESC, v.cluster_key
-         LIMIT %s
         """,
-        (store.tenant_id, run_id, TOP_TARGET),
+        (store.tenant_id, run_id),
     )
-    veredictos = [dict(f) for f in filas]
-    await _con_evidencia(store, veredictos)
+    todos = [dict(f) for f in filas]
+    await _con_evidencia(store, todos)
+    veredictos, resto = todos[:TOP_TARGET], todos[TOP_TARGET:]
     construir = sum(1 for f in filas if f["verdict"] == "CONSTRUIR")
     motivo = None
     if construir < TOP_TARGET:
         motivo = (f"Solo {construir} de {TOP_TARGET} nichos pasan todas las compuertas "
                   "y el abogado del diablo; el resto no se rellena.")
     return {"run_id": run_id, "target": TOP_TARGET, "build_count": construir,
-            "reason": motivo, "verdicts": veredictos, "current_versions": current_versions()}
+            "reason": motivo, "verdicts": veredictos, "rest": resto,
+            "current_versions": current_versions()}
+
+
+async def recent_evidence(store: PostgresStore, limit: int) -> list[dict[str, Any]]:
+    """Evidencia canónica más reciente (los duplicados apuntan a otra)."""
+    filas = await store._fetchall(
+        """
+        SELECT e.id, e.source, e.community, e.kind, e.title, e.content, e.url,
+               e.created_at, e.data_source
+          FROM evidence_items e
+         WHERE e.tenant_id = %s
+           AND NOT EXISTS (SELECT 1 FROM evidence_duplicates d
+                            WHERE d.tenant_id = e.tenant_id AND d.duplicate_id = e.id)
+         ORDER BY e.created_at DESC, e.id
+         LIMIT %s
+        """,
+        (store.tenant_id, limit),
+    )
+    return [
+        {"id": f["id"], "source": f["source"], "community": f["community"], "kind": f["kind"],
+         "title": f["title"], "excerpt": f["content"][:EXCERPT_CHARS], "url": f["url"],
+         "created_at": f["created_at"].isoformat(), "data_source": f["data_source"],
+         "attribution": {"badge": _insignia(f["source"]), "site": f["community"], "url": f["url"]}}
+        for f in filas
+    ]
 
 
 def current_versions() -> dict[str, str]:

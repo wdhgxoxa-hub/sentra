@@ -53,6 +53,7 @@ import {
   type MultiScanEvent,
   type ScanProfileInput,
   type SourceCard,
+  type EvidenceFeed,
   type SourceProbeResult,
   type SourcesOverview,
   type JudgeTop,
@@ -204,6 +205,10 @@ export const ipc = {
 
   /** [sidecar] Top 6 del juez: de una ejecución o de la última juzgada. */
   getJudgeTop: (runId: string | null = null) => invoke<JudgeTop>("get_judge_top", { runId }),
+
+  /** [sidecar] Evidencia multifuente más reciente, con atribución. */
+  getEvidenceFeed: (limit: number | null = null) =>
+    invoke<EvidenceFeed>("get_evidence_feed", { limit }),
 } as const;
 
 /**

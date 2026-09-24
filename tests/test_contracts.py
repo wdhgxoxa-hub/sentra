@@ -212,9 +212,10 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         from core.orchestration.sidecar import judge
         from tests.test_sidecar_judge import LEIDO
 
-        with mock.patch.object(judge, "_leer_top", return_value=LEIDO):
+        with mock.patch.object(judge, "_leer_top", return_value={**LEIDO, "rest": LEIDO["verdicts"]}):
             cuerpo = self.client.get("/api/judge/top", headers=self.cabecera).json()
         self.assertEqual(set(cuerpo), interfaz("JudgeTop"))
+        self.assertEqual(set(cuerpo["rest"][0]), interfaz("JudgeVerdict"))
         self.assertEqual(set(cuerpo["currentVersions"]), interfaz("JudgeVersions"))
         veredicto = cuerpo["verdicts"][0]
         self.assertEqual(set(veredicto), interfaz("JudgeVerdict"))
@@ -224,6 +225,18 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.assertEqual(set(veredicto["advocate"]["arguments"][0]), interfaz("AdvocateArgumentView"))
         self.assertEqual(set(veredicto["evidence"][0]), interfaz("JudgeEvidence"))
         self.assertEqual(set(veredicto["evidence"][0]["attribution"]), interfaz("EvidenceAttribution"))
+
+    def test_el_feed_de_evidencia_entrega_evidence_feed(self):
+        from unittest import mock
+
+        from core.orchestration.sidecar import judge
+        from tests.test_sidecar_judge import FEED
+
+        with mock.patch.object(judge, "_leer_feed", return_value=FEED):
+            cuerpo = self.client.get("/api/evidence/recent", headers=self.cabecera).json()
+        self.assertEqual(set(cuerpo), interfaz("EvidenceFeed"))
+        self.assertEqual(set(cuerpo["items"][0]), interfaz("EvidenceFeedEntry"))
+        self.assertEqual(set(cuerpo["items"][0]["attribution"]), interfaz("EvidenceAttribution"))
 
     def test_el_resultado_top_n_entrega_run_top_outcome(self):
         self.assertEqual(set(run_outcome([], 0, "exhausted")), interfaz("RunTopOutcome"))

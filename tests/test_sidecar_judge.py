@@ -41,6 +41,12 @@ LEIDO = {
 }
 
 
+FEED = [{"id": "hackernews:1", "source": "hackernews", "community": "Ask HN", "kind": "post",
+         "title": None, "excerpt": "queja inventada", "url": "https://example.com/1",
+         "created_at": "2026-09-01T00:00:00+00:00", "data_source": "real",
+         "attribution": {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/1"}}]
+
+
 class TestTopDelJuez(ConfigTestCase):
     def test_devuelve_el_top_en_camel_case(self):
         from core.orchestration.sidecar import judge
@@ -55,6 +61,28 @@ class TestTopDelJuez(ConfigTestCase):
         self.assertEqual(veredicto["advocate"]["verdictAfter"], "CONSTRUIR")
         self.assertEqual(veredicto["evidence"][0]["attribution"]["badge"], "Hacker News")
         self.assertEqual(veredicto["corroboration"], {"hackernews": 3}, "los ids de fuente no se tocan")
+
+    def test_el_resto_de_veredictos_tambien_va_en_camel_case(self):
+        from core.orchestration.sidecar import judge
+
+        leido = {**LEIDO, "rest": LEIDO["verdicts"]}
+        with mock.patch.object(judge, "_leer_top", return_value=leido):
+            cuerpo = self.client.get("/api/judge/top").json()
+        self.assertEqual(cuerpo["rest"][0]["advocate"]["verdictAfter"], "CONSTRUIR")
+        self.assertEqual(cuerpo["rest"][0]["corroboration"], {"hackernews": 3})
+
+    def test_el_feed_de_evidencia_llega_en_camel_case_con_tope(self):
+        from core.orchestration.sidecar import judge
+
+        with mock.patch.object(judge, "_leer_feed", return_value=FEED) as leer:
+            cuerpo = self.client.get("/api/evidence/recent", params={"limit": 5000}).json()
+        self.assertEqual(leer.call_args.args[1], judge.FEED_MAX, "el límite se recorta, no se obedece")
+        self.assertEqual(cuerpo["items"][0]["createdAt"], "2026-09-01T00:00:00+00:00")
+        self.assertEqual(cuerpo["items"][0]["dataSource"], "real")
+
+        with mock.patch.object(judge, "_leer_feed", return_value=FEED) as leer:
+            self.client.get("/api/evidence/recent")
+        self.assertEqual(leer.call_args.args[1], judge.FEED_DEFAULT)
 
     def test_sin_run_id_pide_la_ultima_juzgada(self):
         from core.orchestration.sidecar import judge

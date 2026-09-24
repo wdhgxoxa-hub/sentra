@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 from core.evidence.model import EvidenceItem
 from core.judge.labels import VerifiedLabel
-from core.judge.store import PostgresLabelCache, top_verdicts
+from core.judge.store import PostgresLabelCache, recent_evidence, top_verdicts
 from core.storage.postgres_store import PostgresStore, run_async
 
 ADMIN_DSN = os.environ.get("RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres")
@@ -135,6 +135,45 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(evidencia["hackernews:4"]["attribution"],
                          {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4"})
         self.assertEqual(evidencia["hackernews:4"]["excerpt"], "queja inventada número 4")
+
+    def test_mas_alla_del_top_6_el_resto_va_aparte_en_el_mismo_orden(self):
+        # C1 (D-C2): el Radar enseña el Top 6 y la lista completa desde la misma lectura.
+        items = [pieza(n) for n in range(40, 48)]
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            run_id = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(run_id, [
+                veredicto(f"k{n}", "DESCARTAR", float(n), [items[n].id]) for n in range(8)
+            ])
+            return run_id
+
+        run_id = self.run_store(guardar)
+        top = self.run_store(lambda store: top_verdicts(store, run_id))
+        self.assertEqual([v["cluster_key"] for v in top["verdicts"]], [f"k{n}" for n in (7, 6, 5, 4, 3, 2)])
+        self.assertEqual([v["cluster_key"] for v in top["rest"]], ["k1", "k0"])
+        self.assertEqual(top["rest"][0]["evidence"][0]["id"], "hackernews:41")
+
+    def test_el_feed_de_evidencia_es_lo_mas_reciente_sin_duplicados_y_con_atribucion(self):
+        from core.sources.dedup import Duplicate
+
+        viejo, nuevo, copia = pieza(60), pieza(61), pieza(62)
+        nuevo = nuevo.model_copy(update={"created_at": AHORA - timedelta(days=1), "title": "Título"})
+        copia = copia.model_copy(update={"created_at": AHORA})
+
+        async def guardar(store):
+            await store.upsert_evidence([viejo, nuevo, copia])
+            await store.save_duplicates([Duplicate(copia.id, nuevo.id, "fingerprint", None)])
+            return await recent_evidence(store, limit=2)
+
+        feed = self.run_store(guardar)
+        self.assertEqual([e["id"] for e in feed], ["hackernews:61", "hackernews:60"])
+        self.assertEqual(feed[0]["title"], "Título")
+        self.assertEqual(feed[0]["excerpt"], "queja inventada número 61")
+        self.assertEqual(feed[0]["attribution"],
+                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/61"})
+        self.assertEqual((feed[0]["source"], feed[0]["data_source"]), ("hackernews", "real"))
+        self.assertNotIn("author_hash", feed[0], "el feed no lleva autores (R9)")
 
     def test_las_identidades_anteriores_salen_de_la_ultima_lectura(self):
         from core.judge.store import previous_identities

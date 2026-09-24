@@ -428,9 +428,25 @@
       "buildCount",
       "currentVersions",
       "reason",
+      "rest",
       "runId",
       "target",
       "verdicts"
+    ],
+    "EvidenceFeedEntry": [
+      "attribution",
+      "community",
+      "createdAt",
+      "dataSource",
+      "excerpt",
+      "id",
+      "kind",
+      "source",
+      "title",
+      "url"
+    ],
+    "EvidenceFeed": [
+      "items"
     ],
     "BlueprintPhase": [
       "items",

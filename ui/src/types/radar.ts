@@ -858,7 +858,6 @@ export interface JudgeVerdict {
   evidence: JudgeEvidence[];
 }
 
-/** Top 6 (AUD-007): CONSTRUIR primero; sin rellenar si no hay 6. */
 /** Versiones con las que juzga el código actual: lo distinto es antiguo (B4). */
 export interface JudgeVersions {
   labeler: string;
@@ -866,13 +865,36 @@ export interface JudgeVersions {
   weights: string;
 }
 
+/**
+ * Top 6 (AUD-007): CONSTRUIR primero; sin rellenar si no hay 6. `rest` es el
+ * resto de veredictos de la misma ejecución en el mismo orden (C1).
+ */
 export interface JudgeTop {
   runId: string | null;
   target: number;
   buildCount: number;
   reason: string | null;
   verdicts: JudgeVerdict[];
+  rest: JudgeVerdict[];
   currentVersions: JudgeVersions;
+}
+
+/** Una pieza de evidencia multifuente del feed del Radar; sin autor (R9). */
+export interface EvidenceFeedEntry {
+  id: string;
+  source: string;
+  community: string;
+  kind: string;
+  title: string | null;
+  excerpt: string;
+  url: string;
+  createdAt: string;
+  dataSource: DataSource;
+  attribution: EvidenceAttribution;
+}
+
+export interface EvidenceFeed {
+  items: EvidenceFeedEntry[];
 }
 
 // ---------------------------------------------------------------------
