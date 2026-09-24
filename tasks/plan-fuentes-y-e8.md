@@ -158,3 +158,17 @@ ya estaba escrito en scripts/calibrar_agrupacion.py desde B3.
   prosa sin tildes; afirmaciones que generalizan una cita; riesgos vacíos; no
   explica G7 ni cita el lanzamiento que la decide.
 - Gemini de este presupuesto: 33 de 40; quedan 7.
+
+## Propuesta G7 (mínimo de menciones) — fijada ANTES de mirar datos (2026-09-24)
+
+Hoy la cuota de G7 es, por competidor gratuito, menciones «satisfecho» / menciones:
+con 1 sola mención favorable sale 100 % y DESCARTAR. Propuesta (pendiente del sí
+del usuario; no se implementa ni se prueba contra datos hasta entonces):
+
+- Un competidor cuenta para G7 solo si lo mencionan al menos 3 autores distintos
+  (el mismo mínimo que usa el juez para llamar patrón a algo: MIN_CLUSTER_SIZE y
+  MIN_DOMINANTES = 3). Con 3 o más, la regla de siempre (cuota > 0,5 falla).
+- Con 1–2 menciones favorables de un competidor gratuito: G7 queda «sin datos
+  suficientes» (no medida) con la nota y las piezas; no descarta, pero el
+  veredicto no puede pasar de INVESTIGAR MÁS (señal sin resolver).
+- Sin menciones: como hoy (aprueba por ausencia).
