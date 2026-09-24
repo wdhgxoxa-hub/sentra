@@ -63,7 +63,11 @@ export default function App() {
 
   return (
     <div className="flex h-full bg-bg">
-      <Sidebar />
+      {/* La barra lateral lleva su propio límite: fuera de él, un fallo de
+          render del indicador de salud dejaba la ventana entera en negro. */}
+      <ErrorBoundary textos={t.error} resetKey={view}>
+        <Sidebar />
+      </ErrorBoundary>
 
       <main className="min-w-0 flex-1 overflow-auto">
         {/* Franja superior fina: da sitio para arrastrar la ventana y sitúa
