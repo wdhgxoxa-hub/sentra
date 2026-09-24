@@ -60,6 +60,18 @@ export interface LaunchFailure {
   detail: string;
 }
 
+/** Resultado de arrancar el motor (`SidecarStatus` de Rust, en camelCase). */
+export type SidecarStatus =
+  | "alreadyRunning"
+  | "started"
+  | "unresponsive"
+  | "failedToSpawn"
+  | "noInterpreter"
+  | "portInUse";
+
+/** Canal por el que Rust avisa del arranque del motor (y de cada reintento). */
+export const SIDECAR_EVENT_CHANNEL = "radar:sidecar";
+
 export interface AppHealth {
   /** true solo si las tres piezas responden. */
   ok: boolean;

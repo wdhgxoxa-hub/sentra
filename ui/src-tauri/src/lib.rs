@@ -66,7 +66,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     let status = manager.ensure_running(&http, log_dir.as_deref()).await;
                     log::info!("Estado del sidecar: {status:?}");
-                    let _ = tauri::Emitter::emit(&handle, "radar:sidecar", status);
+                    let _ = tauri::Emitter::emit(&handle, sidecar::SIDECAR_EVENT_CHANNEL, status);
                 });
                 Ok(())
             }
@@ -96,6 +96,7 @@ pub fn run() {
             commands::health::get_app_health,
             commands::health::get_database_status,
             commands::health::retry_database,
+            commands::health::retry_sidecar,
         ])
         .build(tauri::generate_context!())
         .expect("fallo al construir la aplicacion")

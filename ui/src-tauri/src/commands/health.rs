@@ -12,7 +12,7 @@ use tauri::State;
 
 use crate::commands::engine::{sidecar_health, sidecar_url};
 use crate::db::{connect_options, AppState, DatabaseStatus, RadarResult};
-use crate::sidecar::{LaunchFailure, SidecarManager};
+use crate::sidecar::{LaunchFailure, SidecarManager, SidecarStatus, SIDECAR_EVENT_CHANNEL};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +34,32 @@ pub struct AppHealth {
     pub sidecar_info: Option<serde_json::Value>,
     /// Por qué no se pudo arrancar el sidecar (D-D), con código traducible.
     pub sidecar_launch: Option<LaunchFailure>,
+}
+
+/// Lo que se dice del motor cuando no responde. Lo lee el usuario: nada de
+/// comandos de terminal (AUD-065); la interfaz ofrece «Reintentar motor».
+pub(crate) fn detalle_sin_respuesta(url: &str) -> String {
+    format!("sin respuesta en {url}")
+}
+
+/// Vuelve a arrancar el motor si no responde (AUD-056).
+///
+/// El arranque de la ventana lo intenta una vez; si el motor tardó más de lo
+/// esperado (la primera carga del modelo) o murió, antes solo quedaba cerrar
+/// la app. Si ya responde no hace nada. El resultado viaja también por el
+/// canal del arranque, que la interfaz escucha para refrescar la salud.
+#[tauri::command]
+pub async fn retry_sidecar(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    manager: State<'_, Arc<SidecarManager>>,
+) -> RadarResult<SidecarStatus> {
+    use tauri::Manager;
+
+    let log_dir = app.path().app_log_dir().ok();
+    let status = manager.ensure_running(&state.http, log_dir.as_deref()).await;
+    let _ = tauri::Emitter::emit(&app, SIDECAR_EVENT_CHANNEL, status);
+    Ok(status)
 }
 
 /// Lo que se dice del motor cuando responde: si persiste en PostgreSQL. El
@@ -90,11 +116,7 @@ pub async fn get_app_health(
         },
         None => ComponentHealth {
             ok: false,
-            detail: format!(
-                "sin respuesta en {}. Arrancalo con: \
-                 python -m core.orchestration.sidecar_server",
-                sidecar_url()
-            ),
+            detail: detalle_sin_respuesta(&sidecar_url()),
         },
     };
 
@@ -113,6 +135,15 @@ pub async fn get_app_health(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn sin_motor_no_se_le_pide_al_usuario_un_comando_de_terminal() {
+        // AUD-065: el detalle lo ve el usuario, no quien desarrolla.
+        let detalle = detalle_sin_respuesta("http://127.0.0.1:8765");
+        assert!(detalle.contains("127.0.0.1:8765"));
+        assert!(!detalle.contains("python"), "{detalle}");
+        assert!(!detalle.to_lowercase().contains("arrancalo"), "{detalle}");
+    }
 
     #[test]
     fn el_detalle_dice_si_el_motor_persiste() {

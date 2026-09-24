@@ -183,12 +183,17 @@ fn parse_sse_block(block: &str) -> Option<serde_json::Value> {
     None
 }
 
+/// Lo que el sidecar dice ser en `/api/health` (`SERVICE_NAME` en Python;
+/// tests/test_superficie_ipc.py vigila que coincidan).
+pub const SIDECAR_SERVICE: &str = "reddit-intelligence-radar-sidecar";
+
 /// Lo que contesta el puerto del sidecar a `/api/health`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sonda {
     /// Nuestro sidecar, que acepta el token.
     Responde,
-    /// Alguien contesta pero rechaza el token (401): no es nuestro.
+    /// Alguien contesta pero no es nuestro: rechaza el token (401) o no dice
+    /// ser el sidecar de SENTRA (AUD-070).
     Rechaza,
     /// Nadie contesta, o no con algo reconocible.
     NoResponde,
@@ -210,7 +215,17 @@ pub async fn sondear_en(client: &reqwest::Client, base: &str) -> Sonda {
     .send()
     .await;
     match respuesta {
-        Ok(r) if r.status().is_success() => Sonda::Responde,
+        Ok(r) if r.status().is_success() => {
+            // Un 200 no basta: tiene que decir que es nuestro sidecar (AUD-070).
+            let servicio = r.json::<serde_json::Value>().await.ok().and_then(|cuerpo| {
+                cuerpo.get("service").and_then(serde_json::Value::as_str).map(str::to_owned)
+            });
+            if servicio.as_deref() == Some(SIDECAR_SERVICE) {
+                Sonda::Responde
+            } else {
+                Sonda::Rechaza
+            }
+        }
         Ok(r) if r.status() == reqwest::StatusCode::UNAUTHORIZED => Sonda::Rechaza,
         _ => Sonda::NoResponde,
     }
@@ -301,6 +316,26 @@ mod tests {
         let error = rechazo("No se pudo probar la fuente", "500", "Internal Server Error");
         assert_eq!(error.code(), "sidecar");
         assert!(error.to_string().contains("Internal Server Error"));
+    }
+
+    #[tokio::test]
+    async fn solo_es_nuestro_sidecar_si_dice_ser_el_nuestro() {
+        // AUD-070: cualquier servicio que contestara 200 en /api/health se
+        // tomaba por el sidecar y la app le mandaba el token.
+        let ajeno = servidor("200 OK", r#"{"status": "ok", "service": "otro-servicio"}"#);
+        assert_eq!(sondear_en(&reqwest::Client::new(), &ajeno).await, Sonda::Rechaza);
+
+        let sin_json = servidor("200 OK", "<html>hola</html>");
+        assert_eq!(sondear_en(&reqwest::Client::new(), &sin_json).await, Sonda::Rechaza);
+    }
+
+    #[tokio::test]
+    async fn el_nuestro_responde() {
+        let cuerpo: &'static str = Box::leak(
+            format!(r#"{{"status": "ok", "service": "{SIDECAR_SERVICE}"}}"#).into_boxed_str(),
+        );
+        let nuestro = servidor("200 OK", cuerpo);
+        assert_eq!(sondear_en(&reqwest::Client::new(), &nuestro).await, Sonda::Responde);
     }
 
     #[tokio::test]

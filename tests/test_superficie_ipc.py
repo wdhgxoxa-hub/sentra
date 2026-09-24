@@ -60,5 +60,34 @@ class TestSuperficieIpc(unittest.TestCase):
         self.assertEqual(RETIRADOS & (registrados() | invocados()), set())
 
 
+class TestNombreDelServicio(unittest.TestCase):
+    """AUD-070: Rust solo da por suyo el sidecar que dice ser el de SENTRA; el
+    nombre que espera y el que manda Python tienen que ser el mismo."""
+
+    def test_rust_espera_el_nombre_que_python_manda(self):
+        from core.orchestration.sidecar.context import SERVICE_NAME
+
+        engine = (RAIZ / "ui" / "src-tauri" / "src" / "commands" / "engine.rs").read_text("utf-8")
+        esperado = re.search(r'pub const SIDECAR_SERVICE: &str = "([^"]+)";', engine)
+        self.assertIsNotNone(esperado)
+        assert esperado is not None
+        self.assertEqual(esperado.group(1), SERVICE_NAME)
+
+
+class TestEstadoDelArranque(unittest.TestCase):
+    """AUD-056/059: la interfaz recibe `SidecarStatus` de Rust por el canal y
+    por retry_sidecar; sus valores (camelCase) y la unión TS son los mismos."""
+
+    def test_la_union_ts_es_el_enum_de_rust(self):
+        sidecar = (RAIZ / "ui" / "src-tauri" / "src" / "sidecar.rs").read_text("utf-8")
+        cuerpo = sidecar.split("pub enum SidecarStatus {", 1)[1].split("}", 1)[0]
+        variantes = re.findall(r"^\s+([A-Z]\w*),", cuerpo, flags=re.MULTILINE)
+        rust = {v[0].lower() + v[1:] for v in variantes}
+        tipos = (UI / "types" / "radar.ts").read_text("utf-8")
+        union = tipos.split("export type SidecarStatus =", 1)[1].split(";", 1)[0]
+        self.assertEqual(set(re.findall(r'"(\w+)"', union)), rust)
+        self.assertEqual(len(rust), 6)
+
+
 if __name__ == "__main__":
     unittest.main()

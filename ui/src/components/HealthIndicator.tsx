@@ -1,7 +1,7 @@
 import { Database, Cpu } from "lucide-react";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
-import { useAppHealth } from "@/lib/queries";
+import { useAppHealth, useRetrySidecar } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
 
 /**
@@ -15,6 +15,7 @@ import { useT } from "@/stores/settingsStore";
 export function HealthIndicator() {
   const t = useT();
   const health = useAppHealth();
+  const reintentar = useRetrySidecar();
 
   if (health.isPending) {
     return (
@@ -62,6 +63,18 @@ export function HealthIndicator() {
           code={health.data.sidecarLaunch.code}
           detail={health.data.sidecarLaunch.detail}
         />
+      )}
+
+      {/* AUD-056: sin motor, antes solo quedaba cerrar la app. */}
+      {!sidecar.ok && (
+        <button
+          type="button"
+          onClick={() => reintentar.mutate()}
+          disabled={reintentar.isPending}
+          className="self-start rounded-lg border border-border px-2 py-1 text-[11px] transition-colors hover:bg-surface-2 disabled:opacity-50"
+        >
+          {reintentar.isPending ? t.health.retrying : t.health.retryEngine}
+        </button>
       )}
     </div>
   );

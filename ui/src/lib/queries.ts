@@ -83,6 +83,15 @@ export function useRetryDatabase() {
   });
 }
 
+/** Reintenta arrancar el motor; al volver, la salud se lee de nuevo. */
+export function useRetrySidecar() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => ipc.retrySidecar(),
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.health }),
+  });
+}
+
 export function useAppHealth() {
   return useQuery({
     queryKey: queryKeys.health,

@@ -3,8 +3,8 @@ import { Suspense, lazy, useEffect } from "react";
 import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
-import { onSourcesEvent } from "@/lib/ipc";
-import { queryClient, useDatabaseStatus } from "@/lib/queries";
+import { onSidecarEvent, onSourcesEvent } from "@/lib/ipc";
+import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -28,6 +28,19 @@ export default function App() {
   const applyMultiscan = useMultiscanStore((state) => state.apply);
   const baseDeDatos = useDatabaseStatus();
   const sinBase = baseDeDatos.data !== undefined && !baseDeDatos.data.connected;
+
+  // AUD-059: el arranque del motor avisa al terminar (y al reintentarlo);
+  // sin escucharlo, la salud seguía en rojo hasta el siguiente sondeo de 30 s.
+  useEffect(() => {
+    const unlisten = onSidecarEvent(() => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.health });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sources });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+    });
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   // El escaneo multifuente sigue aunque se cambie de vista: se escucha aquí;
   // al terminar se invalida la caché en lugar de sondear.

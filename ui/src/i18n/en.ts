@@ -33,6 +33,8 @@ export const en: Dictionary = {
     up: "up",
     down: "not responding",
     noBackend: "no response from the backend",
+    retryEngine: "Retry engine",
+    retrying: "Starting the engine…",
   },
 
   radar: {

@@ -31,6 +31,8 @@ export const es = {
     up: "activo",
     down: "sin respuesta",
     noBackend: "sin respuesta del backend",
+    retryEngine: "Reintentar motor",
+    retrying: "Arrancando el motor…",
   },
 
   radar: {

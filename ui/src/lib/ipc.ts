@@ -31,6 +31,8 @@ import {
   type MultiScanEvent,
   type ScanProfileInput,
   type SourceCard,
+  type SidecarStatus,
+  SIDECAR_EVENT_CHANNEL,
   type EvidenceFeed,
   type SourceProbeResult,
   type SourcesOverview,
@@ -66,6 +68,9 @@ export const ipc = {
 
   /** [pg] Si hay conexión con PostgreSQL y, si no, por qué (D-F). */
   getDatabaseStatus: () => invoke<DatabaseStatus>("get_database_status"),
+
+  /** [sidecar] Vuelve a arrancar el motor si no responde (AUD-056). */
+  retrySidecar: () => invoke<SidecarStatus>("retry_sidecar"),
 
   /** [pg] Vuelve a intentar la conexión con PostgreSQL. */
   retryDatabase: () => invoke<DatabaseStatus>("retry_database"),
@@ -103,6 +108,13 @@ export const ipc = {
     invoke<EvidenceFeed>("get_evidence_feed", { limit }),
 } as const;
 
+
+/** Se suscribe al estado del arranque del motor (AUD-059). */
+export function onSidecarEvent(
+  handler: (status: SidecarStatus) => void,
+): Promise<UnlistenFn> {
+  return listen<SidecarStatus>(SIDECAR_EVENT_CHANNEL, (message) => handler(message.payload));
+}
 
 /** Se suscribe al progreso del escaneo multifuente, fuente a fuente. */
 export function onSourcesEvent(

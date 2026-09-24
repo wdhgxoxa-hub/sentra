@@ -188,6 +188,9 @@ fn resolver_proyecto(indicado: Option<String>) -> Option<PathBuf> {
     }
 }
 
+/// Canal por el que el estado del arranque del motor llega a la interfaz.
+pub const SIDECAR_EVENT_CHANNEL: &str = "radar:sidecar";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SidecarStatus {
@@ -323,7 +326,7 @@ impl SidecarManager {
             }
             Sonda::Rechaza => {
                 let detalle = format!(
-                    "En {url} contesta un sidecar que rechaza el token: el puerto es de otro proceso"
+                    "En {url} contesta otro proceso (rechaza el token o no es el motor de SENTRA)"
                 );
                 log::error!("{detalle}");
                 return (SidecarStatus::PortInUse, fallo(CODIGO_PUERTO_AJENO, detalle));
@@ -342,6 +345,9 @@ impl SidecarManager {
             }
         };
 
+        // Un hijo lanzado antes que ya no responde se detiene antes de lanzar
+        // otro: reintentar (AUD-056) no puede dejar dos motores.
+        self.shutdown();
         log::info!("Arrancando el sidecar Python con {}", python.display());
         match self.spawn(&python, log_dir) {
             Ok(child) => {
