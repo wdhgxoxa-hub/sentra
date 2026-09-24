@@ -114,6 +114,16 @@ class TestJuezCompleto(unittest.TestCase):
                   now=AHORA, label_batch_size=4)
         self.assertEqual(llm.llamadas["etiquetas"], 3, "10 ítems en lotes de 4")
 
+    def test_el_tope_de_piezas_etiquetadas_se_puede_fijar(self):
+        # Coste por escaneo (presupuesto de llamadas del usuario): lo que pasa
+        # del tope queda undetermined con su motivo, sin llamada.
+        items, vectores = escenario()
+        llm = LLMDoble()
+        resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=llm, model="m",
+                              cache=InMemoryLabelCache(), now=AHORA, label_batch_size=4, label_max_items=4)
+        self.assertEqual(llm.llamadas["etiquetas"], 1)
+        self.assertEqual(resultado.summary["labeled"], 4)
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",

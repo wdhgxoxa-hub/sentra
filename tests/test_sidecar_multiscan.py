@@ -228,6 +228,55 @@ class TestEscaneoMultifuente(ConfigTestCase):
         guardar.assert_not_called()
 
 
+class TestTopeDeEtiquetas(unittest.TestCase):
+    """RIR_JUEZ_MAX_ETIQUETAS limita las piezas que el juez etiqueta por escaneo
+    (20 por llamada): es como el usuario reparte su presupuesto de Gemini."""
+
+    def llamar(self, entorno):
+        from core.judge.labels import MAX_ITEMS_PER_SCAN
+        from core.orchestration.sidecar import multiscan
+        from core.orchestration.sidecar.context import SidecarContext
+        from core.sources.scan import MultiScanResult
+
+        ctx = SidecarContext(persist_default=True, postgres_dsn="postgresql://x@localhost/y",
+                             env_path=None, started_at=0.0)
+        capturado = {}
+
+        def juez(*args, **kwargs):
+            capturado.update(kwargs)
+            raise RuntimeError("basta con los argumentos")
+
+        class StoreFalso:
+            def __init__(self, **_kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_exc):
+                return False
+
+        with mock.patch.dict("os.environ", entorno), \
+                mock.patch.object(multiscan, "_proveedor_del_juez", return_value=(None, None, "sin clave")), \
+                mock.patch("core.judge.pipeline.run_judge", juez), \
+                mock.patch("core.judge.store.previous_identities", mock.AsyncMock(return_value=[])), \
+                mock.patch("core.storage.postgres_store.PostgresStore", StoreFalso), \
+                self.assertRaises(RuntimeError):
+            multiscan._juzgar(ctx, "run-1", MultiScanResult(items=[], vectors={}))
+        return capturado.get("label_max_items"), MAX_ITEMS_PER_SCAN
+
+    def test_por_defecto_el_tope_de_siempre(self):
+        valor, por_defecto = self.llamar({"RIR_JUEZ_MAX_ETIQUETAS": ""})
+        self.assertEqual(valor, por_defecto)
+
+    def test_con_la_variable_manda_la_variable(self):
+        self.assertEqual(self.llamar({"RIR_JUEZ_MAX_ETIQUETAS": "160"})[0], 160)
+
+    def test_un_valor_invalido_no_rompe_el_escaneo(self):
+        valor, por_defecto = self.llamar({"RIR_JUEZ_MAX_ETIQUETAS": "muchas"})
+        self.assertEqual(valor, por_defecto)
+
+
 class TestCodigosTraducidos(unittest.TestCase):
     def test_es_y_en_traducen_los_codigos_del_evento_error(self):
         import ast

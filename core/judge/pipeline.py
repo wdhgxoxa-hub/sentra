@@ -33,7 +33,14 @@ from .clustering import (
 from .coherencia import comprobar_coherencia, compuerta_coherencia
 from .dimensions import es_lanzamiento, pain_items
 from .gates import judge_cluster, umbral_autores
-from .labels import BATCH_SIZE, LABELER_VERSION, LabelCache, VerifiedLabel, label_items
+from .labels import (
+    BATCH_SIZE,
+    LABELER_VERSION,
+    MAX_ITEMS_PER_SCAN,
+    LabelCache,
+    VerifiedLabel,
+    label_items,
+)
 from .quality import filter_quality
 
 
@@ -62,6 +69,7 @@ def run_judge(
     vectores_frase: Callable[[Mapping[str, str]], Mapping[str, Sequence[float]]],
     previous: Sequence[Previo] = (),
     label_batch_size: int = BATCH_SIZE,
+    label_max_items: int = MAX_ITEMS_PER_SCAN,
     tema: Sequence[str] = (),
 ) -> JudgeResult:
     """`tema`: términos del perfil del escaneo; no nombran nichos.
@@ -71,7 +79,7 @@ def run_judge(
     `vectors` (texto entero) solo sirve para el contexto de G7."""
     calidad = filter_quality(items)
     etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache,
-                            batch_size=label_batch_size)
+                            batch_size=label_batch_size, max_items=label_max_items)
     # AUD2-001: solo la evidencia con dolor pertinente forma nichos. Antes se
     # agrupaba todo lo que pasaba la calidad y los grupos salían por tema.
     dolor = pain_items(calidad.kept, etiquetas)

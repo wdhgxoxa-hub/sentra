@@ -6,6 +6,7 @@ import asyncio
 import functools
 import json
 import logging
+import os
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
@@ -35,6 +36,23 @@ TRIGGER_SOURCE = "multifuente"
 #: un comentario SSE: la interfaz corta solo tras un silencio largo, nunca por
 #: la duración total de un escaneo vivo (AUD2-025).
 KEEPALIVE_S = 15.0
+#: Tope de piezas que el juez etiqueta por escaneo (20 por llamada a Gemini):
+#: así se reparte un presupuesto de llamadas. Vacío o inválido: el de siempre.
+JUEZ_MAX_ETIQUETAS_ENV = "RIR_JUEZ_MAX_ETIQUETAS"
+
+
+def _tope_de_etiquetas() -> int:
+    from core.judge.labels import MAX_ITEMS_PER_SCAN
+
+    valor = os.environ.get(JUEZ_MAX_ETIQUETAS_ENV, "").strip()
+    if not valor:
+        return MAX_ITEMS_PER_SCAN
+    try:
+        tope = int(valor)
+    except ValueError:
+        logger.warning("%s=%r no es un número; se usa %d", JUEZ_MAX_ETIQUETAS_ENV, valor, MAX_ITEMS_PER_SCAN)
+        return MAX_ITEMS_PER_SCAN
+    return max(0, tope)
 
 
 def _sse(payload: dict[str, Any]) -> str:
@@ -126,7 +144,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
                                vectores_frase=almacen.embed_frases if almacen else (lambda _f: {}),
-                               previous=previos, tema=tema)
+                               previous=previos, tema=tema, label_max_items=_tope_de_etiquetas())
             await store.save_verdicts(run_id, juicio.verdicts)
             await marcar_juzgada(store, run_id, construir=sum(
                 1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))
