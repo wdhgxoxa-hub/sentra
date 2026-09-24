@@ -1,0 +1,9 @@
+# cargo audit (AUD2-021, DP7 A). Solo se ignora lo que no llega al binario, y
+# tests/test_dependencias_auditadas.py comprueba que siga sin llegar.
+[advisories]
+ignore = [
+    # rsa 0.9 (ataque Marvin, sin versión corregida): sqlx 0.8 deja a
+    # sqlx-mysql y a rsa en el Cargo.lock aunque SENTRA solo compile
+    # PostgreSQL; `cargo tree -i rsa --target all` no lo encuentra.
+    "RUSTSEC-2023-0071",
+]

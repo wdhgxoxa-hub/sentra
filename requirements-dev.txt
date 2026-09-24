@@ -11,3 +11,6 @@ mypy==2.3.1
 
 # Cliente CDP de la prueba de humo del ejecutable real (tests/humo_exe.py, AUD2-004).
 websocket-client==1.9.2
+
+# Auditoría de vulnerabilidades de las dependencias de Python (AUD2-021, DP7 A).
+pip-audit==2.10.1
