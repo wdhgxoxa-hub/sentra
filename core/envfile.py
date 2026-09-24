@@ -45,8 +45,10 @@ def _linea(clave: str, valor: str) -> str:
 
 
 def default_env_path() -> str:
-    """Ruta del `.env` del proyecto."""
-    return str(Path(__file__).resolve().parents[1] / ".env")
+    """Ruta del `.env` del proyecto (en la raíz de datos, no junto al código)."""
+    from core.rutas import raiz_datos
+
+    return str(raiz_datos() / ".env")
 
 
 def update_dotenv(values: dict[str, str], path: str | None = None) -> Path:

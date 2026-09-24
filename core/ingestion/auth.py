@@ -80,12 +80,13 @@ def load_dotenv(
         env: diccionario destino. Por defecto, `os.environ`.
     """
     import os
-    from pathlib import Path
 
     if env is None:
         env = os.environ
     if path is None:
-        path = str(Path(__file__).resolve().parents[2] / ".env")
+        from core.envfile import default_env_path
+
+        path = default_env_path()
 
     try:
         with open(path, "r", encoding="utf-8") as fh:

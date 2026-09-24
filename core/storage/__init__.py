@@ -26,7 +26,6 @@ from .embeddings import (
 )
 from .lancedb_store import (
     DB_PATH_ENV_VAR,
-    PROJECT_ROOT,
     DefaultTextEmbedder,
     LanceDBStore,
     OpportunityRecord,
@@ -38,7 +37,6 @@ __all__ = [
     "DEFAULT_MODEL_NAME",
     "DEFAULT_VECTOR_DIM",
     "HASH_FALLBACK_DIM",
-    "PROJECT_ROOT",
     "DefaultTextEmbedder",  # alias histórico (deprecado): usar HashEmbedder
     "EmbeddingError",
     "FastEmbedEmbedder",

@@ -37,9 +37,6 @@ from .embeddings import (
 
 logger = logging.getLogger(__name__)
 
-# Raiz del proyecto: <raiz>/core/storage/lancedb_store.py -> parents[2]
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
 # Variable de entorno que permite reubicar el almacen sin tocar codigo.
 DB_PATH_ENV_VAR = "RIR_LANCEDB_PATH"
 
@@ -50,7 +47,7 @@ def resolve_db_path(db_path: str | Path | None = None) -> Path:
 
     1. El argumento explicito, si se proporciona.
     2. La variable de entorno ``RIR_LANCEDB_PATH``.
-    3. ``<raiz del proyecto>/data/lancedb``.
+    3. ``<raiz de datos>/data/lancedb`` (``core.rutas.raiz_datos``).
 
     Nunca devuelve una ruta absoluta cableada a una unidad concreta: el
     proyecto debe poder moverse de disco o de maquina sin editar fuentes.
@@ -62,7 +59,9 @@ def resolve_db_path(db_path: str | Path | None = None) -> Path:
     if from_env:
         return Path(from_env)
 
-    return PROJECT_ROOT / "data" / "lancedb"
+    from core.rutas import raiz_datos
+
+    return raiz_datos() / "data" / "lancedb"
 
 
 def _sql_literal(value: str) -> str:
