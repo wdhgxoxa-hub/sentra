@@ -10,7 +10,8 @@ required-version = "==0.16.6"
 # El intérprete del proyecto (scripts/setup_env.ps1 crea la venv con 3.12).
 target-version = "py312"
 line-length = 88
-# repos/ son clones de terceros (ignorados por git, y ruff respeta .gitignore).
+# repos/ (clones de terceros) se archivó fuera del proyecto (AUD2-017); si
+# volviera a aparecer, ruff no lo revisa.
 extend-exclude = ["repos"]
 
 [tool.mypy]

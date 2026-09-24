@@ -19,7 +19,8 @@ describía (`F:\archivo_sentra\INDEX.md`).
 Lo vigente está en el README, en `tasks/SPEC-cierre-y-documentos.md`,
 `tasks/SPEC-multifuente.md`, `docs/pipeline-antigua.md` y `docs/proceso.md`.
 
-Los scripts de la biblioteca (`scripts/clone_manager.py`, `clone_batch2.py`,
-`generate_index.py`, `repo_analyzer.py`, `verify_integrity.py`,
-`test_radar.py`) y `logs/repo_catalog.json` siguen en el repositorio: DP11 no
-decidió sobre ellos y sin los clones no tienen uso.
+Los scripts de la biblioteca (`clone_manager.py`, `clone_batch2.py`,
+`generate_index.py`, `repo_analyzer.py`, `verify_integrity.py`, `test_radar.py`,
+`update_results.py`, `print_report.py`, `test_candidates.py`) y
+`logs/repo_catalog.json` se retiraron del repositorio a petición del usuario;
+hay copia idéntica en `F:\archivo_sentra\scripts` y siguen en el historial de git.

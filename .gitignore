@@ -2,8 +2,8 @@
 # SENTRA - .gitignore
 # ---------------------------------------------------------------
 
-# Clones de terceros (57 repos de referencia, se regeneran con
-# scripts/clone_manager.py a partir de logs/repo_catalog.json)
+# Clones de terceros: se archivaron fuera del proyecto (AUD2-017,
+# F:\archivo_sentra\repos); que no vuelvan a entrar por error.
 repos/
 
 # Entornos virtuales
@@ -47,13 +47,9 @@ chroma.sqlite3
 *.sqlite3
 *.duckdb
 
-# Salidas de los scripts: nada generado se versiona (D5). Se exceptúa el
-# catálogo de repos, que es la entrada de scripts/clone_manager.py y no se
-# puede regenerar sin los clones.
+# Salidas de los scripts: nada generado se versiona (D5).
 *.log
 logs/*
-!logs/repo_catalog.json
-INDEX.md
 
 # Secretos y configuración local
 .env

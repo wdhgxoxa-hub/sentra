@@ -20,6 +20,12 @@ ARCHIVADOS = {
     "docs/MATRIZ_SELECCION_BEST_OF_BREED.md": "MATRIZ_SELECCION_BEST_OF_BREED.md",
     "tasks/SPEC-blueprint.md": "SPEC-blueprint.md",
 }
+SCRIPTS_DE_CLONES = (
+    "scripts/clone_manager.py", "scripts/clone_batch2.py", "scripts/generate_index.py",
+    "scripts/repo_analyzer.py", "scripts/verify_integrity.py", "scripts/test_radar.py",
+    "scripts/update_results.py", "scripts/print_report.py", "scripts/test_candidates.py",
+    "logs/repo_catalog.json",
+)
 
 
 class TestSinRestos(unittest.TestCase):
@@ -31,6 +37,12 @@ class TestSinRestos(unittest.TestCase):
             with self.subTest(documento=antes):
                 self.assertFalse((RAIZ / antes).exists())
                 self.assertTrue((HISTORICO / ahora).is_file())
+
+    def test_los_scripts_de_la_biblioteca_de_clones_no_viven_en_el_proyecto(self):
+        # Sin los clones no tienen uso; se archivaron en F:\archivo_sentra\scripts.
+        for resto in SCRIPTS_DE_CLONES:
+            with self.subTest(resto=resto):
+                self.assertFalse((RAIZ / resto).exists())
 
     def test_el_historico_explica_de_donde_viene(self):
         nota = (HISTORICO / "LEEME.md").read_text("utf-8")

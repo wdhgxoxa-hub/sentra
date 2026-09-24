@@ -1,31 +1,20 @@
 """
-Rutas de los scripts y lo que generan (D5)
-==========================================
+Rutas de los scripts (D5)
+=========================
 
 Los scripts escribían en `F:\\reddit_intelligence_radar\\...` fijo: fuera de
-esa unidad fallaban o, peor, escribían en otra copia. Y lo que generaban
-(INDEX.md, informes de demostración, auditorías) acababa versionado. Ahora
-cada script resuelve sus rutas desde su propia ubicación, y todo lo generado
-queda ignorado por git salvo `logs/repo_catalog.json`: es la entrada de
-`clone_manager.py` y no se puede regenerar sin los clones.
+esa unidad fallaban o, peor, escribían en otra copia. Ahora cada script
+resuelve sus rutas desde su propia ubicación. (Lo que vigilaba de las salidas
+de la biblioteca de clones se fue con esos scripts; ver docs/historico.)
 """
 
 import ast
 import re
-import shutil
-import subprocess
 import unittest
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 UNIDAD = re.compile(r"^[A-Za-z]:[\\/]")
-
-#: Lo que generan los scripts, relativo a la raíz del repositorio.
-GENERADOS = (
-    "INDEX.md",
-    "logs/clone_results.json",
-    "logs/integrity_audit.json",
-)
 
 
 class TestRutasRelativas(unittest.TestCase):
@@ -37,25 +26,6 @@ class TestRutasRelativas(unittest.TestCase):
                         and UNIDAD.match(nodo.value):
                     absolutas.append(f"{script.name}:{nodo.lineno}")
         self.assertEqual(absolutas, [])
-
-
-@unittest.skipUnless(shutil.which("git") and (RAIZ / ".git").exists(), "sin git")
-class TestNadaGeneradoSeVersiona(unittest.TestCase):
-    def git(self, *args):
-        return subprocess.run(["git", *args], cwd=RAIZ, capture_output=True, text=True,
-                              check=False)
-
-    def test_lo_generado_esta_ignorado(self):
-        no_ignorados = [r for r in GENERADOS if self.git("check-ignore", "-q", r).returncode != 0]
-        self.assertEqual(no_ignorados, [])
-
-    def test_lo_generado_no_esta_en_el_indice(self):
-        versionados = self.git("ls-files", *GENERADOS).stdout.split()
-        self.assertEqual(versionados, [])
-
-    def test_el_catalogo_de_repos_si_se_versiona(self):
-        self.assertEqual(self.git("ls-files", "logs/repo_catalog.json").stdout.strip(),
-                         "logs/repo_catalog.json")
 
 
 if __name__ == "__main__":
