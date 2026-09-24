@@ -40,6 +40,12 @@ KEYWORDS_PER_CLUSTER = 5
 _NAMESPACE = uuid.UUID("5e27a000-0000-4000-8000-000000000f03")
 
 _PALABRA = re.compile(r"[a-záéíóúüñ]{3,}")
+#: Enlaces y contracciones inglesas se quitan antes de contar (AUD2-006): de
+#: «https://github.com/…» salían «https», «com» y «github», y de «don't», «don».
+_URL = re.compile(r"(?:https?://|www\.)\S+")
+_CONTRACCION = re.compile(r"\b[a-z]+['’](?:t|s|re|ve|ll|d|m)\b")
+#: Etiquetas de formato de Hacker News («Show HN:», «Ask HN:»…): no nombran nichos.
+_ETIQUETA_HN = re.compile(r"\b(?:show|ask|launch|tell)\s+hn\b")
 STOPWORDS = frozenset([
     "the", "and", "for", "that", "this", "with", "you", "your", "are", "was", "were", "have",
     "has", "had", "not", "but", "can", "all", "any", "our", "out", "its", "it's", "they",
@@ -53,6 +59,14 @@ STOPWORDS = frozenset([
     "muy", "sin", "sobre", "entre", "cada", "todo", "toda", "todos", "todas", "hay", "han",
     "has", "hace", "hago", "mes", "año", "también", "porque", "cuando", "donde", "quien",
     "cual", "algo", "alguna", "alguno",
+    # Relleno de alta frecuencia que no nombra ningún problema (AUD2-006).
+    "where", "after", "before", "actually", "really", "want", "wanted", "need", "needs",
+    "built", "build", "building", "see", "seen", "again", "still", "even", "well", "know",
+    "think", "thing", "things", "way", "lot", "something", "anything", "anyone", "someone",
+    "here", "now", "new", "use", "used", "using", "going", "able", "sure", "yes", "yet",
+    "these", "those", "while", "since", "because", "though", "without", "within", "over",
+    "under", "back", "off", "down", "same", "own", "both", "few", "less", "never", "always",
+    "time", "day", "days", "year", "years", "hey", "thanks", "hola", "gracias", "ahora",
 ])
 
 
@@ -74,7 +88,8 @@ def _unitario(vector: Sequence[float] | np.ndarray) -> np.ndarray:
 def _palabras_clave(textos: Sequence[str]) -> list[str]:
     conteo: Counter[str] = Counter()
     for texto in textos:
-        conteo.update({p for p in _PALABRA.findall(texto.casefold()) if p not in STOPWORDS})
+        limpio = _ETIQUETA_HN.sub(" ", _CONTRACCION.sub(" ", _URL.sub(" ", texto.casefold())))
+        conteo.update({p for p in _PALABRA.findall(limpio) if p not in STOPWORDS})
     return [p for p, _ in sorted(conteo.items(), key=lambda kv: (-kv[1], kv[0]))][:KEYWORDS_PER_CLUSTER]
 
 

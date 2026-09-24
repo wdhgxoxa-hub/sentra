@@ -81,6 +81,30 @@ class TestAgrupacion(unittest.TestCase):
         for vacia in ("the", "to", "a", "las", "por"):
             self.assertNotIn(vacia, facturas.keywords)
 
+    def test_palabras_clave_sin_restos_de_urls_contracciones_ni_relleno(self):
+        """AUD2-006: los nichos reales se llamaban «email · notifications ·
+        built/com/https/don/after/actually». Textos con la forma de los reales."""
+        from core.judge.clustering import _palabras_clave
+
+        palabras = _palabras_clave([
+            "I've built a tool https://example.com/app for email alerts, don't miss it",
+            "Actually, after I built it, where do you want email alerts? See www.foo.com/x",
+            "Email alerts again: https://github.com/x/y (it doesn't work when the queue is full)",
+        ])
+        for resto in ("https", "com", "www", "github", "example", "don", "doesn", "built",
+                      "actually", "after", "where", "want", "see", "again"):
+            self.assertNotIn(resto, palabras)
+        self.assertEqual(palabras[:2], ["alerts", "email"])
+
+    def test_las_etiquetas_de_hacker_news_no_nombran_nichos(self):
+        from core.judge.clustering import _palabras_clave
+
+        palabras = _palabras_clave(["Show HN: invoice export tool", "Ask HN: invoice export pain",
+                                    "Launch HN: Invoicer (YC W26) – invoice export"])
+        for resto in ("show", "ask", "launch"):
+            self.assertNotIn(resto, palabras)
+        self.assertEqual(palabras[:2], ["export", "invoice"])
+
     def test_sin_vector_el_item_no_se_agrupa(self):
         vectores = {k: v for k, v in VECTORES.items() if k != "github:3"}
         grupos = cluster_evidence(FACTURAS, vectores)
