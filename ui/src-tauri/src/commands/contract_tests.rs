@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
 use crate::commands::gemini::GeminiKeyParams;
+use crate::commands::documents::ExportDocumentParams;
 use crate::commands::engine::SearchParams;
 
 /// Extrae el argumento `name` del payload de `invoke` y lo deserializa.
@@ -58,6 +59,24 @@ fn search_hybrid_recibe_consulta_y_limite_y_los_reenvia_sin_mas() {
     assert_eq!(p.limit, Some(20));
     let cuerpo = serde_json::to_value(crate::commands::engine::cuerpo_de_busqueda(p)).unwrap();
     assert_eq!(cuerpo, json!({ "query": "facturas", "limit": 20 }));
+}
+
+#[test]
+fn export_document_recibe_veredicto_tipo_formato_idioma_y_forzado() {
+    // ipc.ts -> invoke("export_document", { params }) con ExportDocumentParams.
+    let payload = json!({ "params": {
+        "verdictId": "11111111-1111-1111-1111-111111111111", "kind": "plan", "format": "md",
+        "language": "en", "force": true
+    }});
+    let p: ExportDocumentParams = argumento(&payload, "params");
+    assert_eq!(p.verdict_id, "11111111-1111-1111-1111-111111111111");
+    assert_eq!((p.kind.as_str(), p.format.as_str(), p.language.as_str()), ("plan", "md", "en"));
+    assert!(p.force);
+    let sin_forzar: ExportDocumentParams = argumento(
+        &json!({ "params": { "verdictId": "v", "kind": "dossier", "format": "pdf", "language": "es" } }),
+        "params",
+    );
+    assert!(!sin_forzar.force, "sin force no se fuerza");
 }
 
 #[test]

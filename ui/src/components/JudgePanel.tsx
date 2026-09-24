@@ -1,5 +1,6 @@
 import { CheckCircle2, Gavel, XCircle } from "lucide-react";
 
+import { DocumentActions } from "@/components/DocumentActions";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { EvidenceAttributionLine } from "@/components/EvidenceAttributionLine";
 import { comoError } from "@/lib/errors";
@@ -167,6 +168,8 @@ export function VerdictCard({
           ))}
         </ul>
       </details>
+
+      <DocumentActions v={v} />
     </article>
   );
 }

@@ -100,6 +100,14 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
 }
 
 #[test]
+fn export_document_devuelve_exported_document() {
+    cumple(
+        &crate::commands::documents::ExportedDocument { path: texto(), llm_calls: Some(1) },
+        "ExportedDocument",
+    );
+}
+
+#[test]
 fn get_app_health_devuelve_app_health() {
     let json = cumple(
         &AppHealth {

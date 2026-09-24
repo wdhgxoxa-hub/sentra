@@ -173,6 +173,17 @@
       "verdict",
       "weightsVersion"
     ],
+    "ExportDocumentParams": [
+      "force",
+      "format",
+      "kind",
+      "language",
+      "verdictId"
+    ],
+    "ExportedDocument": [
+      "llmCalls",
+      "path"
+    ],
     "JudgeVersions": [
       "clustering",
       "labeler",

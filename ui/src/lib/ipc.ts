@@ -37,6 +37,8 @@ import {
   type SourceProbeResult,
   type SourcesOverview,
   type JudgeTop,
+  type ExportDocumentParams,
+  type ExportedDocument,
 } from "@/types/radar";
 
 export const ipc = {
@@ -102,6 +104,13 @@ export const ipc = {
 
   /** [sidecar] Top 6 del juez: de una ejecución o de la última juzgada. */
   getJudgeTop: (runId: string | null = null) => invoke<JudgeTop>("get_judge_top", { runId }),
+
+  /**
+   * [sidecar] Dossier o plan de un veredicto en PDF o Markdown, guardado con
+   * el diálogo nativo. `null` si se canceló el diálogo.
+   */
+  exportDocument: (params: ExportDocumentParams) =>
+    invoke<ExportedDocument | null>("export_document", { params }),
 
   /** [sidecar] Evidencia multifuente más reciente, con atribución. */
   getEvidenceFeed: (limit: number | null = null) =>

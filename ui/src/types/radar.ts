@@ -327,6 +327,26 @@ export interface JudgeVerdict {
   evidence: JudgeEvidence[];
 }
 
+/** Documentos de un veredicto (Fase E): el dossier siempre, el plan si Construir o forzado. */
+export type DocumentKind = "dossier" | "plan";
+export type DocumentFormat = "pdf" | "md";
+
+export interface ExportDocumentParams {
+  verdictId: string;
+  kind: DocumentKind;
+  format: DocumentFormat;
+  language: "es" | "en";
+  /** Plan de un nicho que no es Construir: lleva la advertencia en cada página. */
+  force: boolean;
+}
+
+/** Documento guardado; `null` desde ipc si se canceló el diálogo. */
+export interface ExportedDocument {
+  path: string;
+  /** Llamadas al modelo que costó (0 = reutilizado); null si el motor no lo dijo. */
+  llmCalls: number | null;
+}
+
 /** Versiones con las que juzga el código actual: lo distinto es antiguo (B4). */
 export interface JudgeVersions {
   labeler: string;

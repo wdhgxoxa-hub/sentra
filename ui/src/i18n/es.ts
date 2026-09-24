@@ -348,6 +348,26 @@ export const es = {
     noLlm: "Sin Gemini: las etiquetas quedan sin determinar y nada sale Construir.",
   },
 
+  documents: {
+    title: "Documentos",
+    kind: {
+      dossier: "Dossier",
+      plan: "Plan de construcción",
+    },
+    format: {
+      pdf: "PDF",
+      md: "Markdown",
+    },
+    forcePlan:
+      "Generar el plan aunque el juez dice «{verdict}»: llevará la advertencia en cada página.",
+    generating: "Generando {kind} con el modelo de documentos; puede tardar unos minutos…",
+    failed: "No se pudo generar el documento.",
+    cancelled: "Exportación cancelada: no se guardó nada.",
+    saved: "Guardado en {path}.",
+    calls: "Llamadas al modelo: {n} (0 = se reutilizó lo ya generado).",
+    callsUnknown: "El motor no dijo cuántas llamadas al modelo costó.",
+  },
+
   common: {
     technicalDetails: "Detalles técnicos",
     close: "Cerrar",

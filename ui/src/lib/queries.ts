@@ -22,6 +22,7 @@ import type {
   SearchParams,
   JudgeTop,
   EvidenceFeed,
+  ExportDocumentParams,
   ScanProfileInput,
   SourcesOverview,
 } from "@/types/radar";
@@ -126,6 +127,13 @@ export function useHybridSearch(params: SearchParams) {
 export function useCancelScan() {
   return useMutation({
     mutationFn: (runId: string) => ipc.cancelScan(runId),
+  });
+}
+
+/** Genera y guarda el dossier o el plan de un veredicto (Fase E). */
+export function useExportDocument() {
+  return useMutation({
+    mutationFn: (params: ExportDocumentParams) => ipc.exportDocument(params),
   });
 }
 

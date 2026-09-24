@@ -87,6 +87,8 @@ pub fn run() {
             // Juez de nichos (F3)
             commands::judge::get_judge_top,
             commands::judge::get_evidence_feed,
+            // Documentos de un veredicto (Fase E)
+            commands::documents::export_document,
             // Clave y modelos de Gemini
             commands::gemini::save_gemini_key,
             commands::gemini::test_gemini_key,
