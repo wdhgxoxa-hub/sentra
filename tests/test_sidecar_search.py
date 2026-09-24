@@ -10,14 +10,14 @@ persistencia) la búsqueda dice que no está disponible, con código.
 import unittest
 from unittest import mock
 
+from core.sources.attribution import attribution_fields
 from tests.test_sidecar_config import ConfigTestCase
 
 HITS = [{"id": "stackexchange:1", "source": "stackexchange", "community": "Stack Overflow",
          "kind": "question", "title": None, "excerpt": "queja inventada",
          "url": "https://example.com/q/1", "created_at": "2026-09-01T00:00:00+00:00",
          "data_source": "real",
-         "attribution": {"badge": "Stack Exchange", "site": "Stack Overflow",
-                         "url": "https://example.com/q/1"},
+         "attribution": attribution_fields("stackexchange", "Stack Overflow", "https://example.com/q/1"),
          "rrf_score": 0.03, "dense_rank": 2, "lexical_rank": None}]
 
 

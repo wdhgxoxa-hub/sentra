@@ -11,6 +11,7 @@ un doble: ningún test toca la base real.
 import unittest
 from unittest import mock
 
+from core.sources.attribution import attribution_fields
 from tests.test_sidecar_config import ConfigTestCase
 
 LEIDO = {
@@ -33,8 +34,7 @@ LEIDO = {
         "corroboration": {"hackernews": 3},
         "evidence": [{"id": "hackernews:1", "source": "hackernews", "excerpt": "queja inventada",
                       "created_at": "2026-09-01T00:00:00+00:00",
-                      "attribution": {"badge": "Hacker News", "site": "Ask HN",
-                                      "url": "https://example.com/1"}}],
+                      "attribution": attribution_fields("hackernews", "Ask HN", "https://example.com/1")}],
     }],
     "current_versions": {"labeler": "labels-v2", "clustering": "clustering-v2",
                          "weights": "judge-weights-v1"},
@@ -44,7 +44,7 @@ LEIDO = {
 FEED = [{"id": "hackernews:1", "source": "hackernews", "community": "Ask HN", "kind": "post",
          "title": None, "excerpt": "queja inventada", "url": "https://example.com/1",
          "created_at": "2026-09-01T00:00:00+00:00", "data_source": "real",
-         "attribution": {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/1"}}]
+         "attribution": attribution_fields("hackernews", "Ask HN", "https://example.com/1")}]
 
 
 class TestTopDelJuez(ConfigTestCase):

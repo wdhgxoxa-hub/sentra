@@ -11,18 +11,30 @@ navegador basta la URL en texto plano) y SENTRA lo aplica a todas.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from core.evidence.model import EvidenceItem
 
 from .catalog import by_id
 
 
-def attribution_fields(source: str, community: str, url: str) -> dict[str, str]:
-    """Insignia, sitio y URL a partir de las columnas guardadas de la pieza."""
+def attribution_fields(source: str, community: str, url: str) -> dict[str, str | None]:
+    """Insignia, sitio, URL y licencia (si la fuente tiene una) de la pieza."""
     fuente = by_id(source)
-    return {"badge": fuente.display_name if fuente else source, "site": community, "url": url}
+    licencia = fuente.content_license if fuente else None
+    return {"badge": fuente.display_name if fuente else source, "site": community, "url": url,
+            "license": licencia[0] if licencia else None,
+            "licenseUrl": licencia[1] if licencia else None}
 
 
-def attribution(item: EvidenceItem) -> dict[str, str]:
+def license_suffix(datos: Mapping[str, str | None]) -> str:
+    """« · CC BY-SA 4.0 (URL)» para añadir a una línea de atribución; vacío sin licencia."""
+    if not datos.get("license"):
+        return ""
+    return f" · {datos['license']} ({datos.get('licenseUrl')})"
+
+
+def attribution(item: EvidenceItem) -> dict[str, str | None]:
     """Insignia, sitio y URL del original de una pieza de evidencia."""
     return attribution_fields(item.source, item.community, item.url)
 
@@ -30,4 +42,4 @@ def attribution(item: EvidenceItem) -> dict[str, str]:
 def attribution_line(item: EvidenceItem) -> str:
     """La atribución en una línea de texto plano (documentos y PDF)."""
     datos = attribution(item)
-    return f"{datos['badge']} · {datos['site']} · {datos['url']}"
+    return f"{datos['badge']} · {datos['site']} · {datos['url']}{license_suffix(datos)}"

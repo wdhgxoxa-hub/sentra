@@ -78,6 +78,9 @@ class StackExchangeSource(SourceAdapter):
     id = "stackexchange"
     display_name = "Stack Exchange"
     terms_url = "https://stackexchange.com/legal/api-terms-of-use"
+    #: DP5 A (AUD2-018): el contenido de Stack Exchange es CC BY-SA 4.0; se cita
+    #: con la licencia y el enlace al original, donde se ve el autor (R9).
+    content_license = ("CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/")
     commercial_use_allowed = False
     requires_credentials = False
     credential_fields = (

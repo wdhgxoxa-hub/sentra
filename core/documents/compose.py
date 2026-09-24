@@ -21,6 +21,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from core.sources.attribution import license_suffix
+
 from .claims import Claim, DossierLLM, PlanLLM, verify_claims
 from .model import Block, DocumentModel, Section
 
@@ -262,7 +264,7 @@ def _firma(pieza: Mapping[str, Any]) -> str:
     cuando = fecha.date().isoformat() if isinstance(fecha, datetime) else str(fecha or "")
     atribucion = pieza.get("attribution") or {}
     return (f"{pieza['id']} · {cuando} · {atribucion.get('badge')} · {atribucion.get('site')} · "
-            f"{atribucion.get('url')}")
+            f"{atribucion.get('url')}{license_suffix(atribucion)}")
 
 
 def compose_plan(detalle: Mapping[str, Any], generado: PlanLLM, language: str, *, model: str,

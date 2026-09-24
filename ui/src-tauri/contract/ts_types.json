@@ -82,6 +82,8 @@
     ],
     "EvidenceAttribution": [
       "badge",
+      "license",
+      "licenseUrl",
       "site",
       "url"
     ],

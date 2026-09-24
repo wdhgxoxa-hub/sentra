@@ -129,7 +129,8 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         evidencia = {e["id"]: e for e in primero["evidence"]}
         self.assertEqual(set(evidencia), {"hackernews:4", "hackernews:5", "hackernews:6"})
         self.assertEqual(evidencia["hackernews:4"]["attribution"],
-                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4"})
+                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4",
+                          "license": None, "licenseUrl": None})
         self.assertEqual(evidencia["hackernews:4"]["excerpt"], "queja inventada número 4")
 
     def test_una_ejecucion_juzgada_sin_nichos_es_la_ultima_y_se_explica(self):
@@ -234,7 +235,8 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         self.assertEqual(feed[0]["title"], "Título")
         self.assertEqual(feed[0]["excerpt"], "queja inventada número 61")
         self.assertEqual(feed[0]["attribution"],
-                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/61"})
+                         {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/61",
+                          "license": None, "licenseUrl": None})
         self.assertEqual((feed[0]["source"], feed[0]["data_source"]), ("hackernews", "real"))
         self.assertNotIn("author_hash", feed[0], "el feed no lleva autores (R9)")
 

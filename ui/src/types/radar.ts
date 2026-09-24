@@ -177,6 +177,9 @@ export interface EvidenceAttribution {
   badge: string;
   site: string;
   url: string;
+  /** Licencia del contenido de la plataforma (Stack Exchange: CC BY-SA 4.0); null si no tiene (AUD2-018). */
+  license: string | null;
+  licenseUrl: string | null;
 }
 
 /** Resultado del botón «Probar». `checkedAt` null = no llegó a llamar. */

@@ -120,6 +120,23 @@ class TestDossier(unittest.TestCase):
         self.assertIn("2026-09-01", texto)
         self.assertIn("Hacker News · Ask HN · https://example.com/hackernews:1", texto)
 
+    def test_la_evidencia_de_stack_exchange_lleva_su_licencia_y_no_su_autor(self):
+        # AUD2-018 (DP5 A): CC BY-SA 4.0 y enlace al original; el autor, siguiendo
+        # el enlace (R9: nunca en claro).
+        from core.sources.attribution import attribution_fields
+
+        se = {**pieza("stackexchange:2", "stackexchange"), "author_hash": "a" * 64,
+              "attribution": attribution_fields("stackexchange", "Stack Overflow",
+                                                "https://stackoverflow.com/q/2")}
+        doc = compose_dossier(detalle(evidence=[pieza("hackernews:1"), se]),
+                              dossier_llm(), "es", model="m", generated_at=AHORA)
+        evidencia = next(s for s in doc.sections if s.id == "evidencia")
+        firmas = [b.signature for b in evidencia.blocks if "stackexchange:2" in b.signature]
+        self.assertTrue(firmas, "la pieza de Stack Exchange no aparece citada")
+        self.assertIn("CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)", firmas[0])
+        self.assertIn("https://stackoverflow.com/q/2", firmas[0])
+        self.assertNotIn("a" * 64, firmas[0])
+
     def test_la_viabilidad_es_una_estimacion_del_modelo(self):
         doc = compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA)
         viabilidad = next(s for s in doc.sections if s.id == "viabilidad")

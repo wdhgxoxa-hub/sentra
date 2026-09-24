@@ -119,6 +119,9 @@ class SourceAdapter(ABC):
     requires_credentials: ClassVar[bool]
     credential_fields: ClassVar[tuple[CredentialField, ...]] = ()
     cost_model: ClassVar[CostModel]
+    #: Licencia con la que la plataforma publica el contenido (nombre, URL);
+    #: None = sin licencia propia que atribuir (AUD2-018).
+    content_license: ClassVar[tuple[str, str] | None] = None
     #: Motivo por el que la fuente aún no puede hacer llamadas reales (R7); None = puede.
     #: Con motivo: nunca entra en un escaneo y «Probar» no sale a la red.
     pending_approval: ClassVar[str | None] = None

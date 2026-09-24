@@ -156,7 +156,9 @@ class TestBusquedaEnLaBase(unittest.TestCase):
         primero = hits[0]
         self.assertEqual(primero["title"], "Correo lento")
         self.assertEqual(primero["attribution"], {"badge": "Stack Exchange", "site": "Stack Overflow",
-                                                  "url": "https://example.com/q/1"})
+                                                  "url": "https://example.com/q/1",
+                                                  "license": "CC BY-SA 4.0",
+                                                  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"})
         self.assertEqual((primero["dense_rank"], primero["lexical_rank"]), (None, 1))
         self.assertNotIn("author_hash", primero)
 
