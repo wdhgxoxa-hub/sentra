@@ -26,7 +26,7 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, ClassVar
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -90,10 +90,12 @@ class StackExchangeSource(SourceAdapter):
 
     #: Reloj monotónico; los tests lo sustituyen.
     clock: Callable[[], float] = staticmethod(time.monotonic)
-    recent: ClassVar[dict[str, tuple[float, Any]]] = _RECIENTES
-
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, *, recent: dict[str, tuple[float, Any]] | None = None,
+                 **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        #: Respuestas recientes por huella de la petición. Por defecto, las del
+        #: proceso: la regla de la API es por IP. Los tests pasan la suya.
+        self.recent = _RECIENTES if recent is None else recent
         self._ultima: float | None = None
         self._backoff_hasta: dict[str, float] = {}
         self._cuota_agotada = False

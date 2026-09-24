@@ -79,10 +79,9 @@ def fuente(manejador, credenciales=None, reloj=None, **presupuesto):
     adaptador = StackExchangeSource(
         http=httpx.AsyncClient(transport=httpx.MockTransport(manejador)),
         budget=SourceBudget(**presupuesto), credentials=credenciales or {}, author_salt=SAL,
-        sleep=reloj.sleep,
+        sleep=reloj.sleep, recent=reloj.recientes,
     )
     adaptador.clock = reloj.monotonic
-    adaptador.recent = reloj.recientes
     return adaptador
 
 

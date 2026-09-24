@@ -23,7 +23,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 from core.evidence.model import EvidenceItem, content_fingerprint
-from core.llm.base import LLMBudgetExhausted, LLMError, LLMProvider, LLMTruncated
+from core.llm.base import JsonGenerator, LLMBudgetExhausted, LLMError, LLMTruncated
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ def _prompt(lote: Sequence[EvidenceItem]) -> str:
 def label_items(
     items: Sequence[EvidenceItem],
     *,
-    provider: LLMProvider | None,
+    provider: JsonGenerator | None,
     model: str | None,
     cache: LabelCache,
     batch_size: int = BATCH_SIZE,

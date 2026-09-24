@@ -78,6 +78,27 @@ class UsageRecord:
         return sum(t or 0 for t in (self.input_tokens, self.output_tokens, self.reasoning_tokens))
 
 
+class JsonGenerator(Protocol):
+    """Lo único que el juez necesita de un modelo: JSON conforme a un esquema.
+
+    El etiquetado, el abogado del diablo y los documentos dependen de esto y
+    no del proveedor entero (listar modelos, texto, ping): así sus dobles de
+    test no tienen que fingir capacidades que nadie usa.
+    """
+
+    def generate_json[T: BaseModel](
+        self,
+        prompt: str,
+        schema: type[T],
+        *,
+        model: str,
+        max_output_tokens: int,
+        timeout_ms: int,
+        system: str | None = None,
+        thinking_budget: int | None = None,
+    ) -> T: ...
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     """Lo que el resto de SENTRA puede pedirle a un modelo de lenguaje.

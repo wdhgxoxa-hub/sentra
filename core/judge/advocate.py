@@ -25,7 +25,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from core.evidence.model import EvidenceItem
-from core.llm.base import LLMError, LLMProvider
+from core.llm.base import JsonGenerator, LLMError
 
 from .gates import ClusterJudgement, Verdict
 
@@ -86,7 +86,7 @@ def _prompt(items: Sequence[EvidenceItem]) -> str:
 
 
 def run_advocate(juicio: ClusterJudgement, items: Sequence[EvidenceItem], *,
-                 provider: LLMProvider | None, model: str | None) -> AdvocateOutcome:
+                 provider: JsonGenerator | None, model: str | None) -> AdvocateOutcome:
     if juicio.verdict != "CONSTRUIR":
         return AdvocateOutcome(juicio.verdict, juicio.verdict, False, "not_applicable")
     if provider is None or not model:

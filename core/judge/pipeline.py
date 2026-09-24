@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from core.evidence.model import EvidenceItem
-from core.llm.base import LLMProvider
+from core.llm.base import JsonGenerator
 from core.storage.identity import Previo
 
 from .advocate import run_advocate
@@ -39,7 +39,7 @@ def run_judge(
     items: Sequence[EvidenceItem],
     vectors: Mapping[str, Sequence[float]],
     *,
-    provider: LLMProvider | None,
+    provider: JsonGenerator | None,
     model: str | None,
     cache: LabelCache,
     now: datetime,
