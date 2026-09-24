@@ -98,5 +98,20 @@ class TestLaSuiteLimpiaSusCarpetas(unittest.TestCase):
                         )
 
 
+class TestNingunTearDown(unittest.TestCase):
+    """D2: lo que se deshace (entorno, logging, bases desechables) se registra
+    con addCleanup, que se ejecuta aunque setUp falle a medias; tearDown no."""
+
+    def test_ningun_test_define_tear_down(self):
+        con_tear_down = []
+        for fichero in sorted((RAIZ / "tests").glob("test_*.py")):
+            if fichero.name == Path(__file__).name:
+                continue  # los casos de arriba usan tearDown a propósito
+            for nodo in ast.walk(ast.parse(fichero.read_text(encoding="utf-8"))):
+                if isinstance(nodo, ast.FunctionDef) and nodo.name == "tearDown":
+                    con_tear_down.append(f"{fichero.name}:{nodo.lineno}")
+        self.assertEqual(con_tear_down, [])
+
+
 if __name__ == "__main__":
     unittest.main()

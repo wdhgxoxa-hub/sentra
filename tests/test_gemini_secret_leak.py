@@ -71,14 +71,10 @@ class ConLogs(unittest.TestCase):
     def setUp(self):
         self.captura = CapturaDeLogs()
         raiz = logging.getLogger()
-        self.nivel_previo = raiz.level
+        self.addCleanup(raiz.setLevel, raiz.level)
         raiz.addHandler(self.captura)
+        self.addCleanup(raiz.removeHandler, self.captura)
         raiz.setLevel(logging.DEBUG)
-
-    def tearDown(self):
-        raiz = logging.getLogger()
-        raiz.removeHandler(self.captura)
-        raiz.setLevel(self.nivel_previo)
 
     def assertSinClaves(self, *textos):
         for texto in (*textos, self.captura.texto.getvalue()):

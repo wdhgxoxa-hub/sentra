@@ -120,9 +120,11 @@ class TestPostgres(unittest.TestCase):
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
+        self.addCleanup(self._borrar_base)
         self.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
 
-    def tearDown(self):
+    @staticmethod
+    def _borrar_base():
         import psycopg
 
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:

@@ -11,6 +11,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from core.storage import (
     DEFAULT_VECTOR_DIM,
@@ -54,12 +55,11 @@ class TestResolveDbPath(unittest.TestCase):
     """La ruta de almacenamiento debe ser configurable, nunca un hardcode."""
 
     def setUp(self):
-        self._saved = os.environ.pop("RIR_LANCEDB_PATH", None)
-
-    def tearDown(self):
+        # patch.dict devuelve el entorno a como estaba, pase lo que pase.
+        entorno = mock.patch.dict(os.environ)
+        entorno.start()
+        self.addCleanup(entorno.stop)
         os.environ.pop("RIR_LANCEDB_PATH", None)
-        if self._saved is not None:
-            os.environ["RIR_LANCEDB_PATH"] = self._saved
 
     def test_explicit_argument_wins_over_environment(self):
         os.environ["RIR_LANCEDB_PATH"] = os.path.join("C:", "desde_entorno")
@@ -251,8 +251,6 @@ class TestDeleteById(StoreTestCase):
         self.assertIsNone(self.store.get_by_id("o'brien"))
 
     def test_a_store_failure_reports_false(self):
-        from unittest import mock
-
         with mock.patch.object(self.store._table, "delete", side_effect=OSError("disco")), \
                 self.assertLogs("core.storage.lancedb_store", "ERROR"):
             self.assertFalse(self.store.delete_by_id("a1"))

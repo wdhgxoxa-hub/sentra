@@ -123,6 +123,7 @@ class ConRedDoble(unittest.TestCase):
 
     def setUp(self):
         logging.disable(logging.CRITICAL)
+        self.addCleanup(logging.disable, logging.NOTSET)
         SesionDoble.peticiones = []
         SesionDoble.respuesta = None
         SesionDoble.error = None
@@ -133,9 +134,6 @@ class ConRedDoble(unittest.TestCase):
         dormir = mock.patch("core.ingestion.client.asyncio.sleep", mock.AsyncMock())
         dormir.start()
         self.addCleanup(dormir.stop)
-
-    def tearDown(self):
-        logging.disable(logging.NOTSET)
 
     def assertNuncaTocaElEndpointPublico(self):
         for url in SesionDoble.peticiones:
