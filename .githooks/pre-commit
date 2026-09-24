@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Sin compuerta verde no hay commit (AUD2-022). Se activa una vez por clon:
+#   git config core.hooksPath .githooks
+exec bash "$(git rev-parse --show-toplevel)/scripts/compuerta.sh"

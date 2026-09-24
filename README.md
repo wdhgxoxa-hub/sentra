@@ -60,18 +60,34 @@ en `docs/pipeline-antigua.md`.
 
 ## Calidad: la compuerta
 
-El proyecto no tiene CI remota (D-C8). La compuerta local cumple ese papel y
-un cambio no se da por bueno si alguna de estas herramientas falla o avisa:
+El proyecto no tiene CI remota (D-C8). La compuerta local cumple ese papel:
+`scripts/compuerta.sh` falla si falla cualquier paso, con el código de salida
+real de cada herramienta (AUD2-022). El hook de pre-commit la ejecuta; se
+activa una vez por clon:
 
 ```powershell
-ruff check --no-cache                          # lint de Python
-mypy                                           # tipos: core, scripts y tests (check_untyped_defs)
-python -m unittest discover -s tests           # suite de Python
-cd ui; npx --no-install tsc --noEmit -p .      # tipos de la interfaz (hace de lint)
-cd ui; npm test                                # lógica pura de la interfaz (node --test, sin dependencias)
-cd ui/src-tauri; cargo test                    # suite de Rust
-cd ui/src-tauri; cargo clippy --all-targets -- -D warnings
+git config core.hooksPath .githooks
+bash scripts/compuerta.sh                               # la de cada commit
+$env:CLIPPY=1; $env:AUDIT=1; $env:HUMO=1; bash scripts/compuerta.sh   # la de cada release
 ```
+
+| Paso | Herramienta |
+|---|---|
+| ruff | `ruff check --no-cache` (lint de Python) |
+| mypy | `mypy` (core, scripts y tests, `check_untyped_defs`) |
+| python | `python -m unittest discover -s tests` |
+| tsc | `npx --no-install tsc --noEmit -p .` en `ui` (hace de lint) |
+| node | `npm test` en `ui` (lógica pura, `node --test`) |
+| cargo | `cargo test` en `ui/src-tauri` |
+| clippy (`CLIPPY=1`) | `cargo clippy --all-targets -- -D warnings` |
+| pip-audit, cargo-audit (`AUDIT=1`) | vulnerabilidades conocidas en las dependencias (AUD2-021); consultan sus bases en la red |
+| humo (`HUMO=1`) | la prueba de humo del ejecutable real (abajo) |
+
+`pip-audit` está en `requirements-dev.txt`; `cargo-audit` se instala con la
+cadena MSVC (la GNU de esta máquina no lo compila):
+`cargo +stable-x86_64-pc-windows-msvc install cargo-audit --locked`. Lo que
+`cargo audit` ignora está en `ui/src-tauri/.cargo/audit.toml`, con su motivo,
+y un test comprueba que siga sin llegar al binario.
 
 `npm run build` también falla si algún chunk supera 500 kB (el límite no se
 sube: se divide el código). En la interfaz no hay eslint ni prettier: serían
@@ -100,13 +116,15 @@ matando la aplicación de golpe, el motor termina solo y libera el puerto. No
 genera texto con Gemini ni consulta fuentes, y no pulsa ningún botón (uno
 genera documentos). Al abrir Configuración, el motor pide a Google la lista de
 modelos solo si la guardada tiene más de un día (AUD2-019). Falla si cambian
-las preferencias del usuario. Tarda ~40 s; la compuerta local la ejecuta con `HUMO=1`. Una release
-no se da por buena sin `HUMO OK`.
+las preferencias del usuario. Tarda ~40 s; la compuerta la ejecuta con
+`HUMO=1`. Una release no se da por buena sin `humo OK` en la compuerta de
+release.
 
 ## Documentación
 
 - `tasks/SPEC-cierre-y-documentos.md` y `tasks/SPEC-multifuente.md`:
   especificación y decisiones (D-M*, D-C*).
 - `docs/pipeline-antigua.md`: qué se retiró de la pipeline antigua y qué queda.
+- `docs/proceso.md`: reglas de proceso (compuerta, humo, verificación con datos).
 - `docs/ARQUITECTURA_POSTGRES_Y_FRONTEND.md`: esquema y frontend (histórico,
   de la fase 6).
