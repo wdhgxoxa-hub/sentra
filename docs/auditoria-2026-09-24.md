@@ -430,3 +430,65 @@ Total de generación en la misión: 6 contadas antes de este cierre + 2 posibles
 - **E8:** verificar dossier y plan con Gemini real (llamadas, tokens y secciones).
 - **F:** F1 instalación limpia; F2 migraciones; F3 release desde `main`; F4 fusión (esta rama no se ha fusionado).
 - **G:** G1 Product Hunt.
+
+---
+
+## 8. Ampliación antes de E8 (2026-09-24, pedida por el usuario)
+
+Commits `3e67efd`…`2d36cad`. Release compilada con `npm run tauri build` desde
+`2d36cad`; compuerta de release (`CLIPPY=1 AUDIT=1 HUMO=1`) con todos los pasos
+en OK y código de salida 0.
+
+| Pedido | Estado | Commits | Evidencia |
+|---|---|---|---|
+| Borrar la carpeta antigua (AUD2-015) | CERRADO | — | 1 042 ficheros y 76 170 451 B borrados; ningún proceso la usaba. |
+| Retirar los scripts de clonado (AUD2-017) | CERRADO | 3e67efd | 9 scripts y `logs/repo_catalog.json` fuera del repo; copia idéntica (hash, 10/10) en `F:\archivo_sentra\scripts`. |
+| Retirar `subreddits` con respaldo (AUD2-016) | CERRADO | dac9208 | Migración 013 (R12: respaldo `*_pre013.dump`, ensayo sobre copia, dry-run, aplicación y verificación en solo lectura). Fuera la tabla, `pipeline_runs.subreddit_id` y 10 enums sin uso. Datos intactos: 13 ejecuciones, 82 evidencias, 25 veredictos y 150 etiquetas. |
+| Prueba de humo con perfil aislado (AUD2-022) | CERRADO | 79474a5 | Primero una prueba de concepto: `WEBVIEW2_USER_DATA_FOLDER` manda sobre la carpeta de Tauri. Humo real: perfil real `1a7e2ce38b0c46d3` antes y después, perfil aislado usado y borrado. |
+| Residuo de AUD2-001 (opiniones como dolor) | CERRADO en su causa | 88302ea 53e6ce2 eff1dde 218d395 e73c2fe | Ver 8.1. |
+| Residuo de AUD2-006 (nombres genéricos) | CERRADO en su causa | 2d36cad | Ver 8.2. |
+
+### 8.1 Residuo de AUD2-001: lo que se encontró y lo que se hizo
+
+1. **labels-v4 (`88302ea`).** Campo obligatorio `affected` (author/others/none) con su fragmento literal; solo cuenta el dolor del autor. Re-etiquetado real: 5 llamadas.
+   - De los 3 comentarios del grupo incoherente, uno era opinión y deja de ser dolor.
+   - Los otros dos son dolores reales del autor (passkeys en Kiwi Browser; un sistema de notificaciones sobredimensionado). **Mi diagnóstico previo («3 opiniones») era erróneo:** leí solo sus primeros 120 caracteres.
+2. **La causa real era la agrupación.** Tras v4, un grupo de 5 pasó todas las compuertas (CONSTRUIR) y solo lo bajó el abogado del diablo: «no existe un nicho coherente». Los vectores e5 del post entero agrupan por tema, no por problema.
+3. **Medido sin Gemini:**
+   - la similitud e5 no separa grupos verdaderos de mezclas en el conjunto dorado (mezclas hasta 0,869; verdaderos 0,830–0,844);
+   - centrada, sigue solapándose y el ARI empeora (0,487 → 0,335);
+   - hay grupos verdaderos con 0 términos compartidos.
+   - **Además, reconozco que DP2 A aprobó «coherencia por grupo» y en la PARTE 2 no la implementé.**
+4. **Decisión del usuario:** comprobación LLM por escaneo, y agrupar por la frase del problema midiendo antes en el dorado.
+   - **Agrupar por la frase (`53e6ce2`).** Dorado de publicaciones (cada frase con el contexto común del tema): post entero ARI 0,025 (mejor umbral); frase ARI 0,487 y pureza 0,735 frente a 0,618. Criterio fijado antes de medir: cumplido.
+   - **G0 (`eff1dde`).** Una llamada por escaneo con las frases de todos los grupos. Medida y distinta → DESCARTAR; sin comprobar → nunca CONSTRUIR. Migración 014 (8 o 9 compuertas), aplicada con R12.
+   - **Tope de llamadas en el re-juicio (`218d395`).** R7 no puede pasarse.
+5. **Error mío en el paso de la frase:** prefería el fragmento de `affected` (quién), que con datos reales era la presentación del autor. Juntó 20 autores en un grupo; G0 lo rechazó. Corregido en `e73c2fe`: se usa el de `is_pain` (clustering-v6).
+6. **Resultado real (re-juicio `01a0d32b`, 1 llamada):** 2 grupos, los 2 DESCARTAR por G0 con razones correctas («WooCommerce, Trac y Keycloak… sin un problema común»). **Este escaneo no tiene ningún nicho coherente:**
+   - lo confirman todas las representaciones medidas sin Gemini;
+   - con `is_pain`: 4 grupos, todos mezclados;
+   - e5 junta frases cortas por estilo («This is…», «This causes…»).
+   No se re-juzgó con v6/v7: costaría la llamada 15 de 15 para enseñar otra vez «0 nichos». El próximo escaneo aplicará la versión actual; por eso la interfaz avisa «Veredicto de versiones antiguas (clustering-v5)».
+
+### 8.2 Residuo de AUD2-006
+
+- **Causa:** los nombres genéricos eran el nombre de una mezcla (ahora G0 la descarta) y el contexto común de los posts contaminaba el nombre.
+- **Fondo del c-TF-IDF:** ampliarlo no bastaba («clear · increasing · rather» seguía).
+- **Nombres desde las frases del problema (`2d36cad`, clustering-v7).** Medido en el dorado:
+  - preferencias: «context · handle · infrastructure · team · three» pasa a «users · usuario · avisos · baja · preference»;
+  - push: «push · android · apns · cloud · firebase».
+- **Test de regresión:** cada grupo verdadero del dorado se nombra por su término.
+- **Límite:** sobre datos reales no se puede enseñar porque no hay grupos coherentes; los grupos descartados siguen con nombres de mezcla.
+
+### 8.3 Observación
+
+El puntaje de un grupo descartado por G0 sigue saliendo de las dimensiones (61,7/100 en el grupo mezclado). El veredicto es DESCARTAR, pero la cifra puede confundir. Se propone para E8/F: no puntuar, o marcar, los grupos que fallan G0.
+
+### 8.4 Gemini y errores
+
+- **Generación en esta ampliación:** 5 del re-etiquetado v4 y 1 de coherencia. Total de la misión: **hasta 14 de 15** (dos de ellas «posibles», de mi script). Listados de modelos: 0. Reddit, X y escaneos: 0.
+- **Errores míos:**
+  - el diagnóstico de las «3 opiniones»;
+  - no haber implementado la coherencia de DP2 A;
+  - preferir el fragmento de `affected`;
+  - una corrupción de barras por heredoc en el plan, detectada y corregida antes del commit.
