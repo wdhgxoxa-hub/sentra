@@ -8,17 +8,17 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
 → D (deuda) → E (documentos; depende de B y C) → F (cierre) → G (Product Hunt).
 
 ## Fase A — Decisiones
-- [ ] A1 D-M8…D-M11 en SPEC-multifuente.md, con un test que fije cada una (UI de D-M9 con tsc).
+- [x] A1 D-M8…D-M11 en SPEC-multifuente.md, con un test que fije cada una (UI de D-M9 con tsc).
 
 ## Fase B — Fiabilidad del juez
-- [ ] B1.1 Truncado explícito: finish_reason de límite o JSON incompleto → error propio, nunca «sin etiqueta».
-- [ ] B1.2 Presupuesto de razonamiento del etiquetado con la opción exacta del SDK instalado (verificada en su código).
-- [ ] B1.3 Si aun así se trunca: dividir el lote a la mitad y reintentar solo esa mitad, recursivo, con tope.
-- [ ] B2 Pooling de e5: verificar en fastembed instalado; fijarlo explícitamente; si difiere de lo guardado, recalcular evidence_e5 de forma idempotente.
-- [ ] B3.1 Conjunto dorado de agrupación inventado y bilingüe (≥ 6 sub-problemas × 8–12 + ruido).
-- [ ] B3.2 Pureza y ARI; barrido de umbrales; comparación con enlace promedio; elegir por métrica → clustering-v2 con test de regresión.
-- [ ] B3.3 Re-juicio de 01a0d086 (etiquetando los 40 undetermined, dentro del tope de Gemini); si sale 1 grupo, un escaneo real con tema más amplio.
-- [ ] B4 Veredictos con versiones (etiquetador, agrupación, pesos); los antiguos, marcados (migración 011 si hace falta, R12).
+- [x] B1.1 Truncado explícito: finish_reason de límite o JSON incompleto → error propio, nunca «sin etiqueta».
+- [x] B1.2 Presupuesto de razonamiento del etiquetado con la opción exacta del SDK instalado (verificada en su código).
+- [x] B1.3 Si aun así se trunca: dividir el lote a la mitad y reintentar solo esa mitad, recursivo, con tope.
+- [x] B2 Pooling de e5: verificar en fastembed instalado; fijarlo explícitamente; si difiere de lo guardado, recalcular evidence_e5 de forma idempotente.
+- [x] B3.1 Conjunto dorado de agrupación inventado y bilingüe (≥ 6 sub-problemas × 8–12 + ruido).
+- [x] B3.2 Pureza y ARI; barrido de umbrales; comparación con enlace promedio; elegir por métrica → clustering-v2 con test de regresión.
+- [x] B3.3 Re-juicio de 01a0d086 (etiquetando los 40 undetermined, dentro del tope de Gemini); si sale 1 grupo, un escaneo real con tema más amplio.
+- [x] B4 Veredictos con versiones (etiquetador, agrupación, pesos); los antiguos, marcados (migración 011 si hace falta, R12).
 
 ## Fase C — Una sola verdad (D-C2)
 - [ ] C1 Radar en vivo: Top 6 del juez + veredictos + feed de evidencia, desde la misma fuente que el panel.
@@ -102,3 +102,27 @@ No se adopta: sin meseta es suerte sobre 68 ítems, no una mejora demostrada.
 
 Elegido clustering-v2 = enlace promedio con 0,82 (pureza 0,735, ARI 0,487, 6 grupos). Test de regresión:
 tests/test_judge_cluster_calibration.py.
+
+## Re-juicio de 01a0d086 (B3.3, 2026-09-23)
+
+Ejecución de re-juicio `01a0d0b6-2b16-751e-893d-b6807a9a2700` (trigger `rejuicio`), con las
+versiones labels-v2/gemini-3.8-flash, clustering-v2 y judge-weights-v1. Entrada: 79 ítems canónicos
+de 01a0d086 con su vector e5 ya guardado (B2: el pooling no cambió, no hubo que recalcular).
+Gemini: 2 llamadas reales (7 258 → 4 488 y 21 694 → 5 019 tokens), sin truncado. La caché
+labels-v2 cubrió el resto. Resultado: 75 pasan, 4 descartes por spam, 0 sin etiqueta, 9 grupos
+(antes 1).
+
+| veredicto | palabras clave | miembros | fuentes | puntaje | faltan |
+|---|---|---|---|---|---|
+| INVESTIGAR MÁS | email · notifications · com · free | 14 | HN 14 | 27.8 | G1 G4 G6 |
+| INVESTIGAR MÁS | email · notifications · built · time | 12 | HN 12 | 28.3 | G1 G4 G6 |
+| DESCARTAR | email · code · notification · send | 7 | SE 7 | 13.2 | G1 G2 |
+| INVESTIGAR MÁS | email · user · users · want | 5 | Discourse 1, SE 4 | 26.1 | G2 G6 |
+| DESCARTAR | email · notifications · after · call | 4 | SE 4 | 12.7 | G1 G2 G6 |
+| DESCARTAR | notifications · email · notification · point | 4 | HN 2, SE 2 | 20.0 | G2 G6 |
+| DESCARTAR | email · app · don · log | 3 | HN 3 | 24.3 | G1 G2 G4 |
+| DESCARTAR | email · job · send · use | 3 | HN 1, SE 2 | 14.3 | G2 G4 G5 G6 |
+| DESCARTAR | email · notifications · actually · comment | 3 | HN 3 | 3.8 | G1 … G6 |
+
+Al salir más de un grupo, no se lanza el escaneo real nuevo (la misión lo reserva para el caso de
+un solo grupo). No hay ningún CONSTRUIR: el abogado del diablo no llegó a actuar.
