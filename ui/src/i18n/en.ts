@@ -77,7 +77,7 @@ export const en: Dictionary = {
     error: "The search failed.",
     searching: "Searching…",
     empty: "No results for that query.",
-    emptyHint: "Try one of the suggestions, or run a scan first.",
+    emptyHint: "Try one of the suggestions, or run a scan from Sources.",
     suggestions: "Try",
     colText: "Text",
     colSemantic: "Meaning",
@@ -149,13 +149,6 @@ export const en: Dictionary = {
     testKey: "Test key",
   },
 
-  urgency: {
-    CRITICAL: "Critical",
-    HIGH: "High",
-    MEDIUM: "Medium",
-    LOW: "Low",
-  },
-
   explain: {
     rrf: {
       title: "Result fusion (RRF)",
@@ -168,9 +161,9 @@ export const en: Dictionary = {
         "Finds similar texts even when they share no words. «Broken billing» finds «I can't export my receipts». It struggles with unusual proper nouns.",
     },
     exact: {
-      title: "Word-based search (BM25)",
+      title: "Word-based search",
       body:
-        "Matches the words as written, weighting rare ones higher. It's what rescues tool names like «pgpool» or «Stripe», where meaning doesn't help.",
+        "Matches the words as written in the title and text, without reducing them to their stem, and ranks by how many appear and how close together. It's what rescues tool names like «pgpool» or «Stripe», where meaning doesn't help.",
     },
   },
 
@@ -182,6 +175,7 @@ export const en: Dictionary = {
   },
 
   errors: {
+    search_unavailable: "Search needs PostgreSQL and the evidence vectors; check the engine health.",
     source_error: "The source rejected the request.",
     source_credentials_missing: "This source needs credentials: set them up in the Sources section.",
     source_auth_failed: "The source rejected the credentials. Check them in the Sources section.",

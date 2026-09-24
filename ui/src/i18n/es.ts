@@ -76,7 +76,7 @@ export const es = {
     error: "La búsqueda falló.",
     searching: "Buscando…",
     empty: "Sin resultados para esa consulta.",
-    emptyHint: "Prueba con una de las sugerencias, o lanza un escaneo primero.",
+    emptyHint: "Prueba con una de las sugerencias, o lanza un escaneo desde Fuentes.",
     suggestions: "Prueba con",
     colText: "Texto",
     colSemantic: "Semántica",
@@ -148,13 +148,6 @@ export const es = {
     testKey: "Probar clave",
   },
 
-  urgency: {
-    CRITICAL: "Crítica",
-    HIGH: "Alta",
-    MEDIUM: "Media",
-    LOW: "Baja",
-  },
-
   /** Explicaciones didácticas de cada métrica. */
   explain: {
     rrf: {
@@ -168,9 +161,9 @@ export const es = {
         "Encuentra textos parecidos aunque no compartan ni una palabra. «Facturación rota» encuentra «no puedo exportar mis recibos». Falla con nombres propios raros.",
     },
     exact: {
-      title: "Búsqueda por palabras (BM25)",
+      title: "Búsqueda por palabras",
       body:
-        "Busca las palabras tal cual, dando más peso a las poco frecuentes. Es la que rescata nombres de herramientas como «pgpool» o «Stripe», donde el significado no ayuda.",
+        "Busca las palabras tal cual en el título y el texto, sin reducirlas a su raíz, y ordena por cuántas aparecen y lo juntas que están. Es la que rescata nombres de herramientas como «pgpool» o «Stripe», donde el significado no ayuda.",
     },
   },
 
@@ -187,6 +180,7 @@ export const es = {
    * tests/test_gemini_robustness.py.
    */
   errors: {
+    search_unavailable: "La búsqueda necesita PostgreSQL y los vectores de la evidencia; revisa la salud del motor.",
     source_error: "La fuente rechazó la petición.",
     source_credentials_missing: "Esta fuente necesita credenciales: configúralas en la sección Fuentes.",
     source_auth_failed: "La fuente rechazó las credenciales. Revísalas en la sección Fuentes.",

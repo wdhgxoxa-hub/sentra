@@ -226,22 +226,26 @@ export interface ClusterHistoryPoint {
 // Búsqueda híbrida (LanceDB + BM25 con fusión RRF)
 // ---------------------------------------------------------------------
 
-export interface HybridSearchHit {
+/**
+ * Resultado de la búsqueda sobre la evidencia (D-C4): la pieza con su
+ * atribución (sin autor, R9) y en qué puesto la encontró cada rama.
+ */
+export interface EvidenceSearchHit {
   id: string;
-  text: string;
-  subreddit: string;
-  opportunityScore: number;
-  urgencyTier: UrgencyTier;
-  jobStatement: string;
-  currentSolution: string | null;
+  source: string;
+  community: string;
+  kind: string;
+  title: string | null;
+  excerpt: string;
+  url: string;
+  createdAt: string;
+  dataSource: EvidenceDataSource;
+  attribution: EvidenceAttribution;
   rrfScore: number;
-  /** null = no lo encontró la rama densa. */
+  /** null = no lo encontró la rama densa (vectores e5). */
   denseRank: number | null;
-  /** null = no lo encontró la rama léxica. */
-  bm25Rank: number | null;
-  bm25Score: number | null;
-  /** Fuente del registro (D-J); null = desconocida. */
-  dataSource: DataSource | null;
+  /** null = no lo encontró la rama léxica (texto en PostgreSQL). */
+  lexicalRank: number | null;
 }
 
 // ---------------------------------------------------------------------
@@ -309,7 +313,6 @@ export interface BoardParams {
 
 export interface SearchParams {
   query: string;
-  minScore?: number;
   limit?: number;
 }
 

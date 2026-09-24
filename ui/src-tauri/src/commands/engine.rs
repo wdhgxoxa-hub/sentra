@@ -65,16 +65,21 @@ pub fn transport_error(err: reqwest::Error) -> RadarError {
 #[serde(rename_all = "camelCase")]
 pub struct SearchParams {
     pub query: String,
-    pub min_score: Option<f64>,
     pub limit: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
-struct SearchBody {
+pub(crate) struct SearchBody {
     query: String,
-    #[serde(rename = "minScore")]
-    min_score: f64,
     limit: i64,
+}
+
+/// Lo que viaja al sidecar: la consulta y el limite (20 si no se indica).
+pub(crate) fn cuerpo_de_busqueda(params: SearchParams) -> SearchBody {
+    SearchBody {
+        query: params.query,
+        limit: params.limit.unwrap_or(20),
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,7 +93,9 @@ pub struct SearchEnvelope {
 // Comandos
 // ---------------------------------------------------------------------
 
-/// Busqueda hibrida densa + BM25 con fusion RRF.
+/// Busqueda sobre la evidencia multifuente (D-C4): vectores e5 + texto en
+/// PostgreSQL, con fusion RRF. Sin almacen de vectores, el sidecar responde
+/// 503 con codigo `search_unavailable`, que llega tal cual a la interfaz.
 #[tauri::command]
 pub async fn search_hybrid(
     state: State<'_, AppState>,
@@ -99,21 +106,18 @@ pub async fn search_hybrid(
             .http
             .post(format!("{}/api/search", sidecar_url()))
             .timeout(SEARCH_TIMEOUT)
-            .json(&SearchBody {
-                query: params.query,
-                min_score: params.min_score.unwrap_or(0.0),
-                limit: params.limit.unwrap_or(20),
-            }),
+            .json(&cuerpo_de_busqueda(params)),
     )
     .send()
     .await
     .map_err(transport_error)?;
 
-    if !response.status().is_success() {
-        return Err(RadarError::Sidecar(format!(
-            "El sidecar respondio {} a la busqueda",
-            response.status()
-        )));
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        return Err(crate::commands::settings::rechazo_con_codigo(&detail).unwrap_or_else(|| {
+            RadarError::Sidecar(format!("El sidecar respondio {status} a la busqueda: {detail}"))
+        }));
     }
 
     let envelope: SearchEnvelope = response.json().await.map_err(transport_error)?;

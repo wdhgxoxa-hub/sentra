@@ -87,19 +87,20 @@
       "runId",
       "urgencyTier"
     ],
-    "HybridSearchHit": [
-      "bm25Rank",
-      "bm25Score",
-      "currentSolution",
+    "EvidenceSearchHit": [
+      "attribution",
+      "community",
+      "createdAt",
       "dataSource",
       "denseRank",
+      "excerpt",
       "id",
-      "jobStatement",
-      "opportunityScore",
+      "kind",
+      "lexicalRank",
       "rrfScore",
-      "subreddit",
-      "text",
-      "urgencyTier"
+      "source",
+      "title",
+      "url"
     ],
     "SubredditHealth": [
       "consecutiveFailures",
@@ -152,7 +153,6 @@
     ],
     "SearchParams": [
       "limit",
-      "minScore",
       "query"
     ],
     "ScanParams": [

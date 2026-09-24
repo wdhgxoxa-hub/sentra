@@ -16,14 +16,15 @@ from core.evidence.model import EvidenceItem
 from .catalog import by_id
 
 
+def attribution_fields(source: str, community: str, url: str) -> dict[str, str]:
+    """Insignia, sitio y URL a partir de las columnas guardadas de la pieza."""
+    fuente = by_id(source)
+    return {"badge": fuente.display_name if fuente else source, "site": community, "url": url}
+
+
 def attribution(item: EvidenceItem) -> dict[str, str]:
     """Insignia, sitio y URL del original de una pieza de evidencia."""
-    fuente = by_id(item.source)
-    return {
-        "badge": fuente.display_name if fuente else item.source,
-        "site": item.community,
-        "url": item.url,
-    }
+    return attribution_fields(item.source, item.community, item.url)
 
 
 def attribution_line(item: EvidenceItem) -> str:

@@ -22,7 +22,7 @@ import {
   type GeminiSummary,
   type AppHealth,
   type DatabaseStatus,
-  type HybridSearchHit,
+  type EvidenceSearchHit,
   type SearchParams,
   type CancelResult,
   type AppSettings,
@@ -38,9 +38,9 @@ import {
 } from "@/types/radar";
 
 export const ipc = {
-  /** [sidecar] Busqueda hibrida densa + BM25 con fusion RRF. */
+  /** [sidecar + pg] Busqueda sobre la evidencia: e5 + texto, fusion RRF. */
   searchHybrid: (params: SearchParams) =>
-    invoke<HybridSearchHit[]>("search_hybrid", { params }),
+    invoke<EvidenceSearchHit[]>("search_hybrid", { params }),
 
   /** [sidecar + pg] Interrumpe un escaneo en curso. */
   cancelScan: (runId: string) => invoke<CancelResult>("cancel_scan", { runId }),

@@ -48,14 +48,16 @@ fn save_gemini_key_sin_clave_nueva_cambia_solo_los_modelos() {
 }
 
 #[test]
-fn search_hybrid_recibe_consulta_puntuacion_y_limite() {
-    // ipc.ts:77 -> invoke("search_hybrid", { params }) con SearchParams
-    // (SearchConsole.tsx:23 envia query y limit)
-    let payload = json!({ "params": { "query": "facturas", "minScore": 20.0, "limit": 20 } });
+fn search_hybrid_recibe_consulta_y_limite_y_los_reenvia_sin_mas() {
+    // ipc.ts -> invoke("search_hybrid", { params }) con SearchParams
+    // (SearchConsole.tsx envia query y limit). La busqueda sobre la evidencia
+    // (D-C4) no filtra por puntuacion: el cuerpo lleva solo esos dos campos.
+    let payload = json!({ "params": { "query": "facturas", "limit": 20 } });
     let p: SearchParams = argumento(&payload, "params");
     assert_eq!(p.query, "facturas");
-    assert_eq!(p.min_score, Some(20.0));
     assert_eq!(p.limit, Some(20));
+    let cuerpo = serde_json::to_value(crate::commands::engine::cuerpo_de_busqueda(p)).unwrap();
+    assert_eq!(cuerpo, json!({ "query": "facturas", "limit": 20 }));
 }
 
 #[test]

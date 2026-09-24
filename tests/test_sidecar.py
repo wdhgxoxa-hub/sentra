@@ -400,49 +400,6 @@ class TestCancellation(SidecarTestCase):
         self.assertEqual(response.status_code, 401)
 
 
-class TestSearch(SidecarTestCase):
-
-    def _index(self):
-        self.client.post("/api/scan", json={"subreddit": "smallbusiness"})
-
-    def test_search_finds_an_indexed_signal(self):
-        self._index()
-        body = self.client.post(
-            "/api/search", json={"query": "invoice export"}
-        ).json()
-        self.assertIn("t3_pain", {hit["id"] for hit in body["hits"]})
-
-    def test_search_exposes_the_rrf_breakdown(self):
-        self._index()
-        hit = self.client.post(
-            "/api/search", json={"query": "invoice export"}
-        ).json()["hits"][0]
-        for field in ("rrfScore", "denseRank", "bm25Rank"):
-            self.assertIn(field, hit)
-
-    def test_search_honours_the_minimum_score(self):
-        self._index()
-        body = self.client.post(
-            "/api/search", json={"query": "invoice export", "minScore": 99.9}
-        ).json()
-        self.assertEqual(body["hits"], [])
-
-    def test_search_honours_the_limit(self):
-        self._index()
-        body = self.client.post(
-            "/api/search", json={"query": "invoice", "limit": 1}
-        ).json()
-        self.assertLessEqual(len(body["hits"]), 1)
-
-    def test_empty_query_is_rejected(self):
-        response = self.client.post("/api/search", json={"query": "   "})
-        self.assertEqual(response.status_code, 422)
-
-    def test_search_without_index_returns_nothing(self):
-        body = self.client.post("/api/search", json={"query": "cualquiera"}).json()
-        self.assertEqual(body["hits"], [])
-
-
 class TestAuthentication(SidecarTestCase):
     """
     Un servidor HTTP en localhost es alcanzable por cualquier proceso del

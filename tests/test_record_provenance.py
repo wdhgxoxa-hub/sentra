@@ -24,7 +24,6 @@ import pyarrow as pa
 from core.ingestion.synthetic import SyntheticFetcher
 from core.orchestration import RadarDependencies, RadarPipeline
 from core.orchestration.graph import data_source_of
-from core.orchestration.sidecar.search import hit_to_camel as _hit_to_camel
 from core.storage import HashEmbedder, HybridSearchEngine, LanceDBStore
 from core.storage.lancedb_store import OpportunityRecord
 from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes
@@ -76,7 +75,6 @@ class TestLanceDB(unittest.TestCase):
         hits = {h.id: h for h in buscador.search("invoice export", limit=5)}
         self.assertEqual(hits["t3_a"].data_source, "demo")
         self.assertIsNone(hits["t3_b"].data_source)
-        self.assertEqual(_hit_to_camel(hits["t3_a"])["dataSource"], "demo")
 
     def test_una_tabla_anterior_gana_la_columna_vacia_al_abrirse(self):
         # Una tabla escrita antes de D-J: sin columna data_source.

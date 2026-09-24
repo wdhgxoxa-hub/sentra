@@ -24,7 +24,6 @@ from core.intelligence import IntelligenceEngine
 from core.intelligence.translator import translate
 from core.orchestration import RadarDependencies
 from core.orchestration.aggregation import build_clusters, cluster_to_dict
-from core.orchestration.sidecar.search import hit_to_camel as _hit_to_camel
 from core.orchestration.sidecar_server import create_app
 from core.orchestration.source_status import SourceTracker
 from core.orchestration.top_n import run_outcome
@@ -145,14 +144,17 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.cabecera = {"Authorization": f"Bearer {token}"}
 
 
-    def test_la_busqueda_entrega_hybrid_search_hit(self):
-        class Hit:
-            id = text = subreddit = author = urgency_tier = job_statement = "x"
-            current_solution = None
-            opportunity_score = rrf_score = 1.0
-            dense_rank = bm25_rank = bm25_score = data_source = None
+    def test_la_busqueda_entrega_evidence_search_hit(self):
+        from unittest import mock
 
-        self.assertEqual(set(_hit_to_camel(Hit())), interfaz("HybridSearchHit"))
+        from core.orchestration.sidecar import search
+        from tests.test_sidecar_search import HITS
+
+        with mock.patch.object(search, "_disponible", return_value=True), \
+                mock.patch.object(search, "_buscar", return_value=HITS):
+            cuerpo = self.client.post("/api/search", json={"query": "x"}, headers=self.cabecera).json()
+        self.assertEqual(set(cuerpo["hits"][0]), interfaz("EvidenceSearchHit"))
+        self.assertEqual(set(cuerpo["hits"][0]["attribution"]), interfaz("EvidenceAttribution"))
 
     def test_la_configuracion_entrega_app_settings(self):
         cuerpo = self.client.get("/api/config", headers=self.cabecera).json()

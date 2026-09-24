@@ -32,11 +32,10 @@ class ScanRequest(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    query: str
-    min_score: float = Field(default=0.0, alias="minScore", ge=0.0, le=100.0)
-    limit: int = Field(default=10, ge=1, le=100)
+    """Búsqueda sobre la evidencia (D-C4): consulta y cuántos resultados."""
 
-    model_config = {"populate_by_name": True}
+    query: str
+    limit: int = Field(default=20, ge=1, le=50)
 
     @field_validator("query")
     @classmethod
@@ -179,6 +178,3 @@ class ScanResponse(BaseModel):
     top: dict[str, Any] | None = None
 
 
-class SearchResponse(BaseModel):
-    query: str
-    hits: list[dict[str, Any]] = Field(default_factory=list)
