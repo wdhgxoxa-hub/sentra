@@ -22,8 +22,10 @@ TEST_DB = "rir_migracion_015_test"
 TENANT = "00000000-0000-0000-0000-000000000001"
 
 
-@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
-class TestMigracion015(unittest.TestCase):
+class BaseHasta014(unittest.TestCase):
+    """Base con datos sembrados hasta la 014 y después todas las migraciones
+    (la usan 015 y 016); sin tests propios."""
+
     def setUp(self):
         import psycopg
 
@@ -79,6 +81,9 @@ class TestMigracion015(unittest.TestCase):
                     (TENANT, fila[0], clave, regla, puntos, json.dumps([{"gate": f"G{n}"} for n in range(9)])))
             conn.commit()
 
+
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
+class TestMigracion015(BaseHasta014):
     def test_la_mezcla_pierde_la_puntuacion_y_el_resto_la_conserva(self):
         self.assertEqual(self._sql("SELECT cluster_key, score::float8 FROM niche_verdicts ORDER BY cluster_key"),
                          [("mezcla", None), ("nicho", 24.3)])
