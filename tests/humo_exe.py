@@ -201,22 +201,35 @@ def _dentro_del_repo(ruta: str) -> bool:
 # --- Verdad de la base (solo lectura) ---------------------------------------
 
 
+async def veredictos_de_la_ultima_juzgada(store: Any) -> int:
+    """Los veredictos de la ejecución que enseña el Radar, con la misma regla que
+    la app (`latest_judged_run`): una ejecución juzgada sin nichos cuenta, con 0."""
+    from core.judge.store import latest_judged_run
+
+    ejecucion = await latest_judged_run(store)
+    if ejecucion is None:
+        return 0
+    fila = await store._fetchone(
+        "SELECT count(*) AS n FROM niche_verdicts WHERE tenant_id = %s AND run_id = %s",
+        (store.tenant_id, ejecucion))
+    return int(fila["n"]) if fila else 0
+
+
 def verdad_de_la_base() -> Verdad:
     import psycopg
 
     from core.sources.catalog import SOURCES
-    from core.storage.postgres_store import resolver_dsn
+    from core.storage.postgres_store import PostgresStore, resolver_dsn
 
     async def leer() -> Verdad:
         dsn = resolver_dsn()
         async with await psycopg.AsyncConnection.connect(dsn) as con:
             await con.set_read_only(True)
-            cur = await con.execute(
-                "SELECT count(*) FROM radar.niche_verdicts WHERE run_id = ("
-                " SELECT run_id FROM radar.niche_verdicts ORDER BY created_at DESC LIMIT 1)")
-            veredictos = (await cur.fetchone() or (0,))[0]
             cur = await con.execute("SELECT count(*) FROM radar.evidence_items")
             evidencia = (await cur.fetchone() or (0,))[0]
+        async with PostgresStore(dsn=dsn) as store:
+            await store.connection.set_read_only(True)
+            veredictos = await veredictos_de_la_ultima_juzgada(store)
         from core.evidence.vectors import EvidenceVectorStore
 
         return Verdad(veredictos_ultima=int(veredictos), evidencia_visible=int(evidencia),

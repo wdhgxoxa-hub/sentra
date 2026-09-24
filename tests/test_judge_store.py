@@ -167,6 +167,25 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         top = self.run_store(lambda store: top_verdicts(store, nueva))
         self.assertEqual((top["verdicts"], top["reason"]), ([], SIN_NICHOS))
 
+    def test_la_prueba_de_humo_cuenta_los_veredictos_de_la_ultima_juzgada_como_la_app(self):
+        """El humo leía «la última ejecución con veredictos»: tras un escaneo real
+        sin nichos esperaba los 2 de la anterior y la app, bien, pintaba 0."""
+        from core.judge.store import marcar_juzgada
+        from tests.humo_exe import veredictos_de_la_ultima_juzgada
+
+        items = [pieza(n) for n in range(80, 82)]
+
+        async def guardar_y_contar(store):
+            await store.upsert_evidence(items)
+            antigua = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(antigua, [veredicto("h", "DESCARTAR", 10.0, [i.id for i in items])])
+            await marcar_juzgada(store, antigua, construir=0)
+            nueva = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await marcar_juzgada(store, nueva, construir=0)
+            return await veredictos_de_la_ultima_juzgada(store)
+
+        self.assertEqual(self.run_store(guardar_y_contar), 0)
+
     def test_el_detalle_de_un_veredicto_trae_toda_su_evidencia_para_los_documentos(self):
         # E2: el dossier y el plan citan por id; el modelo ve el texto entero.
         largo = "queja inventada muy larga " * 60
