@@ -10,8 +10,7 @@
 
       1. Localiza Python 3.12 con el lanzador «py» (o el que se indique).
       2. Crea la venv (por defecto <proyecto>\.venv).
-      3. Instala requirements.txt y, si se pide, requirements-dev.txt y
-         requirements-nli.txt.
+      3. Instala requirements.txt y, si se pide, requirements-dev.txt.
       4. Comprueba que el motor se importa con ese intérprete.
 
     Sale con código distinto de 0 en cuanto un paso falla.
@@ -25,9 +24,6 @@
 .PARAMETER Dev
     Instala también requirements-dev.txt (tests, ruff, mypy).
 
-.PARAMETER Nli
-    Instala también requirements-nli.txt (transformers + torch, ~4 GB).
-
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1 -Dev
 #>
@@ -35,8 +31,7 @@
 param(
     [string]$VenvPath,
     [string]$Python,
-    [switch]$Dev,
-    [switch]$Nli
+    [switch]$Dev
 )
 
 $ErrorActionPreference = "Stop"
@@ -82,7 +77,6 @@ try {
     # 3. Dependencias
     $Archivos = @("requirements.txt")
     if ($Dev) { $Archivos += "requirements-dev.txt" }
-    if ($Nli) { $Archivos += "requirements-nli.txt" }
     foreach ($Archivo in $Archivos) {
         Paso "Instalando $Archivo"
         Ejecutar $Interprete @("-m", "pip", "install", "--disable-pip-version-check",

@@ -1,32 +1,15 @@
 """
-Capa de Ingesta, Tráfico y Limpieza (Reddit Intelligence Radar)
-===============================================================
-Paquete central unificado que integra:
-- Cliente de la API OAuth de Reddit, identificado con el User-Agent de la
-  app y sin suplantar a ningún navegador (AUD-014).
-- Paginación directa por cursor.
-- Middleware de pre-filtrado rápido con 33 expresiones de dolor B2B (reddit-painpointer).
-- Deduplicación, saneamiento y generación de Markdown para LLMs (reddit-find).
-- Interfoliado cronológico inverso unificado (snscrape).
+Acceso a Reddit por OAuth (lo que reutiliza el adaptador de Reddit)
+==================================================================
+
+- `auth`: token OAuth de la app y lectura del `.env`.
+- `errors`: fallos tipados del acceso a Reddit.
+- `user_agent`: el User-Agent que exige Reddit, sin suplantar navegadores.
+
+El cliente de ingesta, el filtro de dolor, el normalizador y el paginador
+de la pipeline antigua se retiraron con las demostraciones (D-C7).
 """
 
 from .auth import RedditAuthError, RedditOAuth, load_dotenv
-from .client import RedditIngestionClient
-from .filters import PAIN_POINT_KEYWORDS, FilterResult, PainPointFilter
-from .normalizer import CleanComment, CleanPost, RedditNormalizer, UnifiedTimelineItem
-from .pagination import RedditPaginator
 
-__all__ = [
-    "PAIN_POINT_KEYWORDS",
-    "CleanComment",
-    "CleanPost",
-    "FilterResult",
-    "PainPointFilter",
-    "RedditAuthError",
-    "RedditIngestionClient",
-    "RedditNormalizer",
-    "RedditOAuth",
-    "RedditPaginator",
-    "UnifiedTimelineItem",
-    "load_dotenv",
-]
+__all__ = ["RedditAuthError", "RedditOAuth", "load_dotenv"]

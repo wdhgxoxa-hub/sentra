@@ -37,12 +37,18 @@ superficie queda fijada en `tests/test_sidecar.py` (TestSurface).
   La nueva busca sobre la evidencia (D-C4, `core/evidence/search.py`).
 - `core/intelligence/gemini_architect.py` y `translator.py`.
 - `core/ingestion/synthetic.py`, el corpus de demostración del grafo.
+- Las demostraciones `scripts/demo_ingestion.py` y
+  `scripts/demo_intelligence.py`, y lo que solo ellas usaban (D-C7):
+  `core/ingestion/` `client`, `filters`, `normalizer` y `pagination`, y
+  `core/intelligence/` `engine`, `zeroshot_nli`, `jtbd_analyzer`,
+  `temporal_scoring` y `clustering`, más `config/prompts.toml`.
 - En `PostgresStore`, la escritura y la lectura antiguas: `persist_state`,
   `save_raw_posts`, `save_raw_comments`, `save_signal`, `save_opportunity`,
   `save_cluster`, la asignación de identidades, `ensure_subreddit`,
   `fetch_*`, `search_posts`, `count_posts` y los mapeos y normalizadores
   a los ENUM antiguos.
-- Dependencias: `langgraph`, `mcp` y `rank-bm25`.
+- Dependencias: `langgraph`, `mcp`, `rank-bm25`, `scikit-learn` y `toml`, y
+  el NLI opcional (`requirements-nli.txt`: transformers y torch).
 
 ## Se queda, y por qué
 
@@ -53,13 +59,8 @@ superficie queda fijada en `tests/test_sidecar.py` (TestSurface).
   `subreddits`, `v_radar_feed`, `v_opportunity_board` y
   `v_subreddit_health`, más la tabla LanceDB de señales. `pipeline_runs`
   sigue en uso: el escaneo multifuente abre y cierra ahí sus ejecuciones.
-- **`core/ingestion` (cliente OAuth de Reddit, filtro, normalizador,
-  paginación) y `core/intelligence` (NLI, JTBD, puntuación temporal,
-  clustering por temas).** Los usan `scripts/demo_ingestion.py` y
-  `scripts/demo_intelligence.py`, que la misión conserva (D5). Además, el
-  adaptador `core/sources/reddit.py` reutiliza la autenticación, los errores
-  y el User-Agent de `core/ingestion`. Ejecutar los scripts contra Reddit
-  sigue sujeto a R7: cero llamadas en esta misión.
+- **`core/ingestion` `auth`, `errors` y `user_agent`.** Los reutiliza el
+  adaptador `core/sources/reddit.py` (y `auth.load_dotenv` el sidecar).
 - **`core/storage/lancedb_store.py`.** `core/evidence/vectors.py` usa su
   resolución de ruta y su escape SQL, y `scripts/backfill_lancedb_source.py`
   usa su clase.

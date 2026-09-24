@@ -8,9 +8,9 @@ en requirements.txt o requirements-dev.txt. Antes faltaban google-genai y
 toml (y curl_cffi, que AUD-014 sustituyó por httpx): una instalación limpia arrancaba y fallaba al primer
 uso.
 
-Las importaciones se leen del código (AST), no de una lista a mano. Los
-módulos opcionales que el código importa dentro de un try (transformers)
-van en requirements-nli.txt, documentados como tales.
+Las importaciones se leen del código (AST), no de una lista a mano. El NLI
+opcional (transformers, requirements-nli.txt) se retiró con las
+demostraciones (D-C7).
 """
 
 import ast
@@ -25,14 +25,10 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 LOCALES = {"core", "scripts", "tests"}
 
-#: Módulos que el código importa solo si están (modo degradado sin ellos).
-OPCIONALES = {"transformers", "torch"}
-
 #: Distribuciones que dan nombre a un módulo cuyo nombre no coincide o que
 #: comparten espacio de nombres (`google` lo ocupan varias).
 MODULO_A_DISTRIBUCION = {
     "google": "google-genai",
-    "sklearn": "scikit-learn",
 }
 
 LINEA = re.compile(r"^([A-Za-z0-9_.\-]+)(\[[^\]]+\])?==([^\s#]+)")
@@ -93,13 +89,13 @@ class TestDependenciasDeclaradas(unittest.TestCase):
     def test_todo_lo_que_importa_produccion_esta_en_requirements(self):
         produccion = declaradas("requirements.txt")
         for carpeta in ("core", "scripts"):
-            for modulo in sorted(importados(carpeta) - OPCIONALES):
+            for modulo in sorted(importados(carpeta)):
                 with self.subTest(carpeta=carpeta, modulo=modulo):
                     self.assertIn(distribucion(modulo), produccion)
 
     def test_lo_que_importan_los_tests_esta_declarado(self):
         todo = {**declaradas("requirements.txt"), **declaradas("requirements-dev.txt")}
-        for modulo in sorted(importados("tests") - OPCIONALES):
+        for modulo in sorted(importados("tests")):
             with self.subTest(modulo=modulo):
                 self.assertIn(distribucion(modulo), todo)
 
@@ -116,11 +112,6 @@ class TestDependenciasDeclaradas(unittest.TestCase):
         for nombre in sorted(set(declaradas("requirements.txt")) - usadas - implicitas):
             with self.subTest(dependencia=nombre):
                 self.fail(f"{nombre} está declarada pero nada la importa")
-
-    def test_las_opcionales_estan_documentadas_aparte(self):
-        texto = (RAIZ / "requirements-nli.txt").read_text(encoding="utf-8")
-        for modulo in OPCIONALES:
-            self.assertIn(modulo, texto)
 
     def test_la_version_declarada_es_la_instalada(self):
         # Lo que se verifica en este entorno es lo que se declara.

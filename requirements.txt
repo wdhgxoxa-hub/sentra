@@ -10,13 +10,10 @@
 # Cliente HTTP de la API de Reddit (OAuth) y del SDK de Gemini.
 httpx==0.28.1
 
-# --- Fase 3: inteligencia ---
-scikit-learn==1.9.1
+# Cálculo numérico: agrupación y métricas del juez (core/judge).
 numpy==2.5.2
-# Configuración de pesos del motor (core/intelligence/engine.py).
-toml==0.10.2
 
-# Motor de arquitectura y traducción (Google Gemini, core/intelligence).
+# Etiquetado y abogado del diablo del juez (Google Gemini, core/llm).
 google-genai==2.19.0
 
 # --- Fase 4: almacenamiento y recuperación ---
@@ -44,7 +41,3 @@ reportlab==5.0.1
 # core.storage no lo importa en su __init__: se importa explícitamente desde
 # core.storage.postgres_store.
 psycopg[binary]==3.3.5
-
-# --- Opcional: NLI zero-shot real ---
-# Va aparte, en requirements-nli.txt: sin esos paquetes el clasificador opera
-# en su modo heurístico de reserva y lo declara.

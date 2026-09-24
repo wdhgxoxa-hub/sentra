@@ -25,10 +25,6 @@ GENERADOS = (
     "INDEX.md",
     "logs/clone_results.json",
     "logs/integrity_audit.json",
-    "logs/demo_scan_titles.md",
-    "logs/demo_deep_dive.md",
-    "logs/demo_intelligence_report.json",
-    "logs/demo_intelligence_report.md",
 )
 
 
