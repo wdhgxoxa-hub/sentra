@@ -268,7 +268,10 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     evidencia = detalle.get("evidence") or []
     de_compuertas = detalle.get("gate_evidence") or []
     citas = _Citas(evidencia, r)
-    portada, aviso, origen = _portada_y_aviso(detalle, r, model, generated_at, generado.problem_name)
+    # El nombre de G0 guardado en el veredicto es el mismo que enseña el Radar; el
+    # del modelo de documentos solo cubre los veredictos sin nombre.
+    nombre = (detalle.get("problem_name") or {}).get(language) or generado.problem_name
+    portada, aviso, origen = _portada_y_aviso(detalle, r, model, generated_at, nombre)
 
     problema = citas.bloques(generado.problem)
     quien = citas.bloques(generado.who)
@@ -323,7 +326,7 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     }
     ids = ["resumen", "problema", "quien", "soluciones", "por_que_ahora", "compuertas", "abogado",
            "viabilidad", "riesgos", "evidencia", "procedencia"]
-    return DocumentModel(language=language, kind="dossier", title=_titulo("dossier", detalle, r, generado.problem_name),
+    return DocumentModel(language=language, kind="dossier", title=_titulo("dossier", detalle, r, nombre),
                          data_source=origen, cover=portada, source_notice=aviso,
                          sections=_secciones(ids, r["dossier_sections"], bloques))
 

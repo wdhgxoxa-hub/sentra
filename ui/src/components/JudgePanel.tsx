@@ -6,7 +6,7 @@ import { EvidenceAttributionLine } from "@/components/EvidenceAttributionLine";
 import { comoError } from "@/lib/errors";
 import { useJudgeTop } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
-import { useT } from "@/stores/settingsStore";
+import { useSettingsStore, useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import type { JudgeVerdict, JudgeVersions, NicheVerdict } from "@/types/radar";
 import { nombreDelGrupo, puntuacionDelGrupo } from "@/lib/veredicto";
@@ -44,6 +44,7 @@ export function VerdictCard({
   nombre: (id: string) => string;
   actuales: JudgeVersions;
 }) {
+  const idioma = useSettingsStore((s) => s.language);
   const abogado = v.advocate;
   const antiguas = versionesAntiguas(v, actuales, t);
   return (
@@ -52,7 +53,7 @@ export function VerdictCard({
         <span className={`rounded-lg border-2 px-3 py-1 text-base font-bold ${VERDICT_COLOR[v.verdict]}`}>
           {t.judge.verdict[v.verdict]}
         </span>
-        <span className="text-sm font-semibold">{nombreDelGrupo(v, t.judge.noCommonProblem)}</span>
+        <span className="text-sm font-semibold">{nombreDelGrupo(v, t.judge.noCommonProblem, idioma)}</span>
         {puntuacionDelGrupo(v, t.judge.score) && (
           <span className="ml-auto text-xs text-ink-soft">{puntuacionDelGrupo(v, t.judge.score)}</span>
         )}

@@ -117,6 +117,15 @@ class TestDossier(unittest.TestCase):
         self.assertEqual(portada["Nicho"], "Exportar facturas a mano (nombre propuesto por el modelo)")
         self.assertEqual(portada["Palabras del grupo"], "facturas, exportar, manual")
 
+    def test_con_nombre_en_el_veredicto_el_dossier_usa_el_mismo_que_el_radar(self):
+        # El nombre lo da G0 y se guarda en el veredicto; el del modelo de documentos
+        # solo queda para veredictos sin nombre.
+        nombre = {"es": "Perseguir facturas impagadas", "en": "Chasing unpaid invoices"}
+        es = compose_dossier(detalle(problem_name=nombre), dossier_llm(), "es", model="m", generated_at=AHORA)
+        en = compose_dossier(detalle(problem_name=nombre), dossier_llm(), "en", model="m", generated_at=AHORA)
+        self.assertEqual((es.title, en.title), ("Dossier · Perseguir facturas impagadas",
+                                                "Dossier · Chasing unpaid invoices"))
+
     def test_lo_que_dice_un_solo_autor_es_una_anecdota(self):
         # Dos piezas del mismo autor no son dos fuentes.
         evidencia = [pieza("hackernews:1"), pieza("stackexchange:2", "stackexchange"),

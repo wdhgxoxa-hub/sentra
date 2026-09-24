@@ -25,6 +25,13 @@ test("una mezcla no lleva puntuación ni nombre propio: solo «sin problema com�
   assert.equal(puntuacionDelGrupo(mezcla, PLANTILLA), null);
 });
 
+test("con nombre de G0, el Radar enseña el mismo que el dossier, en su idioma", () => {
+  const nombrado = { ...nicho, problemName: { es: "Perseguir facturas impagadas", en: "Chasing unpaid invoices" } };
+  assert.equal(nombreDelGrupo(nombrado, SIN, "es"), "Perseguir facturas impagadas");
+  assert.equal(nombreDelGrupo(nombrado, SIN, "en"), "Chasing unpaid invoices");
+  assert.equal(nombreDelGrupo({ ...mezcla, problemName: nombrado.problemName }, SIN, "es"), SIN);
+});
+
 test("sin palabras, la clave del grupo", () => {
   assert.equal(nombreDelGrupo({ ...nicho, keywords: [] }, SIN), "spam#x");
 });

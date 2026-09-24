@@ -190,6 +190,12 @@ export interface SourceProbeResult {
   checkedAt: string | null;
 }
 
+/** Nombre de un problema en los dos idiomas de la interfaz (migración 016). */
+export interface ProblemName {
+  es: string;
+  en: string;
+}
+
 /** Perfil de escaneo (core/sources/profile.py). Sin tema = descubrimiento. */
 export interface ScanProfileInput {
   name: string;
@@ -321,6 +327,8 @@ export interface JudgeVerdict {
   opportunityId: string | null;
   clusterKey: string;
   keywords: string[];
+  /** Nombre del problema que da G0 (es/en); null en mezclas y veredictos antiguos. */
+  problemName: ProblemName | null;
   verdict: NicheVerdict;
   /** Regla de la tabla D-M3 que decidió. */
   rule: string;

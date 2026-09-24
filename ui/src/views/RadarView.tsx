@@ -6,7 +6,7 @@ import { VERDICT_COLOR, VerdictCard } from "@/components/JudgePanel";
 import { SourceBadge } from "@/components/SourceBadge";
 import { comoError } from "@/lib/errors";
 import { useEvidenceFeed, useJudgeTop, useSources } from "@/lib/queries";
-import { useT } from "@/stores/settingsStore";
+import { useSettingsStore, useT } from "@/stores/settingsStore";
 import { nombreDelGrupo, puntuacionDelGrupo } from "@/lib/veredicto";
 
 /** Piezas del feed: las más recientes, sin duplicados. */
@@ -23,6 +23,7 @@ const FEED_LIMIT = 40;
  */
 export function RadarViewPage() {
   const t = useT();
+  const idioma = useSettingsStore((s) => s.language);
   const top = useJudgeTop(null);
   const feed = useEvidenceFeed(FEED_LIMIT);
   const fuentes = useSources();
@@ -80,7 +81,7 @@ export function RadarViewPage() {
                   {t.judge.verdict[v.verdict]}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">
-                  {nombreDelGrupo(v, t.judge.noCommonProblem)}
+                  {nombreDelGrupo(v, t.judge.noCommonProblem, idioma)}
                 </span>
                 <span className="text-[11px] text-ink-faint">
                   {t.radar.members.replace("{n}", String(v.memberCount))}

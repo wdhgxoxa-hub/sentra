@@ -9,11 +9,13 @@ export interface GrupoEnPantalla {
   score: number | null;
   keywords: string[];
   clusterKey: string;
+  /** El nombre que da G0 (el mismo del dossier); sin él, las palabras del grupo. */
+  problemName?: { es: string; en: string } | null;
 }
 
-export function nombreDelGrupo(v: GrupoEnPantalla, sinProblemaComun: string): string {
+export function nombreDelGrupo(v: GrupoEnPantalla, sinProblemaComun: string, idioma: "es" | "en" = "es"): string {
   if (v.score === null) return sinProblemaComun;
-  return v.keywords.slice(0, 3).join(" · ") || v.clusterKey;
+  return v.problemName?.[idioma] || v.keywords.slice(0, 3).join(" · ") || v.clusterKey;
 }
 
 export function puntuacionDelGrupo(v: GrupoEnPantalla, plantilla: string): string | null {

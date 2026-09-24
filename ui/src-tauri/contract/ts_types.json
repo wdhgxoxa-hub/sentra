@@ -93,6 +93,10 @@
       "detail",
       "ok"
     ],
+    "ProblemName": [
+      "en",
+      "es"
+    ],
     "ScanProfileInput": [
       "discovery",
       "keywords",
@@ -172,6 +176,7 @@
       "memberIds",
       "missing",
       "opportunityId",
+      "problemName",
       "rule",
       "runId",
       "score",
