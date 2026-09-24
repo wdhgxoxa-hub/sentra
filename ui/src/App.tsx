@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 
 import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -9,9 +9,18 @@ import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { RadarViewPage } from "@/views/RadarView";
-import { SearchConsole } from "@/views/SearchConsole";
-import { SettingsView } from "@/views/SettingsView";
-import { SourcesView } from "@/views/SourcesView";
+
+// El Radar es lo primero que se ve y va en el chunk principal; las demás
+// vistas se cargan al abrirlas (C3: dividir en lugar de subir el límite).
+const SearchConsole = lazy(() =>
+  import("@/views/SearchConsole").then((m) => ({ default: m.SearchConsole })),
+);
+const SettingsView = lazy(() =>
+  import("@/views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const SourcesView = lazy(() =>
+  import("@/views/SourcesView").then((m) => ({ default: m.SourcesView })),
+);
 
 export default function App() {
   const t = useT();
@@ -60,12 +69,12 @@ export default function App() {
             {sinBase && baseDeDatos.data && view !== "settings" ? (
               <DatabaseStatusScreen status={baseDeDatos.data} />
             ) : (
-              <>
+              <Suspense fallback={<p className="text-sm text-ink-faint">{t.common.loading}</p>}>
                 {view === "radar" && <RadarViewPage />}
                 {view === "search" && <SearchConsole />}
                 {view === "settings" && <SettingsView />}
                 {view === "sources" && <SourcesView />}
-              </>
+              </Suspense>
             )}
           </ErrorBoundary>
         </div>
