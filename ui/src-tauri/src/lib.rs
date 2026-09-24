@@ -46,7 +46,6 @@ pub fn run() {
     let manager = Arc::new(SidecarManager::new());
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(AppState {
