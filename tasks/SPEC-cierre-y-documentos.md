@@ -34,6 +34,20 @@ supuestos, las decisiones y los criterios de éxito verificables.
 - **D-C5 (usuario, 2026-09-23) · Ajustes.** Se retiran de la interfaz el
   interruptor demo/real y las credenciales de Reddit del escáner antiguo;
   lo guardado en `.env` no se toca. Reddit volverá por Fuentes con adaptador.
+- **D-C6 (usuario, 2026-09-23) · Renombrado completo (AUD-066).** Todo a
+  SENTRA, identificador de Tauri incluido: la app estrena carpeta de datos y
+  de logs (idioma y tema vuelven a los valores por defecto) y SENTRA.lnk se
+  revisa en la fase F. Las claves `RIR_*` del `.env` y el nombre de la base de
+  datos no son restos visibles y no cambian (cambiarlos obligaría a migrar
+  secretos y datos).
+- **D-C7 (usuario, 2026-09-23) · Demos antiguas (AUD-038, AUD-043).** Se
+  retiran `demo_ingestion.py`, `demo_intelligence.py` y lo que solo ellos
+  usaban (cliente, filtro, normalizador y paginador de ingestion; NLI, JTBD,
+  puntuación temporal y clustering de intelligence). Se conserva lo que usa el
+  adaptador de Reddit (auth, errores, User-Agent).
+- **D-C8 (usuario, 2026-09-23) · Sin CI (AUD-052).** La compuerta local es la
+  CI del proyecto y el README explica cómo pasarla; eslint/prettier no se
+  añaden (serían dependencias nuevas): en la UI hace de lint `tsc` estricto.
 
 ## Supuestos
 
