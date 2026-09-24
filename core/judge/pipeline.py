@@ -38,9 +38,10 @@ from .quality import filter_quality
 
 
 def frase_del_problema(etiqueta: VerifiedLabel) -> str:
-    """La frase verificada en la que el autor dice que le pasa (affected); si no, la
-    del dolor. Toda pieza con dolor tiene al menos esta última."""
-    return etiqueta.evidence_spans.get("affected") or etiqueta.evidence_spans["is_pain"]
+    """El fragmento verificado que justifica is_pain: qué problema hay. El de
+    affected prueba quién lo sufre y con datos reales solía ser la presentación
+    («I'm building an app…»), que juntó a 20 autores distintos (clustering-v6)."""
+    return etiqueta.evidence_spans["is_pain"]
 
 
 @dataclass
@@ -66,7 +67,7 @@ def run_judge(
     """`tema`: términos del perfil del escaneo; no nombran nichos.
 
     `vectores_frase` vectoriza {id: frase del problema verificada}: se agrupa por
-    lo que cada autor dice que le pasa, no por el post entero (clustering-v5).
+    el problema que cada autor cuenta, no por el post entero (clustering-v5/v6).
     `vectors` (texto entero) solo sirve para el contexto de G7."""
     calidad = filter_quality(items)
     etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache,

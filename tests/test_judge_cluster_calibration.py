@@ -53,7 +53,7 @@ class TestCalibracion(unittest.TestCase):
         # v3 (AUD2-001) cambia qué entra (solo dolor pertinente) y v4 (AUD2-006) cómo
         # se nombran los grupos; ninguna el método ni el umbral.
         self.assertEqual((CLUSTERING_VERSION, CLUSTERING_METHOD, CLUSTER_MIN_SIMILARITY),
-                         ("clustering-v5", "average_linkage", 0.82))
+                         ("clustering-v6", "average_linkage", 0.82))
 
     def test_agrupar_por_la_frase_del_problema_supera_al_post_entero(self):
         # clustering-v5, medido antes de fijarlo (scripts/embed_golden_clusters.py):

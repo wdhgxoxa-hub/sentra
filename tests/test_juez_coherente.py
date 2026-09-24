@@ -157,8 +157,22 @@ class TestJuezCoherente(unittest.TestCase):
         # DobleQueSeEquivoca cita como prueba de affected los primeros 20 caracteres.
         self.assertEqual(vistas, {i.id: i.text[:20] for i in quejas})
 
+    def test_la_frase_que_se_agrupa_es_la_del_problema_no_la_de_quien(self):
+        # clustering-v6: con real data, el fragmento de affected solía ser la
+        # presentación («I'm building an app…») y juntaba a 20 autores distintos.
+        # El problema está en el fragmento de is_pain.
+        from core.judge.labels import VerifiedLabel
+        from core.judge.pipeline import frase_del_problema
+
+        etiqueta = VerifiedLabel(item_id="x", content_hash="h", labeler="l", is_pain="yes",
+                                 intent="queja", workaround_described="no", wtp_signal="no",
+                                 affected="author",
+                                 evidence_spans={"is_pain": "the emails land in spam",
+                                                 "affected": "I am building a SaaS"})
+        self.assertEqual(frase_del_problema(etiqueta), "the emails land in spam")
+
     def test_versiones_nuevas(self):
-        self.assertEqual(CLUSTERING_VERSION, "clustering-v5")
+        self.assertEqual(CLUSTERING_VERSION, "clustering-v6")
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v4")
 
 
