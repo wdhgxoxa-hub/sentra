@@ -203,6 +203,10 @@ export function JudgePanel({ cards }: { cards: SourceCard[] }) {
           {juez.summary.llm.model === null && <span className="block text-warn">{t.judge.noLlm}</span>}
         </p>
       )}
+      {/* AUD-051: el motivo por el que el juez corrió sin Gemini, traducido. */}
+      {juez.status === "done" && juez.summary?.llm.unavailable && (
+        <ErrorNotice code={juez.summary.llm.unavailable} detail={juez.summary.llm.unavailable} tone="warn" />
+      )}
 
       {top.isPending && <p className="text-sm text-ink-faint">{t.judge.loading}</p>}
       {top.isError && <ErrorNotice {...comoError(top.error)} title={t.judge.unreachable} />}

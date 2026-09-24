@@ -90,7 +90,11 @@ def _proveedor_del_juez(ctx: SidecarContext) -> tuple[Any, str | None, str | Non
         clave, modelo = ctx.resolver_modelo("defecto")
         return GeminiProvider(clave, budget=LLMBudget()), modelo, None
     except Exception as exc:  # noqa: BLE001 - sin Gemini el juez sigue, sin etiquetas
-        return None, None, getattr(exc, "code", type(exc).__name__)
+        motivo = getattr(exc, "code", type(exc).__name__)
+        # AUD-051: se degrada, pero no en silencio: queda en el log y el motivo
+        # viaja en el resumen del juez hasta la interfaz.
+        logger.warning("El juez corre sin Gemini: %s", motivo)
+        return None, None, motivo
 
 
 def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> dict[str, Any]:

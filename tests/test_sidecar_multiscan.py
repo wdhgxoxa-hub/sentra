@@ -234,3 +234,18 @@ class TestCodigosTraducidos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestJuezSinGemini(ConfigTestCase):
+    """AUD-051: sin Gemini el juez corre sin etiquetas, pero no en silencio."""
+
+    def test_sin_clave_queda_en_el_log_y_devuelve_el_motivo(self):
+        from core.orchestration.sidecar import multiscan
+        from core.orchestration.sidecar.context import SidecarContext
+
+        ctx = SidecarContext(persist_default=False, postgres_dsn=None,
+                             env_path=str(self.env_path), started_at=0.0)
+        with self.assertLogs("core.orchestration.sidecar.multiscan", "WARNING") as registro:
+            proveedor, modelo, motivo = multiscan._proveedor_del_juez(ctx)
+        self.assertEqual((proveedor, modelo, motivo), (None, None, "gemini_not_configured"))
+        self.assertIn("gemini_not_configured", "\n".join(registro.output))
