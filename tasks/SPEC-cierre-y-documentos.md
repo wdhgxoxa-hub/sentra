@@ -24,6 +24,16 @@ supuestos, las decisiones y los criterios de éxito verificables.
   reciente (`evidence_items`). Se retiran de la interfaz el tablero y el feed
   antiguos y la vista «Control del pipeline» (escaneo por subreddit y demo);
   el escaneo vive en Fuentes. Las tablas antiguas se conservan sin escrituras.
+- **D-C3 (usuario, 2026-09-23) · Ficha de oportunidad.** Se retira con el
+  Blueprint, el Arquitecto y el PDF antiguos: se queda sin entrada al irse el
+  tablero, y el dossier y el plan de la Fase E la sustituyen desde el panel
+  del juez.
+- **D-C4 (usuario, 2026-09-23) · Búsqueda.** Se reapunta a la evidencia
+  multifuente (vectores `evidence_e5` + texto de `evidence_items`), con
+  atribución en cada resultado. La tabla LanceDB antigua se conserva sin uso.
+- **D-C5 (usuario, 2026-09-23) · Ajustes.** Se retiran de la interfaz el
+  interruptor demo/real y las credenciales de Reddit del escáner antiguo;
+  lo guardado en `.env` no se toca. Reddit volverá por Fuentes con adaptador.
 
 ## Supuestos
 
