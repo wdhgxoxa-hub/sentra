@@ -152,6 +152,10 @@ export const en: Dictionary = {
 
   errors: {
     env_value_invalid: "The value cannot be saved as is: it contains line breaks or other control characters.",
+    documents_unavailable: "Documents need PostgreSQL and a judged scan; check the engine health.",
+    verdict_not_found: "That verdict no longer exists. Reload the judge.",
+    plan_not_recommended:
+      "The judge does not recommend building this niche: the plan is only generated if you force it, and it carries the warning on every page.",
     search_unavailable: "Search needs PostgreSQL and the evidence vectors; check the engine health.",
     source_error: "The source rejected the request.",
     source_credentials_missing: "This source needs credentials: set them up in the Sources section.",

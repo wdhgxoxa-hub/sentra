@@ -193,13 +193,15 @@ class TestCodigosTraducidos(unittest.TestCase):
 
     Llegan a la interfaz como `RadarError::Motor { code }` y los traduce el
     bloque `errors` de i18n (D-A); los códigos propios de Rust los exige
-    src-tauri/src/db.rs.
+    src-tauri/src/db.rs. También los que el sidecar pone en sus
+    `HTTPException` y los de las excepciones de los documentos.
     """
 
     def codigos(self):
         import re
         from pathlib import Path
 
+        from core.documents import compose
         from core.llm import base
 
         python = {
@@ -207,7 +209,11 @@ class TestCodigosTraducidos(unittest.TestCase):
             for modulo in (base, gemini_client)
             for clase in vars(modulo).values()
             if isinstance(clase, type) and issubclass(clase, base.LLMError)
-        } | {"internal_error"}
+        } | {"internal_error", compose.PlanNotRecommended.code}
+        raiz = Path(__file__).resolve().parents[1]
+        rutas = "\n".join(f.read_text(encoding="utf-8")
+                          for f in (raiz / "core" / "orchestration" / "sidecar").glob("*.py"))
+        python |= set(re.findall(r'"code": "(\w+)"', rutas))
         comandos = Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "src" / "commands"
         rust = "\n".join(f.read_text(encoding="utf-8") for f in comandos.glob("*.rs"))
         return python | set(re.findall(r'const CODIGO_\w+: &str = "(\w+)";', rust))
@@ -219,6 +225,7 @@ class TestCodigosTraducidos(unittest.TestCase):
         codigos = self.codigos()
         self.assertIn("gemini_not_configured", codigos)
         self.assertIn("llm_model_unavailable", codigos)
+        self.assertIn("documents_unavailable", codigos)
         for idioma in ("es", "en"):
             fuente = (Path(__file__).resolve().parents[1] / "ui" / "src" / "i18n"
                       / f"{idioma}.ts").read_text(encoding="utf-8")

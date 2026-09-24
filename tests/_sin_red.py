@@ -58,3 +58,6 @@ def prohibir_red_real(caso: unittest.TestCase) -> None:
     busqueda = mock.patch("core.orchestration.sidecar.search._buscar", _juez_prohibido)
     busqueda.start()
     caso.addCleanup(busqueda.stop)
+    documentos = mock.patch("core.orchestration.sidecar.documents._cargar", _juez_prohibido)
+    documentos.start()
+    caso.addCleanup(documentos.stop)

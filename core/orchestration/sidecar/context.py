@@ -24,6 +24,7 @@ from core.envfile import default_env_path
 from core.sources.registry import InMemorySourcesState, SourcesStateRepository
 
 if TYPE_CHECKING:
+    from core.documents.model import DocumentModel
     from core.evidence.vectors import EvidenceVectorStore
     from core.llm.base import ModelInfo
     from core.llm.gemini import UsoDeModelo
@@ -57,6 +58,9 @@ class SidecarContext:
     # Vectores e5 de la evidencia (dedup semántica y clustering). Perezoso:
     # cargar el modelo tarda; None = solo deduplicación por huella.
     evidence_vectors: Callable[[], EvidenceVectorStore] | None = None
+    # Dossier y plan ya generados, por (veredicto, documento, idioma, modelo,
+    # forzado): exportar el otro formato no vuelve a llamar al modelo (Fase E).
+    documentos: dict[tuple[str, str, str, str, bool], DocumentModel] = field(default_factory=dict)
     # Modelos de Gemini por huella de la clave (nunca la clave): (hora, lista).
     modelos_gemini: dict[str, tuple[float, list[ModelInfo]]] = field(default_factory=dict)
 

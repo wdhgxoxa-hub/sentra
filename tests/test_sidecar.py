@@ -161,6 +161,7 @@ class TestSurface(SidecarTestCase):
                 "/api/sources/scan/stream",
                 "/api/judge/top",
                 "/api/evidence/recent",
+                "/api/documents/{kind}",
             },
         )
 
