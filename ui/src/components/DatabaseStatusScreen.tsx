@@ -18,11 +18,12 @@ export function DatabaseStatusScreen({ status }: { status: DatabaseStatus }) {
   const reintentar = useRetryDatabase();
 
   return (
+    // Sin rol de alerta propio: el ErrorNotice de dentro ya lo tiene (AUD2-020).
     <section
-      role="alert"
+      aria-labelledby="sin-base-titulo"
       className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-card border border-danger/30 bg-surface p-6"
     >
-      <h2 className="flex items-center gap-2 text-base font-semibold text-danger">
+      <h2 id="sin-base-titulo" className="flex items-center gap-2 text-base font-semibold text-danger">
         <Database className="size-4" aria-hidden="true" />
         {t.database.title}
       </h2>

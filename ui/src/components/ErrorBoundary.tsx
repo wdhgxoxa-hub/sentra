@@ -57,11 +57,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
     const { textos } = this.props;
 
+    // Sin rol de alerta propio: ErrorNoticeView ya lo tiene y se anunciaría dos veces (AUD2-020).
     return (
-      <div
-        role="alert"
-        className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-card border border-danger/30 bg-surface p-6"
-      >
+      <div className="mx-auto flex max-w-xl flex-col items-start gap-3 rounded-card border border-danger/30 bg-surface p-6">
         <h2 className="text-base font-semibold text-danger">{textos.title}</h2>
         <div className="w-full text-sm">
           <ErrorNoticeView
