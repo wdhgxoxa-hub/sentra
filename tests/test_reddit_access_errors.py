@@ -13,7 +13,6 @@ de Reddit. Ninguna petición sale del proceso.
 import asyncio
 import json
 import logging
-import os
 import unittest
 from functools import partial
 from typing import ClassVar
@@ -33,25 +32,7 @@ from core.ingestion.errors import (
     RedditUnavailable,
 )
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_access_errors_test"
-
-
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-POSTGRES_AVAILABLE = _postgres_available()
 
 
 # ---------------------------------------------------------------------

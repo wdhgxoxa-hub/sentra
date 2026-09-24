@@ -12,7 +12,6 @@ en LanceDB, de la señal con el mismo id en PostgreSQL. Si no hay forma de
 saberla, queda NULL: la interfaz la enseña como «desconocida».
 """
 
-import os
 import shutil
 import tempfile
 import unittest
@@ -24,6 +23,7 @@ import pyarrow as pa
 from core.storage import HashEmbedder, LanceDBStore
 from core.storage.lancedb_store import OpportunityRecord
 from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes
+from tests._postgres import ADMIN_DSN, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
 MIGRACIONES = RAIZ / "sql" / "migrations"
@@ -91,25 +91,10 @@ class TestRellenoDeLanceDB(unittest.TestCase):
         self.assertIsNone(store.get_by_id("t3_c")["data_source"])
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_provenance_test"
 
 
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestPostgres(unittest.TestCase):
 
     def setUp(self):

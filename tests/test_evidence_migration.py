@@ -13,7 +13,6 @@ Migración 009: evidencia unificada (D-M1, D-M5, R9)
 Con PostgreSQL real sobre una base desechable; sin servidor, se omite.
 """
 
-import os
 import shutil
 import tempfile
 import unittest
@@ -21,12 +20,10 @@ from pathlib import Path
 
 from core.evidence.author import author_hash
 from scripts.migrate import MigrationError, migrate
+from tests._postgres import ADMIN_DSN, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
 MIGRACIONES = RAIZ / "sql" / "migrations"
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_evidence_migration_test"
 SAL = "5a" * 32
 
@@ -34,19 +31,7 @@ SAL = "5a" * 32
 AUTORES = ("ana_legado", "bruno_demo", "carla_reddit", "dario_comenta")
 
 
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestMigracion009(unittest.TestCase):
     def setUp(self):
         import psycopg

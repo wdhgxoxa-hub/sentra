@@ -12,30 +12,15 @@ Se omite si no hay PostgreSQL. La base de pruebas se crea y se destruye en
 cada ejecución, con las migraciones reales.
 """
 
-import os
 import unittest
 
 from core.storage.postgres_store import DEFAULT_TENANT_ID, PostgresStore, run_async
+from tests._postgres import ADMIN_DSN, postgres_available
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_adapter_test"
 
 
-def _postgres_available():
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestPostgresIntegration(unittest.TestCase):
     """Escribe contra una base de datos desechable creada para la suite."""
 

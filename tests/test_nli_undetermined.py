@@ -9,7 +9,6 @@ aporta cero a su componente de la puntuación.
 """
 
 import itertools
-import os
 import unittest
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from core.intelligence.zeroshot_nli import (
     UNDETERMINED_LABEL,
     ZeroShotNLIClassifier,
 )
+from tests._postgres import ADMIN_DSN, postgres_available
 
 SIN_EVIDENCIA = [
     "Happy friday everyone\nHope you all have a great weekend.",
@@ -107,25 +107,10 @@ class TestPuntuacion(unittest.TestCase):
         self.assertEqual(senal.classifier_engine, "heuristic")
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_nli_enum_test"
 
 
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestMigracionUndetermined(unittest.TestCase):
 
     def test_los_tres_enum_admiten_undetermined(self):

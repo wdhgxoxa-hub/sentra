@@ -10,7 +10,6 @@ si no, KEYWORD_JACCARD_MIN de sus palabras clave. Si no, UUID nuevo. Dos
 problemas nunca heredan el mismo UUID.
 """
 
-import os
 import unittest
 from pathlib import Path
 
@@ -72,22 +71,7 @@ class TestAsignacion(unittest.TestCase):
         self.assertEqual(asignar_identidades(nuevos, previos), {"k": "por-senales"})
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_identity_test"
-
-
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
 
 
 if __name__ == "__main__":

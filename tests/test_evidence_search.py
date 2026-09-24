@@ -10,15 +10,14 @@ resultado lleva su atribución y ningún autor; los duplicados no salen.
 Base desechable; datos inventados.
 """
 
-import os
 import unittest
 from datetime import UTC, datetime, timedelta
 
 from core.evidence.model import EvidenceItem
 from core.evidence.search import RRF_K, evidence_hits, fuse_rrf, lexical_ids
 from core.storage.postgres_store import PostgresStore, run_async
+from tests._postgres import ADMIN_DSN, postgres_available
 
-ADMIN_DSN = os.environ.get("RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres")
 TEST_DB = "rir_evidence_search_test"
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -43,18 +42,6 @@ class TestFusionRrf(unittest.TestCase):
         self.assertEqual(fuse_rrf([], []), [])
 
 
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
 def pieza(n, texto, titulo=None):
     return EvidenceItem(id=f"stackexchange:{n}", source="stackexchange", community="Stack Overflow",
                         kind="question", title=titulo, text=texto, url=f"https://example.com/q/{n}",
@@ -62,7 +49,7 @@ def pieza(n, texto, titulo=None):
                         fetched_at=AHORA, data_source="real")
 
 
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestBusquedaEnLaBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

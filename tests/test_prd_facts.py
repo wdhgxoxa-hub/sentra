@@ -9,7 +9,6 @@ mensaje» contando solo las 5 citas guardadas, ni presentar como 0 % una
 gravedad que el clasificador no pudo determinar.
 """
 
-import os
 import re
 import unittest
 
@@ -124,22 +123,7 @@ class TestFuenteDeLosDatos(unittest.TestCase):
         self.assertIn("no registrada", md.splitlines()[0])
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_prd_facts_test"
-
-
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
 
 
 if __name__ == "__main__":

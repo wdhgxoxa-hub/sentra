@@ -11,7 +11,6 @@ Dos bloques, como en el adaptador:
    migraciones alteradas después de aplicadas.
 """
 
-import os
 import shutil
 import tempfile
 import unittest
@@ -28,28 +27,11 @@ from scripts.migrate import (
     migrate,
     pending_migrations,
 )
+from tests._postgres import ADMIN_DSN, postgres_available
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_migrations_test"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REAL_MIGRATIONS = PROJECT_ROOT / "sql" / "migrations"
-
-
-def _postgres_available():
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-POSTGRES_AVAILABLE = _postgres_available()
 
 
 class MigrationDirTestCase(unittest.TestCase):
@@ -183,7 +165,7 @@ class TestPending(MigrationDirTestCase):
             pending_migrations(self.migrations, applied)
 
 
-@unittest.skipUnless(POSTGRES_AVAILABLE, "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestApplyingMigrations(unittest.TestCase):
     """Aplicación real contra una base desechable."""
 

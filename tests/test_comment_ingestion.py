@@ -16,7 +16,6 @@ el grafo, con un fetcher falso; PostgreSQL, en una base desechable.
 """
 
 import asyncio
-import os
 import unittest
 from functools import partial
 from pathlib import Path
@@ -117,22 +116,7 @@ POST_RUIDO = {"id": "p2", "title": "Hello everyone", "selftext": "nice day",
               "author": "bob", "subreddit": "SaaS", "created_utc": 1758000000.0, "score": 1}
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_comments_test"
-
-
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
 
 
 if __name__ == "__main__":

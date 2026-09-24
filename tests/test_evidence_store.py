@@ -8,32 +8,17 @@ en columnas y métricas nativas en JSON. La procedencia de una fila ya
 guardada no cambia, y el autor solo llega como hash.
 """
 
-import os
 import unittest
 from datetime import UTC, datetime
 
 from core.evidence.author import author_hash
 from core.evidence.model import Engagement, EvidenceItem
 from core.storage.postgres_store import PostgresStore, run_async
+from tests._postgres import ADMIN_DSN, postgres_available
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_evidence_store_test"
 SAL = "2b" * 32
 AHORA = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
-
-
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
 
 
 def item(nativo="42", texto="I export invoices by hand every week", **cambios):
@@ -49,7 +34,7 @@ def item(nativo="42", texto="I export invoices by hand every week", **cambios):
     return EvidenceItem(**base)
 
 
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestUpsertEvidence(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

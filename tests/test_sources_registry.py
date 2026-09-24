@@ -8,7 +8,6 @@ no es origen de nada; el modo comercial excluye las que no permiten uso
 comercial y lo dice.
 """
 
-import os
 import unittest
 from datetime import UTC, datetime
 
@@ -18,6 +17,7 @@ from core.sources.registry import (
     active_sources,
     source_status,
 )
+from tests._postgres import ADMIN_DSN, postgres_available
 
 
 class Publica(SourceAdapter):
@@ -137,25 +137,10 @@ class TestActivas(unittest.TestCase):
         self.assertTrue(source_status(Publica, {}, None, False).active)
 
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
 TEST_DB = "rir_sources_state_test"
 
 
-def _postgres_available() -> bool:
-    try:
-        import psycopg
-    except ImportError:
-        return False
-    try:
-        with psycopg.connect(ADMIN_DSN, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-@unittest.skipUnless(_postgres_available(), "PostgreSQL no disponible")
+@unittest.skipUnless(postgres_available(), "PostgreSQL no disponible")
 class TestEnPostgres(unittest.TestCase):
     """El repositorio de PostgreSQL cumple el mismo contrato que el de memoria."""
 
