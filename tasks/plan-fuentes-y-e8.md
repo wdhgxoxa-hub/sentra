@@ -183,3 +183,12 @@ del usuario; no se implementa ni se prueba contra datos hasta entonces):
 - Queda: la línea de G7 da valor y umbral pero no lo explica en palabras; una
   afirmación que junta dos ideas puede colar la parte de un solo autor.
 - Gemini: 34 de 40; quedan 6.
+
+### Regla de competencia de 3 autores (aprobada, c7b1a39) y re-juicio
+
+Re-juicio 01a0d538-75f4-721c-8802-513c0ebfff98 (2 llamadas, tope duro 2): el grupo
+de impagos (9 autores, G0 pasa) pasa de DESCARTAR a INVESTIGAR MÁS por la regla 9:
+G7 «menciones favorables insuficientes» (Clawbolt 1 de 3 autores, duevero.com 1 de
+3). Los otros 3 grupos siguen siendo mezclas (G0). Gemini: 36 de 40; quedan 4.
+Observación: el contexto de G7 (piezas sin dolor cercanas al grupo) es casi el
+mismo para los cuatro grupos; no se ha tocado.
