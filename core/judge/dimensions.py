@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 from core.evidence.model import EvidenceItem
 
 from .labels import VerifiedLabel
+from .quality import es_autopromocion
 
 #: v2 (AUD2-001): mismos pesos; cambian las reglas que alimentan el puntaje
 #: (lanzamientos fuera del dolor, G2 relativo al escaneo).
@@ -74,20 +75,26 @@ def es_lanzamiento(item: EvidenceItem) -> bool:
     return bool(_LANZAMIENTO.match(item.title or ""))
 
 
+def es_anuncio(item: EvidenceItem) -> bool:
+    """Lanzamiento por el título o autopromoción/anuncio en el texto: señal de
+    competencia (sigue en la evidencia y en el contexto de G7), nunca dolor."""
+    return es_lanzamiento(item) or es_autopromocion(item.text)
+
+
 def pain_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
     """La evidencia que cuenta: miembros con dolor verificado que no son un lanzamiento."""
     return [i for i in items if labels.get(i.id) is not None and labels[i.id].is_pain == "yes"
-            and not es_lanzamiento(i)]
+            and not es_anuncio(i)]
 
 
 def payment_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    return [i for i in items if (e := labels.get(i.id)) is not None and not es_lanzamiento(i)
+    return [i for i in items if (e := labels.get(i.id)) is not None and not es_anuncio(i)
             and (e.wtp_signal == "yes" or e.intent == "busca_herramienta")]
 
 
 def workaround_items(items: Sequence[EvidenceItem],
                      labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    return [i for i in items if (e := labels.get(i.id)) is not None and not es_lanzamiento(i)
+    return [i for i in items if (e := labels.get(i.id)) is not None and not es_anuncio(i)
             and e.workaround_described == "yes"]
 
 

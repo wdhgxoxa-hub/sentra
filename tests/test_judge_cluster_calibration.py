@@ -55,7 +55,7 @@ class TestCalibracion(unittest.TestCase):
         # fuera los comentarios que no nombran el tema; el barrido del dorado, con
         # el criterio de siempre, vuelve a elegir 0,82 (ARI 0,487).
         self.assertEqual((CLUSTERING_VERSION, CLUSTERING_METHOD, CLUSTER_MIN_SIMILARITY),
-                         ("clustering-v8", "average_linkage", 0.82))
+                         ("clustering-v9", "average_linkage", 0.82))
 
     def test_agrupar_por_la_frase_del_problema_supera_al_post_entero(self):
         # clustering-v5, medido antes de fijarlo (scripts/embed_golden_clusters.py):

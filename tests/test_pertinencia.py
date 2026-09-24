@@ -41,6 +41,17 @@ class TestPertinencia(unittest.TestCase):
         for otro in no_lanzamientos:
             self.assertFalse(es_lanzamiento(lanzamiento(1, otro)), otro)
 
+    def test_un_anuncio_en_el_texto_tampoco_cuenta_como_dolor(self):
+        # Sin título de lanzamiento: el anuncio va en el texto (Bluesky, Mastodon).
+        anuncio = pieza(3).model_copy(update={"text": (
+            "Following up on late invoices manually is tedious. The fix: an automatic reminder sequence "
+            "that stops the moment the client pays.")})
+        queja = pieza(4)
+        etiquetas = {i.id: etiqueta(i.id, intent="parche_casero", parche="yes", pago="yes")
+                     for i in (anuncio, queja)}
+        for contar in (pain_items, workaround_items, payment_items):
+            self.assertEqual([i.id for i in contar([anuncio, queja], etiquetas)], [queja.id], contar.__name__)
+
 
 if __name__ == "__main__":
     unittest.main()

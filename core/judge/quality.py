@@ -42,6 +42,20 @@ _AUTOPROMOCION = re.compile(
     r"|\bhe (creado|construido|hecho|lanzado)\b|\bhemos (creado|construido|lanzado)\b"
     r"|\bconstru[ií]\b|\blanc[eé]\b|\bmi (nueva )?(app|herramienta|startup)\b",
     re.IGNORECASE)
+#: Anuncio «problema → solución» (escaneo de impagos, Bluesky): «X a mano es un
+#: rollo. The fix: …», o «X used to … Now …» describiendo una automatización.
+#: Una queja con antes y ahora («used to pay in 30 days. Now 90») no lo es.
+_ANUNCIO_SOLUCION = re.compile(r"\b(the fix|la soluci[oó]n)\s*:", re.IGNORECASE)
+_ANTES_AHORA = re.compile(r"\bused to\b[^.?!]{0,80}[.?!]\s+now\b|\bantes\b[^.?!]{0,80}[.?!]\s+ahora\b",
+                          re.IGNORECASE)
+_AUTOMATIZA = re.compile(r"automat|autom[aá]tic|scheduled|programad|on (its|their) own|by itself|"
+                         r"themselves|without (me|you)\b", re.IGNORECASE)
+
+
+def es_autopromocion(texto: str) -> bool:
+    """Quien habla vende lo suyo: competencia, no dolor."""
+    return bool(_AUTOPROMOCION.search(texto) or _ANUNCIO_SOLUCION.search(texto)
+                or (_ANTES_AHORA.search(texto) and _AUTOMATIZA.search(texto)))
 
 
 @dataclass(frozen=True)
@@ -80,7 +94,7 @@ def judge_quality(item: EvidenceItem) -> QualityVerdict:
         return _descartar(item, "spam")
     if _BOT.search(texto):
         return _descartar(item, "bot")
-    if _AUTOPROMOCION.search(texto):
+    if es_autopromocion(texto):
         return QualityVerdict(item.id, True, "self_promotion", True)
     return QualityVerdict(item.id, True, None, False)
 

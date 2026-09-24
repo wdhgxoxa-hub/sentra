@@ -74,6 +74,29 @@ class TestMotivos(unittest.TestCase):
                 self.assertEqual((veredicto.keep, veredicto.reason, veredicto.competition_signal),
                                  (True, "self_promotion", True))
 
+    def test_un_anuncio_problema_solucion_es_competencia_no_dolor(self):
+        # Escaneo de impagos (Bluesky): «X a mano es un rollo. The fix: …» y
+        # «X used to … Now a scheduled job …» se etiquetaban como dolor.
+        anuncios = (
+            ("Following up on late invoices manually is tedious. The fix: an automatic reminder sequence "
+             "that stops the moment the client pays."),
+            ("Reconciling payments used to take my whole Monday. Now a scheduled script matches them on its own. "
+             "What could you automate this week?"),
+            ("Perseguir facturas impagadas a mano es un rollo. La solución: recordatorios programados que se "
+             "envían solos hasta que el cliente paga."))
+        for texto in anuncios:
+            with self.subTest(texto=texto):
+                veredicto = judge_quality(item(texto))
+                self.assertEqual((veredicto.keep, veredicto.reason, veredicto.competition_signal),
+                                 (True, "self_promotion", True))
+
+    def test_una_queja_con_antes_y_ahora_no_es_un_anuncio(self):
+        for texto in ("Clients used to pay within 30 days. Now it takes three months and I chase every invoice.",
+                      "Always fun to start the week chasing unpaid invoices from clients who ignore my emails.",
+                      "I need a fix: my biggest client has not paid the last three invoices and rent is due."):
+            with self.subTest(texto=texto):
+                self.assertIsNone(judge_quality(item(texto)).reason)
+
 
 class TestLote(unittest.TestCase):
     def test_separa_lo_que_pasa_y_registra_cada_descarte(self):

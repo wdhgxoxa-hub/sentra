@@ -36,7 +36,8 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: escaneo no nombra nichos. El método y el umbral son los de v2.
 #: v8: con tema, los comentarios que no lo nombran no entran (pipeline); el
 #: barrido del dorado, con el mismo criterio, vuelve a dar 0,82.
-CLUSTERING_VERSION = "clustering-v8"
+#: v9: los anuncios «problema → solución» en el texto son competencia, no dolor.
+CLUSTERING_VERSION = "clustering-v9"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
