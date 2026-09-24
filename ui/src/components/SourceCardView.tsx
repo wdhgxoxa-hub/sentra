@@ -115,6 +115,8 @@ export function SourceCardView({ card }: { card: SourceCard }) {
       {card.status === "error" && card.errorCode && (
         <div className="mt-3">
           <ErrorNotice code={card.errorCode} detail={card.detail ?? ""} />
+          {/* AUD2-012: el mismo `active` que decide el escaneo. */}
+          {!card.active && <p className="mt-1 text-xs text-warn">{t.sources.excludedUntilProbe}</p>}
         </div>
       )}
 

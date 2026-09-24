@@ -221,10 +221,17 @@ def source_status(
         detail=detalle,
         disabled=guardado.disabled,
         excluded_by_commercial_mode=excluida,
-        active=estado not in ("no_configurada", "deshabilitada_por_usuario") and not excluida,
+        active=(estado not in ("no_configurada", "deshabilitada_por_usuario") and not excluida
+                and not (estado == "error" and guardado.error_code in ERRORES_QUE_EXCLUYEN)),
         cost_unit=fuente.cost_model.unit,
         cost_note=fuente.cost_model.note,
     )
+
+
+#: Errores que no se arreglan solos (AUD2-012, DP10 A): hasta una prueba con
+#: éxito la fuente no entra en el escaneo, que gastaría una llamada destinada
+#: a fallar. Lo pasajero (caída, cuota) sí entra: se recupera sin el usuario.
+ERRORES_QUE_EXCLUYEN = frozenset({"source_auth_failed", "source_forbidden", "source_not_found"})
 
 
 def active_sources(

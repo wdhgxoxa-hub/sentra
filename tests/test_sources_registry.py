@@ -138,6 +138,22 @@ class TestActivas(unittest.TestCase):
         self.assertFalse(source_status(ConClave, {}, None, False).active)
         self.assertTrue(source_status(Publica, {}, None, False).active)
 
+    def test_una_fuente_que_rechaza_las_credenciales_no_se_escanea_hasta_probarla(self):
+        """AUD2-012, DP10 A: «7 de 10 activas» contaba Product Hunt con 401 y
+        cada escaneo gastaba una llamada que iba a fallar. Lo que no se arregla
+        solo (credenciales, permisos, recurso inexistente) sale del escaneo hasta
+        una prueba con éxito; lo pasajero (caída, cuota) no."""
+        guardado = InMemorySourcesState()
+        for codigo, activa in (("source_auth_failed", False), ("source_forbidden", False),
+                               ("source_not_found", False), ("source_unavailable", True),
+                               ("source_rate_limited", True)):
+            with self.subTest(codigo):
+                guardado.record_probe("publica", ProbeResult(ok=False, code=codigo, detail="x", checked_at=HORA))
+                estado = source_status(Publica, {}, guardado.get("publica"), False)
+                self.assertEqual((estado.status, estado.active), ("error", activa))
+        guardado.record_probe("publica", ok())
+        self.assertTrue(source_status(Publica, {}, guardado.get("publica"), False).active)
+
 
 TEST_DB = "rir_sources_state_test"
 

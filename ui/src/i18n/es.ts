@@ -232,6 +232,7 @@ export const es = {
     },
     personalOnly: "Solo uso personal",
     excludedByCommercial: "Excluida por el modo comercial",
+    excludedUntilProbe: "No entra en el escaneo hasta que la pruebes con éxito.",
     public: "Pública, sin credenciales",
     publicOptional: "Pública; una clave opcional sube la cuota",
     optionalSaved: "Clave opcional guardada: cuota ampliada",

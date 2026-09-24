@@ -227,6 +227,7 @@ export const en: Dictionary = {
     },
     personalOnly: "Personal use only",
     excludedByCommercial: "Excluded by commercial mode",
+    excludedUntilProbe: "Left out of scans until you test it successfully.",
     public: "Public, no credentials",
     publicOptional: "Public; an optional key raises the quota",
     optionalSaved: "Optional key saved: raised quota",
