@@ -95,8 +95,9 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         [item] = await todos(fuente(servidor(peticiones)).search(consulta))
         busqueda, tema = peticiones
         self.assertEqual(urlparse(str(busqueda.url)).netloc, "foro.example.org")
+        # Solo el tema: con la frase entre comillas los 3 foros medidos daban 0.
         self.assertEqual(parse_qs(urlparse(str(busqueda.url)).query)["q"],
-                         ['invoice "is there a" after:2026-01-01'])
+                         ["invoice after:2026-01-01"])
         self.assertEqual(urlparse(str(tema.url)).path, "/t/77/posts.json")
         self.assertEqual(parse_qs(urlparse(str(tema.url)).query)["post_ids[]"], ["501"])
         self.assertEqual(item.id, "discourse:foro.example.org:501")
@@ -107,6 +108,12 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item.thread_id, "discourse:foro.example.org:t77")
         self.assertEqual((item.engagement.reactions, item.engagement.replies), (6, 3))
         self.assertNotIn("autor_inventado", item.model_dump_json(), "R9")
+
+    async def test_el_presupuesto_alcanza_para_todo_el_tema_en_tres_foros(self):
+        # 1 búsqueda + 5 temas por foro y palabra: con 25 peticiones solo cabía una palabra.
+        from core.sources.discourse import TOPICS_PER_SEARCH
+
+        self.assertGreaterEqual(DiscourseSource.default_budget().max_requests, 3 * 5 * (1 + TOPICS_PER_SEARCH))
 
     async def test_los_objetivos_del_perfil_se_suman_a_los_de_la_tarjeta(self):
         peticiones: list[httpx.Request] = []

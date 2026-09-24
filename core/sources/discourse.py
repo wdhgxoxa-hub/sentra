@@ -24,6 +24,7 @@ from typing import Any
 from core.evidence.model import Engagement, EvidenceItem, SearchQuery
 
 from .base import CostModel, CredentialField, ProbeResult, SourceAdapter
+from .budget import SourceBudget
 from .errors import SourceCredentialsMissing, SourceError
 from .hosts import domain
 from .profile import term_pairs
@@ -33,6 +34,9 @@ from .text import html_to_text
 MIN_INTERVAL_S = 1.0
 #: Temas cuyo texto completo se lee en cada búsqueda.
 TOPICS_PER_SEARCH = 5
+#: Peticiones por escaneo: 1 búsqueda + TOPICS_PER_SEARCH temas por foro y
+#: palabra del tema; con 25 solo cabía una palabra en tres foros.
+SCAN_MAX_REQUESTS = 100
 
 
 class DiscourseSource(SourceAdapter):
@@ -45,6 +49,10 @@ class DiscourseSource(SourceAdapter):
         CredentialField(name="forums", env_var="RIR_DISCOURSE_FORUMS", secret=False),
     )
     cost_model = CostModel(unit="request", note="Límites de cada foro; 1 petición por segundo")
+
+    @classmethod
+    def default_budget(cls) -> SourceBudget:
+        return SourceBudget(source=cls.id, max_requests=SCAN_MAX_REQUESTS)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -84,7 +92,9 @@ class DiscourseSource(SourceAdapter):
         foros = self._foros(query)
         restantes = self.budget.max_requests - self.budget.spent_requests
         por_busqueda = 1 + TOPICS_PER_SEARCH
-        pares = term_pairs(query, limit=max(1, restantes // (por_busqueda * len(foros))))
+        # Solo el tema: los foros ya son del tema, y con la frase entre comillas
+        # los tres medidos daban 0 (con el tema solo, 30–50 posts).
+        pares = term_pairs(query, limit=max(1, restantes // (por_busqueda * len(foros))), solo_tema=True)
         vistos: set[str] = set()
         for palabra, frase in pares:
             partes = [palabra] if palabra else []
