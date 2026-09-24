@@ -62,7 +62,13 @@ def lanzamiento(n):
         update={"title": f"Show HN: Invoicer {n}"})
 
 
+def por_id(vectores):
+    """Doble de vectores_frase: el vector de cada frase es el de su pieza."""
+    return lambda frases: {i: vectores[i] for i in frases if i in vectores}
+
+
 def juzgar(items, vectores, **extra):
+    extra.setdefault("vectores_frase", por_id(vectores))
     return run_judge(items, vectores, provider=DobleQueSeEquivoca(), model="m",
                      cache=InMemoryLabelCache(), now=AHORA, **extra)
 
@@ -124,8 +130,31 @@ class TestJuezCoherente(unittest.TestCase):
         [veredicto] = juzgar(quejas, vectores, tema=["invoice", "Export"]).verdicts
         self.assertFalse({"invoice", "export"} & set(veredicto["keywords"]))
 
+    def test_se_agrupa_por_la_frase_del_problema_y_no_por_el_post_entero(self):
+        # clustering-v5: posts del mismo tema se parecen enteros (saludo, stack,
+        # código); lo que distingue el problema es la frase verificada.
+        quejas = [pieza(n) for n in range(6)]
+        mismo_post = {i.id: [1.0, 0.0, 0.0] for i in quejas}
+        frases = {i.id: ([1.0, 0.0, 0.0] if n < 3 else [0.0, 1.0, 0.0]) for n, i in enumerate(quejas)}
+        resultado = juzgar(quejas, mismo_post, vectores_frase=lambda f: {k: frases[k] for k in f})
+        self.assertEqual(sorted(sorted(v["member_ids"]) for v in resultado.verdicts),
+                         [sorted(i.id for i in quejas[:3]), sorted(i.id for i in quejas[3:])])
+
+    def test_las_frases_que_se_vectorizan_son_las_verificadas(self):
+        quejas = [pieza(n) for n in range(4)]
+        vectores = {i.id: [1.0, 0.01 * k, 0.0] for k, i in enumerate(quejas)}
+        vistas: dict[str, str] = {}
+
+        def espia(frases):
+            vistas.update(frases)
+            return {i: vectores[i] for i in frases}
+
+        juzgar(quejas, vectores, vectores_frase=espia)
+        # DobleQueSeEquivoca cita como prueba de affected los primeros 20 caracteres.
+        self.assertEqual(vistas, {i.id: i.text[:20] for i in quejas})
+
     def test_versiones_nuevas(self):
-        self.assertEqual(CLUSTERING_VERSION, "clustering-v4")
+        self.assertEqual(CLUSTERING_VERSION, "clustering-v5")
         self.assertEqual(WEIGHTS_VERSION, "judge-weights-v3")
 
 

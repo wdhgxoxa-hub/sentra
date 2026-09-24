@@ -92,7 +92,9 @@ class TestRejuicio(unittest.TestCase):
         origen, propias = self._sembrar()
         vectores = {i.id: [1.0, 0.01 * n, 0.0] for n, i in enumerate(propias)}
         nueva, resumen = rejuzgar(self.dsn, origen, provider=LLMDoble(), model="m", cache=InMemoryLabelCache(),
-                                  vectores=lambda ids: {k: vectores[k] for k in ids if k in vectores}, now=AHORA)
+                                  vectores=lambda ids: {k: vectores[k] for k in ids if k in vectores},
+                                  vectores_frase=lambda frases: {k: vectores[k] for k in frases if k in vectores},
+                                  now=AHORA)
 
         async def leer(store):
             ejecucion = await store._fetchone(

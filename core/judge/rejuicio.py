@@ -60,6 +60,7 @@ def rejuzgar(
     model: str | None,
     cache: LabelCache,
     vectores: Callable[[Sequence[str]], Mapping[str, Sequence[float]]],
+    vectores_frase: Callable[[Mapping[str, str]], Mapping[str, Sequence[float]]],
     now: datetime,
 ) -> tuple[str, dict[str, Any]]:
     """Re-juzga el escaneo `run_origen`; devuelve (id de la ejecución nueva, resumen)."""
@@ -75,7 +76,8 @@ def rejuzgar(
             parametros = dict(origen["parameters"] or {})
             items = await evidencia_de_ejecucion(store, run_origen)
             juicio = run_judge(items, vectores([i.id for i in items]), provider=provider, model=model,
-                               cache=cache, now=now, previous=await previous_identities(store),
+                               cache=cache, now=now, vectores_frase=vectores_frase,
+                               previous=await previous_identities(store),
                                tema=list(parametros.get("keywords") or []))
             nueva = await store.start_run(origen["subreddit_name"], trigger_source=TRIGGER_REJUICIO,
                                           parameters={**parametros, "rejuicio_de": run_origen},

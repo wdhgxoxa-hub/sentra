@@ -24,6 +24,7 @@ from core.judge.clustering import (
     CLUSTERING_METHOD,
     CLUSTERING_VERSION,
     MIN_CLUSTER_SIZE,
+    average_linkage_partition,
     cluster_evidence,
 )
 from core.storage.embeddings import E5_POOLING, MULTILINGUAL_MODEL_NAME
@@ -52,7 +53,26 @@ class TestCalibracion(unittest.TestCase):
         # v3 (AUD2-001) cambia qué entra (solo dolor pertinente) y v4 (AUD2-006) cómo
         # se nombran los grupos; ninguna el método ni el umbral.
         self.assertEqual((CLUSTERING_VERSION, CLUSTERING_METHOD, CLUSTER_MIN_SIMILARITY),
-                         ("clustering-v4", "average_linkage", 0.82))
+                         ("clustering-v5", "average_linkage", 0.82))
+
+    def test_agrupar_por_la_frase_del_problema_supera_al_post_entero(self):
+        # clustering-v5, medido antes de fijarlo (scripts/embed_golden_clusters.py):
+        # con el contexto común del tema alrededor de cada frase, agrupar por el post
+        # entero cae a ARI 0,005 en 0,82 (mejor umbral: 0,025); por la frase, 0,487.
+        dorado = json.loads((FIXTURES / "golden_clusters.json").read_text(encoding="utf-8"))
+        grupo_de = {str(i["id"]): i["group"] for i in dorado["items"]}
+
+        def ari(fichero):
+            datos = np.load(FIXTURES / fichero)
+            verdad = [grupo_de[str(i)] for i in datos["ids"]]
+            etiquetas = average_linkage_partition(list(datos["vectors"]), CLUSTER_MIN_SIMILARITY)
+            tamanos = Counter(etiquetas)
+            efectiva = [f"g{e}" if tamanos[e] >= MIN_CLUSTER_SIZE else f"s{n}"
+                        for n, e in enumerate(etiquetas)]
+            return adjusted_rand_index(verdad, efectiva)
+
+        self.assertGreaterEqual(ari("golden_clusters_e5.npz"), ARI_ACHIEVED)
+        self.assertLess(ari("golden_clusters_posts_e5.npz"), 0.1)
 
     def test_la_agrupacion_del_juez_no_baja_de_lo_logrado(self):
         datos, dorado = cargar()

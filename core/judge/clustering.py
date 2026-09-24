@@ -34,7 +34,7 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
 #: v3 (AUD2-001): solo agrupa evidencia con dolor pertinente y el tema del
 #: escaneo no nombra nichos. El método y el umbral son los de v2.
-CLUSTERING_VERSION = "clustering-v4"
+CLUSTERING_VERSION = "clustering-v5"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.

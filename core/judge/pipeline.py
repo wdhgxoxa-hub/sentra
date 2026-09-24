@@ -12,10 +12,12 @@ interfaz.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
+
+import numpy as np
 
 from core.evidence.model import EvidenceItem
 from core.llm.base import JsonGenerator
@@ -34,6 +36,12 @@ from .labels import BATCH_SIZE, LABELER_VERSION, LabelCache, VerifiedLabel, labe
 from .quality import filter_quality
 
 
+def frase_del_problema(etiqueta: VerifiedLabel) -> str:
+    """La frase verificada en la que el autor dice que le pasa (affected); si no, la
+    del dolor. Toda pieza con dolor tiene al menos esta última."""
+    return etiqueta.evidence_spans.get("affected") or etiqueta.evidence_spans["is_pain"]
+
+
 @dataclass
 class JudgeResult:
     verdicts: list[dict[str, Any]] = field(default_factory=list)
@@ -49,11 +57,16 @@ def run_judge(
     model: str | None,
     cache: LabelCache,
     now: datetime,
+    vectores_frase: Callable[[Mapping[str, str]], Mapping[str, Sequence[float]]],
     previous: Sequence[Previo] = (),
     label_batch_size: int = BATCH_SIZE,
     tema: Sequence[str] = (),
 ) -> JudgeResult:
-    """`tema`: términos del perfil del escaneo; no nombran nichos."""
+    """`tema`: términos del perfil del escaneo; no nombran nichos.
+
+    `vectores_frase` vectoriza {id: frase del problema verificada}: se agrupa por
+    lo que cada autor dice que le pasa, no por el post entero (clustering-v5).
+    `vectors` (texto entero) solo sirve para el contexto de G7."""
     calidad = filter_quality(items)
     etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache,
                             batch_size=label_batch_size)
@@ -61,7 +74,8 @@ def run_judge(
     # agrupaba todo lo que pasaba la calidad y los grupos salían por tema.
     dolor = pain_items(calidad.kept, etiquetas)
     ids_dolor = {i.id for i in dolor}
-    grupos = cluster_evidence(dolor, vectors, previous=previous, excluir=tema)
+    frases = {i.id: frase_del_problema(etiquetas[i.id]) for i in dolor}
+    grupos = cluster_evidence(dolor, vectores_frase(frases), previous=previous, excluir=tema)
     min_autores = umbral_autores(len(dolor))
     sin_dolor = [i for i in calidad.kept if i.id not in ids_dolor and i.id in vectors]
     por_id = {i.id: i for i in calidad.kept}
@@ -70,10 +84,12 @@ def run_judge(
     for grupo in grupos:
         miembros = [por_id[m] for m in grupo.member_ids]
         # Lo que no es dolor pero está tan cerca como para caber en el grupo
-        # informa a G7 (quién habla bien de un competidor gratuito).
-        centro = _unitario(grupo.centroid)
-        contexto = [i for i in sin_dolor
-                    if float(_unitario(vectors[i.id]) @ centro) >= CLUSTER_MIN_SIMILARITY]
+        # informa a G7 (quién habla bien de un competidor gratuito). Se compara en
+        # el espacio del texto entero: el de las frases no sirve para piezas sin dolor.
+        textos = [_unitario(vectors[m]) for m in grupo.member_ids if m in vectors]
+        centro = _unitario(np.mean(textos, axis=0)) if textos else None
+        contexto = [] if centro is None else [
+            i for i in sin_dolor if float(_unitario(vectors[i.id]) @ centro) >= CLUSTER_MIN_SIMILARITY]
         juicio = judge_cluster(miembros, etiquetas, now=now, min_authors=min_autores, contexto=contexto)
         abogado = run_advocate(juicio, miembros, provider=provider, model=model)
         veredictos.append({

@@ -1,0 +1,482 @@
+{
+ "version": "2026-09-23.v1",
+ "note": "Versión «publicación» del conjunto dorado (clustering-v5): la frase del problema rodeada del contexto común del tema. Generado por scripts/embed_golden_clusters.py; textos INVENTADOS (R8).",
+ "items": [
+  {
+   "id": "ent-en-1",
+   "group": "entregabilidad",
+   "lang": "en",
+   "problem": "Our password reset emails keep landing in Gmail's spam folder even though SPF and DKIM pass.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. We use a transactional email provider and a mobile app for the notifications. Our password reset emails keep landing in Gmail's spam folder even though SPF and DKIM pass. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "ent-en-2",
+   "group": "entregabilidad",
+   "lang": "en",
+   "problem": "Transactional emails bounce for anyone using Outlook.com. We lost signups because the verification link never arrived.",
+   "post": "Hi all, long time lurker here. For context, we're a team of three and I handle most of the infrastructure. Transactional emails bounce for anyone using Outlook.com. We lost signups because the verification link never arrived. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "ent-en-3",
+   "group": "entregabilidad",
+   "lang": "en",
+   "problem": "How do I warm up a new sending domain? Half of our order confirmations are silently dropped by Yahoo.",
+   "post": "Hi all, long time lurker here. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. How do I warm up a new sending domain? Half of our order confirmations are silently dropped by Yahoo. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "ent-en-4",
+   "group": "entregabilidad",
+   "lang": "en",
+   "problem": "Our sender reputation tanked after a bad import and now receipts go to junk for most customers.",
+   "post": "Hi all, long time lurker here. We use a transactional email provider and a mobile app for the notifications. Our sender reputation tanked after a bad import and now receipts go to junk for most customers. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "ent-en-5",
+   "group": "entregabilidad",
+   "lang": "en",
+   "problem": "DMARC reports show our invoices failing alignment, so corporate mail servers reject them outright.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. DMARC reports show our invoices failing alignment, so corporate mail servers reject them outright. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "ent-es-1",
+   "group": "entregabilidad",
+   "lang": "es",
+   "problem": "Los correos de recuperación de contraseña acaban en la carpeta de spam de Gmail aunque SPF y DKIM están bien.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Hola a todos, os leo desde hace tiempo. Los correos de recuperación de contraseña acaban en la carpeta de spam de Gmail aunque SPF y DKIM están bien. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "ent-es-2",
+   "group": "entregabilidad",
+   "lang": "es",
+   "problem": "Los emails transaccionales rebotan en Hotmail y perdemos registros porque el enlace de verificación nunca llega.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Hola a todos, os leo desde hace tiempo. Los emails transaccionales rebotan en Hotmail y perdemos registros porque el enlace de verificación nunca llega. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "ent-es-3",
+   "group": "entregabilidad",
+   "lang": "es",
+   "problem": "¿Cómo se calienta un dominio de envío nuevo? La mitad de las confirmaciones de pedido desaparecen sin aviso.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Para contexto: somos tres y yo llevo casi toda la infraestructura. ¿Cómo se calienta un dominio de envío nuevo? La mitad de las confirmaciones de pedido desaparecen sin aviso. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "ent-es-4",
+   "group": "entregabilidad",
+   "lang": "es",
+   "problem": "Nuestra reputación de remitente se hundió tras importar una lista mala y ahora los recibos van a correo no deseado.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Para contexto: somos tres y yo llevo casi toda la infraestructura. Nuestra reputación de remitente se hundió tras importar una lista mala y ahora los recibos van a correo no deseado. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "ent-es-5",
+   "group": "entregabilidad",
+   "lang": "es",
+   "problem": "Los informes DMARC muestran que las facturas fallan la alineación y los servidores de empresa las rechazan.",
+   "post": "Hola a todos, os leo desde hace tiempo. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Los informes DMARC muestran que las facturas fallan la alineación y los servidores de empresa las rechazan. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "sat-en-1",
+   "group": "saturacion",
+   "lang": "en",
+   "problem": "Users complain that our app sends way too many notifications, and our uninstall rate doubled last month.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. For context, we're a team of three and I handle most of the infrastructure. Users complain that our app sends way too many notifications, and our uninstall rate doubled last month. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "sat-en-2",
+   "group": "saturacion",
+   "lang": "en",
+   "problem": "I get twelve emails a day from this project tool for every tiny comment. Pure notification fatigue.",
+   "post": "Our stack is Node.js with a queue for background jobs; notifications go out by email and push. We use a transactional email provider and a mobile app for the notifications. I get twelve emails a day from this project tool for every tiny comment. Pure notification fatigue. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "sat-en-3",
+   "group": "saturacion",
+   "lang": "en",
+   "problem": "Is there a way to batch notifications into a daily digest? Our customers say we are spamming them.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Is there a way to batch notifications into a daily digest? Our customers say we are spamming them. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "sat-en-4",
+   "group": "saturacion",
+   "lang": "en",
+   "problem": "Every like and follow triggers a separate alert. People just mute the whole app and never come back.",
+   "post": "Hi all, long time lurker here. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Every like and follow triggers a separate alert. People just mute the whole app and never come back. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "sat-en-5",
+   "group": "saturacion",
+   "lang": "en",
+   "problem": "Our team ignores Slack alerts now because the monitoring bot pings us hundreds of times a day.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Our team ignores Slack alerts now because the monitoring bot pings us hundreds of times a day. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "sat-es-1",
+   "group": "saturacion",
+   "lang": "es",
+   "problem": "Los usuarios se quejan de que la app manda demasiadas notificaciones y las desinstalaciones se duplicaron.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Para contexto: somos tres y yo llevo casi toda la infraestructura. Los usuarios se quejan de que la app manda demasiadas notificaciones y las desinstalaciones se duplicaron. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "sat-es-2",
+   "group": "saturacion",
+   "lang": "es",
+   "problem": "Recibo doce correos al día de la herramienta de proyectos por cada comentario mínimo. Estoy saturado.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Recibo doce correos al día de la herramienta de proyectos por cada comentario mínimo. Estoy saturado. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "sat-es-3",
+   "group": "saturacion",
+   "lang": "es",
+   "problem": "¿Se pueden agrupar los avisos en un resumen diario? Los clientes dicen que les estamos llenando la bandeja.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. ¿Se pueden agrupar los avisos en un resumen diario? Los clientes dicen que les estamos llenando la bandeja. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "sat-es-4",
+   "group": "saturacion",
+   "lang": "es",
+   "problem": "Cada me gusta y cada seguidor dispara una alerta distinta; la gente silencia la app entera y no vuelve.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Cada me gusta y cada seguidor dispara una alerta distinta; la gente silencia la app entera y no vuelve. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "sat-es-5",
+   "group": "saturacion",
+   "lang": "es",
+   "problem": "El equipo ya ignora las alertas porque el bot de monitorización nos avisa cientos de veces al día.",
+   "post": "Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. El equipo ya ignora las alertas porque el bot de monitorización nos avisa cientos de veces al día. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "pla-en-1",
+   "group": "plantillas",
+   "lang": "en",
+   "problem": "Building HTML email templates that render correctly in Outlook desktop is a nightmare of nested tables.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Building HTML email templates that render correctly in Outlook desktop is a nightmare of nested tables. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "pla-en-2",
+   "group": "plantillas",
+   "lang": "en",
+   "problem": "Our newsletter looks broken in dark mode: the logo disappears and the text turns unreadable.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We use a transactional email provider and a mobile app for the notifications. Our newsletter looks broken in dark mode: the logo disappears and the text turns unreadable. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "pla-en-3",
+   "group": "plantillas",
+   "lang": "en",
+   "problem": "Is there a drag-and-drop editor for transactional email templates that developers can still version in git?",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We use a transactional email provider and a mobile app for the notifications. Is there a drag-and-drop editor for transactional email templates that developers can still version in git? Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pla-en-4",
+   "group": "plantillas",
+   "lang": "en",
+   "problem": "Every time marketing edits the receipt template, the responsive layout breaks on mobile phones.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Every time marketing edits the receipt template, the responsive layout breaks on mobile phones. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "pla-en-5",
+   "group": "plantillas",
+   "lang": "en",
+   "problem": "Maintaining the same email template in five languages means copying HTML by hand and it drifts apart.",
+   "post": "Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Hi all, long time lurker here. Maintaining the same email template in five languages means copying HTML by hand and it drifts apart. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "pla-es-1",
+   "group": "plantillas",
+   "lang": "es",
+   "problem": "Maquetar plantillas de correo en HTML que se vean bien en Outlook de escritorio es un infierno de tablas anidadas.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Para contexto: somos tres y yo llevo casi toda la infraestructura. Maquetar plantillas de correo en HTML que se vean bien en Outlook de escritorio es un infierno de tablas anidadas. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "pla-es-2",
+   "group": "plantillas",
+   "lang": "es",
+   "problem": "El boletín se ve roto en modo oscuro: el logotipo desaparece y el texto no se puede leer.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. El boletín se ve roto en modo oscuro: el logotipo desaparece y el texto no se puede leer. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "pla-es-3",
+   "group": "plantillas",
+   "lang": "es",
+   "problem": "¿Hay un editor visual de plantillas de correo transaccional que los desarrolladores puedan versionar en git?",
+   "post": "Hola a todos, os leo desde hace tiempo. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. ¿Hay un editor visual de plantillas de correo transaccional que los desarrolladores puedan versionar en git? Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "pla-es-4",
+   "group": "plantillas",
+   "lang": "es",
+   "problem": "Cada vez que marketing toca la plantilla del recibo, el diseño adaptable se rompe en el móvil.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Cada vez que marketing toca la plantilla del recibo, el diseño adaptable se rompe en el móvil. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "pla-es-5",
+   "group": "plantillas",
+   "lang": "es",
+   "problem": "Mantener la misma plantilla de correo en cinco idiomas implica copiar HTML a mano y acaban siendo distintas.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Hola a todos, os leo desde hace tiempo. Mantener la misma plantilla de correo en cinco idiomas implica copiar HTML a mano y acaban siendo distintas. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "pre-en-1",
+   "group": "preferencias",
+   "lang": "en",
+   "problem": "Customers want to unsubscribe from marketing emails but keep billing alerts, and our system only has one opt-out.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We use a transactional email provider and a mobile app for the notifications. Customers want to unsubscribe from marketing emails but keep billing alerts, and our system only has one opt-out. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "pre-en-2",
+   "group": "preferencias",
+   "lang": "en",
+   "problem": "We need a preference center where users choose which notification types they receive and on which channel.",
+   "post": "Hi all, long time lurker here. For context, we're a team of three and I handle most of the infrastructure. We need a preference center where users choose which notification types they receive and on which channel. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pre-en-3",
+   "group": "preferencias",
+   "lang": "en",
+   "problem": "GDPR audit flagged that we cannot prove when a user changed their communication preferences.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. GDPR audit flagged that we cannot prove when a user changed their communication preferences. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pre-en-4",
+   "group": "preferencias",
+   "lang": "en",
+   "problem": "Users keep asking to receive product updates weekly instead of instantly, but settings are all or nothing.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We use a transactional email provider and a mobile app for the notifications. Users keep asking to receive product updates weekly instead of instantly, but settings are all or nothing. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "pre-en-5",
+   "group": "preferencias",
+   "lang": "en",
+   "problem": "Our unsubscribe link removes people from every list, so they also stop getting security notices.",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. For context, we're a team of three and I handle most of the infrastructure. Our unsubscribe link removes people from every list, so they also stop getting security notices. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "pre-es-1",
+   "group": "preferencias",
+   "lang": "es",
+   "problem": "Los clientes quieren darse de baja del marketing pero seguir recibiendo avisos de facturación, y solo tenemos una baja general.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Para contexto: somos tres y yo llevo casi toda la infraestructura. Los clientes quieren darse de baja del marketing pero seguir recibiendo avisos de facturación, y solo tenemos una baja general. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "pre-es-2",
+   "group": "preferencias",
+   "lang": "es",
+   "problem": "Necesitamos un centro de preferencias donde cada usuario elija qué tipos de aviso recibe y por qué canal.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Necesitamos un centro de preferencias donde cada usuario elija qué tipos de aviso recibe y por qué canal. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "pre-es-3",
+   "group": "preferencias",
+   "lang": "es",
+   "problem": "La auditoría de RGPD señaló que no podemos demostrar cuándo cambió un usuario sus preferencias de comunicación.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Hola a todos, os leo desde hace tiempo. La auditoría de RGPD señaló que no podemos demostrar cuándo cambió un usuario sus preferencias de comunicación. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "pre-es-4",
+   "group": "preferencias",
+   "lang": "es",
+   "problem": "Los usuarios piden recibir las novedades cada semana en vez de al instante, pero la configuración es todo o nada.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Los usuarios piden recibir las novedades cada semana en vez de al instante, pero la configuración es todo o nada. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "pre-es-5",
+   "group": "preferencias",
+   "lang": "es",
+   "problem": "El enlace de baja elimina a la gente de todas las listas y dejan de recibir también los avisos de seguridad.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. El enlace de baja elimina a la gente de todas las listas y dejan de recibir también los avisos de seguridad. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "pus-en-1",
+   "group": "push",
+   "lang": "en",
+   "problem": "Push notifications stop arriving on iOS after users update the app, and the device tokens look invalid.",
+   "post": "Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Hi all, long time lurker here. Push notifications stop arriving on iOS after users update the app, and the device tokens look invalid. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pus-en-2",
+   "group": "push",
+   "lang": "en",
+   "problem": "Firebase Cloud Messaging delivers our Android pushes hours late when the phone is in battery saver mode.",
+   "post": "Hi all, long time lurker here. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. Firebase Cloud Messaging delivers our Android pushes hours late when the phone is in battery saver mode. Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "pus-en-3",
+   "group": "push",
+   "lang": "en",
+   "problem": "How do you track whether a push notification was actually displayed and not just accepted by APNs?",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We use a transactional email provider and a mobile app for the notifications. How do you track whether a push notification was actually displayed and not just accepted by APNs? Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "pus-en-4",
+   "group": "push",
+   "lang": "en",
+   "problem": "Our web push subscriptions expire silently and we keep sending to thousands of dead endpoints.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Our web push subscriptions expire silently and we keep sending to thousands of dead endpoints. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pus-en-5",
+   "group": "push",
+   "lang": "en",
+   "problem": "Rich push with images works on Android but shows plain text on iPhone and we cannot figure out why.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Rich push with images works on Android but shows plain text on iPhone and we cannot figure out why. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "pus-es-1",
+   "group": "push",
+   "lang": "es",
+   "problem": "Las notificaciones push dejan de llegar en iOS cuando los usuarios actualizan la app y los tokens parecen inválidos.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Las notificaciones push dejan de llegar en iOS cuando los usuarios actualizan la app y los tokens parecen inválidos. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "pus-es-2",
+   "group": "push",
+   "lang": "es",
+   "problem": "Firebase Cloud Messaging entrega los push de Android con horas de retraso si el móvil está en ahorro de batería.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Firebase Cloud Messaging entrega los push de Android con horas de retraso si el móvil está en ahorro de batería. Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "pus-es-3",
+   "group": "push",
+   "lang": "es",
+   "problem": "¿Cómo se sabe si una notificación push se mostró de verdad y no solo la aceptó APNs?",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Hola a todos, os leo desde hace tiempo. ¿Cómo se sabe si una notificación push se mostró de verdad y no solo la aceptó APNs? Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "pus-es-4",
+   "group": "push",
+   "lang": "es",
+   "problem": "Las suscripciones de web push caducan sin avisar y seguimos enviando a miles de destinos muertos.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Las suscripciones de web push caducan sin avisar y seguimos enviando a miles de destinos muertos. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "pus-es-5",
+   "group": "push",
+   "lang": "es",
+   "problem": "El push enriquecido con imágenes funciona en Android pero en el iPhone sale solo texto y no sabemos por qué.",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. El push enriquecido con imágenes funciona en Android pero en el iPhone sale solo texto y no sabemos por qué. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "lim-en-1",
+   "group": "limites",
+   "lang": "en",
+   "problem": "Our email provider caps us at 100 messages per second and the Monday invoice run takes four hours.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. Our email provider caps us at 100 messages per second and the Monday invoice run takes four hours. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "lim-en-2",
+   "group": "limites",
+   "lang": "en",
+   "problem": "We hit the daily sending quota at noon and the afternoon order confirmations just queue until tomorrow.",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. Hi all, long time lurker here. We hit the daily sending quota at noon and the afternoon order confirmations just queue until tomorrow. Code (simplified): sendNotification(user, template, { channel: 'email' })."
+  },
+  {
+   "id": "lim-en-3",
+   "group": "limites",
+   "lang": "en",
+   "problem": "The SMS gateway throttles us to one message per second per number, so appointment reminders arrive late.",
+   "post": "We use a transactional email provider and a mobile app for the notifications. Our stack is Node.js with a queue for background jobs; notifications go out by email and push. The SMS gateway throttles us to one message per second per number, so appointment reminders arrive late. Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "lim-en-4",
+   "group": "limites",
+   "lang": "en",
+   "problem": "How do you spread a large notification blast across providers when each one rate limits differently?",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. How do you spread a large notification blast across providers when each one rate limits differently? Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "lim-en-5",
+   "group": "limites",
+   "lang": "en",
+   "problem": "Our account was suspended for exceeding the hourly send limit during a flash sale announcement.",
+   "post": "For context, we're a team of three and I handle most of the infrastructure. Hi all, long time lurker here. Our account was suspended for exceeding the hourly send limit during a flash sale announcement. Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "lim-es-1",
+   "group": "limites",
+   "lang": "es",
+   "problem": "El proveedor de correo nos limita a 100 mensajes por segundo y el envío de facturas del lunes tarda cuatro horas.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Hola a todos, os leo desde hace tiempo. El proveedor de correo nos limita a 100 mensajes por segundo y el envío de facturas del lunes tarda cuatro horas. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "lim-es-2",
+   "group": "limites",
+   "lang": "es",
+   "problem": "Llegamos a la cuota diaria de envío a mediodía y las confirmaciones de la tarde se quedan en cola hasta mañana.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Para contexto: somos tres y yo llevo casi toda la infraestructura. Llegamos a la cuota diaria de envío a mediodía y las confirmaciones de la tarde se quedan en cola hasta mañana. Gracias por leer, esto nos trae de cabeza desde hace semanas."
+  },
+  {
+   "id": "lim-es-3",
+   "group": "limites",
+   "lang": "es",
+   "problem": "La pasarela de SMS nos limita a un mensaje por segundo por número y los recordatorios de citas llegan tarde.",
+   "post": "Hola a todos, os leo desde hace tiempo. Para contexto: somos tres y yo llevo casi toda la infraestructura. La pasarela de SMS nos limita a un mensaje por segundo por número y los recordatorios de citas llegan tarde. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "lim-es-4",
+   "group": "limites",
+   "lang": "es",
+   "problem": "¿Cómo se reparte un envío masivo de avisos entre proveedores cuando cada uno limita la velocidad de forma distinta?",
+   "post": "Hola a todos, os leo desde hace tiempo. Para contexto: somos tres y yo llevo casi toda la infraestructura. ¿Cómo se reparte un envío masivo de avisos entre proveedores cuando cada uno limita la velocidad de forma distinta? Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "lim-es-5",
+   "group": "limites",
+   "lang": "es",
+   "problem": "Nos suspendieron la cuenta por superar el límite de envíos por hora durante el anuncio de una oferta relámpago.",
+   "post": "Usamos un proveedor de correo transaccional y una app móvil para las notificaciones. Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Nos suspendieron la cuenta por superar el límite de envíos por hora durante el anuncio de una oferta relámpago. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "rui-en-1",
+   "group": "ruido-1",
+   "lang": "en",
+   "problem": "What mechanical keyboard switches do you recommend for long coding sessions?",
+   "post": "I've read the docs and a few Stack Overflow answers but nothing seems to fit our case. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. What mechanical keyboard switches do you recommend for long coding sessions? Happy to share more details about our setup if it helps."
+  },
+  {
+   "id": "rui-en-2",
+   "group": "ruido-2",
+   "lang": "en",
+   "problem": "My sourdough starter smells like acetone after three days. Is it still alive?",
+   "post": "Hi all, long time lurker here. We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. My sourdough starter smells like acetone after three days. Is it still alive? Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "rui-en-3",
+   "group": "ruido-3",
+   "lang": "en",
+   "problem": "Looking for a cheap flight from Madrid to Lisbon in October, any tips?",
+   "post": "We run a small SaaS on AWS with a Postgres backend and send a few thousand emails a day. We use a transactional email provider and a mobile app for the notifications. Looking for a cheap flight from Madrid to Lisbon in October, any tips? Any pointers appreciated, thanks in advance!"
+  },
+  {
+   "id": "rui-en-4",
+   "group": "ruido-4",
+   "lang": "en",
+   "problem": "Which is better for a small balcony garden, tomatoes or peppers?",
+   "post": "We use a transactional email provider and a mobile app for the notifications. Hi all, long time lurker here. Which is better for a small balcony garden, tomatoes or peppers? Thanks for reading, this has been bugging us for weeks."
+  },
+  {
+   "id": "rui-es-1",
+   "group": "ruido-5",
+   "lang": "es",
+   "problem": "¿Qué zapatillas recomendáis para empezar a correr en montaña?",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Usamos Node.js con una cola para los trabajos en segundo plano; los avisos salen por correo y push. ¿Qué zapatillas recomendáis para empezar a correr en montaña? Cualquier pista es bienvenida, ¡gracias!"
+  },
+  {
+   "id": "rui-es-2",
+   "group": "ruido-6",
+   "lang": "es",
+   "problem": "Mi gato no deja de maullar por la noche desde que nos mudamos de piso.",
+   "post": "He leído la documentación y varias respuestas en Stack Overflow, pero nada encaja con nuestro caso. Para contexto: somos tres y yo llevo casi toda la infraestructura. Mi gato no deja de maullar por la noche desde que nos mudamos de piso. Código (simplificado): enviarAviso(usuario, plantilla, { canal: 'correo' })."
+  },
+  {
+   "id": "rui-es-3",
+   "group": "ruido-7",
+   "lang": "es",
+   "problem": "Busco una receta de paella que no lleve marisco para una comida familiar.",
+   "post": "Tenemos un SaaS pequeño en AWS con PostgreSQL y mandamos unos miles de correos al día. Hola a todos, os leo desde hace tiempo. Busco una receta de paella que no lleve marisco para una comida familiar. Puedo dar más detalles del montaje si ayuda."
+  },
+  {
+   "id": "rui-es-4",
+   "group": "ruido-8",
+   "lang": "es",
+   "problem": "¿Merece la pena aprender a tocar el ukelele con más de cuarenta años?",
+   "post": "Para contexto: somos tres y yo llevo casi toda la infraestructura. Hola a todos, os leo desde hace tiempo. ¿Merece la pena aprender a tocar el ukelele con más de cuarenta años? Puedo dar más detalles del montaje si ayuda."
+  }
+ ]
+}

@@ -132,6 +132,15 @@ class TestAlmacenDeEvidencia(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.almacen = EvidenceVectorStore(self.tmp, embedder=HashEmbedder(dim=32))
 
+    def test_vectoriza_frases_sueltas_por_id_con_el_mismo_modelo(self):
+        # clustering-v5: el juez agrupa por la frase del problema de cada pieza.
+        frases = {"hackernews:1": "export invoices by hand", "stackexchange:2": "garden flowers"}
+        vectores = self.almacen.embed_frases(frases)
+        self.assertEqual(set(vectores), set(frases))
+        self.assertEqual(vectores["hackernews:1"],
+                         list(self.almacen.embedder.embed_batch(["export invoices by hand"])[0]))
+        self.assertEqual(self.almacen.embed_frases({}), {})
+
     def test_upsert_idempotente_por_id_global(self):
         self.almacen.upsert([item("1", "export invoices by hand"), item("2", "otra queja")])
         self.almacen.upsert([item("1", "export invoices by hand, updated")])

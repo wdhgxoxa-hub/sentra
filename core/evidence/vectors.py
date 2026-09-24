@@ -85,6 +85,15 @@ class EvidenceVectorStore:
         vectores = self.embedder.embed_batch([self._texto(i) for i in items])
         return {i.id: list(v) for i, v in zip(items, vectores, strict=True)}
 
+    def embed_frases(self, frases: Mapping[str, str]) -> dict[str, list[float]]:
+        """Vectores de frases sueltas por id (clustering-v5: la frase del problema
+        verificada de cada pieza), con el mismo modelo que la evidencia."""
+        if not frases:
+            return {}
+        ids = list(frases)
+        vectores = self.embedder.embed_batch([frases[i] for i in ids])
+        return {i: list(v) for i, v in zip(ids, vectores, strict=True)}
+
     def upsert(
         self,
         items: Sequence[EvidenceItem],

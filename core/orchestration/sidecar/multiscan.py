@@ -122,8 +122,10 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     async def juzgar() -> dict[str, Any]:
         async with PostgresStore(dsn=dsn) as store:
             previos = await previous_identities(store)
+            almacen = ctx.evidence_vectors() if ctx.evidence_vectors else None
             juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
+                               vectores_frase=almacen.embed_frases if almacen else (lambda _f: {}),
                                previous=previos, tema=tema)
             await store.save_verdicts(run_id, juicio.verdicts)
             await marcar_juzgada(store, run_id, construir=sum(

@@ -30,6 +30,11 @@ def pieza(n, texto=None, procedencia="real"):
                         data_source=procedencia)
 
 
+def por_id(vectores):
+    """Doble de vectores_frase: el vector de cada frase es el de su pieza."""
+    return lambda frases: {i: vectores[i] for i in frases if i in vectores}
+
+
 class LLMDoble:
     """Etiqueta cada ítem como dolor; el primero con parche y el segundo con pago."""
 
@@ -70,7 +75,7 @@ class TestJuezCompleto(unittest.TestCase):
     def test_de_extremo_a_extremo_con_dobles(self):
         items, vectores = escenario()
         llm = LLMDoble()
-        resultado = run_judge(items, vectores, provider=llm, model="m",
+        resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=llm, model="m",
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertEqual(resultado.summary["items"], 11)
         self.assertEqual(resultado.summary["kept"], 10)
@@ -96,13 +101,13 @@ class TestJuezCompleto(unittest.TestCase):
         # El cupo de llamadas manda: lotes mayores, menos llamadas.
         items, vectores = escenario()
         llm = LLMDoble()
-        run_judge(items, vectores, provider=llm, model="m", cache=InMemoryLabelCache(),
+        run_judge(items, vectores, vectores_frase=por_id(vectores), provider=llm, model="m", cache=InMemoryLabelCache(),
                   now=AHORA, label_batch_size=4)
         self.assertEqual(llm.llamadas["etiquetas"], 3, "10 ítems en lotes de 4")
 
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
-        resultado = run_judge(items, vectores, provider=LLMDoble(), model="m",
+        resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertNotIn("CONSTRUIR", [v["verdict"] for v in resultado.verdicts])
 
@@ -110,14 +115,14 @@ class TestJuezCompleto(unittest.TestCase):
         """Sin etiquetas no hay dolor verificado, y sin dolor no hay nichos
         (AUD2-001: antes salía un DESCARTAR hecho de ítems sin determinar)."""
         items, vectores = escenario()
-        resultado = run_judge(items, vectores, provider=None, model=None,
+        resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=None, model=None,
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertEqual(resultado.summary["undetermined"], {"no_provider": 10})
         self.assertEqual((resultado.summary["pain"], resultado.verdicts), (0, []))
 
     def test_sin_vectores_no_hay_grupos_y_se_dice(self):
         items, _ = escenario()
-        resultado = run_judge(items, {}, provider=LLMDoble(), model="m",
+        resultado = run_judge(items, {}, vectores_frase=por_id({}), provider=LLMDoble(), model="m",
                               cache=InMemoryLabelCache(), now=AHORA)
         self.assertEqual((resultado.summary["clusters"], resultado.verdicts), (0, []))
 

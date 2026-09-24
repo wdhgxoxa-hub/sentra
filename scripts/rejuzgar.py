@@ -16,16 +16,18 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from core.judge.rejuicio import rejuzgar
+
+if TYPE_CHECKING:
+    from core.evidence.vectors import EvidenceVectorStore
 
 
 def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
@@ -40,11 +42,10 @@ def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
     return _proveedor_del_juez(ctx)
 
 
-def _vectores() -> Callable[[Sequence[str]], Mapping[str, Sequence[float]]]:
+def _almacen() -> EvidenceVectorStore:
     from core.evidence.vectors import EvidenceVectorStore
 
-    almacen = EvidenceVectorStore()
-    return almacen.vectors
+    return EvidenceVectorStore()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,8 +64,10 @@ def main(argv: list[str] | None = None) -> int:
 
     from core.judge.store import PostgresLabelCache
 
+    almacen = _almacen()
     nueva, resumen = rejuzgar(dsn, args.run, provider=proveedor, model=modelo,
-                              cache=PostgresLabelCache(dsn), vectores=_vectores(), now=datetime.now(UTC))
+                              cache=PostgresLabelCache(dsn), vectores=almacen.vectors,
+                              vectores_frase=almacen.embed_frases, now=datetime.now(UTC))
     uso = list(getattr(proveedor, "usage", []) or [])
     print(f"ejecución nueva: {nueva} (rejuicio de {args.run})")
     print(f"modelo: {modelo} · llamadas al LLM: {len(uso)}")

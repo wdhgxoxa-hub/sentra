@@ -29,7 +29,8 @@ class TestScriptRejuzgar(unittest.TestCase):
 
         proveedor = ProveedorDoble()
         with mock.patch.object(rejuzgar, "_proveedor", return_value=(proveedor, "gemini-x", None)), \
-                mock.patch.object(rejuzgar, "_vectores", return_value=lambda ids: {}), \
+                mock.patch.object(rejuzgar, "_almacen", return_value=mock.Mock(
+                    vectors=lambda ids: {}, embed_frases=lambda frases: {})), \
                 mock.patch.object(rejuzgar, "rejuzgar", return_value=("run-nueva", {"pain": 3})) as juzgar, \
                 redirect_stdout(io.StringIO()) as salida:
             codigo = rejuzgar.main(["--run", "01a0d086-0000-0000-0000-000000000000", "--dsn", "host=x"])
