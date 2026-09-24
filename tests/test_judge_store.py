@@ -132,6 +132,33 @@ class TestPersistenciaDelJuez(unittest.TestCase):
                          {"badge": "Hacker News", "site": "Ask HN", "url": "https://example.com/4"})
         self.assertEqual(evidencia["hackernews:4"]["excerpt"], "queja inventada número 4")
 
+    def test_una_ejecucion_juzgada_sin_nichos_es_la_ultima_y_se_explica(self):
+        """AUD2-001: el juez nuevo puede no formar ningún nicho. Antes «la última
+        juzgada» era la última con veredictos, y el Radar habría enseñado los de
+        una ejecución anterior como si fueran los actuales."""
+        from core.judge.store import SIN_NICHOS, latest_judged_run, marcar_juzgada
+
+        items = [pieza(n) for n in range(40, 43)]
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            antigua = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(antigua, [veredicto("z", "DESCARTAR", 10.0, [i.id for i in items])])
+            await marcar_juzgada(store, antigua, construir=0)
+            nueva = await store.start_run("perfil", trigger_source="rejuicio", data_source="real")
+            await store.save_verdicts(nueva, [])
+            await marcar_juzgada(store, nueva, construir=0)
+            fila = await store._fetchone(
+                "SELECT top_n_target, top_n_found, top_n_reason::text AS motivo FROM pipeline_runs WHERE id = %s",
+                (nueva,))
+            return nueva, dict(fila), await latest_judged_run(store)
+
+        nueva, marca, ultima = self.run_store(guardar)
+        self.assertEqual(ultima, nueva)
+        self.assertEqual(marca, {"top_n_target": 6, "top_n_found": 0, "motivo": "datos_insuficientes"})
+        top = self.run_store(lambda store: top_verdicts(store, nueva))
+        self.assertEqual((top["verdicts"], top["reason"]), ([], SIN_NICHOS))
+
     def test_el_detalle_de_un_veredicto_trae_toda_su_evidencia_para_los_documentos(self):
         # E2: el dossier y el plan citan por id; el modelo ve el texto entero.
         largo = "queja inventada muy larga " * 60

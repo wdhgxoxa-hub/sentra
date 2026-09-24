@@ -106,7 +106,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     from datetime import UTC, datetime
 
     from core.judge.pipeline import run_judge
-    from core.judge.store import PostgresLabelCache, previous_identities
+    from core.judge.store import PostgresLabelCache, marcar_juzgada, previous_identities
     from core.storage.postgres_store import (
         DEFAULT_DSN,
         DSN_ENV_VAR,
@@ -124,6 +124,8 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
                                previous=previos, tema=tema)
             await store.save_verdicts(run_id, juicio.verdicts)
+            await marcar_juzgada(store, run_id, construir=sum(
+                1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))
             return juicio.summary
 
     resumen = run_async(juzgar())

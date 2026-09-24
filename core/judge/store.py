@@ -68,12 +68,36 @@ class PostgresLabelCache:
                 (self.tenant_id, label.content_hash, label.labeler, json.dumps(label.model_dump())))
 
 
+#: Por qué una ejecución juzgada no tiene veredictos (AUD2-001): el juez solo
+#: forma nichos con dolor verificado y parecido entre sí.
+SIN_NICHOS = ("El juez no formó ningún nicho en esta ejecución: no hubo bastantes piezas con "
+              "un dolor verificado y parecido entre sí.")
+
+
+async def marcar_juzgada(store: PostgresStore, run_id: str, *, construir: int) -> None:
+    """Deja constancia de que el juez pasó por la ejecución, con o sin nichos
+    (top_n_*: objetivo, cuántos CONSTRUIR y por qué no se llegó)."""
+    encontrados = min(construir, TOP_TARGET)
+    motivo = None if encontrados == TOP_TARGET else "datos_insuficientes"
+    await store._fetchone_returning(
+        """
+        UPDATE pipeline_runs SET top_n_target = %s, top_n_found = %s, top_n_reason = %s
+         WHERE tenant_id = %s AND id = %s RETURNING id
+        """,
+        (TOP_TARGET, encontrados, motivo, store.tenant_id, run_id),
+    )
+
+
 async def latest_judged_run(store: PostgresStore) -> str | None:
-    """La última ejecución con veredictos del juez, o None."""
+    """La última ejecución que pasó por el juez, aunque no formase nichos; las
+    anteriores a la marca se reconocen por tener veredictos."""
     fila = await store._fetchone(
         """
-        SELECT v.run_id::text AS run_id FROM niche_verdicts v
-         WHERE v.tenant_id = %s ORDER BY v.created_at DESC LIMIT 1
+        SELECT r.id::text AS run_id FROM pipeline_runs r
+         WHERE r.tenant_id = %s
+           AND (r.top_n_target IS NOT NULL
+                OR EXISTS (SELECT 1 FROM niche_verdicts v WHERE v.run_id = r.id))
+         ORDER BY r.started_at DESC LIMIT 1
         """,
         (store.tenant_id,),
     )
@@ -163,7 +187,9 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
     veredictos, resto = todos[:TOP_TARGET], todos[TOP_TARGET:]
     construir = sum(1 for f in filas if f["verdict"] == "CONSTRUIR")
     motivo = None
-    if construir < TOP_TARGET:
+    if not filas:
+        motivo = SIN_NICHOS
+    elif construir < TOP_TARGET:
         motivo = (f"Solo {construir} de {TOP_TARGET} nichos pasan todas las compuertas "
                   "y el abogado del diablo; el resto no se rellena.")
     return {"run_id": run_id, "target": TOP_TARGET, "build_count": construir,
