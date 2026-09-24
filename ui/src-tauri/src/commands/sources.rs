@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::commands::engine::{
-    como_json, rechazo, relay_sse, sidecar_url, transport_error, with_token_pub,
+    como_json, enviar_con_silencio, rechazo, relay_sse, sidecar_url, transport_error, with_token_pub,
+    SILENCIO_MAX,
 };
 use crate::db::{AppState, RadarError, RadarResult};
 
@@ -217,16 +218,18 @@ pub async fn trigger_multiscan(
     state: State<'_, AppState>,
     profile: ScanProfileParams,
 ) -> RadarResult<serde_json::Value> {
-    let response = with_token_pub(
-        state
-            .http
-            .post(format!("{}/api/sources/scan/stream", sidecar_url()))
-            // Sin timeout total (AUD2-025): relay_sse corta solo tras SILENCIO_MAX.
-            .json(&cuerpo_del_escaneo(&profile)),
+    // Sin timeout total (AUD2-025): ni las cabeceras ni el flujo esperan mas
+    // de SILENCIO_MAX sin noticias del motor.
+    let response = enviar_con_silencio(
+        with_token_pub(
+            state
+                .http
+                .post(format!("{}/api/sources/scan/stream", sidecar_url()))
+                .json(&cuerpo_del_escaneo(&profile)),
+        ),
+        SILENCIO_MAX,
     )
-    .send()
-    .await
-    .map_err(transport_error)?;
+    .await?;
 
     let status = response.status();
     if !status.is_success() {

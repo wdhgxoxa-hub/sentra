@@ -145,6 +145,23 @@ pub async fn search_hybrid(
 /// esta colgado. No hay limite total: un escaneo largo y vivo no se corta.
 pub(crate) const SILENCIO_MAX: Duration = Duration::from_secs(60);
 
+/// Envia la peticion de un flujo sin limite total, pero sin esperar las
+/// cabeceras mas de `silencio`: un motor que acepta y no contesta no cuelga
+/// la interfaz (AUD2-025).
+pub(crate) async fn enviar_con_silencio(
+    peticion: reqwest::RequestBuilder,
+    silencio: Duration,
+) -> RadarResult<reqwest::Response> {
+    match tokio::time::timeout(silencio, peticion.send()).await {
+        Ok(respuesta) => respuesta.map_err(transport_error),
+        Err(_) => Err(RadarError::SidecarTimeout(format!(
+            "{}: el motor no contesta desde hace {} s",
+            sidecar_url(),
+            silencio.as_secs()
+        ))),
+    }
+}
+
 /// Reenvia cada evento SSE del sidecar por `channel` y devuelve el ultimo.
 pub(crate) async fn relay_sse(
     app: &AppHandle,
@@ -396,6 +413,22 @@ mod tests {
             .unwrap();
         assert_eq!(ultimo["type"], "judge:done");
         assert_eq!(vistos.len(), 2, "los keepalive no son eventos");
+    }
+
+    #[tokio::test]
+    async fn un_motor_que_acepta_y_no_responde_tampoco_cuelga_la_peticion() {
+        // Sin límite total, send() esperaba para siempre las cabeceras de un
+        // motor que acepta la conexión y no contesta (revisión de 00a0b43).
+        let escucha = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/", escucha.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let _conexion = escucha.accept();
+            std::thread::sleep(Duration::from_secs(5));
+        });
+        let error = enviar_con_silencio(reqwest::Client::new().post(url), Duration::from_millis(200))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, RadarError::SidecarTimeout(_)), "{error}");
     }
 
     #[tokio::test]
