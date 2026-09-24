@@ -207,7 +207,7 @@ class TestApplyingMigrations(unittest.TestCase):
             )
         }
         self.assertTrue(
-            {"tenants", "subreddits", "pipeline_runs", "evidence_items",
+            {"tenants", "pipeline_runs", "evidence_items",
              "evidence_labels", "niche_verdicts", "sources_state"} <= tables
         )
 

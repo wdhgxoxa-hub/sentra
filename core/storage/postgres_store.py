@@ -308,7 +308,6 @@ class PostgresStore:
     async def start_run(
         self,
         subreddit_name: str,
-        subreddit_id: str | None = None,
         trigger_source: str = "manual",
         parameters: dict[str, Any] | None = None,
         data_source: str | None = None,
@@ -321,15 +320,14 @@ class PostgresStore:
         """
         row = await self._fetchone_returning(
             """
-            INSERT INTO pipeline_runs (tenant_id, subreddit_id, subreddit_name,
+            INSERT INTO pipeline_runs (tenant_id, subreddit_name,
                                        trigger_source, parameters, status,
                                        data_source)
-            VALUES (%s, %s, %s, %s, %s, 'running', %s)
+            VALUES (%s, %s, %s, %s, 'running', %s)
             RETURNING id
             """,
             (
                 self.tenant_id,
-                subreddit_id,
                 subreddit_name,
                 trigger_source,
                 json.dumps(parameters or {}),
