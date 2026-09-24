@@ -30,7 +30,7 @@ AUD-030 y AUD-031 (ALTOS) se cerraron en la misión anterior.
 | 046 | MEDIO | Duplicados en LanceDB y BM25 volátil | OBSOLETO | Escritura de señales y BM25 retirados (3459f75); `evidence_e5` hace upsert por id |
 | 047 | MEDIO | Prompt con idiomas mezclados | OBSOLETO | Arquitecto retirado (3459f75) |
 | 048 | MEDIO | Plan de arquitectura no persistido | OBSOLETO | ArchitectPanel retirado (daa91b6) |
-| 049 | MEDIO | PRD con idioma mezclado | PENDIENTE DE E | JTBD retirado (e0b0be5); `blueprint.py` se decide en la Fase E |
+| 049 | MEDIO | PRD con idioma mezclado | OBSOLETO | JTBD retirado (e0b0be5); `blueprint.py` y el documento por cluster retirados en E1; el dossier y el plan nuevos se redactan en un solo idioma |
 | 050 | MEDIO | Documento no trazable | PENDIENTE DE E | Los documentos de la Fase E citan ids de evidencia, ejecución y fecha |
 | 051 | MEDIO | Excepciones genéricas y tragadas | CERRADO | Quedan 5, todas en fronteras: re-lanzan tipado, registran o devuelven el motivo; el juez sin Gemini ya no calla (e140355) |
 | 052 | MEDIO | Sin README, linters ni CI | CERRADO | README y guardia (39e724e); ruff/mypy/clippy configurados; sin CI por decisión (D-C8) |
@@ -54,4 +54,4 @@ AUD-030 y AUD-031 (ALTOS) se cerraron en la misión anterior.
 | 070 | BAJO | Cualquier `/api/health` se acepta | CERRADO | Se exige `service` = sentra-sidecar; guardia Python/Rust (63fba19) |
 | 071 | BAJO | `run:finished.clusters` engañoso | OBSOLETO | Eventos del escaneo antiguo retirados (e84eb74) |
 
-Recuento: 19 CERRADO, 19 OBSOLETO, 2 PENDIENTE DE E (se resuelven en la Fase E), 0 ABIERTO.
+Recuento: 19 CERRADO, 20 OBSOLETO, 1 PENDIENTE DE E (se resuelve en la Fase E), 0 ABIERTO.

@@ -66,10 +66,10 @@ superficie queda fijada en `tests/test_sidecar.py` (TestSurface).
   usa su clase.
 - **`core/storage/identity.py`.** El juez lo usa para la identidad estable de
   cada oportunidad (D-G).
-- **`core/intelligence/blueprint.py` y `core/documents/`
-  (`model`, `pdf_report`).** Se quedan hasta la Fase E: el PDF con fuente
-  incrustada (tildes, ñ), la marca de agua y el índice se reutilizan para el
-  dossier y el plan. Lo que la Fase E no use se retira allí.
+- **`core/documents/` (`model`, `pdf_report`).** La Fase E los reutiliza
+  para el dossier y el plan: el PDF con fuente incrustada (tildes, ñ), la
+  marca de agua y el índice. El documento por cluster (`build_document`) y el
+  PRD determinista (`core/intelligence/blueprint.py`) se retiraron en E1.
 - **`GeminiProvider.stream_text`, `generate_text` y `ping`.** Forman parte
   del contrato del proveedor de LLM (`core/llm/base.py`), no de la pipeline.
   Hoy nadie las llama, y sus pruebas de robustez las ejercitan directamente.

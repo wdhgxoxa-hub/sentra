@@ -1,18 +1,20 @@
 """
-Documento entregable en PDF (AUD-008)
-=====================================
+Documento en PDF (AUD-008, Fase E)
+==================================
 
-Pinta en un PDF A4 el `DocumentModel` de una oportunidad (D-H): portada,
-índice con números de página y las diez secciones del modelo, en su orden.
-El contenido no se decide aquí: sale de `core.documents.model`, el mismo
-del que la interfaz pinta el PRD, así que lo que se ve y lo que se exporta
-coinciden. Se genera en el sidecar con ReportLab; Rust solo pide los bytes y
-los guarda donde elija quien lo exporta.
+Pinta en un PDF A4 un `DocumentModel` (el dossier o el plan): portada,
+índice con números de página y las secciones del modelo, en su orden. El
+contenido no se decide aquí: sale de `core.documents.model`, el mismo del que
+sale el Markdown, así que los dos formatos dicen lo mismo. Se genera en el
+sidecar con ReportLab; Rust solo pide los bytes y los guarda donde elija
+quien lo exporta.
 
 Lo propio del PDF:
 
-- **Datos de demostración, a la vista.** Si la fuente es el corpus
-  fabricado, cada página lleva la marca de agua diagonal.
+- **Datos de demostración, a la vista.** Si la procedencia es de
+  demostración, cada página lleva la marca de agua diagonal.
+- **Franja «no recomendado».** Un plan forzado sin veredicto CONSTRUIR la
+  lleva arriba en cada página.
 - **Fuente incrustada.** Bitstream Vera (fonts/, con su licencia): cubre
   tildes, ñ, ¿, ¡, «», — y …, así que el texto se extrae igual que se lee.
   Los bloques de código del plan usan Courier, que solo cubre Latin-1.
@@ -22,7 +24,6 @@ from __future__ import annotations
 
 import io
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -49,7 +50,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from core.documents.model import TEXTOS, Block, build_document
+from core.documents.model import Block, DocumentModel, textos
 
 FUENTES = Path(__file__).resolve().parent / "fonts"
 SANS = "SentraSans"
@@ -141,11 +142,12 @@ class _Documento(BaseDocTemplate):
             self.notify("TOCEntry", (0, flowable.getPlainText(), self.page))
 
 
-def _canvas_numerado(titulo: str, pie: str, marca_de_agua: str | None) -> type:
+def _canvas_numerado(titulo: str, pie: str, marca_de_agua: str | None,
+                     franja: str | None) -> type:
     """
     Canvas que dibuja encabezado, pie «página X de Y» y, si procede, la marca
-    de agua. Guarda cada página y las pinta al cerrar, cuando ya se sabe el
-    total.
+    de agua y la franja. Guarda cada página y las pinta al cerrar, cuando ya
+    se sabe el total.
     """
 
     class Numerado(rl_canvas.Canvas):
@@ -176,6 +178,12 @@ def _canvas_numerado(titulo: str, pie: str, marca_de_agua: str | None) -> type:
                 self.drawCentredString(0, 0, marca_de_agua)
                 self.rotate(-45)
                 self.translate(-ancho / 2, -alto / 2)
+            if franja:
+                self.setFillColor(colors.HexColor("#b3261e"))
+                self.rect(0, alto - 1.1 * cm, ancho, 1.1 * cm, stroke=0, fill=1)
+                self.setFillColor(colors.white)
+                self.setFont(SANS_BOLD, 9)
+                self.drawCentredString(ancho / 2, alto - 0.7 * cm, franja[:120])
             self.setFillColor(colors.HexColor("#555555"))
             self.setFont(SANS, 8.5)
             self.drawString(MARGEN, alto - MARGEN + 0.2 * cm, titulo)
@@ -189,38 +197,6 @@ def _canvas_numerado(titulo: str, pie: str, marca_de_agua: str | None) -> type:
 
 
 # --- Secciones -----------------------------------------------------------------
-
-def _markdown(texto: str, estilos: Mapping[str, ParagraphStyle]) -> list[Flowable]:
-    """Pinta el Markdown del plan: títulos, viñetas, bloques de código y tablas."""
-    salida: list[Flowable] = []
-    en_codigo = False
-    codigo: list[str] = []
-    for linea in texto.splitlines():
-        if linea.strip().startswith("```"):
-            if en_codigo:
-                salida.append(Preformatted("\n".join(codigo), estilos["codigo"]))
-                codigo = []
-            en_codigo = not en_codigo
-            continue
-        if en_codigo or linea.strip().startswith("|"):
-            if en_codigo:
-                codigo.append(linea)
-            else:
-                salida.append(Preformatted(linea, estilos["codigo"]))
-            continue
-        limpio = linea.strip().replace("**", "").replace("`", "")
-        if not limpio:
-            continue
-        if limpio.startswith("#"):
-            salida.append(_p(limpio.lstrip("#").strip(), estilos["sub"]))
-        elif limpio[:2] in ("- ", "* "):
-            salida.append(Paragraph(escape(limpio[2:]), estilos["vineta"], bulletText="•"))
-        else:
-            salida.append(_p(limpio, estilos["cuerpo"]))
-    if codigo:
-        salida.append(Preformatted("\n".join(codigo), estilos["codigo"]))
-    return salida
-
 
 def _flowables(bloque: Block, estilos: Mapping[str, ParagraphStyle]) -> list[Flowable]:
     """Un bloque del modelo en elementos de ReportLab."""
@@ -237,7 +213,7 @@ def _flowables(bloque: Block, estilos: Mapping[str, ParagraphStyle]) -> list[Flo
         return [_p(bloque.text, estilos["cita"]), _p(bloque.signature, estilos["firma"])]
     if bloque.kind == "table":
         return [_tabla(bloque.rows, estilos)]
-    return _markdown(bloque.text, estilos)
+    return [Preformatted(bloque.text, estilos["codigo"])]
 
 
 def _tabla(filas: Sequence[tuple[str, str]], estilos: Mapping[str, ParagraphStyle]) -> Table:
@@ -255,58 +231,38 @@ def _tabla(filas: Sequence[tuple[str, str]], estilos: Mapping[str, ParagraphStyl
 
 # --- Entrada pública -----------------------------------------------------------
 
-def build_pdf(
-    cluster: Mapping[str, Any],
-    language: str,
-    architecture: str | None = None,
-    version: str = "",
-    generated_at: datetime | None = None,
-) -> bytes:
-    """
-    Documento PDF de una oportunidad.
-
-    Args:
-        cluster: la oportunidad tal como la serializa Rust (o PostgreSQL).
-        language: "es" o "en"; cualquier otro cae a "es".
-        architecture: Markdown del plan de Gemini, si se generó en la sesión.
-        version: versión de SENTRA que genera el documento.
-        generated_at: instante de generación (por defecto, ahora en UTC).
-    """
+def render_pdf(documento: DocumentModel) -> bytes:
+    """El documento en PDF: portada, índice, procedencia y secciones."""
     _registrar_fuentes()
-    modelo = build_document(cluster, language, architecture=architecture,
-                            version=version, generated_at=generated_at)
-    textos = TEXTOS[modelo.language]
+    rotulos = textos(documento.language)
     estilos = _estilos()
 
     historia: list[Flowable] = []
 
     # Portada
-    historia += [Spacer(1, 4 * cm), _p(modelo.label, estilos["portada"])]
-    historia.append(_tabla(list(modelo.cover), estilos))
+    historia += [Spacer(1, 4 * cm), _p(documento.title, estilos["portada"])]
+    historia.append(_tabla(list(documento.cover), estilos))
     historia.append(PageBreak())
 
     # Índice
     indice = TableOfContents()
     indice.levelStyles = [estilos["toc"]]
-    historia += [_p(textos["index"], estilos["indice"]), indice, PageBreak()]
+    historia += [_p(rotulos["index"], estilos["indice"]), indice, PageBreak()]
 
-    # La fuente de los datos va antes que nada (AUD-009).
-    historia.append(_p(modelo.source_notice, estilos["nota"]))
+    # La procedencia va antes que nada (AUD-009).
+    if documento.source_notice:
+        historia.append(_p(documento.source_notice, estilos["nota"]))
 
-    # Las diez secciones, en el orden del modelo.
-    for seccion in modelo.sections:
+    for seccion in documento.sections:
         historia.append(_p(seccion.title, estilos["seccion"]))
         for bloque in seccion.blocks:
             historia += _flowables(bloque, estilos)
 
     destino = io.BytesIO()
-    titulo = f"SENTRA · {textos['doc']} · {modelo.label}"
-    documento = _Documento(destino, titulo)
-    documento.multiBuild(
+    titulo = f"SENTRA · {documento.title}"
+    _Documento(destino, titulo).multiBuild(
         historia,
-        canvasmaker=_canvas_numerado(
-            titulo[:110], textos["page"],
-            textos["watermark"] if modelo.data_source == "demo" else None,
-        ),
+        canvasmaker=_canvas_numerado(titulo[:110], rotulos["page"], documento.watermark,
+                                     documento.stripe),
     )
     return destino.getvalue()
