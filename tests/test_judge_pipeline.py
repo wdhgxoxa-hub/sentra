@@ -124,6 +124,19 @@ class TestJuezCompleto(unittest.TestCase):
         self.assertEqual(llm.llamadas["etiquetas"], 1)
         self.assertEqual(resultado.summary["labeled"], 4)
 
+    def test_con_tope_se_etiqueta_primero_el_tema_y_por_turnos_entre_fuentes(self):
+        # Tras arreglar las fuentes, un escaneo trae ~800 piezas y se etiquetan 100:
+        # en orden de llegada, la fuente más ruidosa se llevaba todo el cupo.
+        from core.judge.pipeline import orden_de_etiquetado
+
+        ruido = [pieza(n, texto=f"great video, thanks for sharing number {n}") for n in range(0, 9, 3)]
+        # Una pieza del tema por fuente (FUENTES[n % 3]).
+        tema = [pieza(n, texto=f"I export every invoice by hand, case {n}") for n in (1, 2, 9)]
+        orden = orden_de_etiquetado(ruido + tema, ["invoice"])
+        self.assertEqual({i.id for i in orden[:3]}, {i.id for i in tema}, "primero lo que nombra el tema")
+        self.assertEqual(len({i.source for i in orden[:3]}), 3, "por turnos entre fuentes")
+        self.assertEqual(len(orden), 6, "no se pierde nada")
+
     def test_honestidad_con_datos_demo_nunca_construir(self):
         items, vectores = escenario(procedencia="demo")
         resultado = run_judge(items, vectores, vectores_frase=por_id(vectores), provider=LLMDoble(), model="m",

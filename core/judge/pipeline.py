@@ -19,8 +19,9 @@ from typing import Any
 
 import numpy as np
 
-from core.evidence.model import EvidenceItem
+from core.evidence.model import EvidenceItem, SearchQuery
 from core.llm.base import JsonGenerator
+from core.sources.profile import menciona_el_tema
 from core.storage.identity import Previo
 
 from .advocate import run_advocate
@@ -42,6 +43,31 @@ from .labels import (
     label_items,
 )
 from .quality import filter_quality
+
+
+def orden_de_etiquetado(items: Sequence[EvidenceItem], tema: Sequence[str]) -> list[EvidenceItem]:
+    """En qué orden se etiqueta: con el tope de etiquetado, el orden decide qué
+    entra. Primero lo que nombra el tema y, dentro de cada parte, por turnos
+    entre fuentes. En orden de llegada, la fuente más ruidosa (cientos de
+    comentarios de YouTube o posts de Bluesky) se llevaba todo el cupo."""
+    if not tema:  # descubrimiento: sin tema que mirar, quedan solo los turnos
+        return _por_turnos(items)
+    consulta = SearchQuery(keywords=list(tema))
+    del_tema = [i for i in items if menciona_el_tema(f"{i.title or ''} {i.text}", consulta)]
+    ids = {i.id for i in del_tema}
+    return _por_turnos(del_tema) + _por_turnos([i for i in items if i.id not in ids])
+
+
+def _por_turnos(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+    colas: dict[str, list[EvidenceItem]] = {}
+    for item in items:
+        colas.setdefault(item.source, []).append(item)
+    salida: list[EvidenceItem] = []
+    while any(colas.values()):
+        for cola in colas.values():
+            if cola:
+                salida.append(cola.pop(0))
+    return salida
 
 
 def frase_del_problema(etiqueta: VerifiedLabel) -> str:
@@ -78,7 +104,7 @@ def run_judge(
     el problema que cada autor cuenta, no por el post entero (clustering-v5/v6).
     `vectors` (texto entero) solo sirve para el contexto de G7."""
     calidad = filter_quality(items)
-    etiquetas = label_items(calidad.kept, provider=provider, model=model, cache=cache,
+    etiquetas = label_items(orden_de_etiquetado(calidad.kept, tema), provider=provider, model=model, cache=cache,
                             batch_size=label_batch_size, max_items=label_max_items)
     # AUD2-001: solo la evidencia con dolor pertinente forma nichos. Antes se
     # agrupaba todo lo que pasaba la calidad y los grupos salían por tema.
