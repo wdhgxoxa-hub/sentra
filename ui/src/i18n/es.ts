@@ -154,6 +154,7 @@ export const es = {
    * tests/test_gemini_robustness.py.
    */
   errors: {
+    env_value_invalid: "El valor no se puede guardar tal cual: lleva saltos de línea u otros caracteres de control.",
     search_unavailable: "La búsqueda necesita PostgreSQL y los vectores de la evidencia; revisa la salud del motor.",
     source_error: "La fuente rechazó la petición.",
     source_credentials_missing: "Esta fuente necesita credenciales: configúralas en la sección Fuentes.",

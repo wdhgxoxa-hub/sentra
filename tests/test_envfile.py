@@ -18,6 +18,42 @@ from unittest import mock
 from core.envfile import update_dotenv
 
 
+class TestValoresQueNoInyectan(unittest.TestCase):
+    """AUD-036: un valor no puede añadir líneas al .env ni volver distinto."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="rir_env_valores_"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.env = self.tmp / ".env"
+        self.env.write_text("A=1\n", encoding="utf-8")
+
+    def test_un_salto_de_linea_en_el_valor_se_rechaza_sin_tocar_el_archivo(self):
+        from core.envfile import EnvValueInvalid
+
+        for malo in ("clave\nRIR_OTRA=inyectada", "clave\rX=1", "nul\x00"):
+            with self.subTest(valor=repr(malo)), self.assertRaises(EnvValueInvalid) as caso:
+                update_dotenv({"RIR_X": malo}, str(self.env))
+            self.assertEqual(caso.exception.code, "env_value_invalid")
+        self.assertEqual(self.env.read_text(encoding="utf-8"), "A=1\n")
+
+    def test_una_clave_que_no_es_un_nombre_de_variable_se_rechaza(self):
+        from core.envfile import EnvValueInvalid
+
+        for mala in ("", "CON ESPACIO", "A=B", "1EMPIEZA", "#COMENTARIO"):
+            with self.subTest(clave=mala), self.assertRaises(EnvValueInvalid):
+                update_dotenv({mala: "x"}, str(self.env))
+
+    def test_lo_escrito_vuelve_igual_al_leerlo(self):
+        from core.ingestion.auth import load_dotenv
+
+        valores = {"RIR_ESPACIOS": "  con espacios  ", "RIR_COMILLAS": '"entre comillas"',
+                   "RIR_SIMPLES": "'simples'", "RIR_NORMAL": "abc=def#ghi"}
+        update_dotenv(valores, str(self.env))
+        leido = load_dotenv(str(self.env), env={})
+        self.assertEqual({k: leido[k] for k in valores}, valores)
+        self.assertEqual(leido["A"], "1")
+
+
 class TestEscrituraAtomica(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_env_atomico_"))

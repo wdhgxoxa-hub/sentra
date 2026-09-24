@@ -100,3 +100,20 @@ class TestSinRed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestValoresQueNoCabenEnElEnv(ConfigTestCase):
+    """AUD-036: un salto de línea en una credencial no llega al .env; el
+    motor responde 400 con código, en lugar de escribir otra variable."""
+
+    def test_una_credencial_con_salto_de_linea_se_rechaza_con_codigo(self):
+        respuesta = self.client.post("/api/sources/stackexchange/credentials",
+                                     json={"values": {"key": "abc\nRIR_OTRA=1"}})
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(respuesta.json()["detail"]["code"], "env_value_invalid")
+        self.assertFalse(self.env_path.exists() and "RIR_OTRA" in self.env_path.read_text("utf-8"))
+
+    def test_la_clave_de_gemini_tampoco(self):
+        respuesta = self.client.post("/api/gemini", json={"apiKey": "AIza\nRIR_OTRA=1"})
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(respuesta.json()["detail"]["code"], "env_value_invalid")

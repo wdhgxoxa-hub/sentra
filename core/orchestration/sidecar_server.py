@@ -39,9 +39,11 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from core.envfile import EnvValueInvalid
 from core.sources.registry import (
     InMemorySourcesState,
     PostgresSourcesState,
@@ -163,6 +165,12 @@ def create_app(
         openapi_url=None,
     )
     migrations.install(app, ctx)
+
+    @app.exception_handler(EnvValueInvalid)
+    async def env_invalido(_request: Request, exc: EnvValueInvalid) -> JSONResponse:
+        """AUD-036: lo que no cabe en el `.env` tal cual se rechaza con código,
+        en cualquier ruta que lo escriba, y el archivo no se toca."""
+        return JSONResponse(status_code=400, content={"detail": {"code": exc.code, "detail": str(exc)}})
     for modulo in ROUTERS:
         # Se copian las rutas en lugar de `include_router`: desde FastAPI
         # 0.141 un router incluido queda como un nodo perezoso y `app.routes`
