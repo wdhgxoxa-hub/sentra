@@ -53,7 +53,7 @@ A (decisiones) → B (juez fiable; E depende de B) → C (interfaz; C1 depende d
   compuerta de release con humo en verde; grep -c -a: solo quedan «localhost:5173»
   (devUrl de Tauri) y «Reddit Intelligence Radar» de 001_initial_schema.sql, a
   sabiendas (D-C6); SENTRA.lnk apunta a la release nueva.)
-- [ ] F4 Push, fast-forward, push de main.
+- [x] F4 Push, fast-forward, push de main. (0e46f1c → 8906c58, fast-forward puro de 128 commits.)
 
 ## Fase G — Credenciales
 - [ ] G1 Product Hunt: pedir el token en su tarjeta, esperar y probar.
