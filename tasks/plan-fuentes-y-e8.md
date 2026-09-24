@@ -213,3 +213,8 @@ mismo para los cuatro grupos; no se ha tocado.
    MÁS), ahora solo por duevero.com (1 de 3); Clawbolt pasa al grupo de conciliación.
    Los veredictos guardados se calcularon con el contexto anterior; re-juzgar costaría
    2 llamadas y no cambia ningún veredicto (cambia la nota de G7).
+   Re-juicio con la versión actual (01a0d587-e284-72cf-ba49-5cb0929e5e55, 2 llamadas):
+   impagos INVESTIGAR MÁS por la regla 9, G7 solo por duevero.com (1 de 3), como se
+   predijo sin llamadas. Los 4 veredictos llevan judge-weights-v6 · clustering-v10.
+   Variación del LLM: el grupo «clients» (4 comentarios de YouTube) pasa ahora la
+   confirmación de G0 y cae por la regla 3 (fallan G1 y G2). Gemini: 38 de 40.
