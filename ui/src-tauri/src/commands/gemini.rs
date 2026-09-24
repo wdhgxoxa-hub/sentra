@@ -67,6 +67,10 @@ pub struct GeminiModelsResult {
 pub struct ProbeResult {
     pub ok: bool,
     pub detail: String,
+    /// Codigo del fallo: `gemini_key_rejected` es el unico que dice que la
+    /// clave es mala; la red o la cuota no dicen nada de ella (D1).
+    #[serde(default)]
+    pub code: Option<String>,
 }
 
 /// Guarda la clave de Gemini en el `.env` del proyecto.

@@ -7,6 +7,7 @@ import {
   Moon,
   Sparkles,
   Sun,
+  TriangleAlert,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -20,7 +21,24 @@ import {
   type Language,
   type Theme,
 } from "@/stores/settingsStore";
-import type { GeminiModelsResult } from "@/types/radar";
+import type { GeminiModelsResult, ProbeResult } from "@/types/radar";
+
+/**
+ * Resultado de «Probar clave» (D1). Solo un rechazo de Google pinta la clave
+ * como mala; un fallo de red, de cuota o del servidor dice que no se pudo
+ * comprobar, en ámbar: la clave puede estar bien.
+ */
+function ResultadoDeLaPrueba({ resultado }: { resultado: ProbeResult }) {
+  const estado = resultado.ok ? "ok" : resultado.code === "gemini_key_rejected" ? "mala" : "sin_comprobar";
+  const estilo = { ok: "bg-ok/10 text-ok", mala: "bg-danger/10 text-danger", sin_comprobar: "bg-warn/10 text-warn" };
+  const Icono = { ok: CheckCircle2, mala: XCircle, sin_comprobar: TriangleAlert }[estado];
+  return (
+    <p className={`flex items-start gap-1.5 rounded-lg p-2.5 text-xs ${estilo[estado]}`}>
+      <Icono className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+      {resultado.detail}
+    </p>
+  );
+}
 
 const LANGUAGES: Array<{ value: Language; label: string }> = [
   { value: "es", label: "Español" },
@@ -282,20 +300,7 @@ export function SettingsView() {
             <ErrorNotice {...comoError(probarGemini.error)} title={t.settings.probeFailed} />
           )}
 
-          {probarGemini.data && (
-            <p
-              className={`flex items-start gap-1.5 rounded-lg p-2.5 text-xs ${
-                probarGemini.data.ok ? "bg-ok/10 text-ok" : "bg-danger/10 text-danger"
-              }`}
-            >
-              {probarGemini.data.ok ? (
-                <CheckCircle2 className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-              ) : (
-                <XCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-              )}
-              {probarGemini.data.detail}
-            </p>
-          )}
+          {probarGemini.data && <ResultadoDeLaPrueba resultado={probarGemini.data} />}
         </div>
       </section>
     </div>

@@ -133,6 +133,14 @@ class GeminiSinConfigurar(GeminiError):
     code = "gemini_not_configured"
 
 
+class GeminiKeyRejected(GeminiError):
+    """Google rechaza la clave: no es válida (400 API_KEY_INVALID) o no tiene
+    permiso (401/403). Es lo único que permite decir «la clave no funciona»;
+    un fallo de red, de cuota o del servidor no dice nada de ella (D1)."""
+
+    code = "gemini_key_rejected"
+
+
 #: Estados HTTP transitorios y el error que les corresponde.
 _POR_ESTADO: dict[int, type[GeminiError]] = {
     408: GeminiTimeout,
@@ -156,9 +164,17 @@ def _clase_de(exc: BaseException) -> type[GeminiError]:
     if isinstance(exc, httpx.TransportError):
         return GeminiUnavailable
     estado = getattr(exc, "code", None)
+    if estado in (401, 403) or (estado == 400 and _clave_invalida(exc)):
+        return GeminiKeyRejected
     if isinstance(estado, int):
         return _POR_ESTADO.get(estado, GeminiError)
     return GeminiError
+
+
+def _clave_invalida(exc: BaseException) -> bool:
+    """¿Un 400 que es la clave (razón API_KEY_INVALID) y no otra cosa?"""
+    detalle = f"{getattr(exc, 'details', '')} {getattr(exc, 'message', '')}"
+    return "API_KEY_INVALID" in detalle or "API key not valid" in detalle
 
 
 def _cliente_real(api_key: str) -> Any:

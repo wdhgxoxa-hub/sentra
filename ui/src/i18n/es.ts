@@ -184,6 +184,7 @@ export const es = {
     ui_crash: "Esta vista falló al pintarse.",
     persist_failed: "Cosecha completa, pero no se pudo guardar en la base de datos.",
     gemini_not_configured: "No hay clave de Gemini guardada. Se configura en Ajustes.",
+    gemini_key_rejected: "Google rechaza la clave de Gemini. Revísala en Ajustes.",
     gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
     llm_error: "El motor de IA falló.",
     llm_model_unavailable:

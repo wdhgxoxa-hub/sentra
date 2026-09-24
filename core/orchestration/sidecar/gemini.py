@@ -10,12 +10,24 @@ from fastapi import APIRouter, HTTPException
 
 from core.envfile import update_dotenv
 from core.llm.base import LLMError
-from core.llm.gemini import UsoDeModelo, elegir_modelo
+from core.llm.gemini import GeminiKeyRejected, UsoDeModelo, elegir_modelo
 
 from .context import SidecarContext, gemini_credenciales, gemini_summary
 from .schemas import GeminiModel, GeminiModelsResponse, GeminiRequest, ProbeResponse
 
 logger = logging.getLogger(__name__)
+
+
+def _causa(exc: LLMError) -> str:
+    """Solo un rechazo de Google dice que la clave no funciona (D1): la red, la
+    cuota o un fallo del servidor no dicen nada de ella."""
+    if isinstance(exc, GeminiKeyRejected):
+        return "La clave no funciona"
+    if exc.code == "gemini_rate_limited":
+        return "Cuota de Gemini agotada; la clave no se ha podido comprobar"
+    if exc.transient:
+        return "No se pudo contactar con Gemini; la clave no se ha podido comprobar"
+    return "No se pudo comprobar la clave"
 
 
 def router(ctx: SidecarContext) -> APIRouter:
@@ -31,9 +43,7 @@ def router(ctx: SidecarContext) -> APIRouter:
         try:
             lista = ctx.listar_modelos(credenciales.key, refrescar=refrescar)
         except LLMError as exc:
-            # Un fallo de red o de cuota no dice nada de la clave.
-            causa = "No se pudo contactar con Gemini" if exc.transient else "La clave no funciona"
-            return GeminiModelsResponse(ok=False, code=exc.code, detail=f"{causa}: {exc}")
+            return GeminiModelsResponse(ok=False, code=exc.code, detail=f"{_causa(exc)}: {exc}")
 
         def elegido(uso: UsoDeModelo, guardado: str | None) -> str | None:
             try:
@@ -80,7 +90,7 @@ def router(ctx: SidecarContext) -> APIRouter:
         """Prueba la clave listando sus modelos: una llamada real, sin generar texto."""
         resultado = modelos(refrescar=True)
         if not resultado.ok:
-            return ProbeResponse(ok=False, detail=resultado.detail)
+            return ProbeResponse(ok=False, detail=resultado.detail, code=resultado.code)
         return ProbeResponse(ok=True, detail=(
             f"Clave válida: {len(resultado.models)} modelos disponibles. "
             f"General: {resultado.general or 'sin candidato'}; "

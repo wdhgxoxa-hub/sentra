@@ -131,6 +131,59 @@ class TestProbarClave(ConCatalogo):
         self.assertFalse(cuerpo["ok"])
         self.assertNotIn("La clave no funciona", cuerpo["detail"])
         self.assertIn("contactar", cuerpo["detail"])
+        # D1: la interfaz no tiene que adivinarlo por el texto.
+        self.assertEqual(cuerpo["code"], "gemini_unavailable")
+
+    def probar_con(self, error):
+        class Falla:
+            def __init__(self, _clave):
+                self.models = self
+
+            def list(self):
+                raise error
+
+        self.guardar()
+        with mock.patch("core.llm.gemini._cliente_real", Falla):
+            return self.client.post("/api/gemini/test").json()
+
+    def test_una_clave_rechazada_se_dice_con_su_codigo(self):
+        from google.genai import errors
+
+        rechazo = errors.ClientError(400, {"error": {
+            "code": 400, "message": "API key not valid. Please pass a valid API key.",
+            "status": "INVALID_ARGUMENT",
+            "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                         "reason": "API_KEY_INVALID"}]}})
+        cuerpo = self.probar_con(rechazo)
+        self.assertEqual((cuerpo["ok"], cuerpo["code"]), (False, "gemini_key_rejected"))
+        self.assertIn("La clave no funciona", cuerpo["detail"])
+
+    def test_sin_permiso_tambien_es_clave_rechazada(self):
+        from google.genai import errors
+
+        cuerpo = self.probar_con(errors.ClientError(403, {"error": {
+            "code": 403, "message": "Permission denied", "status": "PERMISSION_DENIED"}}))
+        self.assertEqual(cuerpo["code"], "gemini_key_rejected")
+
+    def test_otro_fallo_de_la_api_no_se_da_por_clave_mala(self):
+        from google.genai import errors
+
+        cuerpo = self.probar_con(errors.ClientError(400, {"error": {
+            "code": 400, "message": "Bad request", "status": "INVALID_ARGUMENT"}}))
+        self.assertEqual(cuerpo["code"], "gemini_error")
+        self.assertNotIn("La clave no funciona", cuerpo["detail"])
+
+    def test_la_cuota_agotada_no_es_ni_red_ni_clave_mala(self):
+        from google.genai import errors
+
+        cuerpo = self.probar_con(errors.ClientError(429, {"error": {
+            "code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}}))
+        self.assertEqual(cuerpo["code"], "gemini_rate_limited")
+        self.assertNotIn("La clave no funciona", cuerpo["detail"])
+
+    def test_con_la_clave_buena_no_hay_codigo(self):
+        self.guardar()
+        self.assertIsNone(self.client.post("/api/gemini/test").json()["code"])
 
 
 class TestResolucionAlUsar(ConCatalogo):

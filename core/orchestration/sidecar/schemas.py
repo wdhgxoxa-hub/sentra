@@ -52,6 +52,9 @@ class GeminiModelsResponse(BaseModel):
 class ProbeResponse(BaseModel):
     ok: bool
     detail: str
+    #: Código estable del fallo (None si fue bien): la interfaz distingue una
+    #: clave rechazada de un fallo que no permitió comprobarla (D1).
+    code: str | None = None
 
 
 class CancelRequest(BaseModel):

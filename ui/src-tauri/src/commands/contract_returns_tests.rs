@@ -93,7 +93,10 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
     cumple(&lista, "GeminiModelsResult");
     let json_lista = serde_json::to_value(&lista).unwrap();
     assert_eq!(claves(&json_lista["models"][0]), claves_ts("GeminiModel"));
-    cumple(&gemini::ProbeResult { ok: true, detail: texto() }, "ProbeResult");
+    cumple(
+        &gemini::ProbeResult { ok: false, detail: texto(), code: Some("gemini_key_rejected".into()) },
+        "ProbeResult",
+    );
 }
 
 #[test]

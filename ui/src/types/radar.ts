@@ -93,6 +93,8 @@ export interface AppSettings {
 export interface ProbeResult {
   ok: boolean;
   detail: string;
+  /** Código del fallo; `gemini_key_rejected` es el único que dice que la clave es mala (D1). */
+  code: string | null;
 }
 
 // ---------------------------------------------------------------------

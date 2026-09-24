@@ -179,6 +179,7 @@ export const en: Dictionary = {
     ui_crash: "This view failed to render.",
     persist_failed: "Harvest complete, but it could not be saved to the database.",
     gemini_not_configured: "No Gemini key is saved. Set it up in Settings.",
+    gemini_key_rejected: "Google rejects the Gemini key. Check it in Settings.",
     gemini_error: "Gemini rejected the request. Check the key and the model in Settings.",
     llm_error: "The AI engine failed.",
     llm_model_unavailable:
