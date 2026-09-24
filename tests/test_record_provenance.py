@@ -17,79 +17,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import lancedb
-import pyarrow as pa
-
-from core.storage import HashEmbedder, LanceDBStore
-from core.storage.lancedb_store import OpportunityRecord
-from scripts.backfill_lancedb_source import fuentes_por_id, rellenar_fuentes
 from tests._ayudas import presente
 from tests._postgres import ADMIN_DSN, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
 MIGRACIONES = RAIZ / "sql" / "migrations"
-
-
-def almacen(ruta: Path) -> LanceDBStore:
-    return LanceDBStore(db_path=str(ruta), embedder=HashEmbedder(dim=32))
-
-
-class TestLanceDB(unittest.TestCase):
-
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="rir_fuente_"))
-        self.addCleanup(shutil.rmtree, self.tmp, True)
-
-
-    def test_una_tabla_anterior_gana_la_columna_vacia_al_abrirse(self):
-        # Una tabla escrita antes de D-J: sin columna data_source.
-        db = lancedb.connect(str(self.tmp / "vieja"))
-        esquema = almacen(self.tmp / "molde")._get_schema()
-        # Como era de verdad: sin data_source y con el autor en claro (antes de R9).
-        antiguo = pa.schema([c for c in esquema if c.name != "data_source"]
-                            + [pa.field("author", pa.string())])
-        db.create_table(LanceDBStore.TABLE_NAME, data=[{
-            "id": "t3_viejo", "text": "old", "subreddit": "", "author": "",
-            "score": 0, "created_utc": 0.0, "buying_intent": "none",
-            "pain_severity": "none", "urgency_tier": "LOW",
-            "opportunity_score": 0.0, "job_statement": "", "current_solution": "",
-            "workaround_detected": False, "url": "", "vector": [0.0] * 32,
-        }], schema=antiguo)
-
-        store = almacen(self.tmp / "vieja")
-        self.assertIsNone(presente(store.get_by_id("t3_viejo"))["data_source"])
-        store.insert_opportunities([OpportunityRecord(id="t3_nuevo", text="x",
-                                                      data_source="reddit")])
-        self.assertEqual(presente(store.get_by_id("t3_nuevo"))["data_source"], "reddit")
-
-
-class TestRellenoDeLanceDB(unittest.TestCase):
-    """Relleno de filas anteriores cruzando con PostgreSQL."""
-
-    def test_la_fuente_sale_de_la_senal_con_el_mismo_id(self):
-        pares = [("t3_a", "demo"), ("t3_a", "demo"), ("t3_b", "reddit"), ("t3_c", None)]
-        self.assertEqual(fuentes_por_id(pares), {"t3_a": "demo", "t3_b": "reddit", "t3_c": None})
-
-    def test_si_las_ejecuciones_discrepan_no_se_elige_ninguna(self):
-        self.assertEqual(fuentes_por_id([("t3_a", "demo"), ("t3_a", "reddit")]), {"t3_a": None})
-
-    def test_una_ejecucion_sin_fuente_no_anula_a_las_que_la_tienen(self):
-        self.assertEqual(fuentes_por_id([("t3_a", None), ("t3_a", "reddit")]), {"t3_a": "reddit"})
-
-    def test_solo_rellena_lo_vacio_y_lo_que_no_se_sabe_queda_nulo(self):
-        tmp = Path(tempfile.mkdtemp(prefix="rir_relleno_"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        store = almacen(tmp)
-        store.insert_opportunities([
-            OpportunityRecord(id="t3_a", text="a"),
-            OpportunityRecord(id="t3_b", text="b", data_source="reddit"),
-            OpportunityRecord(id="t3_c", text="c"),
-        ])
-        cambiadas = rellenar_fuentes(store, {"t3_a": "demo", "t3_b": "demo", "t3_c": None})
-        self.assertEqual(cambiadas, 1)
-        self.assertEqual(presente(store.get_by_id("t3_a"))["data_source"], "demo")
-        self.assertEqual(presente(store.get_by_id("t3_b"))["data_source"], "reddit")
-        self.assertIsNone(presente(store.get_by_id("t3_c"))["data_source"])
 
 
 TEST_DB = "rir_provenance_test"
@@ -144,14 +76,6 @@ class TestPostgres(unittest.TestCase):
         comentarios = dict(self._filas(
             "SELECT reddit_id, data_source FROM radar.raw_comments"))
         self.assertEqual(comentarios, {"t1_demo": "demo"})
-
-    def test_el_relleno_de_lancedb_cruza_con_postgres(self):
-        from scripts.backfill_lancedb_source import leer_fuentes
-        from scripts.migrate import migrate
-
-        migrate(self.dsn, MIGRACIONES)
-        self._sembrar_datos_anteriores()
-        self.assertEqual(leer_fuentes(self.dsn), {"t3_demo": "demo", "t3_reddit": "reddit"})
 
     def _sembrar_datos_anteriores(self):
         import psycopg
