@@ -122,6 +122,7 @@
     "JudgeGate": [
       "evidenceIds",
       "gate",
+      "measured",
       "passed",
       "threshold",
       "value"

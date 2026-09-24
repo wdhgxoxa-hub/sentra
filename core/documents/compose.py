@@ -63,7 +63,7 @@ ROTULOS: dict[str, dict[str, Any]] = {
                             "dependencias_externas": "Dependencias externas",
                             "coste_de_usuarios": "Coste de conseguir usuarios",
                             "riesgo_legal": "Riesgo legal"},
-        "gate_ok": "pasa", "gate_ko": "falla", "value_vs": "{value} (umbral {threshold})",
+        "gate_ok": "pasa", "gate_ko": "falla", "gate_sin_datos": "sin datos (no medida)", "value_vs": "{value} (umbral {threshold})",
         "advocate_before": "Veredicto antes y después", "advocate_reason": "Motivo de la bajada",
         "advocate_none": "El abogado del diablo no aportó argumentos.",
         "in": "Dentro", "out": "Fuera", "step": "Paso", "files": "Archivos",
@@ -96,7 +96,7 @@ ROTULOS: dict[str, dict[str, Any]] = {
                             "dependencias_externas": "External dependencies",
                             "coste_de_usuarios": "Cost of acquiring users",
                             "riesgo_legal": "Legal risk"},
-        "gate_ok": "passes", "gate_ko": "fails", "value_vs": "{value} (threshold {threshold})",
+        "gate_ok": "passes", "gate_ko": "fails", "gate_sin_datos": "no data (not measured)", "value_vs": "{value} (threshold {threshold})",
         "advocate_before": "Verdict before and after", "advocate_reason": "Reason for the downgrade",
         "advocate_none": "The devil's advocate raised no arguments.",
         "in": "In", "out": "Out", "step": "Step", "files": "Files",
@@ -182,6 +182,13 @@ def _procedencia_bloques(detalle: Mapping[str, Any], r: Mapping[str, Any], model
     )),)
 
 
+def _estado_compuerta(g: Mapping[str, Any], r: Mapping[str, Any]) -> str:
+    """Pasa, falla o sin datos: una compuerta que no midió nada no «pasa» (AUD2-005)."""
+    if g.get("measured") is False:
+        return str(r["gate_sin_datos"])
+    return str(r["gate_ok"] if g.get("passed") else r["gate_ko"])
+
+
 def _titulo(tipo: str, detalle: Mapping[str, Any], r: Mapping[str, Any]) -> str:
     return f"{r[tipo]} · {', '.join((detalle.get('keywords') or [])[:3]) or detalle.get('id')}"
 
@@ -208,7 +215,7 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     )),) + citas.aviso()
     compuertas = (
         Block("table", rows=tuple(
-            (str(g["gate"]), f"{r['gate_ok'] if g.get('passed') else r['gate_ko']} · "
+            (str(g["gate"]), f"{_estado_compuerta(g, r)} · "
              + r["value_vs"].format(value=g.get("value"), threshold=g.get("threshold")))
             for g in detalle.get("gates") or [])),
         Block("table", rows=tuple(

@@ -1,4 +1,4 @@
-import { CheckCircle2, Gavel, XCircle } from "lucide-react";
+import { CheckCircle2, Gavel, MinusCircle, XCircle } from "lucide-react";
 
 import { DocumentActions } from "@/components/DocumentActions";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -81,7 +81,10 @@ export function VerdictCard({
         <ul className="grid gap-1 sm:grid-cols-2">
           {v.gates.map((g) => (
             <li key={g.gate} className="flex items-start gap-1.5 text-[11px]">
-              {g.passed ? (
+              {/* AUD2-005: sin nada que medir no hay ✓; se dice que no se midió. */}
+              {!g.measured ? (
+                <MinusCircle className="mt-0.5 size-3.5 shrink-0 text-ink-faint" aria-label={t.judge.notMeasured} />
+              ) : g.passed ? (
                 <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-ok" aria-label="ok" />
               ) : (
                 <XCircle className="mt-0.5 size-3.5 shrink-0 text-danger" aria-label="falla" />
@@ -90,6 +93,7 @@ export function VerdictCard({
                 <span className="font-medium">{g.gate}</span>{" "}
                 {t.judge.gateNames[g.gate as keyof T["judge"]["gateNames"]] ?? g.gate}
                 <span className="block text-ink-faint">
+                  {!g.measured && `${t.judge.notMeasured} · `}
                   {t.judge.valueVsThreshold
                     .replace("{value}", cifra(g.value))
                     .replace("{threshold}", cifra(g.threshold))}

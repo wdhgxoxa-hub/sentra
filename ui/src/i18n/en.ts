@@ -313,6 +313,7 @@ export const en: Dictionary = {
       G8: "Real data only",
     },
     valueVsThreshold: "{value} · threshold {threshold}",
+    notMeasured: "no data: not measured",
     evidenceCount: "{n} pieces of evidence",
     dimensions: "Dimensions",
     dimensionNames: {

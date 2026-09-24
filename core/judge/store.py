@@ -29,6 +29,7 @@ from core.sources.attribution import attribution_fields
 from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
 
+from .gates import normalizar_compuertas
 from .labels import VerifiedLabel
 
 if TYPE_CHECKING:
@@ -124,6 +125,7 @@ async def verdict_detail(store: PostgresStore, verdict_id: str) -> dict[str, Any
     if fila is None:
         return None
     detalle = dict(fila)
+    detalle["gates"] = normalizar_compuertas(detalle.get("gates") or [])
     run = await store._fetchone(
         "SELECT id::text AS id, started_at, parameters, data_source, trigger_source"
         " FROM pipeline_runs WHERE tenant_id = %s AND id = %s",
@@ -156,7 +158,7 @@ async def top_verdicts(store: PostgresStore, run_id: str) -> dict[str, Any]:
         """,
         (store.tenant_id, run_id),
     )
-    todos = [dict(f) for f in filas]
+    todos = [{**dict(f), "gates": normalizar_compuertas(f["gates"] or [])} for f in filas]
     await _con_evidencia(store, todos)
     veredictos, resto = todos[:TOP_TARGET], todos[TOP_TARGET:]
     construir = sum(1 for f in filas if f["verdict"] == "CONSTRUIR")

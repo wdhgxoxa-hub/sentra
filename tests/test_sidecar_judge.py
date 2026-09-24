@@ -23,7 +23,7 @@ LEIDO = {
         "labeler_version": None, "clustering_version": "clustering-v1",
         "member_ids": ["hackernews:1"],
         "gates": [{"gate": f"G{n}", "passed": True, "value": 3, "threshold": 2,
-                   "evidence_ids": ["hackernews:1"]} for n in range(1, 9)],
+                   "evidence_ids": ["hackernews:1"], "measured": True} for n in range(1, 9)],
         "dimensions": [{"name": "frecuencia", "value": 3, "normalized": 0.1,
                         "item_ids": ["hackernews:1"], "note": None}],
         "advocate": {"verdict_before": "CONSTRUIR", "verdict_after": "CONSTRUIR",

@@ -318,6 +318,7 @@ export const es = {
       G8: "Solo datos reales",
     },
     valueVsThreshold: "{value} · umbral {threshold}",
+    notMeasured: "sin datos: no se midió",
     evidenceCount: "{n} evidencias",
     dimensions: "Dimensiones",
     dimensionNames: {

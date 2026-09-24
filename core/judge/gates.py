@@ -32,7 +32,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 
 from core.evidence.model import EvidenceItem
 
@@ -65,6 +65,9 @@ class GateResult:
     value: float
     threshold: float
     evidence_ids: list[str]
+    #: False si no había nada que medir (AUD2-005): pasa para decidir, pero no
+    #: se enseña como verificada. Solo G7 puede aprobar por ausencia.
+    measured: bool = True
 
 
 @dataclass(frozen=True)
@@ -112,7 +115,22 @@ def _saturacion(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabe
         cuota = len(satisfechos) / len(lista)
         if gratis and cuota > cuota_max:
             cuota_max, peores = cuota, sorted({m[0] for m in satisfechos})
-    return GateResult("G7", cuota_max <= 0.5, cuota_max, 0.5, peores)
+    medida = any(m[2] for lista in menciones.values() for m in lista)
+    return GateResult("G7", cuota_max <= 0.5, cuota_max, 0.5, peores, measured=medida)
+
+
+def normalizar_compuertas(guardadas: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Compuertas leídas de la base con `measured`. Los veredictos anteriores a
+    AUD2-005 no lo traen: G7 aprobada sin valor ni evidencia es que nadie
+    mencionó un competidor gratuito, es decir, que no se midió."""
+    salida = []
+    for g in guardadas:
+        copia = dict(g)
+        if "measured" not in copia:
+            copia["measured"] = not (copia.get("gate") == "G7" and copia.get("passed")
+                                     and not copia.get("evidence_ids") and not copia.get("value"))
+        salida.append(copia)
+    return salida
 
 
 def evaluate_gates(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel], *,
