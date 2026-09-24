@@ -127,6 +127,36 @@ class TestAgrupacion(unittest.TestCase):
         self.assertLess(palabras.index("domain"), palabras.index("email"))
         self.assertLess(palabras.index("bounces"), palabras.index("email"))
 
+    def test_los_nombres_salen_de_las_frases_del_problema_y_no_del_post(self):
+        # Residuo de AUD2-006 (clustering-v7): el contexto común de los posts
+        # (saludo, stack, equipo) nombraba los grupos.
+        relleno = "For context we are a team of three and I handle the infrastructure. "
+        items = [item(f"hackernews:{n}", relleno + f"our password reset emails land in spam {n}")
+                 for n in range(3)]
+        vectores = {i.id: [1.0, 0.01 * n, 0.0] for n, i in enumerate(items)}
+        frases = {i.id: f"password reset emails land in spam ({n})" for n, i in enumerate(items)}
+        [grupo] = cluster_evidence(items, vectores, frases=frases)
+        self.assertIn("spam", grupo.keywords)
+        self.assertFalse({"team", "three", "infrastructure", "handle", "context"} & set(grupo.keywords))
+
+    def test_los_grupos_verdaderos_del_dorado_se_nombran_por_su_problema(self):
+        import json
+        from pathlib import Path
+
+        from core.judge.clustering import _palabras_clave
+
+        fx = Path(__file__).parent / "fixtures"
+        items_dorado = json.loads((fx / "golden_clusters_posts.json").read_text("utf-8"))["items"]
+        fondo = [i["problem"] for i in items_dorado]
+        esperado = {"entregabilidad": {"spam", "dkim"}, "push": {"push"},
+                    "plantillas": {"template", "plantilla"}, "preferencias": {"preference", "baja"},
+                    "limites": {"limit", "limita"}, "saturacion": {"alert", "alerta"}}
+        for grupo, terminos in esperado.items():
+            with self.subTest(grupo=grupo):
+                frases = [i["problem"] for i in items_dorado if i["group"] == grupo]
+                nombre = _palabras_clave(frases, ["notificaciones", "notifications"], fondo)
+                self.assertTrue(terminos & set(nombre), nombre)
+
     def test_las_etiquetas_de_hacker_news_no_nombran_nichos(self):
         from core.judge.clustering import _palabras_clave
 

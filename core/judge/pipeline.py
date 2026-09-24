@@ -77,7 +77,8 @@ def run_judge(
     dolor = pain_items(calidad.kept, etiquetas)
     ids_dolor = {i.id for i in dolor}
     frases = {i.id: frase_del_problema(etiquetas[i.id]) for i in dolor}
-    grupos = cluster_evidence(dolor, vectores_frase(frases), previous=previous, excluir=tema)
+    grupos = cluster_evidence(dolor, vectores_frase(frases), previous=previous, excluir=tema,
+                              frases=frases)
     min_autores = umbral_autores(len(dolor))
     sin_dolor = [i for i in calidad.kept if i.id not in ids_dolor and i.id in vectors]
     por_id = {i.id: i for i in calidad.kept}

@@ -34,7 +34,7 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
 #: v3 (AUD2-001): solo agrupa evidencia con dolor pertinente y el tema del
 #: escaneo no nombra nichos. El método y el umbral son los de v2.
-CLUSTERING_VERSION = "clustering-v6"
+CLUSTERING_VERSION = "clustering-v7"
 CLUSTERING_METHOD = "average_linkage"
 CLUSTER_MIN_SIMILARITY = 0.82
 #: Por debajo, un grupo es ruido y no llega al juez.
@@ -195,8 +195,16 @@ def cluster_evidence(
     *,
     previous: Sequence[Previo] = (),
     excluir: Sequence[str] = (),
+    frases: Mapping[str, str] | None = None,
 ) -> list[EvidenceCluster]:
-    """Grupos de al menos MIN_CLUSTER_SIZE ítems, con identidad estable."""
+    """Grupos de al menos MIN_CLUSTER_SIZE ítems, con identidad estable.
+
+    `frases` ({id: frase del problema verificada}) nombra los grupos: el contexto
+    común de los posts (saludo, stack, equipo) los nombraba antes (clustering-v7)."""
+
+    def texto(i: EvidenceItem) -> str:
+        return frases.get(i.id, i.text) if frases else i.text
+
     con_vector = [i for i in sorted(items, key=lambda i: (i.created_at, i.id)) if i.id in vectors]
     etiquetas = average_linkage_partition([vectors[i.id] for i in con_vector],
                                           CLUSTER_MIN_SIMILARITY)
@@ -206,13 +214,13 @@ def cluster_evidence(
         miembros.append(item)
         vs.append(_unitario(vectors[item.id]))
     grupos = [por_etiqueta[e] for e in sorted(por_etiqueta)]
-    fondo = [i.text for i in con_vector]
+    fondo = [texto(i) for i in con_vector]
 
     candidatos: list[tuple[Candidato, list[EvidenceItem], np.ndarray]] = []
     for miembros, vs in grupos:
         if len(miembros) < MIN_CLUSTER_SIZE:
             continue
-        palabras = _palabras_clave([m.text for m in miembros], excluir, fondo)
+        palabras = _palabras_clave([texto(m) for m in miembros], excluir, fondo)
         ids = sorted(m.id for m in miembros)
         clave = "-".join(palabras[:3]) or ids[0]
         candidatos.append((Candidato(clave=f"{clave}#{ids[0]}", miembros=set(ids),
@@ -226,6 +234,6 @@ def cluster_evidence(
         nuevo = str(uuid.uuid5(_NAMESPACE, ",".join(ids)))
         resultado.append(EvidenceCluster(
             key=candidato.clave, opportunity_id=heredados.get(candidato.clave) or nuevo,
-            member_ids=ids, keywords=_palabras_clave([m.text for m in miembros], excluir, fondo),
+            member_ids=ids, keywords=_palabras_clave([texto(m) for m in miembros], excluir, fondo),
             centroid=[float(x) for x in centroide]))
     return sorted(resultado, key=lambda g: g.key)
