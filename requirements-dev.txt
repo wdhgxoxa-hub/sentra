@@ -8,3 +8,6 @@ pypdf==6.19.0
 # el código propio se mantiene a cero avisos con ellos (AUD-023, AUD-024).
 ruff==0.16.6
 mypy==2.3.1
+
+# Cliente CDP de la prueba de humo del ejecutable real (tests/humo_exe.py, AUD2-004).
+websocket-client==1.9.2

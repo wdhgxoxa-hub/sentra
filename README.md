@@ -82,6 +82,23 @@ sidecar, las dependencias declaradas, los contratos Python/Rust→TypeScript,
 el nombre del proyecto, los tearDown y los directorios temporales. Los que
 necesitan PostgreSQL se saltan si no hay servidor (`tests/_postgres.py`).
 
+## Antes de cada release: la prueba de humo
+
+Los tests no abren la aplicación; la prueba de humo sí (AUD2-004). Con la
+release compilada y SENTRA cerrada:
+
+```powershell
+python -m tests.humo_exe          # --exe RUTA para otro ejecutable
+```
+
+Lanza `sentra.exe`, espera al motor, comprueba que Radar, Búsqueda, Fuentes y
+Configuración pintan lo que dice la base (leída en solo lectura), que no hay
+excepciones ni errores de CSP, que el cierre normal no deja motores y que,
+matando la aplicación de golpe, el motor termina solo y libera el puerto. No
+gasta Gemini ni consulta fuentes, y falla si cambian las preferencias del
+usuario. Tarda ~40 s; la compuerta local la ejecuta con `HUMO=1`. Una release
+no se da por buena sin `HUMO OK`.
+
 ## Documentación
 
 - `tasks/SPEC-cierre-y-documentos.md` y `tasks/SPEC-multifuente.md`:
