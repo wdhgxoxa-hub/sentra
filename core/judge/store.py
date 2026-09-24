@@ -158,18 +158,32 @@ async def verdict_detail(store: PostgresStore, verdict_id: str) -> dict[str, Any
         (store.tenant_id, detalle["run_id"]),
     )
     detalle["run"] = dict(run) if run else None
-    evidencia = await store._fetchall(
-        """
-        SELECT id, source, community, kind, title, content AS text, url, created_at, data_source
+    # «Dos fuentes» son dos autores distintos. El seudónimo no sale de aquí (R9):
+    # cada pieza lleva una clave de autor que solo vale dentro de este veredicto.
+    consulta = """
+        SELECT id, source, community, kind, title, content AS text, url, created_at, data_source,
+               author_hash
           FROM evidence_items WHERE tenant_id = %s AND id = ANY(%s)
          ORDER BY created_at DESC, id
-        """,
-        (store.tenant_id, list(detalle["member_ids"])),
-    )
-    detalle["evidence"] = [
-        {**dict(e), "attribution": attribution_fields(e["source"], e["community"], e["url"])}
-        for e in evidencia
-    ]
+        """
+    miembros = set(detalle["member_ids"])
+    # La evidencia de las compuertas que fallan o no se midieron puede no ser de
+    # los miembros (G7: quien habla bien de un competidor): los riesgos la citan.
+    de_compuertas = list(dict.fromkeys(
+        i for g in detalle["gates"] if not g.get("passed") or g.get("measured") is False
+        for i in g.get("evidence_ids") or [] if i not in miembros))
+
+    async def piezas(ids: list[str]) -> list[dict[str, Any]]:
+        filas = await store._fetchall(consulta, (store.tenant_id, ids)) if ids else []
+        return [{**dict(e), "attribution": attribution_fields(e["source"], e["community"], e["url"])}
+                for e in filas]
+
+    detalle["evidence"] = await piezas(list(detalle["member_ids"]))
+    detalle["gate_evidence"] = await piezas(de_compuertas)
+    claves: dict[str, str] = {}
+    for pieza in [*detalle["evidence"], *detalle["gate_evidence"]]:
+        seudonimo = pieza.pop("author_hash", None) or pieza["id"]
+        pieza["author_key"] = claves.setdefault(seudonimo, f"autor-{len(claves) + 1}")
     detalle["current_versions"] = current_versions()
     return detalle
 

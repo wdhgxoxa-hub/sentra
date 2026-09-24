@@ -78,6 +78,9 @@ class Step(_Estricto):
 # --- Dossier -------------------------------------------------------------------
 
 class DossierPartA(_Estricto):
+    #: El problema en pocas palabras, propuesto por el modelo (E8: las palabras del
+    #: grupo, sin las del tema, daban títulos como «week, morning»).
+    problem_name: str = Field(min_length=1, max_length=80)
     problem: list[Claim]
     who: list[Claim]
     current_solutions: list[Claim]

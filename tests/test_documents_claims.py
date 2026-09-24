@@ -75,7 +75,7 @@ class TestCitas(unittest.TestCase):
 class TestDossier(unittest.TestCase):
     def dossier(self, **cambios):
         cita = [{"text": "x", "evidence_ids": ["hackernews:1"]}]
-        base = {"problem": cita, "who": cita, "current_solutions": cita, "why_now": cita,
+        base = {"problem_name": "Exportar facturas a mano", "problem": cita, "who": cita, "current_solutions": cita, "why_now": cita,
                 "risks": cita, "viability": viabilidad()}
         base.update(cambios)
         return DossierLLM.model_validate(base)

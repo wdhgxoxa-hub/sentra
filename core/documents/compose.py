@@ -67,6 +67,11 @@ ROTULOS: dict[str, dict[str, Any]] = {
                             "coste_de_usuarios": "Coste de conseguir usuarios",
                             "riesgo_legal": "Riesgo legal"},
         "gate_ok": "pasa", "gate_ko": "falla", "gate_sin_datos": "sin datos (no medida)", "value_vs": "{value} (umbral {threshold})",
+        "niche_model": "{name} (nombre propuesto por el modelo)", "group_words": "Palabras del grupo",
+        "anecdote": "Anécdota (1 autor): ",
+        "gate_names": {"G0": "coherencia", "G1": "fuentes distintas", "G2": "autores distintos",
+                       "G3": "parche casero", "G4": "señal de pago", "G5": "concentración",
+                       "G6": "recencia", "G7": "saturación", "G8": "datos reales"},
         "advocate_before": "Veredicto antes y después", "advocate_reason": "Motivo de la bajada",
         "advocate_none": "El abogado del diablo no aportó argumentos.",
         "in": "Dentro", "out": "Fuera", "step": "Paso", "files": "Archivos",
@@ -101,6 +106,11 @@ ROTULOS: dict[str, dict[str, Any]] = {
                             "coste_de_usuarios": "Cost of acquiring users",
                             "riesgo_legal": "Legal risk"},
         "gate_ok": "passes", "gate_ko": "fails", "gate_sin_datos": "no data (not measured)", "value_vs": "{value} (threshold {threshold})",
+        "niche_model": "{name} (name proposed by the model)", "group_words": "Group words",
+        "anecdote": "Anecdote (1 author): ",
+        "gate_names": {"G0": "coherence", "G1": "distinct sources", "G2": "distinct authors",
+                       "G3": "workaround", "G4": "payment signal", "G5": "concentration",
+                       "G6": "recency", "G7": "saturation", "G8": "real data"},
         "advocate_before": "Verdict before and after", "advocate_reason": "Reason for the downgrade",
         "advocate_none": "The devil's advocate raised no arguments.",
         "in": "In", "out": "Out", "step": "Step", "files": "Files",
@@ -124,11 +134,19 @@ class _Citas:
     """Verifica las afirmaciones contra la evidencia del veredicto y lleva la
     cuenta de lo retirado y de lo citado."""
 
-    def __init__(self, validos: Iterable[str], rotulos: Mapping[str, Any]) -> None:
-        self.validos = set(validos)
+    def __init__(self, evidencia: Iterable[Mapping[str, Any]], rotulos: Mapping[str, Any]) -> None:
+        piezas = list(evidencia)
+        self.validos = {e["id"] for e in piezas}
+        # author_key solo vale dentro del veredicto (R9); sin ella, cada pieza es un autor.
+        self.autor = {e["id"]: e.get("author_key") or e["id"] for e in piezas}
         self.rotulos = rotulos
         self.retiradas = 0
         self.citados: list[str] = []
+
+    def _linea(self, claim: Claim) -> str:
+        """Lo que sostiene un solo autor es una anécdota, lo diga el modelo o no."""
+        anecdota = len({self.autor[i] for i in claim.evidence_ids}) < 2
+        return f"{self.rotulos['anecdote'] if anecdota else ''}{claim.text} [{', '.join(claim.evidence_ids)}]"
 
     def bloques(self, claims: Sequence[Claim]) -> tuple[Block, ...]:
         quedan, retiradas = verify_claims(claims, self.validos)
@@ -137,8 +155,7 @@ class _Citas:
             self.citados += [i for i in claim.evidence_ids if i not in self.citados]
         if not quedan:
             return (Block("note", self.rotulos["empty"]),)
-        return (Block("bullets", items=tuple(
-            f"{c.text} [{', '.join(c.evidence_ids)}]" for c in quedan)),)
+        return (Block("bullets", items=tuple(self._linea(c) for c in quedan)),)
 
     def aviso(self) -> tuple[Block, ...]:
         if not self.retiradas:
@@ -155,13 +172,16 @@ def _secciones(ids: Sequence[str], titulos: Sequence[str],
 
 
 def _portada_y_aviso(detalle: Mapping[str, Any], r: Mapping[str, Any], model: str,
-                     generated_at: datetime) -> tuple[tuple[tuple[str, str], ...], str, str | None]:
+                     generated_at: datetime, nombre: str | None = None
+                     ) -> tuple[tuple[tuple[str, str], ...], str, str | None]:
     evidencia = detalle.get("evidence") or []
     origen = _procedencia(evidencia)
     fuentes = {e.get("source") for e in evidencia}
     aviso = {"real": r["notice_real"], "demo": r["notice_demo"]}.get(origen or "", r["notice_unknown"])
-    portada = (
-        (r["niche"], ", ".join(detalle.get("keywords") or [])),
+    palabras = ", ".join(detalle.get("keywords") or [])
+    nicho = (((r["niche"], r["niche_model"].format(name=nombre)), (r["group_words"], palabras)) if nombre
+             else ((r["niche"], palabras),))
+    portada = nicho + (
         (r["verdict"], f"{detalle.get('verdict')} · {_puntuacion(detalle, r)}"),
         (r["run"], str(detalle.get("run_id") or "")),
         (r["generated"], generated_at.isoformat(timespec="minutes")),
@@ -193,8 +213,25 @@ def _estado_compuerta(g: Mapping[str, Any], r: Mapping[str, Any]) -> str:
     return str(r["gate_ok"] if g.get("passed") else r["gate_ko"])
 
 
-def _titulo(tipo: str, detalle: Mapping[str, Any], r: Mapping[str, Any]) -> str:
-    return f"{r[tipo]} · {', '.join((detalle.get('keywords') or [])[:3]) or detalle.get('id')}"
+def _titulo(tipo: str, detalle: Mapping[str, Any], r: Mapping[str, Any], nombre: str | None = None) -> str:
+    return f"{r[tipo]} · {nombre or ', '.join((detalle.get('keywords') or [])[:3]) or detalle.get('id')}"
+
+
+def _riesgos_de_compuertas(detalle: Mapping[str, Any], r: Mapping[str, Any], citas: _Citas,
+                           conocidas: set[str]) -> tuple[Block, ...]:
+    """Cada compuerta que falla o no se midió es un riesgo, con la evidencia que la
+    decide: lo escribe el código, no el modelo (E8: G7 fallaba sin que nada lo contara)."""
+    lineas = []
+    for g in detalle.get("gates") or []:
+        if g.get("passed") and g.get("measured") is not False:
+            continue
+        ids = [i for i in g.get("evidence_ids") or [] if i in conocidas][:8]
+        citas.citados += [i for i in ids if i not in citas.citados]
+        nota = f" — {g['note']}" if g.get("note") else ""
+        cita = f" [{', '.join(ids)}]" if ids else ""
+        lineas.append(f"{g['gate']} ({r['gate_names'].get(g['gate'], g['gate'])}): {_estado_compuerta(g, r)} · "
+                      + r["value_vs"].format(value=g.get("value"), threshold=g.get("threshold")) + nota + cita)
+    return (Block("bullets", items=tuple(lineas)),) if lineas else ()
 
 
 def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: str, *, model: str,
@@ -202,14 +239,18 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     """El dossier de cualquier veredicto, con sus once secciones fijas."""
     r = _r(language)
     evidencia = detalle.get("evidence") or []
-    citas = _Citas((e["id"] for e in evidencia), r)
-    portada, aviso, origen = _portada_y_aviso(detalle, r, model, generated_at)
+    de_compuertas = detalle.get("gate_evidence") or []
+    citas = _Citas(evidencia, r)
+    portada, aviso, origen = _portada_y_aviso(detalle, r, model, generated_at, generado.problem_name)
 
     problema = citas.bloques(generado.problem)
     quien = citas.bloques(generado.who)
     soluciones = citas.bloques(generado.current_solutions)
     ahora = citas.bloques(generado.why_now)
-    riesgos = citas.bloques(generado.risks)
+    de_puertas = _riesgos_de_compuertas(detalle, r, citas, {e["id"] for e in [*evidencia, *de_compuertas]})
+    del_modelo = citas.bloques(generado.risks)
+    vacio = all(b.kind == "note" and b.text == r["empty"] for b in del_modelo)
+    riesgos = de_puertas + (() if de_puertas and vacio else del_modelo)
 
     resumen = (Block("table", rows=(
         (r["verdict"], str(detalle.get("verdict"))),
@@ -240,7 +281,7 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
         Block("table", rows=tuple(
             (r["viability_names"][c.criterion], f"{c.score}/5 · {c.reason}") for c in generado.viability)),
     )
-    por_id = {e["id"]: e for e in evidencia}
+    por_id = {e["id"]: e for e in [*evidencia, *de_compuertas]}
     citada = tuple(
         Block("quote", " ".join(str(por_id[i].get("text") or "").split())[:EXCERPT_CHARS],
               signature=_firma(por_id[i]))
@@ -255,7 +296,7 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     }
     ids = ["resumen", "problema", "quien", "soluciones", "por_que_ahora", "compuertas", "abogado",
            "viabilidad", "riesgos", "evidencia", "procedencia"]
-    return DocumentModel(language=language, kind="dossier", title=_titulo("dossier", detalle, r),
+    return DocumentModel(language=language, kind="dossier", title=_titulo("dossier", detalle, r, generado.problem_name),
                          data_source=origen, cover=portada, source_notice=aviso,
                          sections=_secciones(ids, r["dossier_sections"], bloques))
 
@@ -286,7 +327,7 @@ def compose_plan(detalle: Mapping[str, Any], generado: PlanLLM, language: str, *
     franja = (None if detalle.get("verdict") == "CONSTRUIR" else
               r["stripe"].format(verdict=detalle.get("verdict"), rule=detalle.get("rule")))
     evidencia = detalle.get("evidence") or []
-    citas = _Citas((e["id"] for e in evidencia), r)
+    citas = _Citas(evidencia, r)
     portada, aviso, origen = _portada_y_aviso(detalle, r, model, generated_at)
 
     que = citas.bloques(generado.what_and_for_whom)

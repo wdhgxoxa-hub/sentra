@@ -24,7 +24,8 @@ def pieza(id_, fuente="hackernews", demo=False):
             "title": f"Título de {id_}", "text": f"Queja inventada de {id_}: se tarda muchísimo.",
             "url": f"https://example.com/{id_}", "created_at": datetime(2026, 9, 1, tzinfo=UTC),
             "data_source": "demo" if demo else "real",
-            "attribution": {"badge": "Hacker News", "site": "Ask HN", "url": f"https://example.com/{id_}"}}
+            "attribution": {"badge": "Hacker News", "site": "Ask HN", "url": f"https://example.com/{id_}"},
+            "author_key": f"autor-de-{id_}"}
 
 
 def detalle(verdict="CONSTRUIR", demo=False, **cambios: Any) -> dict[str, Any]:
@@ -59,6 +60,7 @@ def cita(*ids, texto="afirmación"):
 
 def dossier_llm(**cambios: Any) -> DossierLLM:
     base: dict[str, Any] = {
+        "problem_name": "Exportar facturas a mano",
         "problem": [cita("hackernews:1", texto="Exportar facturas cuesta horas"),
                     cita("hackernews:1", "reddit:999", texto="Afirmación mal citada")],
         "who": [cita("stackexchange:2", texto="Pymes con contable externo")],
@@ -106,6 +108,40 @@ class TestDossier(unittest.TestCase):
         self.assertNotIn("Afirmación mal citada", md)
         self.assertNotIn("Solo con cita inventada", md)
         self.assertIn("2 afirmaciones retiradas por citar evidencia que no es de este veredicto", md)
+
+    def test_el_titulo_es_el_nombre_del_problema_y_se_dice_quien_lo_puso(self):
+        # E8: el título salía de las palabras del grupo («week, morning»).
+        doc = compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA)
+        self.assertEqual(doc.title, "Dossier · Exportar facturas a mano")
+        portada = dict(doc.cover)
+        self.assertEqual(portada["Nicho"], "Exportar facturas a mano (nombre propuesto por el modelo)")
+        self.assertEqual(portada["Palabras del grupo"], "facturas, exportar, manual")
+
+    def test_lo_que_dice_un_solo_autor_es_una_anecdota(self):
+        # Dos piezas del mismo autor no son dos fuentes.
+        evidencia = [pieza("hackernews:1"), pieza("stackexchange:2", "stackexchange"),
+                     {**pieza("discourse:3", "discourse"), "author_key": "autor-de-hackernews:1"}]
+        llm = dossier_llm(problem=[cita("hackernews:1", "discourse:3", texto="Cuesta horas"),
+                                   cita("hackernews:1", "stackexchange:2", texto="Lo sufren muchos")])
+        md = textos_de(compose_dossier(detalle(evidence=evidencia), llm, "es", model="m", generated_at=AHORA))
+        self.assertIn("Anécdota (1 autor): Cuesta horas [hackernews:1, discourse:3]", md)
+        self.assertIn("- Lo sufren muchos [hackernews:1, stackexchange:2]", md)
+
+    def test_los_riesgos_empiezan_por_las_compuertas_que_fallan_con_su_evidencia(self):
+        # E8: «Riesgos» salía vacío y nada explicaba G7 ni citaba la pieza que la decide.
+        compuertas = [{"gate": "G7", "passed": False, "value": 1.0, "threshold": 0.5,
+                       "evidence_ids": ["hackernews:99"], "measured": True, "note": None}]
+        lanzamiento = {**pieza("hackernews:99"), "text": "Presentamos un asistente gratuito que persigue facturas."}
+        llm = dossier_llm(risks=[cita("inventado:1", texto="Riesgo sin respaldo")])
+        doc = compose_dossier(detalle(verdict="DESCARTAR", gates=compuertas, gate_evidence=[lanzamiento]),
+                              llm, "es", model="m", generated_at=AHORA)
+        riesgos = next(s for s in doc.sections if s.id == "riesgos")
+        texto = "\n".join(b.text + " ".join(b.items) for b in riesgos.blocks)
+        self.assertIn("G7 (saturación)", texto)
+        self.assertIn("[hackernews:99]", texto)
+        self.assertNotIn("Sin afirmaciones verificables", texto)
+        evidencia = next(s for s in doc.sections if s.id == "evidencia")
+        self.assertIn("hackernews:99", "\n".join(b.signature for b in evidencia.blocks))
 
     def test_una_seccion_sin_afirmaciones_validas_no_se_rellena(self):
         doc = compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA)

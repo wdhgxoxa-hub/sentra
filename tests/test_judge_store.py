@@ -186,6 +186,28 @@ class TestPersistenciaDelJuez(unittest.TestCase):
 
         self.assertEqual(self.run_store(guardar_y_contar), 0)
 
+    def test_el_detalle_trae_el_autor_seudonimo_y_la_evidencia_de_las_compuertas_que_fallan(self):
+        # E8: «2 fuentes» son 2 autores distintos, y G7 cita una pieza que no es miembro.
+        from core.judge.store import verdict_detail
+
+        miembros, ajena = [pieza(n) for n in (90, 91)], pieza(92)
+
+        async def guardar(store):
+            await store.upsert_evidence([*miembros, ajena])
+            run = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            v = veredicto("g7", "DESCARTAR", 20.0, [i.id for i in miembros])
+            v["gates"][6] = {"gate": "G7", "passed": False, "value": 1.0, "threshold": 0.5,
+                             "evidence_ids": [ajena.id]}
+            await store.save_verdicts(run, [v])
+            fila = await store._fetchone("SELECT id::text AS id FROM niche_verdicts WHERE run_id = %s", (run,))
+            return await verdict_detail(store, fila["id"])
+
+        detalle = self.run_store(guardar)
+        self.assertEqual(sorted(e["author_key"] for e in detalle["evidence"]), ["autor-1", "autor-2"])
+        self.assertFalse(any("author_hash" in e for e in [*detalle["evidence"], *detalle["gate_evidence"]]),
+                         "el seudónimo no sale del almacén (R9)")
+        self.assertEqual([e["id"] for e in detalle["gate_evidence"]], [ajena.id])
+
     def test_el_detalle_de_un_veredicto_trae_toda_su_evidencia_para_los_documentos(self):
         # E2: el dossier y el plan citan por id; el modelo ve el texto entero.
         largo = "queja inventada muy larga " * 60

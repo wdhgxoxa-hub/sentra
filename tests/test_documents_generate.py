@@ -35,7 +35,8 @@ from core.llm.base import LLMTruncated
 
 CITA = [{"text": "x", "evidence_ids": ["hackernews:1"]}]
 PARTES: dict[type[BaseModel], dict[str, Any]] = {
-    DossierPartA: {"problem": CITA, "who": CITA, "current_solutions": CITA},
+    DossierPartA: {"problem_name": "Exportar facturas a mano", "problem": CITA, "who": CITA,
+                   "current_solutions": CITA},
     DossierPartB: {"why_now": CITA, "risks": CITA,
                    "viability": [{"criterion": c, "score": 2, "reason": "r"} for c in VIABILITY_CRITERIA]},
     PlanPartA: {"what_and_for_whom": CITA, "mvp_in": CITA, "mvp_out": CITA,
@@ -97,6 +98,13 @@ class TestPrompt(unittest.TestCase):
         self.assertIn("datos", system.lower())
         self.assertIn("español", system)
 
+    def test_pide_ortografia_completa_y_dos_autores_o_anecdota(self):
+        # E8: la prosa salió sin tildes y generalizaba desde una sola cita.
+        system, _ = build_prompt("dossier", veredicto(), "es")
+        self.assertIn("tildes", system)
+        self.assertIn("al menos dos autores", system)
+        self.assertIn("anécdota", system)
+
     def test_en_ingles_pide_ingles(self):
         system, _ = build_prompt("plan", veredicto(), "en")
         self.assertIn("English", system)
@@ -129,8 +137,9 @@ class TestGeneracion(unittest.TestCase):
         self.assertLessEqual(len(doble.llamadas), 3)
 
     def test_el_esquema_se_pide_en_el_orden_natural(self):
-        # El modelo genera en el orden de las propiedades: problema antes que riesgos.
-        self.assertEqual(next(iter(DossierLLM.model_json_schema()["properties"])), "problem")
+        # El modelo genera en el orden de las propiedades: el nombre del problema,
+        # luego el problema y al final los riesgos.
+        self.assertEqual(list(DossierLLM.model_json_schema()["properties"])[:2], ["problem_name", "problem"])
         self.assertEqual(next(iter(PlanLLM.model_json_schema()["properties"])), "what_and_for_whom")
 
 
