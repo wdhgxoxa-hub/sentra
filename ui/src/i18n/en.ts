@@ -102,16 +102,16 @@ export const en: Dictionary = {
       "Could not read the engine settings. Language and theme still work; the data source and credentials need the engine running.",
     aiEngine: "AI engine (Google Gemini)",
     aiHint:
-      "The key comes from aistudio.google.com and is stored in the same .env as the Reddit ones. Without it, the architecture button on each opportunity stays disabled.",
+      "The key comes from aistudio.google.com and is stored in the project .env. Without it, the judge does not label the evidence (nothing comes out as Build) and the dossier and plan cannot be generated.",
     apiKey: "API key",
     showKey: "Show",
     hideKey: "Hide",
     modelDocuments: "Model for documents",
     modelDocumentsHint:
-      "Writes the architecture plan. Automatic: the newest 3.x Pro your key can use.",
+      "Writes the dossier and the build plan for each verdict. Automatic: the newest 3.x Pro your key can use.",
     modelGeneral: "General model",
     modelGeneralHint:
-      "Translates quotes and labels evidence. Automatic: the newest stable 3.x Flash your key can use.",
+      "Labels the evidence for the judge and plays devil's advocate. Automatic: the newest stable 3.x Flash your key can use.",
     automatic: "Automatic",
     noCandidate: "no candidate available",
     modelGone: "no longer available",

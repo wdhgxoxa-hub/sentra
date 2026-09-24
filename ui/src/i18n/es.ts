@@ -101,16 +101,16 @@ export const es = {
       "No se pudo leer la configuración del motor. El idioma y el tema siguen funcionando; la fuente de datos y las credenciales necesitan que el motor esté en marcha.",
     aiEngine: "Motor de IA (Google Gemini)",
     aiHint:
-      "La clave se pide en aistudio.google.com y se guarda en el mismo .env que las de Reddit. Sin ella, el botón de arquitectura de cada oportunidad queda inactivo.",
+      "La clave se pide en aistudio.google.com y se guarda en el .env del proyecto. Sin ella, el juez no etiqueta la evidencia (nada sale Construir) y no se pueden generar el dossier ni el plan.",
     apiKey: "Clave de API",
     showKey: "Mostrar",
     hideKey: "Ocultar",
     modelDocuments: "Modelo para documentos",
     modelDocumentsHint:
-      "Escribe el plan de arquitectura. Automático: el Pro 3.x más reciente que admita tu clave.",
+      "Escribe el dossier y el plan de construcción de cada veredicto. Automático: el Pro 3.x más reciente que admita tu clave.",
     modelGeneral: "Modelo general",
     modelGeneralHint:
-      "Traduce citas y etiqueta evidencia. Automático: el Flash 3.x estable más reciente que admita tu clave.",
+      "Etiqueta la evidencia para el juez y hace de abogado del diablo. Automático: el Flash 3.x estable más reciente que admita tu clave.",
     automatic: "Automático",
     noCandidate: "sin candidato disponible",
     modelGone: "ya no está disponible",
