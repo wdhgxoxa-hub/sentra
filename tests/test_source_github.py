@@ -79,9 +79,11 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         url = urlparse(str(peticion.url))
         self.assertEqual((url.netloc, url.path), ("api.github.com", "/search/issues"))
         q = parse_qs(url.query)["q"][0]
-        for parte in ('"invoice"', '"would pay"', "is:issue", "created:>=2026-03-01",
+        for parte in ('"invoice"', "is:issue", "created:>=2026-03-01",
                       "repo:ejemplo-org/facturador", "repo:otra/cosa"):
             self.assertIn(parte, q)
+        # Solo el tema: con la frase exigida GitHub daba 0–1 (medido; con el tema solo, 30).
+        self.assertNotIn("would pay", q)
         self.assertEqual(peticion.headers["Accept"], "application/vnd.github+json")
         self.assertEqual(peticion.headers["X-GitHub-Api-Version"], "2022-11-28")
         self.assertNotIn("Authorization", peticion.headers)
@@ -133,8 +135,8 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
             return httpx.Response(200, json=respuesta())
 
         await todos(fuente(manejador, max_requests=3).search(
-            SearchQuery(keywords=["a", "b"], phrases=["x", "y"])))
-        self.assertEqual(len(peticiones), 3)
+            SearchQuery(keywords=["a", "b", "c", "d"], phrases=["x", "y"])))
+        self.assertEqual(len(peticiones), 3, "cuatro palabras, presupuesto para tres")
 
     async def test_la_cuota_agotada_es_rate_limit_y_no_acceso_denegado(self):
         from core.sources.errors import SourceRateLimited

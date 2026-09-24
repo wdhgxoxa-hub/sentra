@@ -191,7 +191,8 @@ class StackExchangeSource(SourceAdapter):
     async def search(self, query: SearchQuery) -> AsyncIterator[EvidenceItem]:
         objetivos = self._objetivos(query)
         restantes = self.budget.max_requests - self.budget.spent_requests
-        pares = term_pairs(query, limit=max(1, restantes // len(objetivos)))
+        # Solo el tema: tema + frase daba 0–1 resultados (medido; tema solo, 21–30).
+        pares = term_pairs(query, limit=max(1, restantes // len(objetivos)), solo_tema=True)
         vistos: set[str] = set()
         for palabra, frase in pares:
             for sitio, tag in objetivos:

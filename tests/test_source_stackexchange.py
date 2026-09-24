@@ -116,7 +116,8 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         params = parse_qs(url.query)
         self.assertEqual((url.netloc, url.path), ("api.stackexchange.com", "/2.3/search/advanced"))
         self.assertEqual(params["site"], ["superuser"])
-        self.assertEqual(params["q"], ["invoice is there a tool"])
+        # Solo el tema: tema + frase exigía todo y daba 0–1 (medido; con el tema solo, 21–30).
+        self.assertEqual(params["q"], ["invoice"])
         self.assertEqual(params["filter"], ["withbody"])
         self.assertEqual(params["fromdate"], [str(int(DESDE.timestamp()))])
         self.assertNotIn("key", params, "sin clave: cuota anónima")

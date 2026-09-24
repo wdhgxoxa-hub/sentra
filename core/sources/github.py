@@ -68,7 +68,8 @@ class GitHubSource(SourceAdapter):
     async def search(self, query: SearchQuery) -> AsyncIterator[EvidenceItem]:
         restantes = self.budget.max_requests - self.budget.spent_requests
         vistos: set[str] = set()
-        for palabra, frase in term_pairs(query, limit=restantes):
+        # Solo el tema: con la frase exigida daba 0–1 resultados (medido; tema solo, 30).
+        for palabra, frase in term_pairs(query, limit=restantes, solo_tema=True):
             datos = await self._get(
                 f"{API}/search/issues", headers=self._cabeceras(),
                 params={"q": self._q(palabra, frase, query), "per_page": PER_PAGE})
