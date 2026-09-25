@@ -21,6 +21,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from core.privacidad import ocultar_identificadores
 from core.sources.attribution import license_suffix
 
 from .claims import Claim, DossierLLM, PlanLLM, verify_claims
@@ -168,10 +169,19 @@ class _Citas:
         self.retiradas = 0
         self.citados: list[str] = []
 
+    def alias(self, ids: Iterable[str]) -> str:
+        """Las citas se escriben con alias (E1, E2…), en el orden en que se citan
+        por primera vez, nunca con el id interno: el de Bluesky lleva el DID de
+        su autor (R9, Fase 3). Cada alias abre su cita en «Evidencia»."""
+        nuevos = [i for i in ids if i not in self.citados]
+        self.citados += list(dict.fromkeys(nuevos))
+        return ", ".join(f"E{self.citados.index(i) + 1}" for i in dict.fromkeys(ids))
+
     def _linea(self, claim: Claim) -> str:
         """Lo que sostiene un solo autor es una anécdota, lo diga el modelo o no."""
         anecdota = len({self.autor[i] for i in claim.evidence_ids}) < 2
-        return f"{self.rotulos['anecdote'] if anecdota else ''}{claim.text} [{', '.join(claim.evidence_ids)}]"
+        texto = ocultar_identificadores(claim.text)
+        return f"{self.rotulos['anecdote'] if anecdota else ''}{texto} [{self.alias(claim.evidence_ids)}]"
 
     def bloques(self, claims: Sequence[Claim]) -> tuple[Block, ...]:
         quedan, retiradas = verify_claims(claims, self.validos)
@@ -251,9 +261,8 @@ def _riesgos_de_compuertas(detalle: Mapping[str, Any], r: Mapping[str, Any], cit
         if g.get("passed") and g.get("measured") is not False:
             continue
         ids = [i for i in g.get("evidence_ids") or [] if i in conocidas][:8]
-        citas.citados += [i for i in ids if i not in citas.citados]
         nota = f" — {g['note']}" if g.get("note") else ""
-        cita = f" [{', '.join(ids)}]" if ids else ""
+        cita = f" [{citas.alias(ids)}]" if ids else ""
         exige = r["gate_rules"].get(g["gate"])
         lineas.append(f"{g['gate']} ({r['gate_names'].get(g['gate'], g['gate'])}): {_estado_compuerta(g, r)} · "
                       + r["value_vs"].format(value=g.get("value"), threshold=g.get("threshold"))
@@ -298,12 +307,14 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
     )
     abogado = detalle.get("advocate") or {}
     argumentos = abogado.get("arguments") or []
+    por_id = {e["id"]: e for e in [*evidencia, *de_compuertas]}
     bloques_abogado: tuple[Block, ...] = (
         Block("table", rows=((r["advocate_before"],
                               f"{abogado.get('verdict_before')} → {abogado.get('verdict_after')}"),)
               + (((r["advocate_reason"], str(abogado["reason"])),) if abogado.get("reason") else ())),
         Block("bullets", items=tuple(
-            f"{a.get('severity')}: {a.get('claim')} [{', '.join(a.get('evidence_ids') or [])}]"
+            f"{a.get('severity')}: {a.get('claim')}"
+            + (f" [{citas.alias(ids)}]" if (ids := [i for i in a.get('evidence_ids') or [] if i in por_id]) else "")
             for a in argumentos)) if argumentos else Block("note", r["advocate_none"]),
     )
     viabilidad = (
@@ -311,11 +322,10 @@ def compose_dossier(detalle: Mapping[str, Any], generado: DossierLLM, language: 
         Block("table", rows=tuple(
             (r["viability_names"][c.criterion], f"{c.score}/5 · {c.reason}") for c in generado.viability)),
     )
-    por_id = {e["id"]: e for e in [*evidencia, *de_compuertas]}
     citada = tuple(
-        Block("quote", " ".join(str(por_id[i].get("text") or "").split())[:EXCERPT_CHARS],
-              signature=_firma(por_id[i]))
-        for i in citas.citados if i in por_id
+        Block("quote", ocultar_identificadores(" ".join(str(por_id[i].get("text") or "").split()))[:EXCERPT_CHARS],
+              signature=_firma(por_id[i], f"E{n}"))
+        for n, i in enumerate(citas.citados, start=1) if i in por_id
     ) or (Block("note", r["empty"]),)
 
     bloques = {
@@ -336,12 +346,13 @@ def _puntuacion(detalle: Mapping[str, Any], r: Mapping[str, str]) -> str:
     return r["no_common_problem"] if detalle.get("score") is None else str(detalle.get("score"))
 
 
-def _firma(pieza: Mapping[str, Any]) -> str:
-    """id · fecha · insignia · sitio · URL (R5); nunca el autor (R9)."""
+def _firma(pieza: Mapping[str, Any], alias: str) -> str:
+    """alias · fecha · insignia · sitio · URL (R5); nunca el autor ni el id
+    interno (R9: el de Bluesky lleva el DID)."""
     fecha = pieza.get("created_at")
     cuando = fecha.date().isoformat() if isinstance(fecha, datetime) else str(fecha or "")
     atribucion = pieza.get("attribution") or {}
-    return (f"{pieza['id']} · {cuando} · {atribucion.get('badge')} · {atribucion.get('site')} · "
+    return (f"{alias} · {cuando} · {atribucion.get('badge')} · {atribucion.get('site')} · "
             f"{atribucion.get('url')}{license_suffix(atribucion)}")
 
 

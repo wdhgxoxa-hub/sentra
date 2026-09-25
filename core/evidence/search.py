@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
+from core.privacidad import ocultar_identificadores
 from core.sources.attribution import attribution_fields
 
 if TYPE_CHECKING:
@@ -126,7 +127,8 @@ async def evidence_hits(store: PostgresStore, fusion: Sequence[Ranking]) -> list
     por_id = {f["id"]: f for f in filas}
     return [
         {"id": f["id"], "source": f["source"], "community": f["community"], "kind": f["kind"],
-         "title": f["title"], "excerpt": f["content"][:EXCERPT_CHARS], "url": f["url"],
+         "title": ocultar_identificadores(f["title"]) if f["title"] else None,
+         "excerpt": ocultar_identificadores(f["content"])[:EXCERPT_CHARS], "url": f["url"],
          "created_at": f["created_at"].isoformat(), "data_source": f["data_source"],
          "attribution": attribution_fields(f["source"], f["community"], f["url"]),
          "rrf_score": r.score, "dense_rank": r.dense_rank, "lexical_rank": r.lexical_rank}

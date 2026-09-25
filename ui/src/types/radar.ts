@@ -331,7 +331,6 @@ export interface JudgeVerdict {
   /** Ejecución que lo juzgó (el Top y los documentos la citan). */
   runId: string;
   opportunityId: string | null;
-  clusterKey: string;
   keywords: string[];
   /** Nombre del problema que da G0 (es/en); null en mezclas y veredictos antiguos. */
   problemName: ProblemName | null;

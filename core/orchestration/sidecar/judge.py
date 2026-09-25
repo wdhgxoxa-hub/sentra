@@ -7,6 +7,8 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from core.privacidad import ocultar_identificadores
+
 from .context import SidecarContext
 from .sources import _en_camel
 
@@ -51,6 +53,11 @@ def _veredictos_en_camel(originales: list[dict[str, Any]]) -> list[dict[str, Any
     # Las claves de corroboración son ids de fuente: no se convierten.
     for veredicto, original in zip(convertidos, originales, strict=True):
         veredicto["corroboration"] = dict(original.get("corroboration", {}))
+        # R9 (Fase 3): la clave interna del grupo se forma con ids de piezas y
+        # el de Bluesky lleva el DID del autor; la interfaz no la necesita.
+        veredicto.pop("clusterKey", None)
+        for pieza in veredicto.get("evidence") or []:
+            pieza["excerpt"] = ocultar_identificadores(str(pieza.get("excerpt") or ""))
     return convertidos
 
 

@@ -12,8 +12,9 @@ import { nombreDelGrupo, puntuacionDelGrupo } from "./veredicto.ts";
 
 const SIN = "Sin problema común";
 const PLANTILLA = "Puntaje {score}/100";
-const nicho = { score: 42.25, keywords: ["spam", "dkim", "spf", "dmarc"], clusterKey: "spam#x" };
-const mezcla = { score: null, keywords: ["app", "following", "class"], clusterKey: "app#y" };
+const QUEJA = { excerpt: "Every month I chase clients for their receipts and bank statements by email" };
+const nicho = { score: 42.25, keywords: ["spam", "dkim", "spf", "dmarc"], evidence: [QUEJA] };
+const mezcla = { score: null, keywords: ["app", "following", "class"], evidence: [QUEJA] };
 
 test("un nicho enseña sus tres primeras palabras y su puntuación", () => {
   assert.equal(nombreDelGrupo(nicho, SIN), "spam · dkim · spf");
@@ -32,6 +33,7 @@ test("con nombre de G0, el Radar enseña el mismo que el dossier, en su idioma",
   assert.equal(nombreDelGrupo({ ...mezcla, problemName: nombrado.problemName }, SIN, "es"), SIN);
 });
 
-test("sin palabras, la clave del grupo", () => {
-  assert.equal(nombreDelGrupo({ ...nicho, keywords: [] }, SIN), "spam#x");
+test("sin palabras, una frase de sus quejas; nunca la clave interna (R9: lleva ids de piezas)", () => {
+  assert.equal(nombreDelGrupo({ ...nicho, keywords: [] }, SIN), "«Every month I chase clients for their receipts and bank…»");
+  assert.equal(nombreDelGrupo({ ...nicho, keywords: [], evidence: [] }, SIN), SIN);
 });

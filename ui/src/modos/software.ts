@@ -7,12 +7,14 @@
 
 import type { JudgeVerdict } from "@/types/radar";
 
+import { fraseDeEjemplo } from "../lib/veredicto.ts";
+
 import type { Modo, NichoEnPantalla } from "./tipos.ts";
 
 /** Lo que el adaptador lee de un veredicto. */
 export type VeredictoParaNicho = Pick<
   JudgeVerdict,
-  "id" | "verdict" | "rule" | "score" | "memberCount" | "problemName" | "keywords" | "clusterKey" | "evidence"
+  "id" | "verdict" | "rule" | "score" | "memberCount" | "problemName" | "keywords" | "evidence"
 >;
 
 /** Cuántas quejas se enseñan de muestra. */
@@ -28,7 +30,8 @@ function porQue(regla: string): string {
 export function nichoDeSoftware(v: VeredictoParaNicho, idioma: "es" | "en"): NichoEnPantalla {
   const otro = idioma === "es" ? "en" : "es";
   const mezcla = v.score === null;
-  const nombre = v.problemName?.[idioma] || v.keywords.slice(0, 3).join(" · ") || v.clusterKey;
+  // Nunca la clave interna del grupo: lleva ids de piezas (R9, Fase 3).
+  const nombre = v.problemName?.[idioma] || v.keywords.slice(0, 3).join(" · ") || fraseDeEjemplo(v.evidence) || "";
   const subnombre = v.problemName?.[otro] && v.problemName[otro] !== nombre ? v.problemName[otro] : null;
   return {
     id: v.id,

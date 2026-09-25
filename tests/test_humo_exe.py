@@ -86,6 +86,21 @@ class TestEvaluar(unittest.TestCase):
         fallos = evaluar(observado(jerga={"nuevo": ["tokens", "G0-G9"]}), verdad(), ahora=AHORA)
         self.assertTrue(any("tokens" in f and "nuevo" in f for f in fallos), fallos)
 
+    def test_un_identificador_de_autor_visible_es_un_fallo(self):
+        """R9 (Fase 3): ni DID, ni at://, ni @usuario en ninguna pantalla, tampoco
+        en los «Ver detalle» ni en el texto ajeno."""
+        fallos = evaluar(observado(identificadores={"radar": ["did:plc:fxxq6d7qa7vggtoc7gsn6m2w"]}), verdad(), ahora=AHORA)
+        self.assertTrue(any("did:plc:" in f and "radar" in f and "R9" in f for f in fallos), fallos)
+
+    def test_identificadores_visibles_fuera_de_la_direccion_del_original(self):
+        """La dirección de Bluesky lleva el DID (R5 frente a R9, decisión de Walter
+        pendiente): no cuenta; el mismo DID en un nombre o una cita, sí."""
+        from tests.humo_exe import identificadores_visibles
+
+        url = "Original: https://bsky.app/profile/did:plc:z2gdgxz2um3eq47a2ebsz3wz/post/3mwc"
+        self.assertEqual(identificadores_visibles(url), [])
+        self.assertEqual(len(identificadores_visibles("Grupo bluesky:did:plc:abc12 · gracias @ana")), 2)
+
     def test_el_asistente_que_no_pasa_al_paso_2_es_un_fallo(self):
         fallos = evaluar(observado(asistente_paso2=False), verdad(), ahora=AHORA)
         self.assertTrue(any("asistente" in f for f in fallos), fallos)

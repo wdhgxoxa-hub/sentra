@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import psycopg
 from psycopg.rows import dict_row
 
+from core.privacidad import ocultar_identificadores
 from core.sources.attribution import attribution_fields
 from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
@@ -350,7 +351,8 @@ async def recent_evidence(store: PostgresStore, limit: int) -> list[dict[str, An
     )
     return [
         {"id": f["id"], "source": f["source"], "community": f["community"], "kind": f["kind"],
-         "title": f["title"], "excerpt": f["content"][:EXCERPT_CHARS], "url": f["url"],
+         "title": ocultar_identificadores(f["title"]) if f["title"] else None,
+         "excerpt": ocultar_identificadores(f["content"])[:EXCERPT_CHARS], "url": f["url"],
          "created_at": f["created_at"].isoformat(), "data_source": f["data_source"],
          "attribution": attribution_fields(f["source"], f["community"], f["url"])}
         for f in filas
@@ -387,7 +389,7 @@ async def _con_evidencia(store: PostgresStore, veredictos: list[dict[str, Any]])
         miembros = [por_id[m] for m in v["member_ids"] if m in por_id]
         v["corroboration"] = dict(Counter(m["source"] for m in miembros))
         v["evidence"] = [
-            {"id": m["id"], "source": m["source"], "excerpt": m["content"][:EXCERPT_CHARS],
+            {"id": m["id"], "source": m["source"], "excerpt": ocultar_identificadores(m["content"])[:EXCERPT_CHARS],
              "created_at": m["created_at"].isoformat(),
              "attribution": attribution_fields(m["source"], m["community"], m["url"])}
             for m in sorted(miembros, key=lambda m: m["created_at"], reverse=True)

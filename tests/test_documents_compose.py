@@ -104,7 +104,7 @@ class TestDossier(unittest.TestCase):
 
     def test_una_cita_ajena_retira_la_afirmacion_y_se_dice(self):
         md = textos_de(compose_dossier(detalle(), dossier_llm(), "es", model="m", generated_at=AHORA))
-        self.assertIn("Exportar facturas cuesta horas [hackernews:1]", md)
+        self.assertIn("Exportar facturas cuesta horas [E1]", md)
         self.assertNotIn("Afirmación mal citada", md)
         self.assertNotIn("Solo con cita inventada", md)
         self.assertIn("2 afirmaciones retiradas por citar evidencia que no es de este veredicto", md)
@@ -133,8 +133,9 @@ class TestDossier(unittest.TestCase):
         llm = dossier_llm(problem=[cita("hackernews:1", "discourse:3", texto="Cuesta horas"),
                                    cita("hackernews:1", "stackexchange:2", texto="Lo sufren muchos")])
         md = textos_de(compose_dossier(detalle(evidence=evidencia), llm, "es", model="m", generated_at=AHORA))
-        self.assertIn("Anécdota (1 autor): Cuesta horas [hackernews:1, discourse:3]", md)
-        self.assertIn("- Lo sufren muchos [hackernews:1, stackexchange:2]", md)
+        # Citas con alias en orden de primera cita (R9, Fase 3: nunca el id interno).
+        self.assertIn("Anécdota (1 autor): Cuesta horas [E1, E2]", md)
+        self.assertIn("- Lo sufren muchos [E1, E3]", md)
 
     def test_los_riesgos_empiezan_por_las_compuertas_que_fallan_con_su_evidencia(self):
         # E8: «Riesgos» salía vacío y nada explicaba G7 ni citaba la pieza que la decide.
@@ -151,7 +152,8 @@ class TestDossier(unittest.TestCase):
         # Pendiente de E8: en palabras, qué exige la compuerta, y su nota.
         self.assertIn("exige que ningún competidor gratuito", texto)
         self.assertIn("TallyBird: 3 de 3 autores lo dan por bueno", texto)
-        self.assertIn("[hackernews:99]", texto)
+        self.assertRegex(texto, r"TallyBird: 3 de 3 autores lo dan por bueno \[E\d+\]")
+        self.assertNotIn("hackernews:99", texto, "la pieza se cita con su alias, no con su id")
         self.assertNotIn("Sin afirmaciones verificables", texto)
         evidencia = next(s for s in doc.sections if s.id == "evidencia")
         self.assertIn("hackernews:99", "\n".join(b.signature for b in evidencia.blocks))
@@ -197,7 +199,7 @@ class TestDossier(unittest.TestCase):
         doc = compose_dossier(detalle(evidence=[pieza("hackernews:1"), se]),
                               dossier_llm(), "es", model="m", generated_at=AHORA)
         evidencia = next(s for s in doc.sections if s.id == "evidencia")
-        firmas = [b.signature for b in evidencia.blocks if "stackexchange:2" in b.signature]
+        firmas = [b.signature for b in evidencia.blocks if "https://stackoverflow.com/q/2" in b.signature]
         self.assertTrue(firmas, "la pieza de Stack Exchange no aparece citada")
         self.assertIn("CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)", firmas[0])
         self.assertIn("https://stackoverflow.com/q/2", firmas[0])
@@ -260,7 +262,7 @@ class TestPlan(unittest.TestCase):
             self.assertIn(f"### Paso {n}: objetivo {n}", md)
             self.assertIn(f"pytest tests/test_paso{n}.py", md)
             self.assertIn(f"| Hecho cuando | hecho {n} |", md)
-        self.assertIn("Exportar a CSV [hackernews:1]", md)
+        self.assertIn("Exportar a CSV [E1]", md)
 
     def test_en_ingles(self):
         doc = compose_plan(detalle(), plan_llm(), "en", model="m", generated_at=AHORA)

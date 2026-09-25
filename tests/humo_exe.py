@@ -135,6 +135,10 @@ class Observado:
     pantalla_inicial: str | None = None
     acciones_principales: dict[str, int] = field(default_factory=dict)
     jerga: dict[str, list[str]] = field(default_factory=dict)
+    #: R9 (Fase 3): identificadores de autor visibles en cada pantalla (DID,
+    #: at://, @usuario), con los «Ver detalle» abiertos y el texto ajeno incluido;
+    #: la dirección del original no cuenta (identificadores_visibles).
+    identificadores: dict[str, list[str]] = field(default_factory=dict)
     asistente_paso2: bool = False
 
 
@@ -208,6 +212,9 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
     for pantalla, palabras in obs.jerga.items():
         if palabras:
             fallos.append(f"{pantalla}: jerga visible ({', '.join(palabras)})")
+    for pantalla, ids in obs.identificadores.items():
+        if ids:
+            fallos.append(f"{pantalla}: identificadores de autor visibles, R9 ({', '.join(ids[:3])})")
     if not obs.asistente_paso2:
         fallos.append("asistente: no pasa del tema a las palabras clave")
     if obs.uso_gemini_nuevo:
@@ -480,6 +487,30 @@ TEXTO_PROPIO = """(() => {
 })()"""
 
 
+#: Todo el texto visible de la pantalla con cada «Ver detalle» abierto un
+#: instante (para R9 cuentan también el detalle y el texto ajeno).
+TEXTO_COMPLETO = """(() => {
+  const main = document.querySelector('main');
+  if (!main) return '';
+  const cerrados = [...main.querySelectorAll('details:not([open])')];
+  cerrados.forEach((d) => { d.open = true; });
+  const texto = main.innerText;
+  cerrados.forEach((d) => { d.open = false; });
+  return texto;
+})()"""
+
+
+def identificadores_visibles(texto: str) -> list[str]:
+    """Los identificadores de autor (R9) de un texto visible, sin contar las
+    direcciones del original: la de Bluesky lleva el DID y enlazar sin él no es
+    posible (R5 frente a R9, decisión pendiente de Walter, Fase 3)."""
+    import re
+
+    from core.privacidad import IDENTIFICADOR_DE_AUTOR
+
+    return IDENTIFICADOR_DE_AUTOR.findall(re.sub(r"https?://\S+", "", texto))
+
+
 def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str, *, accion_principal: bool = True) -> None:
     """P1 en la pantalla abierta: qué jerga se ve (innerText no incluye lo que
     hay dentro de un «Ver detalle» cerrado) y, en las pantallas con acción
@@ -491,6 +522,7 @@ def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str, *, accion_principal:
     # Lo que no es texto de SENTRA (citas de la evidencia, nombres de nichos)
     # va marcado con data-ajeno y no cuenta: son datos y se enseñan tal cual.
     obs.jerga[nombre] = palabras_prohibidas(app.js(TEXTO_PROPIO) or "")
+    obs.identificadores[nombre] = identificadores_visibles(app.js(TEXTO_COMPLETO) or "")
 
 
 def recorrer(exe: Path, perfil: Path | None = None) -> Observado:

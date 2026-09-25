@@ -24,7 +24,7 @@ test("con dos modos registrados, el selector se pinta", () => {
 
 const veredicto = {
   id: "v1", runId: "r1", verdict: "INVESTIGAR MÁS" as const, rule: "9: G7 con menciones favorables de menos de 3 autores",
-  score: 16.5, memberCount: 9, keywords: ["facturas"], clusterKey: "k",
+  score: 16.5, memberCount: 9, keywords: ["facturas"],
   problemName: { es: "Tener que reclamar facturas impagadas", en: "Chasing down unpaid overdue invoices" },
   evidence: [{ id: "hackernews:1", source: "hackernews", excerpt: "I spend every Friday chasing clients", createdAt: "2026-09-20T00:00:00Z",
     attribution: { badge: "Hacker News", site: "Ask HN", url: "https://example.com/1", license: null, licenseUrl: null } }],

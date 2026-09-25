@@ -154,7 +154,13 @@ export function VerdictCard({
           {abogado.arguments.map((a, n) => (
             <li key={n} className="text-xs">
               <span className="font-medium">{t.detalle.severity[a.severity]}:</span> {a.claim}
-              <span className="text-ink-faint"> ({a.evidenceIds.join(", ")})</span>
+              {/* Cuántas piezas, no sus ids: el de Bluesky lleva el DID del autor (R9). */}
+              <span className="text-ink-faint">
+                {" "}
+                ({a.evidenceIds.length === 1
+                  ? t.detalle.evidenceCountOne
+                  : t.detalle.evidenceCount.replace("{n}", String(a.evidenceIds.length))})
+              </span>
             </li>
           ))}
         </ul>
