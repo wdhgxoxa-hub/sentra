@@ -80,9 +80,14 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
 ## La compuerta (0 errores, 0 avisos, siempre)
 
 ```bash
-bash scripts/compuerta.sh                                   # cada commit (la ejecuta el hook)
-CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # cada release, con SENTRA cerrada
+CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # ANTES DE CADA COMMIT, con SENTRA cerrada
+bash scripts/compuerta.sh                                   # la que ejecuta el hook de pre-commit
 ```
+
+Regla de Walter (2026-09-24): la compuerta **completa** (`CLIPPY=1 AUDIT=1
+HUMO=1`) en verde antes de cada commit, no solo antes de cada release. El
+hook ejecuta la reducida; la completa se lanza a mano y el commit solo sale
+si su código de salida es 0.
 
 Pasos: ruff, mypy, tests Python (`unittest`), tsc, node (`npm test`),
 cargo test; con banderas: clippy `-D warnings`, pip-audit, cargo-audit y la
