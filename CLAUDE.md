@@ -38,7 +38,7 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Release | `ui/src-tauri/target/release/sentra.exe`; el acceso `Desktop\SENTRA.lnk` apunta ahí |
 | Motor de la release | se desempaqueta en `%LOCALAPPDATA%\com.sentra.desktop\motor\<huella>` (AUD2-003) |
 | Logs de la app | `%LOCALAPPDATA%\com.sentra.desktop\logs\` (`SENTRA.log`, `sidecar.log`) |
-| Migraciones | `sql/migrations/001…016`; `scripts/migrate.py up|status [--dry-run]` |
+| Migraciones | `sql/migrations/001…016`; `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
 | Archivo | repos clonados y scripts antiguos en `F:\archivo_sentra\` |
 | psql | `C:\PostgreSQL\18\bin\psql.exe` (no está en el PATH) |
