@@ -221,10 +221,12 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
   dossier está guardado en `%LOCALAPPDATA%\SENTRA\documentos` (se abre sin gastar).
 - Mastodon: desde e6c5b95 el adaptador guarda la dirección pública del mensaje
   (`https://<instancia>/statuses/<id>`, sin @usuario). Las 223 piezas anteriores
-  siguen con la de la API: su corrección está ensayada (respaldo
-  `pre_mastodon_url.dump`) y espera la aprobación de Walter.
-- Fase 3 preparada (rama `fase3/preparacion`): `docs/fase3/GUIA.md`,
-  `REGISTRO.md` y `TEMAS.md`. Los escaneos los lanza Walter.
+  se corrigieron el 25-09 con aprobación de Walter (respaldo
+  `pre_mastodon_url.dump`; 0 URL con `/api/v1/`; resto de datos con huella
+  idéntica), igual que el dossier guardado y su copia (con `.bak`).
+- Fase 3 lista: `docs/fase3/GUIA.md`, `REGISTRO.md` y `TEMAS.md` (los 4 temas
+  elegidos por Walter, en su orden). Los escaneos los lanza Walter.
+- `llm_usage`: 3 filas (dos dossiers y un `listado_modelos` del 25-09, 12:29).
 
 ## Pendiente (Walter aprueba cada fase)
 
