@@ -17,7 +17,7 @@ from typing import ClassVar
 from core.evidence.model import EvidenceItem
 from core.evidence.search import RRF_K, evidence_hits, fuse_rrf, lexical_ids
 from core.storage.postgres_store import PostgresStore, run_async
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 TEST_DB = "rir_evidence_search_test"
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
@@ -90,8 +90,8 @@ class TestBusquedaEnLaBase(unittest.TestCase):
 
         from scripts.migrate import migrate
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
         migrate(cls.dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
@@ -111,10 +111,7 @@ class TestBusquedaEnLaBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     @classmethod
     def _ejecutar(cls, funcion):

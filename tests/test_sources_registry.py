@@ -19,7 +19,7 @@ from core.sources.registry import (
     source_status,
 )
 from tests._ayudas import presente
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 
 class Publica(SourceAdapter):
@@ -172,18 +172,15 @@ class TestEnPostgres(unittest.TestCase):
 
         from scripts.migrate import migrate
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
         migrate(cls.dsn, Path(__file__).resolve().parents[1] / "sql" / "migrations")
 
     @classmethod
     def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def test_ida_y_vuelta(self):
         from core.sources.registry import PostgresSourcesState

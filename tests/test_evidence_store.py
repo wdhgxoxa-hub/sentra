@@ -16,7 +16,7 @@ from core.evidence.author import author_hash
 from core.evidence.model import Engagement, EvidenceItem
 from core.storage.postgres_store import PostgresStore, run_async
 from tests._ayudas import presente
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 TEST_DB = "rir_evidence_store_test"
 SAL = "2b" * 32
@@ -46,8 +46,8 @@ class TestUpsertEvidence(unittest.TestCase):
 
         from scripts.migrate import migrate
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
         from pathlib import Path
@@ -56,10 +56,7 @@ class TestUpsertEvidence(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def guardar(self, *items, run_id=None):
         async def main():

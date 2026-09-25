@@ -27,7 +27,7 @@ from scripts.migrate import (
     migrate,
     pending_migrations,
 )
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 TEST_DB = "rir_migrations_test"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -172,18 +172,15 @@ class TestApplyingMigrations(unittest.TestCase):
     def setUp(self):
         import psycopg
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         self.addCleanup(self._borrar_base)
         self.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
 
     @staticmethod
     def _borrar_base():
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def _query(self, sql, params=()):
         import psycopg

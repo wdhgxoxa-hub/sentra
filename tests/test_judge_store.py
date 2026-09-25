@@ -24,7 +24,7 @@ from core.judge.store import (
 )
 from core.storage.postgres_store import PostgresStore, run_async
 from tests._ayudas import presente
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 TEST_DB = "rir_judge_store_test"
 AHORA = datetime(2026, 9, 1, tzinfo=UTC)
@@ -61,8 +61,8 @@ class TestPersistenciaDelJuez(unittest.TestCase):
 
         from scripts.migrate import migrate
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
         from pathlib import Path
@@ -71,10 +71,7 @@ class TestPersistenciaDelJuez(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def run_store(self, funcion):
         async def main():

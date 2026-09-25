@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 RAIZ = Path(__file__).resolve().parents[1]
 MIGRACIONES = RAIZ / "sql" / "migrations"
@@ -33,8 +33,8 @@ class BaseHasta014(unittest.TestCase):
 
         self.tmp = Path(tempfile.mkdtemp(prefix="rir_m015_"))
         self.addCleanup(shutil.rmtree, self.tmp, True)
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         self.addCleanup(self._borrar_base)
         self.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
@@ -49,10 +49,7 @@ class BaseHasta014(unittest.TestCase):
 
     @staticmethod
     def _borrar_base():
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def _sql(self, sql, params=None):
         import psycopg

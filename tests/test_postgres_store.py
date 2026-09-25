@@ -15,7 +15,7 @@ cada ejecución, con las migraciones reales.
 import unittest
 
 from core.storage.postgres_store import DEFAULT_TENANT_ID, PostgresStore, run_async
-from tests._postgres import ADMIN_DSN, postgres_available
+from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 
 TEST_DB = "rir_adapter_test"
 
@@ -32,8 +32,8 @@ class TestPostgresIntegration(unittest.TestCase):
 
         import psycopg
 
+        borrar_base_de_prueba(TEST_DB)
         with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
         cls.dsn = ADMIN_DSN.replace("dbname=postgres", f"dbname={TEST_DB}")
 
@@ -44,10 +44,7 @@ class TestPostgresIntegration(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        import psycopg
-
-        with psycopg.connect(ADMIN_DSN, autocommit=True) as conn:
-            conn.execute(f'DROP DATABASE IF EXISTS "{TEST_DB}" WITH (FORCE)')
+        borrar_base_de_prueba(TEST_DB)
 
     def _run(self, coro_factory):
         async def main():
