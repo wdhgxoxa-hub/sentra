@@ -1,6 +1,8 @@
-# Fase 3 · Temas de prueba propuestos (elige Walter)
+# Fase 3 · Temas de prueba (elegidos por Walter el 25-09)
 
-Tu criterio: uno que debería dar DESCARTAR, uno dudoso y dos con posibilidad real. Todos tienen en cuenta las fuentes que hoy funcionan: Hacker News, Stack Exchange, GitHub, YouTube, Bluesky, Mastodon, Discourse y Product Hunt. Pesan mucho las conversaciones de desarrolladores y pequeños negocios en línea; Reddit no está.
+Walter eligió los 4 y los hará **en este orden**: 1) PDF a Word, 2) copias de seguridad de la base en proyectos pequeños, 3) cuadrar cobros de Stripe, PayPal y el banco, 4) clientes de un SaaS pequeño a punto de darse de baja. Los resultados se anotan en `REGISTRO.md` (escaneo 1 = tema 1, y así).
+
+Criterio de la propuesta: uno que debería dar DESCARTAR, uno dudoso y dos con posibilidad real. Todos tienen en cuenta las fuentes que hoy funcionan: Hacker News, Stack Exchange, GitHub, YouTube, Bluesky, Mastodon, Discourse y Product Hunt. Pesan mucho las conversaciones de desarrolladores y pequeños negocios en línea; Reddit no está.
 
 | # | Tema | Qué espero | Por qué |
 |---|---|---|---|
