@@ -139,6 +139,9 @@ class Observado:
     #: at://, @usuario), con los «Ver detalle» abiertos y el texto ajeno incluido;
     #: la dirección del original no cuenta (identificadores_visibles).
     identificadores: dict[str, list[str]] = field(default_factory=dict)
+    #: Fase 3: cuántos px se sale la pantalla por la derecha con cada texto ajeno
+    #: sustituido por uno largo sin espacios (0: todo se parte).
+    desborde: dict[str, int] = field(default_factory=dict)
     asistente_paso2: bool = False
 
 
@@ -212,6 +215,9 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
     for pantalla, palabras in obs.jerga.items():
         if palabras:
             fallos.append(f"{pantalla}: jerga visible ({', '.join(palabras)})")
+    for pantalla, px in obs.desborde.items():
+        if px > 1:
+            fallos.append(f"{pantalla}: un texto largo empuja la pantalla {px} px hacia la derecha; tiene que partirse")
     for pantalla, ids in obs.identificadores.items():
         if ids:
             fallos.append(f"{pantalla}: identificadores de autor visibles, R9 ({', '.join(ids[:3])})")
@@ -500,6 +506,21 @@ TEXTO_COMPLETO = """(() => {
 })()"""
 
 
+#: Cada texto ajeno sustituido un instante por uno largo sin espacios (como la
+#: clave de un grupo de Bluesky): cuántos px se sale algo por la derecha de main.
+DESBORDE_CON_TEXTO_LARGO = """(() => {
+  const main = document.querySelector('main');
+  if (!main) return 0;
+  const ajenos = [...main.querySelectorAll('[data-ajeno]')].filter((e) => e.children.length === 0);
+  const antes = ajenos.map((e) => e.textContent);
+  ajenos.forEach((e) => { e.textContent = 'bluesky:did:plc:' + 'x'.repeat(200); });
+  const borde = main.getBoundingClientRect().right;
+  const px = Math.max(0, ...[...main.querySelectorAll('*')].map((e) => e.getBoundingClientRect().right - borde));
+  ajenos.forEach((e, i) => { e.textContent = antes[i]; });
+  return Math.round(px);
+})()"""
+
+
 def identificadores_visibles(texto: str) -> list[str]:
     """Los identificadores de autor (R9) de un texto visible, sin contar las
     direcciones del original: la de Bluesky lleva el DID y enlazar sin él no es
@@ -523,6 +544,7 @@ def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str, *, accion_principal:
     # va marcado con data-ajeno y no cuenta: son datos y se enseñan tal cual.
     obs.jerga[nombre] = palabras_prohibidas(app.js(TEXTO_PROPIO) or "")
     obs.identificadores[nombre] = identificadores_visibles(app.js(TEXTO_COMPLETO) or "")
+    obs.desborde[nombre] = app.js(DESBORDE_CON_TEXTO_LARGO) or 0
 
 
 def recorrer(exe: Path, perfil: Path | None = None) -> Observado:

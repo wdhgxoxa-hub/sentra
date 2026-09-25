@@ -101,6 +101,13 @@ class TestEvaluar(unittest.TestCase):
         self.assertEqual(identificadores_visibles(url), [])
         self.assertEqual(len(identificadores_visibles("Grupo bluesky:did:plc:abc12 · gracias @ana")), 2)
 
+    def test_un_texto_largo_que_desborda_la_pantalla_es_un_fallo(self):
+        """Fase 3: un texto ajeno largo sin espacios (una dirección, una clave) se
+        parte; si empuja la pantalla hacia la derecha, falla."""
+        fallos = evaluar(observado(desborde={"radar, resultado del último escaneo": 741}), verdad(), ahora=AHORA)
+        self.assertTrue(any("741" in f and "resultado" in f and "derecha" in f for f in fallos), fallos)
+        self.assertFalse(evaluar(observado(desborde={"radar": 0}), verdad(), ahora=AHORA))
+
     def test_el_asistente_que_no_pasa_al_paso_2_es_un_fallo(self):
         fallos = evaluar(observado(asistente_paso2=False), verdad(), ahora=AHORA)
         self.assertTrue(any("asistente" in f for f in fallos), fallos)

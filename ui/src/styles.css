@@ -189,6 +189,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Fase 3: lo ajeno (quejas, nombres de grupos, direcciones) puede traer
+   palabras larguísimas sin espacios; se parten antes que empujar la pantalla
+   hacia la derecha. `anywhere` también encoge el ancho mínimo en flex y tablas. */
+[data-ajeno] {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
 /* Arrastrar la ventana por la cabecera (Tauri sin decoración nativa). */
 .drag-region {
   -webkit-app-region: drag;
