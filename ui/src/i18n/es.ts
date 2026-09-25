@@ -190,17 +190,17 @@ export const es = {
     file: "No se pudo guardar el archivo.",
     ui_crash: "Esta vista falló al pintarse.",
     persist_failed: "Cosecha completa, pero no se pudo guardar en la base de datos.",
-    gemini_not_configured: "No hay clave de Gemini guardada. Se configura en Ajustes.",
-    gemini_key_rejected: "Google rechaza la clave de Gemini. Revísala en Ajustes.",
-    gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Ajustes.",
+    gemini_not_configured: "No hay clave de Gemini guardada. Se configura en Configuración.",
+    gemini_key_rejected: "Google rechaza la clave de Gemini. Revísala en Configuración.",
+    gemini_error: "Gemini rechazó la petición. Revisa la clave y el modelo en Configuración.",
     llm_error: "El motor de IA falló.",
     llm_model_unavailable:
-      "El modelo guardado ya no está disponible para tu clave. Elige otro en Ajustes.",
+      "El modelo guardado ya no está disponible para tu clave. Elige otro en Configuración.",
     llm_truncated:
       "La respuesta del modelo se cortó al llegar a su límite de salida.",
     llm_invalid_json: "El modelo devolvió una respuesta que no cumple el formato pedido, ni al reintentar.",
     llm_budget_exhausted:
-      "Se agotó el presupuesto de tokens del escaneo. Súbelo en Ajustes o escanea menos evidencia.",
+      "Se agotó el presupuesto de tokens del escaneo. Súbelo en Configuración o escanea menos evidencia.",
     gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
     gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
     gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",

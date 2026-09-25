@@ -35,7 +35,38 @@ def literales(fuente: str) -> list[str]:
     return re.findall(r'"((?:[^"\\]|\\.)*)"', fuente)
 
 
+#: Tras «en/a» (o «in/to/under») va una vista o un nombre propio. Los que no son
+#: vistas se declaran aquí; cualquier otro tiene que estar en la barra (`nav`).
+_TRAS_PREPOSICION = {
+    "es": re.compile(r"\b(?:en|a) (?:la (?:sección|vista|pantalla) )?«?([A-ZÁÉÍÓÚ][\wáéíóúñ]+)"),
+    "en": re.compile(r"\b(?:in|to|under) (?:the )?«?([A-Z]\w+)"),
+}
+NO_SON_VISTAS = {
+    "es": {"Google", "PostgreSQL", "Investigar"},  # «baja a Investigar más»: un veredicto
+    "en": {"Google", "PostgreSQL", "Investigate"},
+}
+
+
+def vistas(fuente: str) -> set[str]:
+    """Las palabras de las etiquetas de la barra lateral de ese idioma."""
+    bloque = re.search(r"\n  nav: \{(.*?)\n  \}", fuente, re.DOTALL)
+    assert bloque is not None, "sin bloque nav"
+    return {p.lower() for etiqueta in literales(bloque.group(1)) for p in etiqueta.split()}
+
+
 class TestTextosVigentes(unittest.TestCase):
+    def test_los_avisos_solo_mandan_a_vistas_que_existen(self):
+        """«Revísala en Ajustes» mandaba a una vista que se llama Configuración."""
+        for idioma, patron in _TRAS_PREPOSICION.items():
+            fuente = (I18N / f"{idioma}.ts").read_text("utf-8")
+            existentes = vistas(fuente)
+            inexistentes = sorted({
+                f"{nombre}: {texto[:70]}"
+                for texto in literales(fuente) for nombre in patron.findall(texto)
+                if nombre not in NO_SON_VISTAS[idioma] and nombre.lower() not in existentes
+            })
+            self.assertEqual(inexistentes, [], idioma)
+
     def test_ningun_texto_ofrece_funciones_retiradas(self):
         for idioma in ("es", "en"):
             textos = literales((I18N / f"{idioma}.ts").read_text("utf-8"))
