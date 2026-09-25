@@ -394,26 +394,6 @@ export const en: Dictionary = {
     seeInRadar: "See the verdicts in the Radar",
   },
 
-  documents: {
-    title: "Documents",
-    alreadySaved: "already saved: opens at no cost",
-    kind: {
-      dossier: "Dossier",
-      plan: "Build plan",
-    },
-    format: {
-      pdf: "PDF",
-      md: "Markdown",
-    },
-    forcePlan:
-      "Generate the plan even though the judge says “{verdict}”: it will carry the warning on every page.",
-    generating: "Generating the {kind} with the documents model; it may take a few minutes…",
-    failed: "The document could not be generated.",
-    cancelled: "Export cancelled: nothing was saved.",
-    saved: "Saved to {path}.",
-    calls: "Model calls: {n} (0 = the already generated text was reused).",
-    callsUnknown: "The engine did not say how many model calls it cost.",
-  },
 
   // --- Phase 2: new screens in plain language (P1). Technical wording can
   // only live in `detalle`, shown inside «See details»
