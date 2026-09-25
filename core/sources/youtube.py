@@ -124,10 +124,8 @@ class YouTubeSource(SourceAdapter):
             titulos = {v["id"]["videoId"]: html.unescape(str((v.get("snippet") or {}).get("title") or "")).strip()
                        for v in datos.get("items") or [] if (v.get("id") or {}).get("videoId")}
             for video_id in await self._mas_comentados(list(titulos)):
-                async for comentario in self._comentarios(video_id, titulos[video_id]):
-                    if comentario.id not in vistos:
-                        vistos.add(comentario.id)
-                        yield comentario
+                async for comentario in self._comentarios(video_id, titulos[video_id], vistos):
+                    yield comentario
 
     async def _mas_comentados(self, ids: list[str]) -> list[str]:
         """Los VIDEOS_WITH_COMMENTS vídeos con más comentarios (sin los que no tienen)."""
@@ -139,7 +137,10 @@ class YouTubeSource(SourceAdapter):
         con_comentarios = [i for i in ids if cuenta.get(i, 0) > 0]
         return sorted(con_comentarios, key=lambda i: -cuenta[i])[:VIDEOS_WITH_COMMENTS]
 
-    async def _comentarios(self, video_id: str, titulo: str) -> AsyncIterator[EvidenceItem]:
+    async def _comentarios(self, video_id: str, titulo: str, vistos: set[str]) -> AsyncIterator[EvidenceItem]:
+        """Los comentarios nuevos del vídeo. El repetido (el mismo vídeo sale en
+        varias búsquedas) se descarta antes de construir el ítem, que es lo que
+        cobra el presupuesto: un repetido no gasta ítems."""
         try:
             datos = await self._api("commentThreads", {
                 "part": "snippet", "videoId": video_id, "maxResults": COMMENTS_PER_VIDEO,
@@ -147,8 +148,12 @@ class YouTubeSource(SourceAdapter):
         except (SourceForbidden, SourceNotFound):
             return  # comentarios desactivados o vídeo retirado: se sigue con el resto
         for hilo in datos.get("items") or []:
+            nativo = str(((hilo.get("snippet") or {}).get("topLevelComment") or {}).get("id") or "")
+            if nativo in vistos:
+                continue
             item = self._comentario(hilo, video_id, titulo)
             if item is not None:
+                vistos.add(nativo)
                 yield item
 
     def _comentario(self, hilo: dict[str, Any], video_id: str, titulo: str) -> EvidenceItem | None:

@@ -93,6 +93,21 @@ class TestDeclaracion(unittest.TestCase):
         self.assertEqual(YouTubeSource.retention_days, 30)
 
 
+class TestDuplicadosNoGastan(unittest.IsolatedAsyncioTestCase):
+    async def test_un_comentario_repetido_no_gasta_items(self):
+        # Escaneo 01a0d5d0 (2026-09-24): dos vídeos se releyeron en búsquedas
+        # distintas y sus comentarios repetidos gastaron 81 de los 500 ítems; la
+        # fuente se paró con 419. El cobro va después de quitar el repetido.
+        from core.sources.budget import SourceBudget
+
+        presupuesto = SourceBudget(source="youtube", max_units=2000, max_requests=200, max_items=1)
+        adaptador = fuente(api(), budget=presupuesto)  # cada búsqueda trae el mismo vídeo y comentario
+        consulta = SearchQuery(keywords=["invoice"], phrases=["is there a tool", "i hate"])  # dos búsquedas
+        items = await todos(adaptador.search(consulta))
+        self.assertEqual([i.id for i in items], ["youtube:comInvent01"])
+        self.assertEqual(presupuesto.spent_items, 1)
+
+
 class TestBusqueda(unittest.IsolatedAsyncioTestCase):
     async def test_solo_trae_comentarios_cobrando_unidades(self):
         peticiones: list[httpx.Request] = []
