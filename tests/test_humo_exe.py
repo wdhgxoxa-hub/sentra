@@ -123,6 +123,51 @@ class TestEsperas(unittest.TestCase):
         self.assertGreater(BUSQUEDA_MAX_S, int(encontrado.group(1)))
 
 
+class TestUrlDeLaInterfaz(unittest.TestCase):
+    """La URL se lee cuando WebView2 ya ha navegado (falso rojo del 2026-09-24:
+    el humo leyó `about:blank` nada más conectarse y la app sí cargó)."""
+
+    def _leer(self, *urls: str | None):
+        pendientes = list(urls)
+        return lambda: pendientes.pop(0) if len(pendientes) > 1 else pendientes[0]
+
+    def _reloj(self):
+        ahora = [0.0]
+
+        def dormir(s: float) -> None:
+            ahora[0] += s
+
+        return (lambda: ahora[0]), dormir
+
+    def test_espera_a_que_la_pagina_deje_de_ser_about_blank(self):
+        from tests.humo_exe import url_de_la_interfaz
+
+        reloj, dormir = self._reloj()
+        url = url_de_la_interfaz(self._leer("about:blank", None, "http://tauri.localhost/"),
+                                 limite=10.0, reloj=reloj, dormir=dormir)
+        self.assertEqual(url, "http://tauri.localhost/")
+
+    def test_un_exe_que_se_queda_en_blanco_sigue_siendo_un_fallo(self):
+        from tests.humo_exe import url_de_la_interfaz
+
+        reloj, dormir = self._reloj()
+        url = url_de_la_interfaz(self._leer("about:blank"), limite=10.0, reloj=reloj, dormir=dormir)
+        self.assertEqual(url, "about:blank")
+        self.assertGreaterEqual(reloj(), 10.0)
+        fallos = evaluar(observado(url_interfaz=url), verdad(), ahora=AHORA)
+        self.assertTrue(any("interfaz embebida" in f for f in fallos), fallos)
+
+    def test_el_servidor_de_desarrollo_se_devuelve_sin_esperar(self):
+        # El exe de `cargo build --release` navega a localhost:5173: no hay que
+        # esperar, y evaluar() lo marca.
+        from tests.humo_exe import url_de_la_interfaz
+
+        reloj, dormir = self._reloj()
+        url = url_de_la_interfaz(self._leer("http://localhost:5173/"), limite=10.0,
+                                 reloj=reloj, dormir=dormir)
+        self.assertEqual((url, reloj()), ("http://localhost:5173/", 0.0))
+
+
 class TestLectorCdp(unittest.TestCase):
     def test_un_minuto_sin_mensajes_no_mata_al_lector(self):
         # AUD2-026: con la app en reposo pasaba más de un minuto sin mensajes

@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import urllib.request
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -58,6 +59,10 @@ FIN_MOTOR_MAX_S = 10.0
 BUSQUEDA_MAX_S = 65.0
 #: Orígenes de la interfaz embebida en un exe de Tauri 2 (Windows usa el primero).
 ORIGENES_EMBEBIDOS = ("http://tauri.localhost", "https://tauri.localhost", "tauri://localhost")
+#: WebView2 abre la página en blanco y luego navega: lo que se espera a esa
+#: navegación antes de dar por buena la URL que haya.
+URL_MAX_S = 10.0
+_SIN_NAVEGAR = (None, "", "about:blank")
 #: El perfil de WebView que usa SENTRA de verdad (idioma y tema en su Local Storage).
 PERFIL_REAL = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "com.sentra.desktop" / "EBWebView"
 
@@ -370,10 +375,29 @@ def _cerrar_ventana(pid: int, clase: str) -> bool:
     return bool(hwnd) and bool(ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0))
 
 
+def url_de_la_interfaz(
+    leer: Callable[[], str | None], *, limite: float = URL_MAX_S,
+    reloj: Callable[[], float] = time.monotonic, dormir: Callable[[float], None] = time.sleep,
+) -> str | None:
+    """La URL de la ventana cuando WebView2 ya ha navegado.
+
+    Nada más conectarse por CDP la página puede seguir en `about:blank`: leerla
+    entonces daba un falso «sin interfaz embebida» con la app sana. Se espera a
+    que navegue; si no navega en `limite`, se devuelve la última URL leída y
+    evaluar() la marca como fallo.
+    """
+    fin = reloj() + limite
+    url = leer()
+    while url in _SIN_NAVEGAR and reloj() < fin:
+        dormir(0.25)
+        url = leer()
+    return url
+
+
 def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     obs = Observado()
     app = _Cdp(exe, perfil)
-    obs.url_interfaz = app.js("location.href")
+    obs.url_interfaz = url_de_la_interfaz(lambda: app.js("location.href"))
     if app.esperar("[...document.querySelectorAll('nav [title]')].some(d => /^(Motor|Engine)/.test(d.innerText.trim()) "
                    "&& /(activo|up)$/.test(d.innerText.replace(/\\s+/g, ' ').trim()))", ARRANQUE_MAX_S + 5):
         obs.motor_activo_s = round(time.time() - app.t0, 1)
