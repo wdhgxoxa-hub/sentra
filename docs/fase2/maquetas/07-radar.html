@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Radar</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="on" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Radar</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<div class="row between"><div><h1>Radar</h1><p class="lead">Los nichos del último escaneo que formó alguno: primero CONSTRUIR, luego INVESTIGAR MÁS.</p></div>
+<a class="btn primary" href="01-nuevo-escaneo.html">+ Nuevo escaneo</a></div>
+<div class="notice info" style="margin-bottom:16px"><span class="ico">i</span><div><b>Tu último escaneo (24-09 18:47) no formó nichos</b>Te seguimos mostrando los del escaneo del 24-09 17:56. <a href="06-resultado-cero-nichos.html">Ver por qué y qué hacer</a></div></div>
+<div class="stack">
+  <div class="card">
+    <div class="niche"><div class="rank">1</div>
+      <div><h2>Tener que reclamar facturas impagadas</h2>
+        <p class="muted" style="margin:0">Chasing down unpaid overdue invoices</p>
+        <div class="meta"><span><b>9</b> personas</span><span>puntuación <b>16,5</b></span><span>escaneo del <b>24-09 17:56</b></span><span class="pill warn">INVESTIGAR MÁS</span></div>
+      </div>
+      <div class="acts"><a class="btn" href="08-nicho.html">Dossier <span class="pill ok">guardado</span></a><a class="btn" href="08-nicho.html">Plan</a></div>
+    </div>
+  </div>
+  <details class="card tight"><summary style="cursor:pointer" class="muted">3 grupos descartados en ese escaneo ▸</summary><p class="faint">Misma tabla que en el resultado del escaneo.</p></details>
+</div>
+<details class="card" style="margin-top:16px"><summary class="row between" style="cursor:pointer"><b>Evidencia reciente sin filtrar</b><span class="faint">2 221 piezas · aún no filtradas por el juez</span></summary>
+  <table class="table" style="margin-top:10px"><tr><th>Texto</th><th>Fuente</th><th>Fecha</th></tr>
+  <tr><td>Watching from Wendover Ontario, Canada.</td><td>YouTube · <a href="#">abrir</a></td><td>24-09</td></tr>
+  <tr><td>Kicked out 109 times FOR NO REASON</td><td>YouTube · <a href="#">abrir</a></td><td>24-09</td></tr></table>
+</details>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Datos reales: hoy el exe dice «ningún nicho» porque la última ejecución juzgada (24-09 18:47) salió vacía y oculta la de 17:56, que tenía el nicho de impagos. Regla nueva: el Radar muestra el último escaneo CON nichos; uno vacío solo añade el aviso azul. «guardado» = se abre sin gastar.</div>
+</body></html>

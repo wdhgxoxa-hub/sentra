@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Escaneo en curso</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary on" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Nuevo escaneo · en curso</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<div class="row between"><div><h1>Escuchando «Facturas impagadas»</h1><p class="lead">Puedes cambiar de pantalla: el escaneo sigue y te avisamos al terminar.</p></div>
+<button class="btn">Cancelar escaneo</button></div>
+<div class="phases">
+  <div class="phase on"><b>1 · Buscar</b>5 de 8 fuentes listas</div>
+  <div class="phase"><b>2 · Limpiar</b>quitar repetidos y ruido</div>
+  <div class="phase"><b>3 · Juez</b>Gemini lee y agrupa</div>
+  <div class="phase"><b>4 · Resultado</b>nichos y qué hacer</div>
+</div>
+<div class="card">
+  <div class="row between" style="margin-bottom:6px"><h2>Fuentes</h2><span class="faint">412 comentarios encontrados hasta ahora</span></div>
+  <div class="meter" style="margin-bottom:10px"><i style="width:62%"></i></div>
+  <div class='src'><span class='dot '></span><span class='name'>Hacker News</span><span class='what'>Listo</span><span class='n'>96</span></div>
+  <div class='src'><span class='dot '></span><span class='name'>Stack Exchange</span><span class='what'>Listo</span><span class='n'>41</span></div>
+  <div class='src'><span class='dot '></span><span class='name'>GitHub</span><span class='what'>Listo</span><span class='n'>23</span></div>
+  <div class='src'><span class='dot run'></span><span class='name'>YouTube</span><span class='what'>Leyendo comentarios de vídeos…</span><span class='n'>188</span></div>
+  <div class='src'><span class='dot run'></span><span class='name'>Bluesky</span><span class='what'>Buscando publicaciones…</span><span class='n'>37</span></div>
+  <div class='src'><span class='dot warn'></span><span class='name'>Mastodon</span><span class='what'>Nos pidió esperar; seguimos con lo que ya trajo</span><span class='n'>27</span></div>
+  <div class='src'><span class='dot bad'></span><span class='name'>Discourse</span><span class='what'>No respondió. Las demás siguen; puedes probarla luego en Fuentes</span><span class='n'>0</span></div>
+  <div class='src'><span class='dot '></span><span class='name'>Hacker News Algolia</span><span class='what'>Listo</span><span class='n'>0</span></div>
+  <div class='src'><span class='dot off'></span><span class='name'>Reddit</span><span class='what'>No se usa: pendiente de aprobación</span><span class='n'>—</span></div>
+  <div class='src'><span class='dot off'></span><span class='name'>X</span><span class='what'>No se usa: apagada</span><span class='n'>—</span></div>
+</div>
+<p class="faint" style="margin-top:12px">Gemini en este escaneo: 0 de ≈ 6 llamadas (empieza en el paso 3).</p>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Cada código técnico (source_rate_limited, source_unavailable, source_pending_approval…) se traduce a una frase y a un color con una función pura probada. El número es lo traído por esa fuente.</div>
+</body></html>

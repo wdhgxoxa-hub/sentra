@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Nicho</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="on" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Radar › Tener que reclamar facturas impagadas</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<span class="pill warn">INVESTIGAR MÁS · pasa las compuertas, con una señal sin resolver</span>
+<h1 style="margin-top:8px">Tener que reclamar facturas impagadas</h1>
+<p class="lead">Chasing down unpaid overdue invoices · escaneo del 24-09 17:56 · 9 personas distintas · puntuación 16,5</p>
+<div class="grid2">
+  <div class="card stack accent">
+    <div class="row between"><h2>Dossier</h2><span class="pill ok">guardado · sin coste</span></div>
+    <p class="muted" style="margin:0">Quién sufre el problema, con sus palabras, y la evidencia que lo respalda con enlace a cada fuente.</p>
+    <div class="row"><button class="btn primary">Abrir</button><button class="btn">Exportar .md</button><button class="btn">Exportar .pdf</button></div>
+    <p class="faint">Guardado el 25-09 en %LOCALAPPDATA%\SENTRA\documentos</p>
+  </div>
+  <div class="card stack">
+    <div class="row between"><h2>Plan de construcción</h2><span class="pill">sin generar</span></div>
+    <p class="muted" style="margin:0">Qué construir primero, para quién y cómo validarlo antes de programar.</p>
+    <div class="row"><button class="btn primary">Generar · 1 llamada (≈ 5 000 tokens)</button></div>
+    <p class="faint">Hoy te quedan 38 llamadas. Una vez generado, se guarda y se abre gratis.</p>
+  </div>
+</div>
+<div class="card stack" style="margin-top:14px">
+  <h2>Por qué INVESTIGAR MÁS y no CONSTRUIR</h2>
+  <p class="muted" style="margin:0">Pasa las compuertas, pero alguien dice que ya usa una alternativa que le funciona y son menos de 3 personas (regla 9). Con tan pocas menciones no se sabe si el problema ya está resuelto, y un falso CONSTRUIR es el peor error.</p>
+  <table class="table"><tr><th>Compuerta</th><th>Qué comprueba</th><th>Valor</th></tr>
+  <tr><td>Personas distintas</td><td>al menos 5</td><td><span class="pill ok">9</span></td></tr>
+  <tr><td>Alternativas que ya funcionan</td><td>3 o más personas las recomiendan</td><td><span class="pill warn">sin datos suficientes</span></td></tr>
+  <tr><td>Resto de compuertas</td><td>dolor verificado, reciente, datos reales…</td><td><span class="pill ok">pasan</span></td></tr></table>
+</div>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Datos reales del veredicto (9 miembros, puntuación 16,5, regla 9, abogado del diablo «no aplica»). Dossier y plan siempre visibles con su estado y su coste escrito ANTES de pulsar; el estado sale de un endpoint que solo mira el almacén (no llama a Gemini).</div>
+</body></html>

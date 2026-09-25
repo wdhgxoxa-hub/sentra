@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Configuración</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="on" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Configuración</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<h1>Configuración</h1><p class="lead">Idioma, apariencia, la clave de Gemini y cuánto puede gastar.</p>
+<div class="tabs"><a class="on" href="#">Gemini y presupuesto</a><a href="#">Apariencia</a><a href="#">Datos y documentos</a></div>
+<div class="grid2">
+  <div class="card stack">
+    <div class="row between"><h2>Clave de Gemini</h2><span class="pill ok">configurada · …ge2g</span></div>
+    <label class="f">Clave de API<span class="row"><input class="input" type="password" value="xxxxxxxxxxxx" style="flex:1"><button class="btn">Mostrar</button></span></label>
+    <label class="f">Modelo para documentos<select class="input"><option>Automático (gemini-3.1-pro-preview)</option></select><span class="hint">Escribe el dossier y el plan.</span></label>
+    <label class="f">Modelo general<select class="input"><option>Automático (gemini-3.8-flash)</option></select><span class="hint">Etiqueta la evidencia para el juez.</span></label>
+    <div class="row"><button class="btn primary">Guardar</button><button class="btn">Probar clave</button></div>
+  </div>
+  <div class="card stack">
+    <h2>Presupuesto</h2>
+    <p class="faint" style="margin:0">El motor corta antes de pasarse. El día es el de Lima.</p>
+    <div class="stack" style="gap:6px"><div class="row between"><span>Hoy: 2 de 40 llamadas</span><span class="faint">9 798 de 1 000 000 tokens</span></div><div class="meter"><i style="width:5%"></i></div></div>
+    <div class="grid2"><label class="f">Llamadas por escaneo<input class="input" value="20"></label><label class="f">Tokens por escaneo<input class="input" value="500 000"></label>
+    <label class="f">Llamadas por día<input class="input" value="40"></label><label class="f">Tokens por día<input class="input" value="1 000 000"></label></div>
+    <div class="row"><button class="btn primary">Guardar topes</button></div>
+    <details><summary class="faint" style="cursor:pointer">Últimas llamadas (2)</summary>
+    <table class="table"><tr><th>Cuándo</th><th>Para qué</th><th>Tokens</th><th>Estado</th></tr>
+    <tr><td>25-09</td><td>Dossier (id 27)</td><td>4 789</td><td><span class="pill ok">ok</span></td></tr>
+    <tr><td>25-09</td><td>Dossier (id 26)</td><td>5 009</td><td><span class="pill ok">ok</span></td></tr></table></details>
+  </div>
+</div>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Mismas funciones que hoy (idioma, tema, clave, modelos, topes) en pestañas, con el consumo del día arriba y las últimas filas de llm_usage visibles.</div>
+</body></html>

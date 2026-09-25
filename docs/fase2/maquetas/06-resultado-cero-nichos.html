@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Resultado · 0 nichos</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary on" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Nuevo escaneo · resultado</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<div class="notice warn" style="margin-bottom:18px"><span class="ico">!</span><div><b>Esta vez no hay nicho</b>No es un error: el juez solo forma un nicho cuando varias personas distintas se quejan del mismo problema.</div></div>
+<div class="grid3">
+  <div class="card tight"><div class="faint">Comentarios leídos</div><div class="big-num">96</div></div>
+  <div class="card tight"><div class="faint">Con un dolor real</div><div class="big-num">7</div></div>
+  <div class="card tight"><div class="faint">Personas distintas necesarias</div><div class="big-num">≥ 5</div><div class="faint">el grupo mayor tenía 3</div></div>
+</div>
+<div class="card stack" style="margin-top:14px">
+  <h2>Qué hacer ahora</h2>
+  <ol style="margin:0;padding-left:18px;display:grid;gap:8px">
+    <li><b>Añade palabras clave en inglés.</b> Solo había 2, y todas en español: ahí está casi toda la conversación. <a href="02-palabras-clave.html">Ampliar palabras clave</a></li>
+    <li><b>Prueba a describir el problema, no el producto.</b> «clientes que pagan tarde» encuentra más quejas que «software de cobros».</li>
+    <li><b>Tu Radar no cambia.</b> Sigue mostrando el nicho del 24-09. <a href="07-radar.html">Ir al Radar</a></li>
+  </ol>
+  <div class="row"><a class="btn primary" href="02-palabras-clave.html">Ajustar y volver a escanear</a></div>
+</div>
+<div class="card tight" style="margin-top:14px">
+  <div class="faint" style="margin-bottom:8px">Otros finales posibles, cada uno con su siguiente paso (ejemplos):</div>
+  <div class="stack" style="gap:8px">
+    <div class="notice info"><span class="ico">i</span><div><b>Las fuentes no trajeron nada</b>Ninguna fuente encontró comentarios con estas palabras. Prueba sinónimos más comunes o amplía la antigüedad a 1 año.</div></div>
+    <div class="notice bad"><span class="ico">■</span><div><b>Se paró por el tope de Gemini</b>Se usaron las 20 llamadas de este escaneo; la evidencia está guardada. Sube el tope en Configuración o vuelve a juzgar mañana.</div></div>
+    <div class="notice info"><span class="ico">i</span><div><b>Cancelaste el escaneo</b>Se guardó lo traído hasta ese momento (140 comentarios); no se juzgó.</div></div>
+  </div>
+</div>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Caso «0 nichos»: los motivos salen de judge_summary (items, pain, min_authors, clusters) y de stop_reason; cada motivo tiene su frase y su siguiente paso. El Radar no se toca.</div>
+</body></html>

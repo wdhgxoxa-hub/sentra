@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Nuevo escaneo · 3 Presupuesto</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary on" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Nuevo escaneo · paso 3 de 3</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<h1>Revisa y escanea</h1>
+<p class="lead">Nada se gasta hasta que pulses «Escanear». Si algo no te cuadra, vuelve atrás.</p>
+<ol class='steps'><li class='done'>Tema</li><li class='done'>Palabras clave</li><li class='on'>Presupuesto y escanear</li></ol>
+<div class="grid2">
+  <div class="card stack">
+    <h2>Qué se va a buscar</h2>
+    <dl class="kv">
+      <dt>Tema</dt><dd>Facturas que los clientes no pagan</dd>
+      <dt>Palabras clave</dt><dd>11 (5 ES · 6 EN)</dd>
+      <dt>Antigüedad</dt><dd>hasta 1 año</dd>
+      <dt>Fuentes</dt><dd>8 activas</dd>
+      <dt>Nombre para el historial</dt><dd><input class="input" style="height:30px;width:220px" value="Facturas impagadas"></dd>
+    </dl>
+    <p class="faint">Reddit y X están apagadas y no se usan. <a href="09-fuentes.html">Cambiar fuentes</a></p>
+  </div>
+  <div class="card stack accent">
+    <h2>Coste en Gemini (estimado)</h2>
+    <div class="row"><span class="big-num">≈ 6</span><span class="muted">llamadas · ≈ 48 000 tokens</span></div>
+    <div class="stack" style="gap:6px">
+      <div class="row between faint"><span>Hoy llevas 2 de 40 llamadas</span><span>quedarían 32</span></div>
+      <div class="meter"><i style="width:20%"></i></div>
+      <div class="row between faint"><span>Tokens hoy: 9 798 de 1 000 000</span><span>quedarían 942 202</span></div>
+      <div class="meter"><i style="width:6%"></i></div>
+    </div>
+    <p class="faint">Estimación basada en tus escaneos anteriores. El motor corta solo al llegar a un tope (20 llamadas por escaneo).</p>
+  </div>
+</div>
+<div class="row between" style="margin-top:16px">
+  <a class="btn" href="02-palabras-clave.html">← Palabras clave</a>
+  <a class="btn primary big" href="04-escaneo-en-curso.html">▶ Escanear · ≈ 6 llamadas</a>
+</div>
+<div class="card tight" style="margin-top:16px">
+  <div class="faint" style="margin-bottom:8px">Si no queda presupuesto hoy, el botón no aparece y se dice por qué (ejemplo):</div>
+  <div class="notice bad"><span class="ico">■</span><div><b>Hoy no queda presupuesto de Gemini</b>Llevas 40 de 40 llamadas. Se renueva a las 00:00 (hora de Lima) o puedes subir el tope en <a href="10-configuracion.html">Configuración › Presupuesto</a>.</div></div>
+</div>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Reutiliza /api/scan/estimate y la confirmación obligatoria de la Fase 1 (B4): mismo contrato, mejor presentación. El botón lleva el coste escrito.</div>
+</body></html>

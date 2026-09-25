@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Resultado · con nichos</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary on" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Nuevo escaneo · resultado</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<div class="notice info" style="margin-bottom:18px"><span class="ico">i</span><div><b>1 nicho prometedor, ninguno para CONSTRUIR todavía</b>El juez formó 4 grupos: 1 merece investigarse y 3 se descartan.</div></div>
+<div class="card stack accent">
+  <div class="niche"><div class="rank">1</div>
+    <div><h2>Tener que reclamar facturas impagadas</h2>
+      <p class="muted" style="margin:0">Chasing down unpaid overdue invoices</p>
+      <div class="meta"><span><b>9</b> personas distintas</span><span>puntuación <b>16,5</b></span><span class="pill warn">INVESTIGAR MÁS</span></div>
+      <p class="muted" style="margin:10px 0 0"><b>Qué le falta para CONSTRUIR:</b> alguien dice que ya usa una alternativa que le funciona, pero son menos de 3 personas. Falta saber si el problema ya está resuelto para la mayoría.</p>
+    </div>
+    <div class="acts"><a class="btn" href="08-nicho.html">Ver nicho</a></div>
+  </div>
+</div>
+<div class="card stack" style="margin-top:14px">
+  <h2>Qué hacer ahora</h2>
+  <ol style="margin:0;padding-left:18px;display:grid;gap:6px">
+    <li><b>Lee el dossier</b>: quién sufre, con qué palabras y con qué evidencia. <span class="faint">Ya está guardado: se abre sin gastar.</span></li>
+    <li><b>Busca las alternativas que se nombran</b> en el dossier: si nadie más las recomienda, el nicho sigue abierto.</li>
+    <li><b>Vuelve a escanear con palabras sobre alternativas</b> («invoice reminder app», «alternativa a…») para que el juez lo resuelva. <a href="02-palabras-clave.html">Ajustar palabras clave</a></li>
+  </ol>
+  <div class="row"><a class="btn primary" href="08-nicho.html">Abrir el dossier</a><a class="btn" href="07-radar.html">Ir al Radar</a></div>
+</div>
+<details class="card" style="margin-top:14px"><summary style="cursor:pointer"><b>3 grupos descartados</b> <span class="faint">· por qué no son nicho</span></summary>
+<table class="table" style="margin-top:8px"><tr><th>Grupo</th><th>Personas</th><th>Motivo en lenguaje llano</th></tr>
+<tr><td>Dificultad para conseguir clientes nuevos</td><td>4</td><td>(motivo de su regla, en una frase)</td></tr>
+<tr><td>adelantar, iva</td><td>5</td><td>(motivo de su regla, en una frase)</td></tr>
+<tr><td>sits</td><td>3</td><td>(motivo de su regla, en una frase)</td></tr></table>
+<p class="faint">Grupos y personas reales del 24-09 17:56; el motivo saldrá de la regla de cada veredicto.</p></details>
+<p class="faint" style="margin-top:12px">Detalle técnico del juez ▸</p>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Datos reales del escaneo del 24-09 17:56 (impagos: INVESTIGAR MÁS, 9 personas, puntuación 16,5, regla 9). El resultado siempre termina con «Qué hacer ahora», generado por una función pura desde los veredictos y judge_summary.</div>
+</body></html>

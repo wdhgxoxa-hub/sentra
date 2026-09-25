@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SENTRA · Fuentes</title><link rel="stylesheet" href="maqueta.css"></head>
+<body><div class="app">
+<aside class="side">
+  <div class="brand"><i></i>SENTRA</div>
+  <nav class="nav"><a class="primary" href="01-nuevo-escaneo.html">Nuevo escaneo</a><div class="sep"></div><a class="" href="07-radar.html">Radar</a><a class="" href="11-busqueda.html">Búsqueda</a><a class="on" href="09-fuentes.html">Fuentes</a><a class="" href="10-configuracion.html">Configuración</a></nav>
+  <div class="foot">
+    <span><span class="dot"></span>8 de 10 fuentes listas</span>
+    <span><span class="dot"></span>Base de datos · Motor</span>
+    <span>Gemini hoy: 2 de 40 llamadas</span>
+  </div>
+</aside>
+<main>
+  <div class="top"><span class="crumb">Fuentes</span>
+    <span class="row"><a class="faint" href="index.html">← índice de maquetas</a>
+    <button class="btn ghost theme-toggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'':'light'">Claro / oscuro</button></span></div>
+  <div class="wrap">
+
+<div class="row between"><div><h1>Fuentes</h1><p class="lead">De dónde sale la evidencia. Solo APIs oficiales; «lista» significa que respondió de verdad en la última prueba.</p></div>
+<span class="row"><label class="row faint"><span class="switch"></span>Modo comercial</label><button class="btn">Probar todas</button></span></div>
+<div class="card" style="padding:6px 8px">
+<table class="table"><tr><th>Fuente</th><th>Estado</th><th>Última respuesta</th><th>Activa</th><th></th></tr>
+<tr><td><span class='dot '></span><b>Hacker News</b></td><td class='muted'>Lista · gratis, sin cuenta</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>Stack Exchange</b> <span class='pill warn'>uso personal</span></td><td class='muted'>Lista · con clave (más cuota)</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>GitHub</b></td><td class='muted'>Lista · con token</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>YouTube</b></td><td class='muted'>Lista · cuota 10 000/día</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>Bluesky</b></td><td class='muted'>Lista · cuenta conectada</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>Mastodon</b> <span class='pill warn'>uso personal</span></td><td class='muted'>Lista · cuenta conectada</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>Discourse</b> <span class='pill warn'>uso personal</span></td><td class='muted'>Lista · 3 foros</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot '></span><b>HN Algolia</b></td><td class='muted'>Lista · gratis</td><td class='faint'>24-09 18:49</td><td><span class='switch on'></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot warn'></span><b>Reddit</b></td><td class='muted'>Esperando aprobación de Reddit: aún no se usa</td><td class='faint'>nunca</td><td><span class='switch '></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+<tr><td><span class='dot off'></span><b>X</b></td><td class='muted'>Apagada · de pago, falta token</td><td class='faint'>nunca</td><td><span class='switch '></span></td><td><button class='btn ghost'>Detalles</button></td></tr>
+</table></div>
+<div class="card stack" style="margin-top:14px">
+  <div class="row between"><h2>YouTube · detalles</h2><button class="btn ghost">Cerrar</button></div>
+  <dl class="kv"><dt>Coste</dt><dd>10 000 unidades/día · búsqueda 100 · comentarios 1</dd><dt>Términos</dt><dd><a href="#">developers.google.com/youtube/terms</a></dd><dt>Datos</dt><dd>se borran a los 30 días</dd></dl>
+  <label class="f">api_key <span class="hint">guardada · el valor se envía una vez y no vuelve a mostrarse</span><input class="input" placeholder="pegar una clave nueva para sustituirla"></label>
+  <div class="row"><button class="btn">Guardar</button><button class="btn">Probar</button></div>
+</div>
+
+  </div>
+</main></div>
+<div class="nota-maqueta"><b>Maqueta estática · datos de ejemplo</b>Hoy Fuentes mide 4 075 px: 10 tarjetas con credenciales abiertas + el formulario de escaneo + el juez. Propuesta: tabla de una línea por fuente y un panel de detalles al pulsar; el escaneo y el juez salen de aquí.</div>
+</body></html>
