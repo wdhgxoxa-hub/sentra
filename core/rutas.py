@@ -61,6 +61,12 @@ def ruta_pgpass() -> Path:
     return carpeta_local() / "pgpass.conf"
 
 
+def ruta_documentos() -> Path:
+    """Dossiers y planes ya generados (core/documents/almacen.py): cada uno costó
+    una llamada a Gemini y se vuelve a exportar desde aquí sin repetirla."""
+    return carpeta_local() / "documentos"
+
+
 def ruta_cache_modelos_gemini() -> Path:
     """Lista de modelos de Gemini entre arranques (AUD2-019). RIR_CACHE_MODELOS
     la cambia: la prueba de humo sirve así una caché fresca y no llama a Google."""

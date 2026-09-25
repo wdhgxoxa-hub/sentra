@@ -2,8 +2,9 @@
 
 Carga el veredicto con toda su evidencia, pide el texto al modelo de
 documentos (D-C1), lo compone y lo pinta en PDF o Markdown. Lo generado se
-guarda en memoria por (veredicto, documento, idioma, modelo, forzado):
-exportar el otro formato no vuelve a llamar al modelo. El plan de un nicho
+guarda por (veredicto, documento, idioma, modelo, forzado) en memoria y en
+disco antes de responder (core/documents/almacen.py): exportar otra vez, en
+otro formato o tras cerrar la app, no vuelve a llamar al modelo. El plan de un nicho
 que no es CONSTRUIR se rechaza antes de gastar ninguna llamada, salvo que se
 fuerce (y entonces lleva la franja).
 """
@@ -20,6 +21,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from core.documents.almacen import AlmacenDeDocumentos
 from core.documents.compose import PlanNotRecommended, compose_dossier, compose_plan
 from core.documents.generate import generate_document
 from core.documents.model import DocumentModel
@@ -98,8 +100,10 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
         raise HTTPException(status_code=estado, detail={"code": exc.code, "detail": str(exc)}) from None
 
     clave = (peticion.verdictId, kind, peticion.language, modelo, peticion.force)
-    guardado = ctx.documentos.get(clave)
+    almacen = AlmacenDeDocumentos(ctx.carpeta_documentos) if ctx.carpeta_documentos else None
+    guardado = ctx.documentos.get(clave) or (almacen.leer(clave) if almacen else None)
     if guardado is not None:
+        ctx.documentos[clave] = guardado
         return guardado, 0
     try:
         generado = generate_document(proveedor, modelo, kind, detalle, peticion.language)
@@ -115,6 +119,10 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
     else:
         documento = compose_plan(detalle, generado.content, peticion.language, model=modelo,
                                  generated_at=ahora, forced=peticion.force)
+    # En disco antes de responder, que es antes de que Rust abra el diálogo de
+    # guardar: cancelarlo o cerrar la app ya no pierde lo que costó la llamada.
+    if almacen is not None:
+        almacen.guardar(clave, documento)
     ctx.documentos[clave] = documento
     return documento, generado.calls
 

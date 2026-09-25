@@ -47,7 +47,7 @@ from fastapi.routing import APIRoute
 
 from core.envfile import EnvValueInvalid
 from core.llm.control import RegistroDeUso, RegistroEnMemoria, RegistroPostgres
-from core.rutas import ruta_cache_modelos_gemini
+from core.rutas import ruta_cache_modelos_gemini, ruta_documentos
 from core.sources.registry import (
     InMemorySourcesState,
     PostgresSourcesState,
@@ -129,6 +129,7 @@ def create_app(
     env_path: str | None = None,
     insecure_dev: bool = False,
     cache_modelos: Path | None = None,
+    carpeta_documentos: Path | None = None,
 ) -> FastAPI:
     """
     Construye la aplicación.
@@ -161,6 +162,7 @@ def create_app(
         registro_de_uso=_registro_de_uso(persist_default, postgres_dsn),
         evidence_vectors=_vectores_de_evidencia() if persist_default else None,
         cache_modelos=cache_modelos,
+        carpeta_documentos=carpeta_documentos,
     )
 
     def require_token(authorization: str | None = Header(default=None)) -> None:
@@ -266,7 +268,8 @@ def run(
         )
 
     uvicorn.run(
-        create_app(token=token, insecure_dev=insecure_dev, cache_modelos=ruta_cache_modelos_gemini()),
+        create_app(token=token, insecure_dev=insecure_dev, cache_modelos=ruta_cache_modelos_gemini(),
+                   carpeta_documentos=ruta_documentos()),
         host=host,
         port=port,
         log_level="info",

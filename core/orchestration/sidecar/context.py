@@ -81,6 +81,9 @@ class SidecarContext:
     # estimado, momento). De un solo uso; las usadas se recuerdan para decirlo.
     confirmaciones: dict[str, tuple[str, float]] = field(default_factory=dict)
     confirmaciones_usadas: set[str] = field(default_factory=set)
+    # Documentos generados, en disco (core/documents/almacen.py): uno generado con
+    # Gemini no se pierde aunque se cierre la app. None = solo en memoria (tests).
+    carpeta_documentos: Path | None = None
 
     def control(self, run_id: str | None = None, *, escaneo: bool = False) -> ControlDeGemini:
         """El punto de control de Gemini de este motor, cargado a `run_id`;
