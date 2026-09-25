@@ -1,5 +1,9 @@
-import { Pasos, BotonSecundario } from "@/components/comunes/Comunes";
+import { useEffect } from "react";
+
+import { Aviso, BotonSecundario, Pasos } from "@/components/comunes/Comunes";
+import type { AccionDePaso } from "@/lib/siguientePaso";
 import { modoPorId } from "@/modos/registro";
+import type { NichoEnPantalla } from "@/modos/tipos";
 import { useAsistenteStore } from "@/stores/asistenteStore";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
@@ -9,6 +13,7 @@ import { EscaneoEnCurso } from "./nuevo/EscaneoEnCurso";
 import { PasoPalabras } from "./nuevo/PasoPalabras";
 import { PasoRevisar } from "./nuevo/PasoRevisar";
 import { PasoTema } from "./nuevo/PasoTema";
+import { ResultadoDeUnEscaneo } from "./nuevo/ResultadoDeUnEscaneo";
 
 /**
  * «Nuevo escaneo» (Fase 2): la pantalla principal. Un asistente de tres
@@ -23,20 +28,48 @@ export function NuevoEscaneo() {
   const scan = useMultiscanStore((s) => s.scan);
   const resetEscaneo = useMultiscanStore((s) => s.reset);
 
+  const setView = useUiStore((s) => s.setView);
+  const abrirNicho = useUiStore((s) => s.abrirNicho);
+  const resultadoSinVer = a.resultadoSinVer;
+  const fijar = a.set;
+  // D3: al verlo aquí, la marca de la barra lateral se quita.
+  useEffect(() => {
+    if (resultadoSinVer) fijar({ resultadoSinVer: false });
+  }, [resultadoSinVer, fijar]);
+
+  const otroEscaneo = () => {
+    resetEscaneo();
+    a.reiniciar();
+  };
+  const alPulsar = (accion: AccionDePaso, nicho?: NichoEnPantalla) => {
+    if (accion === "ajustar_palabras") {
+      resetEscaneo();
+      a.set({ paso: a.sinTema ? 1 : 2 });
+    } else if (accion === "abrir_nicho" && nicho) abrirNicho(nicho.id);
+    else if (accion === "abrir_radar") setView("radar");
+    else if (accion === "abrir_configuracion") setView("settings");
+  };
+
   if (scan.status === "running" || scan.status === "done") {
+    const guardado = scan.final?.persisted && scan.runId;
     return (
       <div className="mx-auto flex max-w-[1080px] flex-col gap-6" data-pantalla="escaneo">
         <EscaneoEnCurso
           alTerminar={
-            <div className="flex justify-end">
-              <BotonSecundario
-                onClick={() => {
-                  resetEscaneo();
-                  a.reiniciar();
-                }}
-              >
-                {t.resultado.otroEscaneo}
-              </BotonSecundario>
+            <div className="flex flex-col gap-5">
+              {guardado ? (
+                <ResultadoDeUnEscaneo
+                  runId={scan.runId as string}
+                  cancelado={scan.final?.cancelled ?? false}
+                  modo={modo}
+                  onAccion={alPulsar}
+                />
+              ) : (
+                <Aviso tono="mal" titulo={t.resultado.noGuardado} />
+              )}
+              <div className="flex justify-end">
+                <BotonSecundario onClick={otroEscaneo}>{t.resultado.otroEscaneo}</BotonSecundario>
+              </div>
             </div>
           }
         />

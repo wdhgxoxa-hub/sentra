@@ -623,6 +623,7 @@ export const es = {
       abrir_configuracion: "Ir a Configuración",
     },
     otroEscaneo: "Empezar otro escaneo",
+    noGuardado: "Este escaneo no se pudo guardar, así que no hay resultado que enseñar.",
     descartados: "{n} grupos descartados",
     descartadosExplica: "Por qué no son nicho",
   },

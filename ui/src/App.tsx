@@ -4,7 +4,9 @@ import { DatabaseStatusScreen } from "@/components/DatabaseStatusScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/Sidebar";
 import { onSidecarEvent, onSourcesEvent } from "@/lib/ipc";
+import { marcaTrasEvento } from "@/lib/resultado";
 import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
+import { useAsistenteStore } from "@/stores/asistenteStore";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -52,6 +54,11 @@ export default function App() {
   useEffect(() => {
     const unlisten = onSourcesEvent((evento) => {
       applyMultiscan(evento);
+      // D3: si termina mientras se mira otra pantalla, «Nuevo escaneo» lleva una marca.
+      const persistido = evento.type === "scan:done" ? evento.persisted : undefined;
+      if (marcaTrasEvento({ type: evento.type, persisted: persistido }, useUiStore.getState().view)) {
+        useAsistenteStore.getState().set({ resultadoSinVer: true });
+      }
       // Veredictos nuevos: el Top del juez hay que volver a leerlo.
       if (evento.type === "judge:done") {
         void queryClient.invalidateQueries({ queryKey: ["radar", "judge"] });

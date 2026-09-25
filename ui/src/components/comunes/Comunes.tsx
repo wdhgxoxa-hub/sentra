@@ -14,6 +14,10 @@ import type { ReactNode } from "react";
 
 import { useT } from "@/stores/settingsStore";
 
+import type { TonoDeAviso } from "./tonos";
+
+export type { TonoDeAviso };
+
 export function AccionPrincipal({
   children,
   onClick,
@@ -73,8 +77,6 @@ export function VerDetalle({ children }: { children: ReactNode }) {
     </details>
   );
 }
-
-export type TonoDeAviso = "bien" | "aviso" | "mal" | "info";
 
 const ESTILO: Record<TonoDeAviso, { caja: string; icono: string; Icono: typeof Info }> = {
   bien: { caja: "border-ok/40 bg-ok/10", icono: "text-ok", Icono: Check },

@@ -614,6 +614,7 @@ export const en: Dictionary = {
       abrir_configuracion: "Go to Settings",
     },
     otroEscaneo: "Start another scan",
+    noGuardado: "This scan could not be saved, so there is no result to show.",
     descartados: "{n} groups set aside",
     descartadosExplica: "Why they are not a niche",
   },

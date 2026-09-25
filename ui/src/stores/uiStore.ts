@@ -20,6 +20,10 @@ interface UiState {
   /** Modo activo (P2). Hoy solo hay Software; Videos se enchufará aquí. */
   modo: TipoDeNicho;
 
+  /** Nicho abierto en su ficha (Radar); null = la lista. */
+  nichoAbierto: string | null;
+  abrirNicho: (id: string | null) => void;
+
   // --- Consola de búsqueda ---
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -30,6 +34,9 @@ export const useUiStore = create<UiState>((set) => ({
   setView: (view) => set({ view }),
 
   modo: "software",
+
+  nichoAbierto: null,
+  abrirNicho: (nichoAbierto) => set({ view: "radar", nichoAbierto }),
 
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),
