@@ -71,7 +71,7 @@ export function HealthIndicator() {
           type="button"
           onClick={() => reintentar.mutate()}
           disabled={reintentar.isPending}
-          className="self-start rounded-lg border border-border px-2 py-1 text-[11px] transition-colors hover:bg-surface-2 disabled:opacity-50"
+          className="self-start rounded-lg border border-border px-2 py-1 text-xs transition-colors hover:bg-surface-2 disabled:opacity-50"
         >
           {reintentar.isPending ? t.health.retrying : t.health.retryEngine}
         </button>

@@ -43,12 +43,10 @@ export function SearchConsole() {
   };
 
   return (
-    <div className="flex max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex max-w-[1080px] flex-col gap-5" data-pantalla="busqueda">
       <header>
-        <h2 className="text-base font-semibold">{t.search.title}</h2>
-        <p className="mt-0.5 text-xs text-ink-soft">
-          {t.search.subtitle}
-        </p>
+        <h1 className="text-[22px] font-semibold">{t.search.title}</h1>
+        <p className="mt-1 max-w-[70ch] text-[15px] text-ink-soft">{t.search.subtitle}</p>
       </header>
 
       <div className="relative">
@@ -105,7 +103,7 @@ export function SearchConsole() {
       {results.data && results.data.length > 0 && (
         <div className="overflow-hidden rounded-card border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-faint">
+            <thead className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t.search.colText}
@@ -149,11 +147,11 @@ export function SearchConsole() {
                 return (
                   <tr key={hit.id} className="hover:bg-surface-2">
                     <td className="max-w-md px-3 py-2.5">
-                      <p className="line-clamp-2">{hit.title ?? hit.excerpt}</p>
+                      <p className="line-clamp-2" data-ajeno="">{hit.title ?? hit.excerpt}</p>
                       <div className="mt-1">
                         <EvidenceAttributionLine attribution={hit.attribution} />
                       </div>
-                      <p className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
+                      <p className="mt-0.5 flex items-center gap-2 text-xs text-ink-faint">
                         <SourceBadge source={hit.dataSource} />
                         <span aria-hidden="true">·</span>
                         <span

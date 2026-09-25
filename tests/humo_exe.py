@@ -466,13 +466,31 @@ def url_de_la_interfaz(
     return url
 
 
-def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str) -> None:
-    """P1 en la pantalla abierta: cuántas acciones principales hay y qué jerga se
-    ve (innerText no incluye lo que hay dentro de un «Ver detalle» cerrado)."""
+#: Texto visible de la pantalla sin lo marcado como ajeno (se oculta un
+#: instante para que innerText, que respeta lo pintado, no lo cuente).
+TEXTO_PROPIO = """(() => {
+  const main = document.querySelector('main');
+  if (!main) return '';
+  const ajenos = [...main.querySelectorAll('[data-ajeno]')];
+  const antes = ajenos.map((e) => e.style.display);
+  ajenos.forEach((e) => { e.style.display = 'none'; });
+  const texto = main.innerText;
+  ajenos.forEach((e, i) => { e.style.display = antes[i]; });
+  return texto;
+})()"""
+
+
+def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str, *, accion_principal: bool = True) -> None:
+    """P1 en la pantalla abierta: qué jerga se ve (innerText no incluye lo que
+    hay dentro de un «Ver detalle» cerrado) y, en las pantallas con acción
+    principal (asistente, Radar, ficha), cuántas hay."""
     from tests._lenguaje_llano import palabras_prohibidas
 
-    obs.acciones_principales[nombre] = app.js("document.querySelectorAll('main [data-accion-principal]').length") or 0
-    obs.jerga[nombre] = palabras_prohibidas(app.js("document.querySelector('main')?.innerText ?? ''") or "")
+    if accion_principal:
+        obs.acciones_principales[nombre] = app.js("document.querySelectorAll('main [data-accion-principal]').length") or 0
+    # Lo que no es texto de SENTRA (citas de la evidencia, nombres de nichos)
+    # va marcado con data-ajeno y no cuenta: son datos y se enseñan tal cual.
+    obs.jerga[nombre] = palabras_prohibidas(app.js(TEXTO_PROPIO) or "")
 
 
 def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
@@ -542,13 +560,16 @@ def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     app.esperar("document.querySelectorAll('main tbody tr').length > 0 || document.querySelectorAll('main [role=alert]').length > 0", BUSQUEDA_MAX_S)
     obs.busqueda_s = round(time.time() - inicio, 1)
     obs.busqueda_filas = app.js("document.querySelectorAll('main tbody tr').length") or 0
+    _pantalla_llana(app, obs, "búsqueda", accion_principal=False)
 
     app.ir("Fuentes", "Sources")
-    app.esperar("document.querySelectorAll('main .grid > article').length > 0", 20)
-    obs.fuentes_tarjetas = app.js("document.querySelectorAll('main .grid > article').length") or 0
+    app.esperar("document.querySelectorAll('main [data-fuente-fila]').length > 0", 20)
+    obs.fuentes_tarjetas = app.js("document.querySelectorAll('main [data-fuente-fila]').length") or 0
+    _pantalla_llana(app, obs, "fuentes", accion_principal=False)
 
     app.ir("Configuración", "Settings")
     obs.config_carga = app.esperar("document.querySelectorAll('main select').length >= 1", 20)
+    _pantalla_llana(app, obs, "configuración", accion_principal=False)
 
     salud = app.js("window.__TAURI_INTERNALS__.invoke('get_app_health')") or {}
     info = salud.get("sidecarInfo") or {}

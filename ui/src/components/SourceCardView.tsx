@@ -70,17 +70,17 @@ export function SourceCardView({ card }: { card: SourceCard }) {
       <header className="flex flex-wrap items-center gap-2">
         <RadioTower className="size-4 text-ink-soft" aria-hidden="true" />
         <h3 className="text-sm font-semibold">{card.displayName}</h3>
-        <span className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px]">
+        <span className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
           <span className={`size-1.5 rounded-full ${PUNTO[card.status]}`} aria-hidden="true" />
           {t.sources.status[card.status]}
         </span>
         {!card.commercialUseAllowed && (
-          <span className="rounded-full bg-medium-soft px-2 py-0.5 text-[11px] text-medium-ink">
+          <span className="rounded-full bg-medium-soft px-2 py-0.5 text-xs text-medium-ink">
             {t.sources.personalOnly}
           </span>
         )}
         {card.excludedByCommercialMode && (
-          <span className="rounded-full bg-high-soft px-2 py-0.5 text-[11px] text-high-ink">
+          <span className="rounded-full bg-high-soft px-2 py-0.5 text-xs text-high-ink">
             {t.sources.excludedByCommercial}
           </span>
         )}
@@ -134,7 +134,7 @@ export function SourceCardView({ card }: { card: SourceCard }) {
           {card.credentialFields.map((c) => (
             <label key={c.name} className="flex flex-col gap-1 text-xs text-ink-soft">
               <span>
-                {c.name} ·{" "}
+                {t.sources.campo[c.name as keyof typeof t.sources.campo] ?? c.name} ·{" "}
                 {c.configured ? t.sources.configured : t.sources.notConfigured}
                 {!c.required && ` · ${t.sources.optional}`}
               </span>
@@ -147,7 +147,7 @@ export function SourceCardView({ card }: { card: SourceCard }) {
               />
             </label>
           ))}
-          <p className="text-[11px] text-ink-faint">{t.sources.secretHint}</p>
+          <p className="text-xs text-ink-faint">{t.sources.secretHint}</p>
           <button
             type="submit"
             disabled={guardar.isPending || Object.values(valores).every((v) => !v.trim())}

@@ -8,8 +8,8 @@ dentro del desplegable «Ver detalle».
 Guardia 2: `t.detalle` solo se usa en `ui/src/components/detalle/`.
 Guardia de letra: nada de 10 u 11 px en las pantallas nuevas.
 
-Los bloques vigilados crecen con la fase: al principio, los de las pantallas
-nuevas; al final, todos (commit 11).
+Desde el commit 11 de la Fase 2 se vigilan todos los bloques de i18n salvo
+`detalle`, y la letra de toda la interfaz salvo el detalle técnico.
 """
 
 import re
@@ -22,11 +22,10 @@ from tests.test_textos_vigentes import literales
 UI = Path(__file__).resolve().parents[1] / "ui" / "src"
 I18N = UI / "i18n"
 
-#: Bloques de i18n de las pantallas de la Fase 2.
-VIGILADOS = {"comun", "modos", "nuevoEscaneo", "progreso", "resultado", "nicho", "radar"}
-#: Carpetas de las pantallas nuevas: letra legible.
-CARPETAS_NUEVAS = (UI / "pantallas", UI / "components" / "comunes", UI / "components" / "nicho",
-                   UI / "modos")
+#: El único bloque con jerga permitida: se pinta solo dentro de «Ver detalle».
+TECNICO = "detalle"
+#: Lo que se pinta solo dentro de «Ver detalle»: puede ir en letra pequeña.
+CARPETA_TECNICA = UI / "components" / "detalle"
 
 
 def bloques(fuente: str) -> dict[str, str]:
@@ -61,12 +60,12 @@ class TestLaGuardiaMideBien(unittest.TestCase):
 
 
 class TestTextosVisibles(unittest.TestCase):
-    def test_los_bloques_vigilados_no_usan_jerga(self):
+    def test_ningun_texto_visible_usa_jerga(self):
         for idioma in ("es", "en"):
             fuente = (I18N / f"{idioma}.ts").read_text("utf-8")
             todos = bloques(fuente)
-            for nombre in VIGILADOS:
-                self.assertIn(nombre, todos, f"{idioma}: falta el bloque {nombre}")
+            self.assertIn(TECNICO, todos)
+            for nombre in set(todos) - {TECNICO}:
                 for literal in literales(todos[nombre]):
                     with self.subTest(idioma=idioma, bloque=nombre, texto=literal):
                         self.assertEqual(palabras_prohibidas(literal), [])
@@ -79,11 +78,40 @@ class TestTextosVisibles(unittest.TestCase):
             with self.subTest(archivo=archivo.name):
                 self.assertNotRegex(archivo.read_text("utf-8"), r"\bt\.detalle\b")
 
-    def test_las_pantallas_nuevas_no_usan_letra_de_10_u_11_px(self):
-        for carpeta in CARPETAS_NUEVAS:
-            for archivo in carpeta.rglob("*.tsx"):
-                with self.subTest(archivo=archivo.name):
-                    self.assertNotRegex(archivo.read_text("utf-8"), r"text-\[(?:9|10|11)px\]")
+    def test_nada_visible_usa_letra_de_menos_de_12_px(self):
+        for archivo in UI.rglob("*.tsx"):
+            if CARPETA_TECNICA in archivo.parents:
+                continue
+            with self.subTest(archivo=archivo.name):
+                self.assertNotRegex(archivo.read_text("utf-8"), r"text-\[(?:9|10|11)px\]")
+
+    def test_ningun_enlace_externo_que_la_ventana_no_abriria(self):
+        """La ventana no abre enlaces externos: un «Abrir» que no hace nada es la
+        interfaz mintiendo. Las direcciones se enseñan en texto seleccionable."""
+        for archivo in UI.rglob("*.tsx"):
+            with self.subTest(archivo=archivo.name):
+                self.assertNotRegex(archivo.read_text("utf-8"), r"<a\s[^>]*href=\{")
+
+    def test_cada_campo_de_cuenta_de_una_fuente_tiene_nombre_llano(self):
+        """«api_key», «bearer_token», «client_id»… no se enseñan tal cual."""
+        import ast
+
+        from core.sources import registry
+
+        nombres: set[str] = set()
+        for archivo in Path(registry.__file__).parent.glob("*.py"):
+            for nodo in ast.walk(ast.parse(archivo.read_text("utf-8"))):
+                if isinstance(nodo, ast.Call) and getattr(nodo.func, "id", "") == "CredentialField":
+                    nombres |= {k.value.value for k in nodo.keywords
+                                if k.arg == "name" and isinstance(k.value, ast.Constant)
+                                and isinstance(k.value.value, str)}
+        self.assertTrue(nombres)
+        for idioma in ("es", "en"):
+            fuentes = bloques((I18N / f"{idioma}.ts").read_text("utf-8"))["sources"]
+            campo = re.search(r"\n    campo: \{(.*?)\n    \}", fuentes, re.DOTALL)
+            assert campo is not None, idioma
+            definidos = set(re.findall(r"(\w+):", campo.group(1)))
+            self.assertEqual(nombres - definidos, set(), idioma)
 
 
 if __name__ == "__main__":

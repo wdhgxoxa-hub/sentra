@@ -123,7 +123,7 @@ export function Radar({
           <ul className="mt-3 divide-y divide-border">
             {descartados.map((d) => (
               <li key={d.id} data-descartado={d.id} className="flex flex-wrap justify-between gap-3 py-2.5">
-                <span className="font-medium">{d.nombre}</span>
+                <span className="font-medium" data-ajeno="">{d.nombre}</span>
                 <span className="text-ink-soft">{porQueDelNicho(t, d)}</span>
               </li>
             ))}

@@ -37,7 +37,7 @@ export function ErrorNoticeView({
       {detail && (
         <details className="mt-1 text-ink-faint">
           <summary className="cursor-pointer">{detailsLabel}</summary>
-          <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-surface-2 p-2 font-mono text-[11px] whitespace-pre-wrap break-all">
+          <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-surface-2 p-2 font-mono text-xs whitespace-pre-wrap break-all">
             {detail}
           </pre>
         </details>

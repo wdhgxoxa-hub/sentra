@@ -30,7 +30,7 @@ function EvidenciaReciente() {
       <ul className="mt-3 divide-y divide-border" aria-labelledby="feed">
         {items.map((e) => (
           <li key={e.id} data-evidencia={e.id} className="flex flex-col gap-1 py-2.5">
-            <p className="line-clamp-2">{e.title ?? e.excerpt}</p>
+            <p className="line-clamp-2" data-ajeno="">{e.title ?? e.excerpt}</p>
             <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-faint">
               <EvidenceAttributionLine attribution={e.attribution} />
               <span aria-hidden="true">·</span>

@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { BotonSecundario, VerDetalle } from "@/components/comunes/Comunes";
@@ -38,8 +38,8 @@ export function FichaDeNicho({
           <Veredicto veredicto={nicho.veredicto} />
           <span className="text-sm text-ink-soft">{t.nicho.veredictoExplica[nicho.veredicto]}</span>
         </div>
-        <h1 className="text-[24px] font-semibold">{nicho.nombre}</h1>
-        {nicho.subnombre && <p className="text-[15px] text-ink-soft">{nicho.subnombre}</p>}
+        <h1 className="text-[24px] font-semibold" data-ajeno="">{nicho.nombre}</h1>
+        {nicho.subnombre && <p className="text-[15px] text-ink-soft" data-ajeno="">{nicho.subnombre}</p>}
         <p className="text-sm text-ink-faint">{nicho.metricas.map((m) => modo.metrica(t, m)).join(" · ")}</p>
       </header>
 
@@ -56,17 +56,12 @@ export function FichaDeNicho({
             <ul className="flex flex-col gap-2">
               {nicho.quejas.map((q, i) => (
                 <li key={i} className="border-l-4 border-border-strong pl-3 text-sm text-ink-soft">
-                  «{q.texto}» · {q.fuente}
+                  <span data-ajeno="">«{q.texto}»</span> · {q.fuente}
+                  {/* La ventana no abre enlaces externos: la dirección, seleccionable. */}
                   {q.url && (
-                    <a
-                      href={q.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ml-2 inline-flex items-center gap-1 font-medium text-accent hover:underline"
-                    >
-                      {t.nicho.abrirEnlace}
-                      <ExternalLink className="size-3.5" aria-hidden="true" />
-                    </a>
+                    <span className="mt-1 block select-all break-all text-[13px] text-ink-faint" data-ajeno="">
+                      {q.url}
+                    </span>
                   )}
                 </li>
               ))}

@@ -4,8 +4,8 @@ Los veredictos se ven en un solo sitio: el Radar (AUD2-008, DP6 A)
 
 Fuentes repetía el Top del juez entero (una página de 7.846 px con las
 mismas seis tarjetas que el Radar). Dos sitios con la misma información
-confunden el flujo escanear → juzgar → decidir. Fuentes muestra el estado
-del juez tras el escaneo y un resumen con enlace al Radar.
+confunden el flujo escanear → juzgar → decidir. Desde la Fase 2 se escanea
+en «Nuevo escaneo» y los veredictos solo se ven en el Radar.
 """
 
 import re
@@ -21,9 +21,12 @@ class TestUnaVistaDeVeredictos(unittest.TestCase):
                 if re.search(r"<VerdictCard\b", p.read_text("utf-8"))]
         self.assertEqual(usos, ["views/RadarView.tsx"])
 
-    def test_fuentes_enlaza_al_radar(self):
-        panel = (UI / "components" / "JudgePanel.tsx").read_text("utf-8")
-        self.assertIn('setView("radar")', panel)
+    def test_fuentes_no_pinta_veredictos_ni_escanea(self):
+        """Fase 2: el escaneo vive en «Nuevo escaneo» y los veredictos en el
+        Radar; Fuentes solo dice de dónde salen las quejas."""
+        fuentes = (UI / "views" / "SourcesView.tsx").read_text("utf-8")
+        for pieza in ("VerdictCard", "JudgePanel", "MultiscanPanel", "useTriggerMultiscan"):
+            self.assertNotIn(pieza, fuentes)
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ function SourcesSummary() {
     <button
       type="button"
       onClick={() => setView("sources")}
-      className="mb-2 w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
+      className="mb-2 w-full rounded-lg px-2.5 py-1.5 text-left text-xs text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
     >
       {texto}
     </button>
@@ -79,7 +79,7 @@ export function Sidebar() {
             {t.app.name}
           </p>
         </div>
-        <p className="mt-3 text-[11px] font-medium leading-relaxed text-ink-soft">
+        <p className="mt-3 text-xs font-medium leading-relaxed text-ink-soft">
           {t.app.tagline}
         </p>
       </div>

@@ -10,19 +10,19 @@ import type { EvidenceAttribution } from "@/types/radar";
  */
 export function EvidenceAttributionLine({ attribution }: { attribution: EvidenceAttribution }) {
   return (
-    <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-soft">
+    <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
       <span className="rounded-full border border-border px-2 py-0.5 font-medium text-ink">
         {attribution.badge}
       </span>
       <span>{attribution.site}</span>
       <span aria-hidden="true">·</span>
-      <span className="select-all break-all">{attribution.url}</span>
+      <span className="select-all break-all" data-ajeno="">{attribution.url}</span>
       {attribution.license && (
         <>
           <span aria-hidden="true">·</span>
           <span title={attribution.licenseUrl ?? undefined}>{attribution.license}</span>
           {attribution.licenseUrl && (
-            <span className="select-all break-all text-ink-faint">{attribution.licenseUrl}</span>
+            <span className="select-all break-all text-ink-faint" data-ajeno="">{attribution.licenseUrl}</span>
           )}
         </>
       )}

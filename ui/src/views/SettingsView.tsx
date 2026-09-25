@@ -93,17 +93,36 @@ export function SettingsView() {
 
   const campo =
     "w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm transition-colors focus:border-accent";
+  // Fase 2: dos pestañas. Gemini y su presupuesto van juntos: lo que se gasta
+  // y dónde se limita, en el mismo sitio.
+  const [pestana, setPestana] = useState<"gemini" | "apariencia">("gemini");
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex max-w-[1080px] flex-col gap-6" data-pantalla="configuracion">
       <header>
-        <h2 className="text-base font-semibold">{t.settings.title}</h2>
-        <p className="mt-0.5 text-xs text-ink-soft">
-          {t.settings.subtitle}
-        </p>
+        <h1 className="text-[22px] font-semibold">{t.settings.title}</h1>
+        <p className="mt-1 text-[15px] text-ink-soft">{t.settings.subtitle}</p>
       </header>
 
+      <div role="tablist" aria-label={t.settings.title} className="flex gap-1 border-b border-border">
+        {(["gemini", "apariencia"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="tab"
+            aria-selected={pestana === p}
+            onClick={() => setPestana(p)}
+            className={`-mb-px h-10 border-b-2 px-4 text-sm font-semibold transition-colors ${
+              pestana === p ? "border-accent text-ink" : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            {t.settings.pestanas[p]}
+          </button>
+        ))}
+      </div>
+
       {/* --- Apariencia --- */}
+      {pestana === "apariencia" && (
       <section className="rounded-card border border-border bg-surface p-5">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <Eye className="size-4 text-ink-soft" aria-hidden="true" />
@@ -158,7 +177,10 @@ export function SettingsView() {
           </div>
         </div>
       </section>
+      )}
 
+      {pestana === "gemini" && (
+      <>
       {/* El motor puede no estar levantado. Se dice aquí, una sola vez: las
           dos secciones siguientes dependen de el y se quedarían mudas sin
           explicación. */}
@@ -178,7 +200,7 @@ export function SettingsView() {
           {t.settings.aiEngine}
           {settings.data?.gemini && (
             <span
-              className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${
                 settings.data.gemini.configured
                   ? "bg-ok/15 text-ok"
                   : "bg-surface-2 text-ink-faint"
@@ -224,7 +246,7 @@ export function SettingsView() {
 
           {/* Modelos: solo los que la clave puede usar (lista en vivo). */}
           {!settings.data?.gemini?.configured ? (
-            <p className="text-[11px] leading-relaxed text-ink-faint">
+            <p className="text-xs leading-relaxed text-ink-faint">
               {t.settings.modelsNeedKey}
             </p>
           ) : modelos.isPending ? (
@@ -259,7 +281,7 @@ export function SettingsView() {
               />
               {/* AUD2-019: la llamada a Google no es invisible. */}
               {haceCuanto(modelos.data.listedAt, new Date(), language) && (
-                <p className="text-[11px] leading-relaxed text-ink-faint">
+                <p className="text-xs leading-relaxed text-ink-faint">
                   {t.settings.modelsListedAt.replace(
                     "{ago}",
                     haceCuanto(modelos.data.listedAt, new Date(), language) ?? "",
@@ -323,6 +345,8 @@ export function SettingsView() {
       </section>
 
       <PresupuestoDeGemini campo={campo} />
+      </>
+      )}
     </div>
   );
 }
@@ -342,6 +366,7 @@ const CAMPOS_DE_TOPE: Array<{ clave: keyof Topes; texto: "scanCalls" | "scanToke
  */
 function PresupuestoDeGemini({ campo }: { campo: string }) {
   const t = useT();
+  const idioma = useSettingsStore((state) => state.language);
   const presupuesto = useGeminiBudget();
   const guardar = useSaveGeminiBudget();
   // Lo tecleado gana; sin tocar, manda lo guardado.
@@ -384,10 +409,10 @@ function PresupuestoDeGemini({ campo }: { campo: string }) {
           </div>
           <p className="text-xs text-ink-soft">
             {t.settings.budget.spentToday
-              .replace("{calls}", guardado.spentToday.calls.toLocaleString())
-              .replace("{tokens}", guardado.spentToday.tokens.toLocaleString())}
+              .replace("{calls}", guardado.spentToday.calls.toLocaleString(idioma))
+              .replace("{unidades}", guardado.spentToday.tokens.toLocaleString(idioma))}
           </p>
-          <p className="text-[11px] leading-relaxed text-ink-faint">{t.settings.budget.historyFromZero}</p>
+          <p className="text-xs leading-relaxed text-ink-faint">{t.settings.budget.historyFromZero}</p>
           <div>
             <button
               type="button"
@@ -451,7 +476,7 @@ function SelectorDeModelo({
         ))}
       </select>
       {guardadoAusente && <ErrorNotice code="llm_model_unavailable" detail={valor} />}
-      <span className="text-[11px] leading-relaxed text-ink-faint">{pista}</span>
+      <span className="text-xs leading-relaxed text-ink-faint">{pista}</span>
     </label>
   );
 }

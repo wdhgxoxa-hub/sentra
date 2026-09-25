@@ -27,7 +27,7 @@ function cifra(valor: number): string {
 export function versionesAntiguas(v: JudgeVerdict, actuales: JudgeVersions, t: T): string[] {
   const antiguas: string[] = [];
   const etiquetador = v.labelerVersion?.split("/")[0] ?? null;
-  if (etiquetador !== actuales.labeler) antiguas.push(etiquetador ?? t.judge.unknownLabeler);
+  if (etiquetador !== actuales.labeler) antiguas.push(etiquetador ?? t.detalle.unknownLabeler);
   if (v.clusteringVersion !== actuales.clustering) antiguas.push(v.clusteringVersion);
   if (v.weightsVersion !== actuales.weights) antiguas.push(v.weightsVersion);
   return antiguas;
@@ -51,25 +51,25 @@ export function VerdictCard({
     <article className="rounded-card border border-border bg-surface p-4">
       <header className="flex flex-wrap items-center gap-3">
         <span className={`rounded-lg border-2 px-3 py-1 text-base font-bold ${VERDICT_COLOR[v.verdict]}`}>
-          {t.judge.verdict[v.verdict]}
+          {t.detalle.verdict[v.verdict]}
         </span>
-        <span className="text-sm font-semibold">{nombreDelGrupo(v, t.judge.noCommonProblem, idioma)}</span>
-        {puntuacionDelGrupo(v, t.judge.score) && (
-          <span className="ml-auto text-xs text-ink-soft">{puntuacionDelGrupo(v, t.judge.score)}</span>
+        <span className="text-sm font-semibold">{nombreDelGrupo(v, t.detalle.noCommonProblem, idioma)}</span>
+        {puntuacionDelGrupo(v, t.detalle.score) && (
+          <span className="ml-auto text-xs text-ink-soft">{puntuacionDelGrupo(v, t.detalle.score)}</span>
         )}
       </header>
       {antiguas.length > 0 && (
         <p className="mt-1 text-[11px] text-warn">
-          {t.judge.oldVersions.replace("{versions}", antiguas.join(", "))}
+          {t.detalle.oldVersions.replace("{versions}", antiguas.join(", "))}
         </p>
       )}
       <p className="mt-1 text-[11px] text-ink-faint">
-        {t.judge.rule.replace("{rule}", v.rule)}
-        {v.missing.length > 0 && ` · ${t.judge.missing.replace("{gates}", v.missing.join(", "))}`}
+        {t.detalle.rule.replace("{rule}", v.rule)}
+        {v.missing.length > 0 && ` · ${t.detalle.missing.replace("{gates}", v.missing.join(", "))}`}
       </p>
 
       <section className="mt-3">
-        <h4 className="mb-1 text-xs font-semibold">{t.judge.corroboration}</h4>
+        <h4 className="mb-1 text-xs font-semibold">{t.detalle.corroboration}</h4>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(v.corroboration).map(([fuente, n]) => (
             <span key={fuente} className="rounded-full border border-border px-2 py-0.5 text-[11px]">
@@ -80,13 +80,13 @@ export function VerdictCard({
       </section>
 
       <section className="mt-3">
-        <h4 className="mb-1 text-xs font-semibold">{t.judge.gates}</h4>
+        <h4 className="mb-1 text-xs font-semibold">{t.detalle.gates}</h4>
         <ul className="grid gap-1 sm:grid-cols-2">
           {v.gates.map((g) => (
             <li key={g.gate} className="flex items-start gap-1.5 text-[11px]">
               {/* AUD2-005: sin nada que medir no hay ✓; se dice que no se midió. */}
               {!g.measured ? (
-                <MinusCircle className="mt-0.5 size-3.5 shrink-0 text-ink-faint" aria-label={t.judge.notMeasured} />
+                <MinusCircle className="mt-0.5 size-3.5 shrink-0 text-ink-faint" aria-label={t.detalle.notMeasured} />
               ) : g.passed ? (
                 <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-ok" aria-label="ok" />
               ) : (
@@ -94,19 +94,19 @@ export function VerdictCard({
               )}
               <span>
                 <span className="font-medium">{g.gate}</span>{" "}
-                {(t.judge.gateNames[g.gate as keyof T["judge"]["gateNames"]] ?? g.gate).replace(
+                {(t.detalle.gateNames[g.gate as keyof T["detalle"]["gateNames"]] ?? g.gate).replace(
                   "{n}",
                   cifra(g.threshold),
                 )}
                 <span className="block text-ink-faint">
-                  {!g.measured && `${t.judge.notMeasured} · `}
-                  {t.judge.valueVsThreshold
+                  {!g.measured && `${t.detalle.notMeasured} · `}
+                  {t.detalle.valueVsThreshold
                     .replace("{value}", cifra(g.value))
                     .replace("{threshold}", cifra(g.threshold))}
                   {" · "}
                   {g.evidenceIds.length === 1
-                    ? t.judge.evidenceCountOne
-                    : t.judge.evidenceCount.replace("{n}", String(g.evidenceIds.length))}
+                    ? t.detalle.evidenceCountOne
+                    : t.detalle.evidenceCount.replace("{n}", String(g.evidenceIds.length))}
                 </span>
                 {g.note && <span className="block text-ink-faint">{g.note}</span>}
               </span>
@@ -116,21 +116,21 @@ export function VerdictCard({
       </section>
 
       <section className="mt-3">
-        <h4 className="mb-1 text-xs font-semibold">{t.judge.dimensions}</h4>
+        <h4 className="mb-1 text-xs font-semibold">{t.detalle.dimensions}</h4>
         <ul className="grid gap-0.5 text-[11px] text-ink-soft sm:grid-cols-2">
           {v.dimensions.map((d) => (
             <li key={d.name}>
-              {t.judge.dimensionNames[d.name as keyof T["judge"]["dimensionNames"]] ?? d.name}:{" "}
+              {t.detalle.dimensionNames[d.name as keyof T["detalle"]["dimensionNames"]] ?? d.name}:{" "}
               {d.note === "undetermined"
-                ? t.judge.undetermined
+                ? t.detalle.undetermined
                 : d.name === "tendencia" && d.value !== null
                   ? // Crecimiento relativo: -1 es «cae un 100 %», no «-1 (0 %)».
-                    t.judge.trend.replace("{pct}", `${d.value > 0 ? "+" : ""}${Math.round(d.value * 100)} %`)
+                    t.detalle.trend.replace("{pct}", `${d.value > 0 ? "+" : ""}${Math.round(d.value * 100)} %`)
                 : d.note === "sin_datos"
                   ? // D-M9: el hueco sin menciones es un valor neutro, nunca una cifra medida.
                     d.name === "hueco"
-                    ? t.judge.noCompetitionData
-                    : t.judge.noData
+                    ? t.detalle.noCompetitionData
+                    : t.detalle.noData
                   : `${d.value === null ? "—" : cifra(d.value)} (${((d.normalized ?? 0) * 100).toFixed(0)} %)`}
             </li>
           ))}
@@ -140,34 +140,34 @@ export function VerdictCard({
       <section className="mt-3">
         <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold">
           <Gavel className="size-3.5" aria-hidden="true" />
-          {t.judge.advocate}
+          {t.detalle.advocate}
         </h4>
         {abogado.reason?.startsWith("advocate_unavailable") ? (
-          <p className="text-xs text-warn">{t.judge.advocateUnavailable}</p>
+          <p className="text-xs text-warn">{t.detalle.advocateUnavailable}</p>
         ) : abogado.downgraded && abogado.reason ? (
-          <p className="text-xs text-warn">{t.judge.advocateDowngraded.replace("{reason}", abogado.reason)}</p>
+          <p className="text-xs text-warn">{t.detalle.advocateDowngraded.replace("{reason}", abogado.reason)}</p>
         ) : null}
         {abogado.arguments.length === 0 && !abogado.downgraded && (
-          <p className="text-xs text-ink-faint">{t.judge.advocateNoArguments}</p>
+          <p className="text-xs text-ink-faint">{t.detalle.advocateNoArguments}</p>
         )}
         <ul className="mt-1 flex flex-col gap-1">
           {abogado.arguments.map((a, n) => (
             <li key={n} className="text-xs">
-              <span className="font-medium">{t.judge.severity[a.severity]}:</span> {a.claim}
+              <span className="font-medium">{t.detalle.severity[a.severity]}:</span> {a.claim}
               <span className="text-ink-faint"> ({a.evidenceIds.join(", ")})</span>
             </li>
           ))}
         </ul>
         {abogado.discarded.length > 0 && (
           <p className="mt-1 text-[11px] text-ink-faint">
-            {t.judge.advocateDiscarded.replace("{n}", String(abogado.discarded.length))}
+            {t.detalle.advocateDiscarded.replace("{n}", String(abogado.discarded.length))}
           </p>
         )}
       </section>
 
       <details className="mt-3">
         <summary className="cursor-pointer text-xs font-semibold">
-          {t.judge.evidence} ({v.evidence.length})
+          {t.detalle.evidence} ({v.evidence.length})
         </summary>
         <ul className="mt-2 flex flex-col gap-2">
           {v.evidence.map((e) => (

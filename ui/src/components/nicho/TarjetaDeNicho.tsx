@@ -54,10 +54,10 @@ export function TarjetaDeNicho({
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[17px] font-semibold">{nicho.nombre}</h3>
+          <h3 className="text-[17px] font-semibold" data-ajeno="">{nicho.nombre}</h3>
           <Veredicto veredicto={nicho.veredicto} />
         </div>
-        {nicho.subnombre && <p className="text-sm text-ink-soft">{nicho.subnombre}</p>}
+        {nicho.subnombre && <p className="text-sm text-ink-soft" data-ajeno="">{nicho.subnombre}</p>}
         <p className="text-sm text-ink-faint">
           {nicho.metricas.map((m) => modo.metrica(t, m)).join(" · ")}
         </p>
