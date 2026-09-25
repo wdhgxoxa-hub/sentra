@@ -487,6 +487,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--exe", type=Path, default=EXE_POR_DEFECTO)
     parser.add_argument("--salida", type=Path, default=None)
     args = parser.parse_args(argv)
+    # El humo es el único que compara con la base real (en solo lectura): quita la
+    # red de seguridad de los tests, también del entorno que hereda el exe.
+    from tests._base_real import liberar_para_el_humo
+
+    liberar_para_el_humo()
 
     if not args.exe.is_file():
         print(f"HUMO FALLA: no existe {args.exe}")
