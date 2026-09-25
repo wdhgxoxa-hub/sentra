@@ -1,8 +1,9 @@
 # CLAUDE.md — SENTRA
 
-Léelo entero antes de tocar nada. Estado verificado el 2026-09-24 (Fase 0,
-reconocimiento en solo lectura) contra git, la base y la release. Si el repo
-contradice este archivo, manda el repo: corrígelo aquí en un commit aparte.
+Léelo entero antes de tocar nada. Estado verificado el 2026-09-25 (cierre de la
+Fase 1) contra git, la base y la release. Si el repo contradice este archivo,
+manda el repo: corrígelo aquí en un commit aparte (`tests/test_claude_md.py`
+vigila lo que más cambia).
 
 ## Qué es
 
@@ -31,23 +32,25 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Repo | `F:\reddit_intelligence_radar` · GitHub `wdhgxoxa-hub/sentra` (público) |
 | Interfaz | `ui/src` — React 19 + TypeScript. Vistas: Radar, Búsqueda, Fuentes, Configuración |
 | Escritorio | `ui/src-tauri` — Tauri 2 (Rust): IPC, arranque del motor, salud |
-| Motor | `core/` — FastAPI en loopback con token. `core/sources` (adaptadores), `core/judge` (juez), `core/llm` (Gemini), `core/documents` (dossier y plan), `core/evidence` (búsqueda) |
-| Base | PostgreSQL 18 local, base `reddit_intelligence_radar`, esquema `radar`. DSN: `RIR_PG_URL` (por defecto `postgresql://postgres@localhost:5432/reddit_intelligence_radar`) |
+| Motor | `core/` — FastAPI en loopback con token. `core/sources` (adaptadores), `core/judge` (juez), `core/llm` (Gemini, control, estimación), `core/documents` (dossier y plan), `core/evidence` (búsqueda) |
+| Base | PostgreSQL 18 local, base `reddit_intelligence_radar`, esquema `radar`. Rol `sentra_owner` (dueño, sin superusuario, no crea bases); los tests usan `sentra_pruebas` (solo CREATEDB, bases `rir_*_test`). DSN: `RIR_PG_URL` o, por defecto, `postgresql://sentra_owner@localhost:5432/reddit_intelligence_radar` con el pgpass de SENTRA |
+| pgpass de SENTRA | `%LOCALAPPDATA%\SENTRA\pgpass.conf` (icacls: solo el usuario). El compartido `%APPDATA%\postgresql\pgpass.conf` **nunca se escribe**. Roles y pgpass: `python -m scripts.rol_sentra` (`--en-seco`, `--deshacer`); las contraseñas las teclea Walter |
 | Vectores | LanceDB en `data/lancedb` (tabla `evidence_e5`) |
 | Modelo e5 | `%LOCALAPPDATA%\SENTRA\models` (2,1 GB) |
 | Release | `ui/src-tauri/target/release/sentra.exe`; el acceso `Desktop\SENTRA.lnk` apunta ahí |
 | Motor de la release | se desempaqueta en `%LOCALAPPDATA%\com.sentra.desktop\motor\<huella>` (AUD2-003) |
-| Logs de la app | `%LOCALAPPDATA%\com.sentra.desktop\logs\` (`SENTRA.log`, `sidecar.log`) |
-| Migraciones | `sql/migrations/001…016`; `scripts/migrate.py up` o `status`, con `--dry-run` |
+| Logs de la app | `%LOCALAPPDATA%\com.sentra.desktop\logs\` (`SENTRA.log` en UTC, `sidecar.log`) |
+| Migraciones | `sql/migrations/001…019`; `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
+| Respaldos | `F:\backups\reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump` |
 | Archivo | repos clonados y scripts antiguos en `F:\archivo_sentra\` |
 | psql | `C:\PostgreSQL\18\bin\psql.exe` (no está en el PATH) |
 
 Documentos: `README.md` (puesta en marcha, compuerta, humo),
 `docs/proceso.md` (reglas de proceso), `docs/auditoria-2026-09-24.md`
 (auditoría AUD2 y su cierre), `docs/triaje-auditoria.md`,
-`tasks/plan-fuentes-y-e8.md` (último plan, con cifras y llamadas de Gemini),
-`tasks/SPEC-*.md` (decisiones D-M* y D-C*).
+`tasks/plan-fuentes-y-e8.md` (último plan de E8; su contador de Gemini es
+obsoleto), `tasks/SPEC-*.md` (decisiones D-M* y D-C*).
 
 ## Fuentes (10 adaptadores en `core/sources`)
 
@@ -59,7 +62,11 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
 - **X apagada**: sin credencial, es de pago.
 - Una fuente en error no entra en el escaneo hasta probarla con éxito (AUD2-012).
 - Topes por fuente y escaneo (`core/sources/budget.py`): 25 peticiones y 500
-  ítems por defecto; YouTube 2 000 unidades / 200 peticiones; Discourse 100 peticiones.
+  ítems por defecto; YouTube 2 000 unidades / 200 peticiones; Discourse 100
+  peticiones. YouTube cobra los ítems después de quitar repetidos (Fase 1);
+  el vídeo repetido se sigue releyendo (1 unidad por relectura).
+- Cómo terminó cada fuente en cada ejecución (motivo de parada incluido):
+  `run_source_outcomes` (migración 018).
 
 ## Reglas del juez ya decididas (no se cambian sin aprobación)
 
@@ -76,120 +83,117 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
 - **Nombre del grupo.** Lo produce G0 en es/en y se guarda con el veredicto
   (`niche_verdicts.problem_name`, migración 016).
 - Versiones vigentes: labels-v4, clustering-v10, coherence-v3, judge-weights-v6.
+- El resumen del juez queda con la ejecución (`pipeline_runs.judge_summary`,
+  migración 019). `stored` = piezas guardadas por la ejecución (0 en un re-juicio).
+  `filtered_in`, `filtered_out`, `analyzed`, `qualified`, `rejected`, `cycles`,
+  `last_cursor` y `graph_version` son de la pipeline antigua, sin uso.
+
+## Presupuesto de Gemini (real desde la Fase 1)
+
+- **Punto único de control** (`core/llm/control.py`): `GeminiProvider` no se crea
+  sin `ControlDeGemini`. Cada intento (reintentos y fallos incluidos) deja una
+  fila en `llm_usage` (migración 017): `ok`, `error` o `cortada` (con el motivo en
+  `error_code`). Propósitos: etiquetado, g0, abogado, dossier, plan,
+  prueba_clave, listado_modelos, otros. Guardia AST: el SDK solo vive en
+  `core/llm/gemini.py` (`tests/test_punto_unico_gemini.py`).
+- **Topes** (`llm_budget_settings`, Configuración › Presupuesto de Gemini):
+  por escaneo 20 llamadas y 500 000 tokens; por día 40 llamadas y 1 000 000
+  tokens, día en hora de Lima. Un escaneo o un re-juicio = un control con tope
+  por escaneo; dossier y plan solo tope diario. El listado de modelos se
+  registra, pero ni cuenta ni se corta. Al cortar: fila `cortada`,
+  `LLMBudgetExhausted(motivo)` y `pipeline_runs.stop_reason` (migración 018).
+- **Confirmación obligatoria**: `POST /api/scan/estimate` da un rango estimado de
+  llamadas (0 a ⌈tope de etiquetas/20⌉ + 3 + 1) y tokens (media de `llm_usage`,
+  25 000 por llamada sin historial), lo gastado y lo que queda, y un
+  identificador de un solo uso (10 min). `POST /api/sources/scan/stream` sin él,
+  caducado, usado o de otro perfil: 409. En la interfaz, «Escanear» solo estima
+  y «Confirmar y escanear» escanea.
+- El historial empieza el 2026-09-25 (el contador manual anterior, 42 llamadas,
+  no se puede probar y no está en la tabla).
 
 ## La compuerta (0 errores, 0 avisos, siempre)
 
 ```bash
-CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # ANTES DE CADA COMMIT, con SENTRA cerrada
-bash scripts/compuerta.sh                                   # la que ejecuta el hook de pre-commit
+CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # la completa: la que ejecuta el hook
+bash scripts/compuerta.sh                                   # la reducida, para iterar a mano
 ```
 
-Regla de Walter (2026-09-24): la compuerta **completa** (`CLIPPY=1 AUDIT=1
-HUMO=1`) en verde antes de cada commit, no solo antes de cada release. El
-hook ejecuta la reducida; la completa se lanza a mano y el commit solo sale
-si su código de salida es 0.
+Pasos: ruff, mypy, tests Python (`unittest`), tsc, node (`npm test`), cargo
+test, clippy `-D warnings`, pip-audit, cargo-audit y la prueba de humo del exe
+real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
+**completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
+7 minutos. Nunca `--no-verify`.
 
-Pasos: ruff, mypy, tests Python (`unittest`), tsc, node (`npm test`),
-cargo test; con banderas: clippy `-D warnings`, pip-audit, cargo-audit y la
-prueba de humo del exe real (`python -m tests.humo_exe`).
-
-- El hook `.githooks/pre-commit` la exige (`git config core.hooksPath .githooks`). Nunca `--no-verify`.
-- **Nunca `compuerta | tail && git commit`**: el `&&` mira a `tail`. Redirigir a
-  un log, guardar `rc=$?` y decidir con `rc`.
+- **Nunca `compuerta | tail && git commit`**: el `&&` mira a `tail`. La salida
+  del commit va entera a un log; se lee el log después.
 - La compuerta usa el `python` del sistema (3.12), no `.venv`.
-- La release se compila **solo** con `cd ui && npm run tauri build`. Un
-  `cargo build --release` suelto deja un exe sin interfaz en la ruta del acceso.
+- Si el commit cambia la interfaz o el motor, se recompila antes la release
+  (`cd ui && npm run tauri build`): el humo prueba el exe compilado. Un `cargo
+  build --release` suelto deja un exe sin interfaz en la ruta del acceso.
 - Antes de compilar o del humo: comprobar con `Get-Process` que SENTRA está
   cerrada (puede estar abierta en otro workspace de GlazeWM).
-- El humo usa un perfil de WebView aislado y no pulsa botones. Al abrir
-  Configuración puede listar modelos en Google si la lista guardada tiene más
-  de un día (sin tokens, pero es una salida a la red).
+- El humo usa un perfil de WebView aislado, no pulsa botones, sirve al exe una
+  caché de modelos fresca (`RIR_CACHE_MODELOS`: no llama a Google) y falla si
+  aparece una fila nueva en `llm_usage`.
+- **Los tests no pueden tocar la base real**: `tests/__init__.py` instala una red
+  (`tests/_base_real.py`) que apunta `RIR_PG_URL` a una base inexistente y
+  rechaza cualquier conexión a `reddit_intelligence_radar`; solo el humo la
+  libera. Las bases desechables se borran con `borrar_base_de_prueba` (sin FORCE:
+  un rol sin superusuario no puede terminar un autovacuum).
 
 ## Reglas de ejecución
 
-- Una rama por fase. A `main` solo por fast-forward, con compuerta de release
-  en verde y humo OK. No se empuja sin que Walter lo pida.
+- Una rama por fase. A `main` solo por fast-forward, con compuerta completa en
+  verde. No se fusiona ni se empuja sin que Walter lo pida.
 - Commits atómicos. El mensaje dice qué test falló primero (RED) y cómo quedó (GREEN).
-- **Gemini: cada llamada se avisa antes** (cuántas y para qué) y se anota
-  después con su motivo y sus tokens. Un escaneo etiqueta ⌈piezas que pasan
-  el filtro / 20⌉ llamadas (máx. 300 piezas → 15) + G0 + confirmaciones de
-  subgrupos; el dossier gasta 1.
-- Nada de borrar datos ni migraciones destructivas sin respaldo `pg_dump -Fc`
-  y aprobación. Migración que el código necesite: respaldo + `migrate.py up`
-  + verificación en solo lectura ANTES de abrir la app.
+- **Gemini y escaneos reales: solo con aprobación de Walter en el chat**
+  (cuántas llamadas y para qué). El uso queda en `llm_usage`.
+- **D&S Factory comparte PostgreSQL**: antes de tocar la base o de un commit
+  (sus tests crean bases), comprobar que no tiene tests, compuertas ni
+  migraciones en marcha ni sesiones activas (no idle). Su app abierta en reposo
+  no cuenta. Se hace uno y luego el otro.
+- Nada de borrar ni cambiar datos reales, ni migraciones destructivas, sin
+  respaldo `pg_dump -Fc` y aprobación. Migración que el código necesite (R12):
+  respaldo + ensayo sobre copia restaurada + `--dry-run` + `migrate.py up` (como
+  `sentra_owner`) + verificación en solo lectura, ANTES de abrir la app.
 - Consultas a la base para verificar: siempre en solo lectura
   (`PGOPTIONS="-c default_transaction_read_only=on"`). En Git Bash no poner
-  «·» en las consultas (codificación).
-- Ediciones con Edit/Write; heredoc y `sed` corrompen barras invertidas y CRLF.
+  «·» ni tildes en las consultas en línea (codificación).
+- Ediciones con Edit/Write o scripts escritos con Write; heredoc y `sed`
+  corrompen barras invertidas y CRLF.
 - «Verificado» solo con datos: antes y después sobre la app real y contrastado
   con SQL. Un DOM no vacío o un test verde no bastan.
 
-## Estado verificado (2026-09-24, Fase 0)
+## Estado verificado (2026-09-25, cierre de la Fase 1)
 
-- `main` = `origin/main` = `c9c3fb5`. La rama `feat/cierre-y-documentos` es el
-  mismo commit. Árbol limpio.
-- Base: 16 de 16 migraciones aplicadas. 27 ejecuciones (5 multifuente, 14
-  re-juicios, 8 del esquema antiguo). 67 veredictos (24 INVESTIGAR MÁS, 43
-  DESCARTAR, 0 CONSTRUIR). 2 221 piezas de evidencia. 6 resultados en la caché de G0.
-- Release compilada a las 17:59, después del último cambio de producto (6f16968).
+- `main` = `origin/main` = `b27c946` (Fase 0). La Fase 1 está en la rama
+  `fase1/deuda`, sin fusionar ni empujar, a la espera de Walter.
+- Base: 19 de 19 migraciones aplicadas. 27 ejecuciones, 67 veredictos (24
+  INVESTIGAR MÁS, 43 DESCARTAR, 0 CONSTRUIR), 2 221 piezas, 1 018 etiquetas,
+  6 resultados en la caché de G0. `llm_usage` vacía; topes 20 / 500 000 / 40 /
+  1 000 000. Ninguna ejecución antigua tiene `stop_reason`, `judge_summary` ni
+  filas en `run_source_outcomes` (no se inventa el pasado).
 - Primer nicho coherente: «Tener que reclamar facturas impagadas» →
   INVESTIGAR MÁS (regla 9), re-juicio `01a0d5a3-0dc2-7ec8-afbe-a94a28314550`.
-- Última ejecución `01a0d5d0-f8a1-736c-896d-3651c7b39afc` (perfil «Cobros
-  freelance», tema solo «facturas impagadas», idiomas es/en): 470 piezas
-  traídas: YouTube 419, Bluesky 44, Mastodon 6, GitHub 1; HN, Stack Exchange,
-  Discourse y Product Hunt 0. 434 sin idioma, 33 es, 1 en. Todas las consultas
-  salieron en español (`sidecar.log`).
-  38 etiquetadas → 1 dolor → 0 grupos, 0 veredictos. `pipeline_runs.filtered_in`
-  quedó en 0 aunque 38 se etiquetaron. Esa ejecución gastó 2 llamadas de
-  Gemini (`gemini-3.8-flash`, en `sidecar.log`).
-  - **Únicos: 455.** Es lo que enseña la app («{canonical} únicos»,
-    `ui/src/i18n/es.ts:286`): 470 − 15 duplicados de `evidence_duplicates`
-    (7 por huella de texto, 8 por embedding ≥ 0,95, `core/sources/dedup.py:34`).
-    Contando solo `content_hash` distintos salen 463: es otro criterio.
-  - **YouTube se paró por su tope de 500 ítems**, no por unidades (usó 318
-    de 2 000 y 21 de 200 peticiones). 13 vídeos distintos = 419 comentarios
-    guardados; 2 vídeos se releyeron (50 + 31 ítems) y 419 + 50 + 31 = 500.
-    Causas: `SourceAdapter._item` (`core/sources/base.py:283`) cobra el ítem
-    antes de que YouTube descarte el repetido (`core/sources/youtube.py:128`),
-    así que los duplicados gastan presupuesto (81 de 500). El motivo de
-    parada solo viaja en el evento `scan:done` a la interfaz
-    (`core/orchestration/sidecar/multiscan.py:249`); no se guarda en la base.
-  - **El Radar enseña la última ejecución juzgada aunque no tenga nichos**
-    (`core/judge/store.py:123`): desde este escaneo el nicho de impagos no se
-    ve en el Radar (humo: «Top 0+0»).
+  Su dossier no se ha regenerado con el nombre nuevo (1 llamada; espera aprobación).
+- Última ejecución `01a0d5d0-f8a1-736c-896d-3651c7b39afc` («Cobros freelance»,
+  solo «facturas impagadas»): 470 piezas (455 únicas), casi todo YouTube, 38
+  etiquetadas → 1 dolor → 0 nichos. Tema en un solo idioma = consultas solo en
+  español. El Radar enseña la última ejecución juzgada aunque no tenga nichos:
+  el nicho de impagos no se ve en el Radar (humo: «Top 0+0»).
 
-## Presupuesto de Gemini: cómo funciona de verdad
+## Pendiente (Walter aprueba cada fase)
 
-- En el código solo hay un tope de **tokens por escaneo**: `LLMBudget`,
-  1 000 000 (`core/llm/budget.py`, constante, no configurable) y un tope de
-  piezas etiquetadas (`MAX_ITEMS_PER_SCAN` = 300, o `RIR_JUEZ_MAX_ETIQUETAS`).
-- El «presupuesto de 40 llamadas» es un **contador de proceso** acordado con
-  Walter y anotado en `tasks/plan-fuentes-y-e8.md`. La app no lo conoce, no
-  lo muestra y no lo hace cumplir. Cuenta real: 40 de ese plan + 2 del
-  escaneo «Cobros freelance» = 42.
-- El aviso `llm_budget_exhausted` de la interfaz dice «Súbelo en Ajustes»,
-  pero Ajustes no tiene ese control: el texto miente.
-
-## Pendiente (orden propuesto; Walter aprueba cada fase)
-
-1. **Fase 1 — deuda pequeña.**
-   - Presupuesto de Gemini visible y real en la app antes de escanear
-     (llamadas estimadas del escaneo y lo gastado), y corregir «Súbelo en Ajustes».
-   - `.gitattributes` para `ui/src-tauri/Cargo.toml` (hoy índice LF, trabajo
-     CRLF con `core.autocrlf=true`; en reposo no sale modificado: reproducir
-     tras `tauri build` antes de arreglar).
-   - Revisar si `pipeline_runs.filtered_in` = 0 en las ejecuciones
-     multifuente es un fallo o una columna que ese flujo no usa.
-   - Regenerar el dossier de impagos con el nombre nuevo (1 llamada, con aprobación).
-2. **Fase 2 — interfaz.** Hoy el escaneo está al fondo de Fuentes, el campo
-   Tema no guía, no avisa de palabras clave insuficientes, «0 grupos» no dice
-   qué hacer y el progreso por fuente es técnico. Dirección a diseñar y
-   aprobar antes de construir: «Nuevo escaneo» como pantalla principal con
-   asistente de 3 pasos (tema → palabras clave es/en propuestas y editables →
-   escanear), aviso de presupuesto y cobertura, resultado en lenguaje llano con
-   el siguiente paso, veredictos visibles sin navegar, rediseño visual.
-   Primero propuesta escrita con flujo y maquetas; luego construcción; luego
-   prueba en el exe real con capturas.
+1. **Fase 1:** revisión y fusión de `fase1/deuda` (decide Walter).
+2. **Fase 2 — interfaz.** El escaneo está al fondo de Fuentes, el campo Tema no
+   guía ni avisa de palabras clave insuficientes, «0 grupos» no dice qué hacer,
+   el progreso por fuente es técnico y el Radar pierde el último nicho tras un
+   escaneo vacío. Dirección a diseñar y aprobar antes de construir: «Nuevo
+   escaneo» como pantalla principal con asistente de 3 pasos (tema → palabras
+   clave es/en propuestas y editables → escanear), aviso de presupuesto y
+   cobertura, resultado en lenguaje llano con el siguiente paso, veredictos
+   visibles sin navegar, rediseño visual. Primero propuesta escrita con flujo
+   y maquetas; luego construcción; luego prueba en el exe real con capturas.
 3. **Fase 3 — validación por Walter:** 3–4 escaneos de temas distintos
    leyendo la evidencia de cada veredicto.
 4. **Fase 4 — modo Videos**, en rama nueva. Walter tiene su propio prompt de
