@@ -21,13 +21,14 @@ AHORA = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
 def verdad(**cambios: Any) -> Verdad:
     return replace(Verdad(veredictos_ultima=9, evidencia_visible=82, fuentes_catalogo=10,
-                          hay_vectores=True), **cambios)
+                          hay_vectores=True, nichos_ultima=2, aviso_ultimo=True), **cambios)
 
 
 def observado(**cambios: Any) -> Observado:
     """Una app sana: todo cuadra con `verdad()`."""
     return replace(Observado(
-        motor_activo_s=4.2, radar_top=6, radar_resto=3, radar_feed=40,
+        motor_activo_s=4.2, radar_nichos=2, radar_descartados=7, radar_feed=40,
+        resultado_desde_aviso="cero_nichos", ficha_abre=True,
         feed_fechas=["2026-09-23", "2026-05-29"], busqueda_filas=20, fuentes_tarjetas=10,
         config_carga=True, cierre_normal=True, puerto_libre_tras_matar=True,
         url_interfaz="http://tauri.localhost/", cierre_ventana_interna=True,
@@ -40,13 +41,15 @@ def observado(**cambios: Any) -> Observado:
 
 
 class TestEsperado(unittest.TestCase):
-    def test_el_top_se_llena_hasta_seis_y_el_resto_va_debajo(self):
+    def test_el_radar_ensena_los_nichos_y_aparte_los_descartados(self):
+        """Fase 2: todos los veredictos de la ejecución con nichos; los nichos
+        (CONSTRUIR, INVESTIGAR MÁS) a la vista y los descartados plegados."""
         e = esperado(verdad())
-        self.assertEqual((e.top, e.resto, e.feed), (6, 3, 40))
+        self.assertEqual((e.nichos, e.descartados, e.feed), (2, 7, 40))
 
-    def test_con_pocos_veredictos_no_se_rellena(self):
-        e = esperado(verdad(veredictos_ultima=2, evidencia_visible=5))
-        self.assertEqual((e.top, e.resto, e.feed), (2, 0, 5))
+    def test_el_feed_recorta_a_40(self):
+        e = esperado(verdad(veredictos_ultima=2, nichos_ultima=0, evidencia_visible=5))
+        self.assertEqual((e.nichos, e.descartados, e.feed), (0, 2, 5))
 
 
 class TestEvaluar(unittest.TestCase):
@@ -54,8 +57,20 @@ class TestEvaluar(unittest.TestCase):
         self.assertEqual(evaluar(observado(), verdad(), ahora=AHORA), [])
 
     def test_una_vista_vacia_con_datos_en_la_base_es_un_fallo(self):
-        fallos = evaluar(observado(radar_top=0, radar_resto=0, radar_feed=0), verdad(), ahora=AHORA)
+        fallos = evaluar(observado(radar_nichos=0, radar_descartados=0, radar_feed=0), verdad(), ahora=AHORA)
         self.assertTrue(any("radar" in f.lower() for f in fallos), fallos)
+
+    def test_el_aviso_del_radar_tiene_que_llevar_al_resultado_del_ultimo_escaneo(self):
+        fallos = evaluar(observado(resultado_desde_aviso=None), verdad(), ahora=AHORA)
+        self.assertTrue(any("aviso" in f for f in fallos), fallos)
+        self.assertEqual(evaluar(observado(resultado_desde_aviso=None), verdad(aviso_ultimo=False),
+                                 ahora=AHORA), [], "sin aviso no hay nada que abrir")
+
+    def test_con_nichos_la_ficha_tiene_que_abrirse(self):
+        fallos = evaluar(observado(ficha_abre=False), verdad(), ahora=AHORA)
+        self.assertTrue(any("ficha" in f for f in fallos), fallos)
+        self.assertEqual(evaluar(observado(ficha_abre=False, radar_nichos=0),
+                                 verdad(nichos_ultima=0, veredictos_ultima=7), ahora=AHORA), [])
 
     def test_la_app_tiene_que_arrancar_en_nuevo_escaneo(self):
         """Fase 2: «Nuevo escaneo» es la pantalla principal."""

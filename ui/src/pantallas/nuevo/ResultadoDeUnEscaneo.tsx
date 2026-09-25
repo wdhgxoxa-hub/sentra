@@ -14,7 +14,9 @@ export function ResultadoDeUnEscaneo({
   cancelado,
   modo,
   onAccion,
+  incrustado = false,
 }: {
+  incrustado?: boolean;
   runId: string;
   cancelado: boolean;
   modo: Modo;
@@ -40,6 +42,7 @@ export function ResultadoDeUnEscaneo({
       descartados={deEste.descartados}
       modo={modo}
       onAccion={onAccion}
+      incrustado={incrustado}
     />
   );
 }

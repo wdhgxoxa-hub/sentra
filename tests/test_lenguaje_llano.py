@@ -23,7 +23,7 @@ UI = Path(__file__).resolve().parents[1] / "ui" / "src"
 I18N = UI / "i18n"
 
 #: Bloques de i18n de las pantallas de la Fase 2.
-VIGILADOS = {"comun", "modos", "nuevoEscaneo", "progreso", "resultado", "nicho"}
+VIGILADOS = {"comun", "modos", "nuevoEscaneo", "progreso", "resultado", "nicho", "radar"}
 #: Carpetas de las pantallas nuevas: letra legible.
 CARPETAS_NUEVAS = (UI / "pantallas", UI / "components" / "comunes", UI / "components" / "nicho",
                    UI / "modos")

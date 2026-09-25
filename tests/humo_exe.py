@@ -45,9 +45,7 @@ EXE_POR_DEFECTO = RAIZ / "ui" / "src-tauri" / "target" / "release" / "sentra.exe
 PUERTO_MOTOR = 8765
 PUERTO_CDP = 9337
 
-#: Límites de la interfaz: Top del juez (core/judge/store.py TOP_TARGET) y
-#: evidencia reciente (ui/src/views/RadarView.tsx FEED_LIMIT).
-TOP = 6
+#: Límite de la evidencia reciente (ui/src/views/RadarView.tsx FEED_LIMIT).
 FEED = 40
 #: Lo que puede tardar el motor en contestar (60 sondeos de 500 ms, sidecar.rs).
 ARRANQUE_MAX_S = 30.0
@@ -75,12 +73,16 @@ class Verdad:
     evidencia_visible: int
     fuentes_catalogo: int
     hay_vectores: bool
+    #: Fase 2: de esos veredictos, los que no son DESCARTAR; y si el último
+    #: escaneo juzgado no es el que se enseña (el Radar lo avisa).
+    nichos_ultima: int = 0
+    aviso_ultimo: bool = False
 
 
 @dataclass(frozen=True)
 class Esperado:
-    top: int
-    resto: int
+    nichos: int
+    descartados: int
     feed: int
 
 
@@ -89,8 +91,12 @@ class Observado:
     """Lo que pinta la app real."""
 
     motor_activo_s: float | None = None
-    radar_top: int = 0
-    radar_resto: int = 0
+    radar_nichos: int = 0
+    radar_descartados: int = 0
+    #: El caso del resultado que abre el aviso del Radar (None si no se abrió) y
+    #: si la ficha del primer nicho se abre.
+    resultado_desde_aviso: str | None = None
+    ficha_abre: bool = False
     radar_feed: int = 0
     feed_fechas: list[str] = field(default_factory=list)
     feed_fuente_desconocida: int = 0
@@ -133,9 +139,10 @@ class Observado:
 
 
 def esperado(verdad: Verdad) -> Esperado:
-    """El Top se llena hasta 6 sin rellenar; el resto va debajo; el feed recorta a 40."""
-    return Esperado(top=min(TOP, verdad.veredictos_ultima),
-                    resto=max(0, verdad.veredictos_ultima - TOP),
+    """Fase 2: el Radar enseña todos los veredictos de la ejecución con nichos,
+    los nichos a la vista y los descartados plegados; el feed recorta a 40."""
+    return Esperado(nichos=verdad.nichos_ultima,
+                    descartados=verdad.veredictos_ultima - verdad.nichos_ultima,
                     feed=min(FEED, verdad.evidencia_visible))
 
 
@@ -148,8 +155,13 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
                       "(¿compilado con cargo en lugar de `npm run tauri build`?)")
     if obs.motor_activo_s is None or obs.motor_activo_s > ARRANQUE_MAX_S:
         fallos.append(f"motor: no quedó activo en {ARRANQUE_MAX_S:.0f} s ({obs.motor_activo_s})")
-    if (obs.radar_top, obs.radar_resto) != (e.top, e.resto):
-        fallos.append(f"radar: Top {obs.radar_top} y resto {obs.radar_resto}; la base dice {e.top} y {e.resto}")
+    if (obs.radar_nichos, obs.radar_descartados) != (e.nichos, e.descartados):
+        fallos.append(f"radar: {obs.radar_nichos} nichos y {obs.radar_descartados} descartados; "
+                      f"la base dice {e.nichos} y {e.descartados}")
+    if verdad.aviso_ultimo and obs.resultado_desde_aviso is None:
+        fallos.append("radar: el aviso del último escaneo no enseña su resultado")
+    if e.nichos and not obs.ficha_abre:
+        fallos.append("radar: la ficha del primer nicho no se abre")
     if obs.radar_feed != e.feed:
         fallos.append(f"radar: evidencia reciente {obs.radar_feed}; la base dice {e.feed}")
     limite = ahora.date().isoformat()
@@ -234,19 +246,26 @@ def _dentro_del_repo(ruta: str) -> bool:
 # --- Verdad de la base (solo lectura) ---------------------------------------
 
 
-async def veredictos_de_la_ultima_juzgada(store: Any) -> int:
-    """Los veredictos de la ejecución que enseña el Radar, con la misma regla que
-    la app (`leer_radar`): la última con nichos y, si no hay, la última juzgada
-    (que puede no tener ninguno)."""
+async def lo_que_ensena_el_radar(store: Any) -> tuple[int, int, bool]:
+    """(veredictos, nichos, aviso) de la ejecución que enseña el Radar, con la
+    misma regla que la app (`leer_radar`): la última con nichos y, si no hay, la
+    última juzgada. `aviso`: la última juzgada es otra (el Radar lo dice)."""
     from core.judge.store import latest_judged_run, latest_run_with_niches
 
-    ejecucion = await latest_run_with_niches(store) or await latest_judged_run(store)
+    ultima = await latest_judged_run(store)
+    ejecucion = await latest_run_with_niches(store) or ultima
     if ejecucion is None:
-        return 0
+        return 0, 0, False
     fila = await store._fetchone(
-        "SELECT count(*) AS n FROM niche_verdicts WHERE tenant_id = %s AND run_id = %s",
+        "SELECT count(*) AS n, count(*) FILTER (WHERE verdict <> 'DESCARTAR') AS nichos "
+        "FROM niche_verdicts WHERE tenant_id = %s AND run_id = %s",
         (store.tenant_id, ejecucion))
-    return int(fila["n"]) if fila else 0
+    return (int(fila["n"]), int(fila["nichos"]), ultima is not None and ultima != ejecucion) if fila else (0, 0, False)
+
+
+async def veredictos_de_la_ultima_juzgada(store: Any) -> int:
+    """Los veredictos de la ejecución que enseña el Radar (ver `lo_que_ensena_el_radar`)."""
+    return (await lo_que_ensena_el_radar(store))[0]
 
 
 def verdad_de_la_base() -> Verdad:
@@ -263,11 +282,12 @@ def verdad_de_la_base() -> Verdad:
             evidencia = (await cur.fetchone() or (0,))[0]
         async with PostgresStore(dsn=dsn) as store:
             await store.connection.set_read_only(True)
-            veredictos = await veredictos_de_la_ultima_juzgada(store)
+            veredictos, nichos, aviso = await lo_que_ensena_el_radar(store)
         from core.evidence.vectors import EvidenceVectorStore
 
-        return Verdad(veredictos_ultima=int(veredictos), evidencia_visible=int(evidencia),
-                      fuentes_catalogo=len(SOURCES), hay_vectores=EvidenceVectorStore().count() > 0)
+        return Verdad(veredictos_ultima=veredictos, evidencia_visible=int(evidencia),
+                      fuentes_catalogo=len(SOURCES), hay_vectores=EvidenceVectorStore().count() > 0,
+                      nichos_ultima=nichos, aviso_ultimo=aviso)
 
     return asyncio.run(leer(), loop_factory=asyncio.SelectorEventLoop)
 
@@ -477,18 +497,39 @@ def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
         _pantalla_llana(app, obs, "nuevo, paso 2")
 
     app.ir("Radar")
-    app.esperar("document.querySelectorAll('section[aria-labelledby=top-juez] article').length > 0", 30)
+    app.esperar("!!document.querySelector('[data-pantalla=radar]') && "
+                "(document.querySelectorAll('[data-nicho], [data-descartado]').length > 0 || "
+                "document.querySelector('main').innerText.length > 200)", 30)
+    app.esperar("document.querySelectorAll('[data-evidencia]').length > 0", 15)
     time.sleep(1)
+    _pantalla_llana(app, obs, "radar")
     radar = app.js("""(() => {
-      const feed = [...document.querySelectorAll('section[aria-labelledby=feed] li')];
-      return {top: document.querySelectorAll('section[aria-labelledby=top-juez] article').length,
-              resto: document.querySelectorAll('section[aria-labelledby=resto-veredictos] li').length,
+      const feed = [...document.querySelectorAll('[data-evidencia]')];
+      return {nichos: document.querySelectorAll('[data-pantalla=radar] [data-nicho]').length,
+              descartados: document.querySelectorAll('[data-pantalla=radar] [data-descartado]').length,
               feed: feed.length,
               fechas: feed.map(li => { const t = li.querySelector('time'); return t ? t.getAttribute('dateTime').slice(0, 10) : ''; }),
               desconocida: feed.filter(li => /desconocida|unknown/i.test(li.innerText)).length};
     })()""") or {}
-    obs.radar_top, obs.radar_resto, obs.radar_feed = radar.get("top", 0), radar.get("resto", 0), radar.get("feed", 0)
+    obs.radar_nichos, obs.radar_descartados = radar.get("nichos", 0), radar.get("descartados", 0)
+    obs.radar_feed = radar.get("feed", 0)
     obs.feed_fechas, obs.feed_fuente_desconocida = radar.get("fechas", []), radar.get("desconocida", 0)
+    # El aviso del último escaneo enseña su resultado (lee la base; no gasta).
+    if app.js("!!document.querySelector('[data-aviso-ultimo] button')"):
+        app.js("document.querySelector('[data-aviso-ultimo] button').click()")
+        if app.esperar("!!document.querySelector('[data-aviso-ultimo] [data-resultado]')", 15):
+            obs.resultado_desde_aviso = app.js("document.querySelector('[data-aviso-ultimo] [data-resultado]').dataset.resultado")
+            _pantalla_llana(app, obs, "radar, resultado del último escaneo")
+        app.js("document.querySelector('[data-aviso-ultimo] button').click()")
+    # La ficha del primer nicho: dossier y plan a la vista, sin pulsar nada que gaste.
+    if app.js("!!document.querySelector('[data-nicho] button')"):
+        app.js("document.querySelector('[data-nicho] button').click()")
+        obs.ficha_abre = app.esperar("!!document.querySelector('[data-ficha] [data-documento=dossier]') && "
+                                     "!!document.querySelector('[data-ficha] [data-documento=plan]')", 15)
+        if obs.ficha_abre:
+            time.sleep(1)
+            _pantalla_llana(app, obs, "ficha del nicho")
+        app.js("[...document.querySelectorAll('[data-ficha] button')].find(b => /Radar/.test(b.innerText))?.click()")
 
     app.ir("Búsqueda", "Semantic", "Search")
     # El campo de la búsqueda, no «main input»: justo después de pulsar puede
@@ -604,7 +645,7 @@ def main(argv: list[str] | None = None) -> int:
         args.salida.write_text(json.dumps(informe, ensure_ascii=False, indent=1), encoding="utf-8")
     for fallo in fallos:
         print(f"  ✗ {fallo}")
-    print(f"HUMO {'OK' if not fallos else 'FALLA'}: motor {obs.motor_activo_s} s · Top {obs.radar_top}+{obs.radar_resto} · "
+    print(f"HUMO {'OK' if not fallos else 'FALLA'}: motor {obs.motor_activo_s} s · Radar {obs.radar_nichos}+{obs.radar_descartados} · "
           f"feed {obs.radar_feed} · búsqueda {obs.busqueda_filas} ({obs.busqueda_s} s) · fuentes {obs.fuentes_tarjetas} · "
           f"huérfanos {obs.huerfanos_tras_cierre}/{obs.huerfanos_tras_matar}")
     return 0 if not fallos else 1

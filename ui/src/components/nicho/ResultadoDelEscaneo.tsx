@@ -17,17 +17,22 @@ export function ResultadoDelEscaneo({
   descartados,
   modo,
   onAccion,
+  incrustado = false,
 }: {
   siguiente: SiguientePaso;
   nichos: NichoEnPantalla[];
   descartados: NichoEnPantalla[];
   modo: Modo;
   onAccion: (accion: AccionDePaso, nicho?: NichoEnPantalla) => void;
+  /** Dentro de otra pantalla (el Radar): su acción principal ya es otra. */
+  incrustado?: boolean;
 }) {
   const t = useT();
   const { caso, pasos, cifras } = siguiente;
-  const principal = pasos.find((p) => p.accion !== null)?.accion ?? null;
-  const otras = [...new Set(pasos.map((p) => p.accion).filter((a): a is AccionDePaso => a !== null && a !== principal))];
+  // Dentro del Radar, «Ir al Radar» no lleva a ningún sitio nuevo.
+  const util = (a: AccionDePaso | null): a is AccionDePaso => a !== null && !(incrustado && a === "abrir_radar");
+  const principal = pasos.map((p) => p.accion).find(util) ?? null;
+  const otras = [...new Set(pasos.map((p) => p.accion).filter((a): a is AccionDePaso => util(a) && a !== principal))];
 
   return (
     <section data-resultado={caso} className="flex flex-col gap-5">
@@ -71,9 +76,12 @@ export function ResultadoDelEscaneo({
               {t.resultado.accion[accion]}
             </BotonSecundario>
           ))}
-          {principal && (
-            <AccionPrincipal onClick={() => onAccion(principal, nichos[0])}>{t.resultado.accion[principal]}</AccionPrincipal>
-          )}
+          {principal &&
+            (incrustado ? (
+              <BotonSecundario onClick={() => onAccion(principal, nichos[0])}>{t.resultado.accion[principal]}</BotonSecundario>
+            ) : (
+              <AccionPrincipal onClick={() => onAccion(principal, nichos[0])}>{t.resultado.accion[principal]}</AccionPrincipal>
+            ))}
         </div>
       </section>
 
