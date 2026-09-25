@@ -599,6 +599,9 @@ export const en: Dictionary = {
       abrir_configuracion: "Go to Settings",
     },
     otroEscaneo: "Start another scan",
+    dominante: "Almost all the evidence comes from {fuente}",
+    dominanteExplica:
+      "{piezas} of {total} pieces came from there. What the judge says mostly reflects what people say on {fuente}: keep it in mind when reading the result.",
     noGuardado: "This scan could not be saved, so there is no result to show.",
     descartados: "{n} groups set aside",
     descartadosExplica: "Why they are not a niche",

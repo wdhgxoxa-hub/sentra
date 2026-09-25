@@ -42,14 +42,14 @@ LEIDO = {
     # Fase 2: la ejecución que se enseña y la última juzgada (que puede salir vacía).
     "run": {"run_id": "run-1", "name": "Facturas", "started_at": "2026-09-24T17:56:00+00:00",
             "keywords": ["invoices"], "languages": ["en"], "fetched": 40, "verdicts": 1, "niches": 1,
-            "summary": None, "stop_reason": None},
+            "summary": None, "stop_reason": None, "sources": {"hackernews": 40}},
     "latest_run": {"run_id": "run-2", "name": "Pagos", "started_at": "2026-09-24T18:47:00+00:00",
                    "keywords": ["pagos"], "languages": ["es"], "fetched": 12, "verdicts": 0, "niches": 0,
                    "summary": {"items": 12, "kept": 9, "discarded": {}, "competition": 0, "labeled": 9,
                                "undetermined": {}, "pain": 2, "min_authors": 5, "clusters": 0,
                                "verdicts": {}, "llm": {"model": "m", "unavailable": None, "calls": 1,
                                                        "stop_reason": None}},
-                   "stop_reason": None},
+                   "stop_reason": None, "sources": {}},
 }
 
 

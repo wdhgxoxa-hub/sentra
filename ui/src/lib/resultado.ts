@@ -45,3 +45,18 @@ const TONOS: Record<CasoDeResultado, TonoDeAviso> = {
 export function tonoDelCaso(caso: CasoDeResultado): TonoDeAviso {
   return TONOS[caso];
 }
+
+/**
+ * Fase 3, medida d: la fuente que aportó más de la mitad de las piezas de un
+ * escaneo (en el escaneo 1, YouTube: 500 de 512). El resultado lo avisa: lo
+ * que dice el juez puede reflejar sobre todo lo que se habla allí. Sin datos
+ * por fuente (escaneos anteriores a la migración 018) no se avisa.
+ */
+export function fuenteDominante(
+  piezas: Record<string, number>,
+): { fuente: string; piezas: number; total: number } | null {
+  const total = Object.values(piezas).reduce((suma, n) => suma + n, 0);
+  if (total === 0) return null;
+  const [fuente, cuantas] = Object.entries(piezas).reduce((a, b) => (b[1] > a[1] ? b : a));
+  return cuantas * 2 > total ? { fuente, piezas: cuantas, total } : null;
+}

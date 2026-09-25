@@ -1,5 +1,6 @@
 import { AccionPrincipal, Aviso, BotonSecundario } from "@/components/comunes/Comunes";
 import { tonoDelCaso } from "@/lib/resultado";
+import { rellenar } from "@/lib/texto";
 import type { AccionDePaso, SiguientePaso } from "@/lib/siguientePaso";
 import type { Modo, NichoEnPantalla } from "@/modos/tipos";
 import { useT } from "@/stores/settingsStore";
@@ -18,6 +19,7 @@ export function ResultadoDelEscaneo({
   modo,
   onAccion,
   incrustado = false,
+  dominante = null,
 }: {
   siguiente: SiguientePaso;
   nichos: NichoEnPantalla[];
@@ -26,6 +28,8 @@ export function ResultadoDelEscaneo({
   onAccion: (accion: AccionDePaso, nicho?: NichoEnPantalla) => void;
   /** Dentro de otra pantalla (el Radar): su acción principal ya es otra. */
   incrustado?: boolean;
+  /** Una fuente aportó más de la mitad de las piezas (Fase 3): se avisa. */
+  dominante?: { nombre: string; piezas: number; total: number } | null;
 }) {
   const t = useT();
   const { caso, pasos, cifras } = siguiente;
@@ -39,6 +43,14 @@ export function ResultadoDelEscaneo({
       <Aviso tono={tonoDelCaso(caso)} titulo={t.resultado.titulo[caso]}>
         {t.resultado.significa[caso]}
       </Aviso>
+
+      {dominante && (
+        <Aviso tono="aviso" titulo={rellenar(t.resultado.dominante, { fuente: dominante.nombre })}>
+          {rellenar(t.resultado.dominanteExplica, {
+            fuente: dominante.nombre, piezas: dominante.piezas, total: dominante.total,
+          })}
+        </Aviso>
+      )}
 
       {cifras ? (
         <dl className="grid gap-3 sm:grid-cols-3">

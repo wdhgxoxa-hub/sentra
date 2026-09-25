@@ -228,6 +228,7 @@
       "name",
       "niches",
       "runId",
+      "sources",
       "startedAt",
       "stopReason",
       "summary",

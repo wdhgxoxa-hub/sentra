@@ -435,6 +435,8 @@ export interface RunOverview {
   niches: number;
   summary: JudgeSummary | null;
   stopReason: string | null;
+  /** Piezas que trajo cada fuente (vacío antes de la migración 018). */
+  sources: Record<string, number>;
 }
 
 export interface JudgeTop {

@@ -608,6 +608,9 @@ export const es = {
       abrir_configuracion: "Ir a Configuración",
     },
     otroEscaneo: "Empezar otro escaneo",
+    dominante: "Casi toda la evidencia viene de {fuente}",
+    dominanteExplica:
+      "{piezas} de {total} piezas salieron de ahí. Lo que diga el juez refleja sobre todo lo que se habla en {fuente}: tenlo en cuenta al leer el resultado.",
     noGuardado: "Este escaneo no se pudo guardar, así que no hay resultado que enseñar.",
     descartados: "{n} grupos descartados",
     descartadosExplica: "Por qué no son nicho",

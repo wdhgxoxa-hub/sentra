@@ -1,5 +1,7 @@
 import { ResultadoDelEscaneo } from "@/components/nicho/ResultadoDelEscaneo";
 import { useNichos } from "@/lib/nichos";
+import { useSources } from "@/lib/queries";
+import { fuenteDominante } from "@/lib/resultado";
 import type { AccionDePaso } from "@/lib/siguientePaso";
 import { siguientePaso } from "@/lib/siguientePaso";
 import type { Modo, NichoEnPantalla } from "@/modos/tipos";
@@ -25,10 +27,13 @@ export function ResultadoDeUnEscaneo({
   const t = useT();
   const deEste = useNichos(runId);
   const delRadar = useNichos(null);
+  const fuentes = useSources();
   if (deEste.cargando) return <p className="text-sm text-ink-faint">{t.comun.cargando}</p>;
   if (!deEste.escaneo) return <p className="text-sm text-ink-faint">{t.comun.algoFallo}</p>;
   const hayNichoAnterior =
     delRadar.escaneo !== null && delRadar.escaneo.runId !== runId && delRadar.escaneo.niches > 0;
+  const dominante = fuenteDominante(deEste.escaneo.sources);
+  const nombreDe = (id: string) => fuentes.data?.sources.find((c) => c.source === id)?.displayName ?? id;
   const siguiente = siguientePaso({
     escaneo: deEste.escaneo,
     veredictos: deEste.veredictos,
@@ -43,6 +48,7 @@ export function ResultadoDeUnEscaneo({
       modo={modo}
       onAccion={onAccion}
       incrustado={incrustado}
+      dominante={dominante && { nombre: nombreDe(dominante.fuente), piezas: dominante.piezas, total: dominante.total }}
     />
   );
 }

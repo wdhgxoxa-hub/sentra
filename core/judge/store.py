@@ -177,8 +177,9 @@ async def latest_run_with_niches(store: PostgresStore) -> str | None:
 
 async def run_overview(store: PostgresStore, run_id: str) -> dict[str, Any] | None:
     """Lo que la interfaz cuenta de un escaneo: nombre, fecha, palabras e
-    idiomas, cuánto trajo, cuántos veredictos y nichos, el resumen del juez
-    (migración 019; None en los anteriores) y por qué se paró."""
+    idiomas, cuánto trajo (en total y por fuente), cuántos veredictos y
+    nichos, el resumen del juez (migración 019; None en los anteriores) y por
+    qué se paró."""
     if not _UUID.fullmatch(run_id):
         return None
     fila = await store._fetchone(
@@ -195,12 +196,18 @@ async def run_overview(store: PostgresStore, run_id: str) -> dict[str, Any] | No
     )
     if fila is None:
         return None
+    # Piezas que trajo cada fuente (migración 018): el resultado avisa si una
+    # sola aporta más de la mitad (Fase 3). Escaneos anteriores: sin filas.
+    por_fuente = await store._fetchall(
+        "SELECT source, items FROM run_source_outcomes WHERE tenant_id = %s AND run_id = %s ORDER BY source",
+        (store.tenant_id, run_id))
     parametros = fila["parameters"] or {}
     return {"run_id": fila["run_id"], "name": fila["name"], "started_at": fila["started_at"].isoformat(),
             "keywords": list(parametros.get("keywords") or []),
             "languages": list(parametros.get("languages") or []),
             "fetched": fila["fetched"], "verdicts": fila["verdicts"], "niches": fila["niches"],
-            "summary": fila["summary"], "stop_reason": fila["stop_reason"]}
+            "summary": fila["summary"], "stop_reason": fila["stop_reason"],
+            "sources": {f["source"]: f["items"] for f in por_fuente}}
 
 
 async def leer_radar(store: PostgresStore, run_id: str | None) -> dict[str, Any]:

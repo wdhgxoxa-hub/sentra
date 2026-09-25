@@ -39,3 +39,23 @@ test("cada caso tiene su tono, y no solo color: también su palabra en el títul
   assert.equal(tonoDelCaso("tope_gemini"), "mal");
   assert.equal(tonoDelCaso("cancelado"), "info");
 });
+
+// --- Fase 3, medida d: una fuente que aporta más de la mitad ------------
+
+import { fuenteDominante } from "./resultado.ts";
+
+test("el escaneo 1: YouTube aportó 500 de 512 piezas", () => {
+  assert.deepEqual(fuenteDominante({ youtube: 500, mastodon: 11, bluesky: 1, hackernews: 0 }), {
+    fuente: "youtube", piezas: 500, total: 512,
+  });
+});
+
+test("la mitad justa no es dominar; más de la mitad, sí", () => {
+  assert.equal(fuenteDominante({ youtube: 250, hackernews: 250 }), null);
+  assert.equal(fuenteDominante({ youtube: 251, hackernews: 249 })?.fuente, "youtube");
+});
+
+test("sin piezas, o sin datos por fuente (escaneos antiguos), no hay aviso", () => {
+  assert.equal(fuenteDominante({}), null);
+  assert.equal(fuenteDominante({ youtube: 0, hackernews: 0 }), null);
+});
