@@ -23,6 +23,7 @@ reintentar.
 from __future__ import annotations
 
 import html
+import math
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -51,10 +52,15 @@ LIST_UNITS = 1
 SCAN_MAX_UNITS = 2000
 #: Vídeos por búsqueda y vídeos (los de más comentarios) de los que se leen.
 MAX_RESULTS = 25
-VIDEOS_WITH_COMMENTS = 8
+VIDEOS_WITH_COMMENTS = 25
 #: Peticiones por escaneo: las unidades son las que acotan (búsqueda 100).
 SCAN_MAX_REQUESTS = 200
-COMMENTS_PER_VIDEO = 50
+#: Fase 3 (Walter): más ancho y menos hondo. Con 8 vídeos × 50 comentarios, dos
+#: búsquedas llenaban el tope y el resto de palabras no se buscaba.
+COMMENTS_PER_VIDEO = 10
+#: Palabras por búsqueda, unidas con el operador O de la API («|»): todas las
+#: palabras se buscan con pocas búsquedas (100 unidades cada una).
+PALABRAS_POR_BUSQUEDA = 4
 #: La cuota diaria se repone a medianoche (hora del Pacífico): no se reintenta.
 QUOTA_RESET_S = 3600.0
 
@@ -110,22 +116,38 @@ class YouTubeSource(SourceAdapter):
         return self._probe_ok("YouTube Data API respondió (1 unidad)")
 
     async def search(self, query: SearchQuery) -> AsyncIterator[EvidenceItem]:
+        """Primero TODAS las búsquedas (las palabras agrupadas con «|»), luego
+        los comentarios por turnos entre búsquedas: el tope de piezas ya no
+        deja palabras sin buscar (Fase 3, escaneo 1)."""
         vistos: set[str] = set()
-        unidades = self.budget.max_units or SCAN_MAX_UNITS
-        busquedas = max(1, int(unidades // (SEARCH_UNITS + LIST_UNITS + VIDEOS_WITH_COMMENTS)))
-        for palabra, frase in term_pairs(query, limit=busquedas):
+        por_busqueda: list[tuple[list[str], dict[str, str]]] = []
+        for grupo in self._grupos(query):
             params: dict[str, Any] = {
                 "part": "snippet", "type": "video", "maxResults": MAX_RESULTS,
-                "order": "relevance", "q": " ".join(t for t in (palabra, frase) if t),
+                "order": "relevance", "q": "|".join(f'"{t}"' for t in grupo),
             }
             if query.since is not None:
                 params["publishedAfter"] = query.since.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             datos = await self._api("search", params, SEARCH_UNITS)
             titulos = {v["id"]["videoId"]: html.unescape(str((v.get("snippet") or {}).get("title") or "")).strip()
                        for v in datos.get("items") or [] if (v.get("id") or {}).get("videoId")}
-            for video_id in await self._mas_comentados(list(titulos)):
-                async for comentario in self._comentarios(video_id, titulos[video_id], vistos):
-                    yield comentario
+            por_busqueda.append((await self._mas_comentados(list(titulos)), titulos))
+        for turno in range(VIDEOS_WITH_COMMENTS):
+            for videos, titulos in por_busqueda:
+                if turno < len(videos):
+                    async for comentario in self._comentarios(videos[turno], titulos[videos[turno]], vistos):
+                        yield comentario
+
+    def _grupos(self, query: SearchQuery) -> list[list[str]]:
+        """Los términos (palabras, o frases en descubrimiento) en grupos para
+        buscar con O. Si las unidades no dan para una búsqueda por grupo, los
+        grupos crecen: todas las palabras se buscan igualmente."""
+        terminos = [t for t, _ in term_pairs(query, limit=10_000, solo_tema=True) if t] or [
+            f for _, f in term_pairs(query, limit=10_000) if f]
+        unidades = self.budget.max_units or SCAN_MAX_UNITS
+        caben = max(1, int(unidades // (SEARCH_UNITS + LIST_UNITS + VIDEOS_WITH_COMMENTS)))
+        tamano = max(PALABRAS_POR_BUSQUEDA, math.ceil(len(terminos) / caben))
+        return [terminos[i:i + tamano] for i in range(0, len(terminos), tamano)]
 
     async def _mas_comentados(self, ids: list[str]) -> list[str]:
         """Los VIDEOS_WITH_COMMENTS vídeos con más comentarios (sin los que no tienen)."""

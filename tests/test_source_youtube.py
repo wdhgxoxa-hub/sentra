@@ -26,6 +26,7 @@ inventados (R8).
 
 import unittest
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -145,13 +146,17 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(leidos, ["vidMuchos"])
 
     async def test_el_presupuesto_por_defecto_alcanza_para_las_peticiones_planeadas(self):
+        """Fase 3: primero todas las búsquedas (búsqueda + lista de vídeos cada una)
+        y luego las lecturas de comentarios que llenan la mitad del cupo del
+        escaneo. Eso tiene que caber siempre en las peticiones de la fuente."""
         from core.sources import youtube
+        from core.sources.scan import CUPO_POR_ESCANEO
 
         presupuesto = YouTubeSource.default_budget()
         assert presupuesto.max_units is not None
-        por_busqueda = 2 + youtube.VIDEOS_WITH_COMMENTS
         busquedas = int(presupuesto.max_units // (youtube.SEARCH_UNITS + 1 + youtube.VIDEOS_WITH_COMMENTS))
-        self.assertGreaterEqual(presupuesto.max_requests, busquedas * por_busqueda)
+        lecturas = -(-(CUPO_POR_ESCANEO // 2) // youtube.COMMENTS_PER_VIDEO)
+        self.assertGreaterEqual(presupuesto.max_requests, 2 * busquedas + lecturas)
 
     async def test_comentario_sin_nombres_y_con_urls_por_id(self):
         [comentario] = await todos(fuente(api()).search(SearchQuery(keywords=["invoice"])))
@@ -208,3 +213,88 @@ class TestSonda(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+#: Las 14 palabras del escaneo 1 de la Fase 3 (25-09), tal como se enviaron.
+PALABRAS_ESCANEO_1 = [
+    "convertir pdf word desconfigura todo", "pdf a word pierde formato", "pasar pdf docx rompe diseno",
+    "convertir pdf tablas se rompen", "pdf a word fuentes mal", "odiosa conversion pdf a word",
+    "convertir pdf sin romper margenes", "convert pdf word breaks formatting", "pdf to docx layout ruined",
+    "pdf to word messed up", "convert pdf broken tables docx", "pdf to word nightmare formatting",
+    "pdf to word ruins formatting", "converting pdf destroys layout"]
+#: Unidades que gastó YouTube en el escaneo 1 (run_source_outcomes): el tope que no se puede superar.
+UNIDADES_ESCANEO_1 = 1065
+
+
+def api_abundante(peticiones: list[httpx.Request]):
+    """Cada búsqueda trae 25 vídeos distintos, todos con comentarios; cada
+    vídeo, 10 comentarios distintos (o los que pida maxResults)."""
+    contador = {"busquedas": 0}
+
+    def manejador(peticion):
+        peticiones.append(peticion)
+        q = parse_qs(urlparse(str(peticion.url)).query)
+        if peticion.url.path.endswith("/search"):
+            contador["busquedas"] += 1
+            n = contador["busquedas"]
+            return httpx.Response(200, json={"items": [
+                {**VIDEO, "id": {"kind": "youtube#video", "videoId": f"v{n}x{i}"}} for i in range(25)]})
+        if peticion.url.path.endswith("/videos"):
+            return httpx.Response(200, json={"items": [
+                {"id": v, "statistics": {"commentCount": "300"}} for v in q["id"][0].split(",")]})
+        if peticion.url.path.endswith("/commentThreads"):
+            video = q["videoId"][0]
+            cuantos = int(q["maxResults"][0])
+            hilo: dict[str, Any] = HILO
+            return httpx.Response(200, json={"items": [
+                {**hilo, "snippet": {**hilo["snippet"], "topLevelComment": {
+                    **hilo["snippet"]["topLevelComment"], "id": f"{video}c{k}"}}} for k in range(cuantos)]})
+        return httpx.Response(200, json={"items": []})
+    return manejador
+
+
+class TestTodasLasPalabrasSeBuscan(unittest.IsolatedAsyncioTestCase):
+    """Fase 3, medida b (Walter): en el escaneo 1, YouTube llenó su tope con las
+    dos o tres primeras búsquedas (8 vídeos × 50 comentarios) y el resto de
+    palabras no llegó a buscarse. Ahora: todas las palabras se buscan antes de
+    leer comentarios, 10 comentarios por vídeo y más vídeos, sin gastar más
+    unidades que el escaneo 1."""
+
+    async def buscar(self, max_items=250):
+        from core.sources.budget import SourceBudget
+
+        peticiones: list[httpx.Request] = []
+        presupuesto = SourceBudget(source="youtube", max_units=2000, max_requests=200, max_items=max_items)
+        from core.sources.errors import SourceBudgetExhausted
+
+        items: list = []
+        try:  # el tope de piezas termina la fuente así, como en el escaneo real
+            async for item in fuente(api_abundante(peticiones), presupuesto).search(
+                    SearchQuery(keywords=PALABRAS_ESCANEO_1)):
+                items.append(item)
+        except SourceBudgetExhausted:
+            pass
+        return peticiones, presupuesto, items
+
+    async def test_todas_las_palabras_llegan_a_buscarse_antes_de_agotar_el_tope(self):
+        peticiones, _, items = await self.buscar()
+        consultas = [parse_qs(urlparse(str(p.url)).query)["q"][0] for p in peticiones
+                     if p.url.path.endswith("/search")]
+        for palabra in PALABRAS_ESCANEO_1:
+            with self.subTest(palabra=palabra):
+                self.assertTrue(any(f'"{palabra}"' in q for q in consultas), consultas)
+        self.assertEqual(len(items), 250, "el tope se llena igualmente")
+
+    async def test_diez_comentarios_por_video_y_por_turnos_entre_busquedas(self):
+        peticiones, _, _ = await self.buscar()
+        hilos = [parse_qs(urlparse(str(p.url)).query) for p in peticiones if p.url.path.endswith("/commentThreads")]
+        self.assertTrue(all(h["maxResults"] == ["10"] for h in hilos))
+        primeras = [h["videoId"][0].split("x")[0] for h in hilos[:4]]
+        self.assertEqual(len(set(primeras)), 4, f"los primeros vídeos vienen de búsquedas distintas: {primeras}")
+
+    async def test_no_gasta_mas_unidades_que_el_escaneo_1(self):
+        _, presupuesto, _ = await self.buscar()
+        self.assertLessEqual(presupuesto.spent_units, UNIDADES_ESCANEO_1)
+        # Peor caso con estas 14 palabras, aunque no hubiera tope de piezas:
+        _, sin_tope, _ = await self.buscar(max_items=100_000)
+        self.assertLessEqual(sin_tope.spent_units, UNIDADES_ESCANEO_1)
