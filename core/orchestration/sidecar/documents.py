@@ -65,12 +65,12 @@ def _cargar(ctx: SidecarContext, verdict_id: str) -> dict[str, Any] | None:
 def _proveedor(ctx: SidecarContext) -> tuple[JsonGenerator, str]:
     """El proveedor con el modelo de documentos (D-C1: el guardado en Ajustes o,
     sin guardado, el Pro 3.x más reciente)."""
-    from core.llm.budget import LLMBudget
     from core.llm.gemini import GeminiProvider
 
-    # Un documento no es de ningún escaneo: su uso va sin ejecución.
+    # Un documento no es de ningún escaneo: su uso va sin ejecución y solo le
+    # aplica el tope diario.
     clave, modelo = ctx.resolver_modelo("documentos")
-    return GeminiProvider(clave, control=ctx.control(), budget=LLMBudget()), modelo
+    return GeminiProvider(clave, control=ctx.control()), modelo
 
 
 def nombre_de_archivo(documento: DocumentModel, formato: str) -> str:

@@ -78,9 +78,10 @@ class SidecarContext:
     # como sources_state. Nadie resuelve aquí el DSN por su cuenta.
     registro_de_uso: RegistroDeUso = field(default_factory=RegistroEnMemoria)
 
-    def control(self, run_id: str | None = None) -> ControlDeGemini:
-        """El punto de control de Gemini de este motor, cargado a `run_id`."""
-        return ControlDeGemini(self.registro_de_uso, run_id=run_id)
+    def control(self, run_id: str | None = None, *, escaneo: bool = False) -> ControlDeGemini:
+        """El punto de control de Gemini de este motor, cargado a `run_id`;
+        `escaneo` aplica además el tope por escaneo."""
+        return ControlDeGemini(self.registro_de_uso, run_id=run_id, escaneo=escaneo)
 
     def listar_modelos(self, key: str, *, refrescar: bool = False) -> list[ModelInfo]:
         """Modelos que la clave puede usar, reutilizando la lista un día."""

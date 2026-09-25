@@ -87,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     dsn = resolver_dsn(args.dsn)
 
-    control = ControlDeGemini(RegistroPostgres(dsn))
+    # Un re-juicio cuenta como un escaneo para los topes.
+    control = ControlDeGemini(RegistroPostgres(dsn), escaneo=True)
     proveedor, modelo, motivo = _proveedor(dsn, control)
     if proveedor is None:
         print(f"No se re-juzga: sin proveedor del juez ({motivo}). Sin etiquetas no hay nichos.")

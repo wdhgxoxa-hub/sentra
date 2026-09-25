@@ -46,7 +46,6 @@ from .base import (
     ModelInfo,
     UsageRecord,
 )
-from .budget import LLMBudget
 from .control import ControlDeGemini, Intento
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
@@ -373,33 +372,27 @@ class GeminiProvider:
         *,
         control: ControlDeGemini,
         client_factory: ClientFactory | None = None,
-        budget: LLMBudget | None = None,
         max_retries: int = MAX_RETRIES,
     ) -> None:
         self._api_key = api_key
         self._control = control
         self._fabrica = client_factory or _cliente_real
-        self._budget = budget
         self._max_retries = max_retries
         self.usage: list[UsageRecord] = []
 
     def _anotar(self, model: str, purpose: str, inicio: float, respuesta: Any,
                 error: GeminiError | None = None) -> None:
         """Un intento que salió: su fila en el control (ok o error) y su registro
-        de uso y su cargo si hubo respuesta o terminó bien (como antes)."""
+        de uso si hubo respuesta o terminó bien."""
         entrada, salida, razonamiento = _uso(respuesta) if respuesta is not None else (None, None, None)
         if respuesta is not None or error is None:
             registro = UsageRecord(model, entrada, salida, razonamiento, time.monotonic() - inicio)
             self.usage.append(registro)
-            if self._budget is not None:
-                self._budget.charge(registro)
         self._control.anotar(Intento(model, purpose, "ok" if error is None else "error",
                                      None if error is None else error.code, entrada, salida, razonamiento))
 
-    def _antes_de_llamar(self, purpose: str) -> None:
-        self._control.antes(purpose)
-        if self._budget is not None:
-            self._budget.check()
+    def _antes_de_llamar(self, purpose: str, model: str) -> None:
+        self._control.antes(purpose, model)
 
     def list_models(self) -> list[ModelInfo]:
         """Modelos que la clave puede usar para generar texto (`models.list`)."""
@@ -441,7 +434,7 @@ class GeminiProvider:
             timeout_ms=timeout_ms, max_output_tokens=max_output_tokens, system_instruction=system
         )
         for intento in range(self._max_retries + 1):
-            self._antes_de_llamar(purpose)
+            self._antes_de_llamar(purpose, model)
             entregado = False
             inicio = time.monotonic()
             ultimo: Any = None
@@ -541,7 +534,7 @@ class GeminiProvider:
         """Una llamada a `generate_content` con reintentos transitorios; cada
         intento deja su fila en el control."""
         for intento in range(self._max_retries + 1):
-            self._antes_de_llamar(purpose)
+            self._antes_de_llamar(purpose, model)
             inicio = time.monotonic()
             respuesta: Any = None
             try:
@@ -572,7 +565,7 @@ class GeminiProvider:
         Sin reintentos ni exigencia de texto: un modelo de razonamiento puede
         gastar el primer trozo pensando, y eso ya demuestra que la clave sirve.
         """
-        self._antes_de_llamar("prueba_clave")
+        self._antes_de_llamar("prueba_clave", model)
         config = _build_config(timeout_ms=timeout_ms, max_output_tokens=max_output_tokens)
         inicio = time.monotonic()
         trozo: Any = None

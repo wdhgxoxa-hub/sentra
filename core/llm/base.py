@@ -58,9 +58,14 @@ class LLMTruncated(LLMError):
 
 
 class LLMBudgetExhausted(LLMError):
-    """Se agotó el presupuesto de tokens del escaneo: la llamada no sale."""
+    """Se alcanzó un tope de Gemini (por escaneo o diario): la llamada no sale.
+    `motivo` dice cuál (tope_escaneo_llamadas, tope_diario_tokens...)."""
 
     code = "llm_budget_exhausted"
+
+    def __init__(self, message: str = "", *, motivo: str = "tope") -> None:
+        super().__init__(message)
+        self.motivo = motivo
 
 
 @dataclass(frozen=True)

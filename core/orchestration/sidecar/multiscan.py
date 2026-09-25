@@ -109,11 +109,10 @@ def _proveedor_del_juez(ctx: SidecarContext, control: ControlDeGemini) -> tuple[
     todo queda undetermined y nada sale CONSTRUIR. Cada llamada pasa por
     `control` (una fila de llm_usage por intento)."""
     try:
-        from core.llm.budget import LLMBudget
         from core.llm.gemini import GeminiProvider
 
         clave, modelo = ctx.resolver_modelo("defecto")
-        return GeminiProvider(clave, control=control, budget=LLMBudget()), modelo, None
+        return GeminiProvider(clave, control=control), modelo, None
     except Exception as exc:  # noqa: BLE001 - sin Gemini el juez sigue, sin etiquetas
         motivo = getattr(exc, "code", type(exc).__name__)
         # AUD-051: se degrada, pero no en silencio: queda en el log y el motivo
@@ -142,7 +141,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     )
 
     dsn = resolver_dsn(ctx.postgres_dsn)
-    proveedor, modelo, motivo = _proveedor_del_juez(ctx, ctx.control(run_id))
+    proveedor, modelo, motivo = _proveedor_del_juez(ctx, ctx.control(run_id, escaneo=True))
 
     async def juzgar() -> dict[str, Any]:
         async with PostgresStore(dsn=dsn) as store:

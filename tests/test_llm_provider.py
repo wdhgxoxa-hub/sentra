@@ -14,7 +14,6 @@ import unittest
 from google.genai import types
 
 from core.llm.base import LLMBudgetExhausted, LLMProvider, UsageRecord
-from core.llm.budget import LLMBudget
 from core.llm.gemini import GeminiProvider
 from tests._gemini_dobles import control_de_prueba
 
@@ -99,22 +98,20 @@ class TestContabilidad(unittest.TestCase):
         self.assertIsNone(proveedor.usage[-1].input_tokens)
 
 
-class TestPresupuesto(unittest.TestCase):
-    def test_agotado_el_presupuesto_la_llamada_siguiente_no_sale(self):
-        cliente = Cliente(respuesta("a", 10, 5, 3), respuesta("b"))
-        presupuesto = LLMBudget(max_tokens=20)
-        proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente, budget=presupuesto)
-        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
-        self.assertEqual(presupuesto.spent_tokens, 18)
+class TestTopes(unittest.TestCase):
+    def test_con_un_tope_alcanzado_la_llamada_no_sale(self):
+        # El tope fijo de 1 000 000 de tokens (LLMBudget) se retiró: los topes los
+        # aplica el punto de control (tests/test_topes_gemini.py).
+        from core.llm.control import ControlDeGemini, RegistroEnMemoria, Topes
 
-        presupuesto.charge(UsageRecord("m", 5, 0, 0, 0.0))  # 23 > 20
+        cliente = Cliente(respuesta("a", 10, 5, 3), respuesta("b"))
+        control = ControlDeGemini(RegistroEnMemoria(topes=Topes(1, 10**6, 40, 10**6)), escaneo=True)
+        proveedor = GeminiProvider("clave", control=control, client_factory=cliente)
+        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         with self.assertRaises(LLMBudgetExhausted) as ctx:
             proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         self.assertEqual(ctx.exception.code, "llm_budget_exhausted")
         self.assertEqual(len(cliente.llamadas), 1, "la llamada no debía salir")
-
-    def test_el_presupuesto_por_defecto_es_el_de_d_m4(self):
-        self.assertEqual(LLMBudget().max_tokens, 1_000_000)
 
 
 class TestPing(unittest.TestCase):
