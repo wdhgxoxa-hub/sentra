@@ -119,6 +119,20 @@ export const en: Dictionary = {
     probeFailed: "The key could not be tested.",
     saveKey: "Save key",
     testKey: "Test key",
+    budget: {
+      title: "Gemini budget",
+      hint:
+        "Caps the engine applies before every Gemini call. When one is reached, the call does not go out and the reason is saved. The day is Lima time.",
+      scanCalls: "Calls per scan",
+      scanTokens: "Tokens per scan",
+      dailyCalls: "Calls per day",
+      dailyTokens: "Tokens per day",
+      spentToday: "Spent today: {calls} calls · {tokens} tokens.",
+      save: "Save budget",
+      saved: "Budget saved",
+      loading: "Reading the budget…",
+      failed: "Could not read the Gemini budget.",
+    },
   },
 
   explain: {
@@ -194,7 +208,15 @@ export const en: Dictionary = {
       "The model's answer was cut off at its output limit.",
     llm_invalid_json: "The model returned a reply that does not match the requested format, even after a retry.",
     llm_budget_exhausted:
-      "The scan's token budget ran out. Raise it in Settings or scan less evidence.",
+      "A Gemini cap was reached and the call did not go out. Check it in Settings › Gemini budget.",
+    tope_escaneo_llamadas:
+      "This scan reached its call cap. Raise it in Settings › Gemini budget › Calls per scan.",
+    tope_escaneo_tokens:
+      "This scan reached its token cap. Raise it in Settings › Gemini budget › Tokens per scan.",
+    tope_diario_llamadas:
+      "Today's call cap was reached. Raise it in Settings › Gemini budget › Calls per day, or wait until tomorrow (Lima time).",
+    tope_diario_tokens:
+      "Today's token cap was reached. Raise it in Settings › Gemini budget › Tokens per day, or wait until tomorrow (Lima time).",
     gemini_unavailable: "Gemini is not available right now. It was retried several times; try again in a while.",
     gemini_rate_limited: "The Gemini quota ran out. Wait a little or check your key's plan.",
     gemini_timeout: "Gemini took too long to answer. Try gemini-2.5-flash if you do not need deep reasoning.",

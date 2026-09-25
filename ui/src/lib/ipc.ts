@@ -18,6 +18,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import {
+  type GeminiBudget,
   type GeminiModelsResult,
   type GeminiSummary,
   type AppHealth,
@@ -64,6 +65,13 @@ export const ipc = {
 
   /** [sidecar] Comprueba contra Google que la clave sirve. */
   testGeminiKey: () => invoke<ProbeResult>("test_gemini_key"),
+
+  /** [sidecar] Topes de Gemini (llm_budget_settings) y lo gastado hoy. */
+  getGeminiBudget: () => invoke<GeminiBudget>("get_gemini_budget"),
+
+  /** [sidecar] Guarda los cuatro topes de Gemini en la base. */
+  saveGeminiBudget: (params: Omit<GeminiBudget, "spentToday">) =>
+    invoke<GeminiBudget>("save_gemini_budget", { params }),
 
   /** [pg + sidecar] Estado de las tres piezas por separado. */
   getAppHealth: () => invoke<AppHealth>("get_app_health"),

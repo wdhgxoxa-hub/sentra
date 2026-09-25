@@ -126,6 +126,8 @@ pub fn run() {
             commands::gemini::save_gemini_key,
             commands::gemini::test_gemini_key,
             commands::gemini::list_gemini_models,
+            commands::gemini::get_gemini_budget,
+            commands::gemini::save_gemini_budget,
             // Estado agregado
             commands::health::get_app_health,
             commands::health::get_database_status,

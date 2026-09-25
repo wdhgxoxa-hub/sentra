@@ -242,6 +242,17 @@
       "keyMasked",
       "model"
     ],
+    "GeminiSpent": [
+      "calls",
+      "tokens"
+    ],
+    "GeminiBudget": [
+      "dailyMaxCalls",
+      "dailyMaxTokens",
+      "scanMaxCalls",
+      "scanMaxTokens",
+      "spentToday"
+    ],
     "DatabaseStatus": [
       "code",
       "connected",

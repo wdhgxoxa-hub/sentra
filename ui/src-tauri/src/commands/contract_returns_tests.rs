@@ -98,6 +98,15 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
         &gemini::ProbeResult { ok: false, detail: texto(), code: Some("gemini_key_rejected".into()) },
         "ProbeResult",
     );
+    let presupuesto = gemini::GeminiBudget {
+        scan_max_calls: 20,
+        scan_max_tokens: 500_000,
+        daily_max_calls: 40,
+        daily_max_tokens: 1_000_000,
+        spent_today: gemini::GeminiSpent { calls: 3, tokens: 45_000 },
+    };
+    let json_presupuesto = cumple(&presupuesto, "GeminiBudget");
+    assert_eq!(claves(&json_presupuesto["spentToday"]), claves_ts("GeminiSpent"));
 }
 
 #[test]

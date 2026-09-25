@@ -446,6 +446,24 @@ export interface GeminiSummary {
   generalModel: string | null;
 }
 
+/** Lo gastado hoy en Gemini (día de Lima), según llm_usage. */
+export interface GeminiSpent {
+  calls: number;
+  tokens: number;
+}
+
+/**
+ * Configuración › Presupuesto de Gemini: los cuatro topes (llm_budget_settings)
+ * y lo gastado hoy. El motor los aplica antes de cada llamada.
+ */
+export interface GeminiBudget {
+  scanMaxCalls: number;
+  scanMaxTokens: number;
+  dailyMaxCalls: number;
+  dailyMaxTokens: number;
+  spentToday: GeminiSpent;
+}
+
 /** Conexión con PostgreSQL (D-F): sin ella la app arranca y lo dice. */
 export interface DatabaseStatus {
   connected: boolean;

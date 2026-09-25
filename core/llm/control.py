@@ -94,6 +94,10 @@ class RegistroDeUso(Protocol):
         """Tokens medios por llamada que salió bien, por propósito (para estimar)."""
         ...
 
+    def guardar_topes(self, topes: Topes) -> None:
+        """Los topes que se editan en Configuración › Presupuesto de Gemini."""
+        ...
+
 
 class ControlDeGemini:
     """Lo que el proveedor consulta antes de cada intento y avisa después.
@@ -183,6 +187,9 @@ class RegistroEnMemoria:
     def topes(self) -> Topes:
         return self._topes
 
+    def guardar_topes(self, topes: Topes) -> None:
+        self._topes = topes
+
     def uso_de_hoy(self, ahora: datetime) -> tuple[int, int]:
         hoy = dia_de_lima(ahora)
         del_dia = [i for (_, i), m in zip(self.filas, self._momentos, strict=True)
@@ -258,3 +265,15 @@ class RegistroPostgres:
                 "WHERE tenant_id = %s AND outcome = 'ok' AND purpose <> %s GROUP BY purpose",
                 (self._tenant, SIN_TOPE)).fetchall()
         return {str(p): float(m) for p, m in filas}
+
+    def guardar_topes(self, topes: Topes) -> None:
+        import psycopg
+
+        with psycopg.connect(self._dsn) as conn:
+            conn.execute(
+                "INSERT INTO radar.llm_budget_settings (tenant_id, scan_max_calls, scan_max_tokens, "
+                "daily_max_calls, daily_max_tokens) VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (tenant_id) DO UPDATE SET scan_max_calls = EXCLUDED.scan_max_calls, "
+                "scan_max_tokens = EXCLUDED.scan_max_tokens, daily_max_calls = EXCLUDED.daily_max_calls, "
+                "daily_max_tokens = EXCLUDED.daily_max_tokens, updated_at = now()",
+                (self._tenant, *topes))

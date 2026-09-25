@@ -119,6 +119,20 @@ export const es = {
     probeFailed: "No se pudo probar la clave.",
     saveKey: "Guardar clave",
     testKey: "Probar clave",
+    budget: {
+      title: "Presupuesto de Gemini",
+      hint:
+        "Topes que el motor aplica antes de cada llamada a Gemini. Al llegar a uno, la llamada no sale y se guarda por qué. El día es el de Lima.",
+      scanCalls: "Llamadas por escaneo",
+      scanTokens: "Tokens por escaneo",
+      dailyCalls: "Llamadas por día",
+      dailyTokens: "Tokens por día",
+      spentToday: "Gastado hoy: {calls} llamadas · {tokens} tokens.",
+      save: "Guardar presupuesto",
+      saved: "Presupuesto guardado",
+      loading: "Leyendo el presupuesto…",
+      failed: "No se pudo leer el presupuesto de Gemini.",
+    },
   },
 
   /** Explicaciones didácticas de cada métrica. */
@@ -200,7 +214,15 @@ export const es = {
       "La respuesta del modelo se cortó al llegar a su límite de salida.",
     llm_invalid_json: "El modelo devolvió una respuesta que no cumple el formato pedido, ni al reintentar.",
     llm_budget_exhausted:
-      "Se agotó el presupuesto de tokens del escaneo. Súbelo en Configuración o escanea menos evidencia.",
+      "Se alcanzó un tope de Gemini y la llamada no salió. Revísalo en Configuración › Presupuesto de Gemini.",
+    tope_escaneo_llamadas:
+      "Se alcanzó el tope de llamadas de este escaneo. Súbelo en Configuración › Presupuesto de Gemini › Llamadas por escaneo.",
+    tope_escaneo_tokens:
+      "Se alcanzó el tope de tokens de este escaneo. Súbelo en Configuración › Presupuesto de Gemini › Tokens por escaneo.",
+    tope_diario_llamadas:
+      "Se alcanzó el tope de llamadas de hoy. Súbelo en Configuración › Presupuesto de Gemini › Llamadas por día, o espera a mañana (hora de Lima).",
+    tope_diario_tokens:
+      "Se alcanzó el tope de tokens de hoy. Súbelo en Configuración › Presupuesto de Gemini › Tokens por día, o espera a mañana (hora de Lima).",
     gemini_unavailable: "Gemini no está disponible ahora mismo. Se reintentó varias veces; prueba dentro de un rato.",
     gemini_rate_limited: "Se agotó la cuota de Gemini. Espera un poco o revisa el plan de tu clave.",
     gemini_timeout: "Gemini tardó demasiado en responder. Prueba con gemini-2.5-flash si no necesitas el razonamiento profundo.",

@@ -19,6 +19,7 @@ import { ipc } from "@/lib/ipc";
 import { esperaDeReintento, reintentarMientrasArranca } from "@/lib/reintentos";
 import type {
   AppSettings,
+  GeminiBudget,
   GeminiModelsResult,
   SearchParams,
   JudgeTop,
@@ -53,6 +54,7 @@ export const queryKeys = {
   settings: ["radar", "settings"] as const,
   // Bajo `settings`: guardar la clave la invalida con el resto de ajustes.
   geminiModels: ["radar", "settings", "gemini-models"] as const,
+  geminiBudget: ["radar", "settings", "gemini-budget"] as const,
   search: (params: SearchParams) => ["radar", "search", params] as const,
   sources: ["radar", "sources"] as const,
   judgeTop: (runId: string | null) => ["radar", "judge", runId] as const,
@@ -258,6 +260,23 @@ export function useGeminiModels(enabled: boolean) {
     queryFn: () => ipc.listGeminiModels(),
     enabled,
     retry: false,
+  });
+}
+
+/** Topes de Gemini y lo gastado hoy (Configuración › Presupuesto de Gemini). */
+export function useGeminiBudget() {
+  return useQuery<GeminiBudget>({
+    queryKey: queryKeys.geminiBudget,
+    queryFn: () => ipc.getGeminiBudget(),
+  });
+}
+
+/** Guarda los topes en la base; el motor los aplica antes de cada llamada. */
+export function useSaveGeminiBudget() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (topes: Omit<GeminiBudget, "spentToday">) => ipc.saveGeminiBudget(topes),
+    onSuccess: (guardado) => client.setQueryData(queryKeys.geminiBudget, guardado),
   });
 }
 

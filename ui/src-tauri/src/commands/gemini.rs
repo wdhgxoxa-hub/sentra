@@ -76,6 +76,73 @@ pub struct ProbeResult {
     pub code: Option<String>,
 }
 
+/// Lo gastado hoy (dia de Lima) segun llm_usage.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSpent {
+    pub calls: u64,
+    pub tokens: u64,
+}
+
+/// Configuracion > Presupuesto de Gemini: los cuatro topes (llm_budget_settings)
+/// y lo gastado hoy.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiBudget {
+    pub scan_max_calls: u64,
+    pub scan_max_tokens: u64,
+    pub daily_max_calls: u64,
+    pub daily_max_tokens: u64,
+    pub spent_today: GeminiSpent,
+}
+
+/// Los topes que se guardan. Llega anidado (`{ params: {...} }`): el camelCase
+/// lo pone serde. El motor rechaza con 422 un valor fuera de rango.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiBudgetParams {
+    pub scan_max_calls: u64,
+    pub scan_max_tokens: u64,
+    pub daily_max_calls: u64,
+    pub daily_max_tokens: u64,
+}
+
+/// Los topes de Gemini y lo gastado hoy.
+#[tauri::command]
+pub async fn get_gemini_budget(state: State<'_, AppState>) -> RadarResult<GeminiBudget> {
+    let response = with_token_pub(
+        state
+            .http
+            .get(format!("{}/api/gemini/budget", sidecar_url()))
+            .timeout(SHORT_TIMEOUT),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    como_json(response, "Presupuesto de Gemini").await
+}
+
+/// Guarda los topes de Gemini en la base (llm_budget_settings).
+#[tauri::command]
+pub async fn save_gemini_budget(
+    state: State<'_, AppState>,
+    params: GeminiBudgetParams,
+) -> RadarResult<GeminiBudget> {
+    let response = with_token_pub(
+        state
+            .http
+            .post(format!("{}/api/gemini/budget", sidecar_url()))
+            .timeout(SHORT_TIMEOUT)
+            .json(&params),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    como_json(response, "No se pudo guardar el presupuesto de Gemini").await
+}
+
 /// Guarda la clave de Gemini en el `.env` del proyecto.
 #[tauri::command]
 pub async fn save_gemini_key(

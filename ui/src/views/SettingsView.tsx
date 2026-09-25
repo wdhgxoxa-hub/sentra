@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   Eye,
+  Gauge,
   EyeOff,
   Globe,
   Monitor,
@@ -14,7 +15,14 @@ import { useState } from "react";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError } from "@/lib/errors";
-import { useGeminiModels, useSaveGeminiKey, useSettings, useTestGeminiKey } from "@/lib/queries";
+import {
+  useGeminiBudget,
+  useGeminiModels,
+  useSaveGeminiBudget,
+  useSaveGeminiKey,
+  useSettings,
+  useTestGeminiKey,
+} from "@/lib/queries";
 import { haceCuanto } from "@/lib/tiempo";
 import {
   useSettingsStore,
@@ -22,7 +30,7 @@ import {
   type Language,
   type Theme,
 } from "@/stores/settingsStore";
-import type { GeminiModelsResult, ProbeResult } from "@/types/radar";
+import type { GeminiBudget, GeminiModelsResult, ProbeResult } from "@/types/radar";
 
 /**
  * Resultado de «Probar clave» (D1). Solo un rechazo de Google pinta la clave
@@ -313,7 +321,92 @@ export function SettingsView() {
           {probarGemini.data && <ResultadoDeLaPrueba resultado={probarGemini.data} />}
         </div>
       </section>
+
+      <PresupuestoDeGemini campo={campo} />
     </div>
+  );
+}
+
+type Topes = Omit<GeminiBudget, "spentToday">;
+const CAMPOS_DE_TOPE: Array<{ clave: keyof Topes; texto: "scanCalls" | "scanTokens" | "dailyCalls" | "dailyTokens" }> = [
+  { clave: "scanMaxCalls", texto: "scanCalls" },
+  { clave: "scanMaxTokens", texto: "scanTokens" },
+  { clave: "dailyMaxCalls", texto: "dailyCalls" },
+  { clave: "dailyMaxTokens", texto: "dailyTokens" },
+];
+
+/**
+ * Configuración › Presupuesto de Gemini (Fase 1, B4): los cuatro topes que el
+ * motor aplica antes de cada llamada, guardados en la base, y lo gastado hoy.
+ * Los avisos de tope alcanzado nombran estos campos por su texto exacto.
+ */
+function PresupuestoDeGemini({ campo }: { campo: string }) {
+  const t = useT();
+  const presupuesto = useGeminiBudget();
+  const guardar = useSaveGeminiBudget();
+  // Lo tecleado gana; sin tocar, manda lo guardado.
+  const [editados, setEditados] = useState<Partial<Record<keyof Topes, string>>>({});
+  const guardado = presupuesto.data;
+  const valor = (clave: keyof Topes) => editados[clave] ?? (guardado ? String(guardado[clave]) : "");
+  const numeros = Object.fromEntries(CAMPOS_DE_TOPE.map(({ clave }) => [clave, Number(valor(clave))])) as Topes;
+  const validos = CAMPOS_DE_TOPE.every(({ clave }) => valor(clave) !== "" && Number.isInteger(numeros[clave]) && numeros[clave] >= 0);
+
+  return (
+    <section className="rounded-card border border-border bg-surface p-5" aria-labelledby="presupuesto-gemini">
+      <h3 id="presupuesto-gemini" className="mb-1 flex items-center gap-2 text-sm font-semibold">
+        <Gauge className="size-4 text-ink-soft" aria-hidden="true" />
+        {t.settings.budget.title}
+      </h3>
+      <p className="mb-4 text-xs text-ink-soft">{t.settings.budget.hint}</p>
+
+      {presupuesto.isPending && <p className="text-xs text-ink-soft">{t.settings.budget.loading}</p>}
+      {presupuesto.isError && (
+        <ErrorNotice {...comoError(presupuesto.error)} title={t.settings.budget.failed} />
+      )}
+
+      {guardado && (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {CAMPOS_DE_TOPE.map(({ clave, texto }) => (
+              <label key={clave} className="flex flex-col gap-1.5">
+                <span className="text-xs text-ink-soft">{t.settings.budget[texto]}</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  value={valor(clave)}
+                  onChange={(event) => setEditados((previos) => ({ ...previos, [clave]: event.target.value }))}
+                  className={campo}
+                />
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-ink-soft">
+            {t.settings.budget.spentToday
+              .replace("{calls}", guardado.spentToday.calls.toLocaleString())
+              .replace("{tokens}", guardado.spentToday.tokens.toLocaleString())}
+          </p>
+          <div>
+            <button
+              type="button"
+              disabled={!validos || guardar.isPending}
+              onClick={() => guardar.mutate(numeros, { onSuccess: () => setEditados({}) })}
+              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+            >
+              {guardar.isPending ? t.settings.saving : t.settings.budget.save}
+            </button>
+          </div>
+          {guardar.isError && <ErrorNotice {...comoError(guardar.error)} />}
+          {guardar.isSuccess && !guardar.isPending && (
+            <p className="flex items-center gap-1 text-xs text-ok">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {t.settings.budget.saved}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

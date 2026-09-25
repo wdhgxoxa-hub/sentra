@@ -24,7 +24,7 @@ from core.documents.compose import PlanNotRecommended, compose_dossier, compose_
 from core.documents.generate import generate_document
 from core.documents.model import DocumentModel
 from core.documents.pdf_report import render_pdf
-from core.llm.base import JsonGenerator, LLMError
+from core.llm.base import JsonGenerator, LLMBudgetExhausted, LLMError
 
 from .context import SidecarContext
 
@@ -103,6 +103,9 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
         return guardado, 0
     try:
         generado = generate_document(proveedor, modelo, kind, detalle, peticion.language)
+    except LLMBudgetExhausted as exc:
+        # Un tope de Gemini: el código dice cuál, y su texto dónde subirlo.
+        raise HTTPException(status_code=429, detail={"code": exc.motivo, "detail": str(exc)}) from None
     except LLMError as exc:
         raise HTTPException(status_code=502, detail={"code": exc.code, "detail": str(exc)}) from None
     ahora = datetime.now(UTC)

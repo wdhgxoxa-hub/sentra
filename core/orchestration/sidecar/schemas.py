@@ -68,3 +68,16 @@ class CancelResponse(BaseModel):
     # False si no habia ningun escaneo con ese id en marcha. No es un error:
     # puede ser una cancelacion anticipada, o llegar tarde.
     wasActive: bool
+
+
+#: Techo de cada tope: evita un valor absurdo tecleado por error.
+TOPE_MAXIMO = 1_000_000_000
+
+
+class GeminiBudgetRequest(BaseModel):
+    """Los topes de Configuración › Presupuesto de Gemini (llm_budget_settings)."""
+
+    scanMaxCalls: int = Field(ge=0, le=TOPE_MAXIMO)
+    scanMaxTokens: int = Field(ge=0, le=TOPE_MAXIMO)
+    dailyMaxCalls: int = Field(ge=0, le=TOPE_MAXIMO)
+    dailyMaxTokens: int = Field(ge=0, le=TOPE_MAXIMO)

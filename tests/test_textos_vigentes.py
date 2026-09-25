@@ -42,8 +42,8 @@ _TRAS_PREPOSICION = {
     "en": re.compile(r"\b(?:in|to|under) (?:the )?«?([A-Z]\w+)"),
 }
 NO_SON_VISTAS = {
-    "es": {"Google", "PostgreSQL", "Investigar"},  # «baja a Investigar más»: un veredicto
-    "en": {"Google", "PostgreSQL", "Investigate"},
+    "es": {"Google", "Gemini", "PostgreSQL", "Investigar"},  # «baja a Investigar más»: un veredicto
+    "en": {"Google", "Gemini", "PostgreSQL", "Investigate"},
 }
 
 

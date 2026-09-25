@@ -1,8 +1,10 @@
-"""Gemini: clave y modelos. La traducción de citas y el plan de arquitectura
-por cluster se retiraron con la ficha de oportunidad (C2, D-C3)."""
+"""Gemini: clave, modelos y presupuesto (topes de llm_budget_settings). La
+traducción de citas y el plan de arquitectura por cluster se retiraron con la
+ficha de oportunidad (C2, D-C3)."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -11,10 +13,17 @@ from fastapi import APIRouter, HTTPException
 
 from core.envfile import update_dotenv
 from core.llm.base import LLMError
+from core.llm.control import Topes
 from core.llm.gemini import GeminiKeyRejected, UsoDeModelo, elegir_modelo
 
 from .context import SidecarContext, gemini_credenciales, gemini_summary
-from .schemas import GeminiModel, GeminiModelsResponse, GeminiRequest, ProbeResponse
+from .schemas import (
+    GeminiBudgetRequest,
+    GeminiModel,
+    GeminiModelsResponse,
+    GeminiRequest,
+    ProbeResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +95,28 @@ def router(ctx: SidecarContext) -> APIRouter:
     @rutas.get("/api/gemini/models", response_model=GeminiModelsResponse)
     def gemini_models() -> GeminiModelsResponse:
         return modelos(refrescar=False)
+
+    def presupuesto() -> dict[str, Any]:
+        registro = ctx.registro_de_uso
+        topes = registro.topes()
+        llamadas, tokens = registro.uso_de_hoy(datetime.now(UTC))
+        return {"scanMaxCalls": topes.scan_calls, "scanMaxTokens": topes.scan_tokens,
+                "dailyMaxCalls": topes.daily_calls, "dailyMaxTokens": topes.daily_tokens,
+                "spentToday": {"calls": llamadas, "tokens": tokens}}
+
+    @rutas.get("/api/gemini/budget")
+    async def gemini_budget() -> dict[str, Any]:
+        """Los topes de Gemini y lo gastado hoy (día de Lima)."""
+        return await asyncio.to_thread(presupuesto)
+
+    @rutas.post("/api/gemini/budget")
+    async def save_gemini_budget(request: GeminiBudgetRequest) -> dict[str, Any]:
+        """Guarda los topes en llm_budget_settings; el control los lee en cada llamada."""
+        topes = Topes(request.scanMaxCalls, request.scanMaxTokens, request.dailyMaxCalls,
+                      request.dailyMaxTokens)
+        await asyncio.to_thread(ctx.registro_de_uso.guardar_topes, topes)
+        logger.info("Topes de Gemini guardados: %s", topes)
+        return await asyncio.to_thread(presupuesto)
 
     @rutas.post("/api/gemini/test", response_model=ProbeResponse)
     def test_gemini() -> ProbeResponse:

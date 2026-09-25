@@ -40,6 +40,19 @@ fn save_gemini_key_recibe_la_clave_y_los_dos_modelos() {
 }
 
 #[test]
+fn save_gemini_budget_recibe_los_cuatro_topes() {
+    // ipc.ts -> invoke("save_gemini_budget", { params: { scanMaxCalls, ... } })
+    let payload = json!({ "params": {
+        "scanMaxCalls": 12, "scanMaxTokens": 300000, "dailyMaxCalls": 30, "dailyMaxTokens": 900000
+    }});
+    let p: crate::commands::gemini::GeminiBudgetParams = argumento(&payload, "params");
+    assert_eq!(
+        (p.scan_max_calls, p.scan_max_tokens, p.daily_max_calls, p.daily_max_tokens),
+        (12, 300_000, 30, 900_000)
+    );
+}
+
+#[test]
 fn save_gemini_key_sin_clave_nueva_cambia_solo_los_modelos() {
     // Elegir modelo no obliga a teclear otra vez la clave: la conserva el sidecar.
     let payload = json!({ "params": { "apiKey": "", "model": "", "generalModel": "gemini-3.5-flash" } });
