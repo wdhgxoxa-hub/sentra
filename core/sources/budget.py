@@ -8,13 +8,31 @@ más. Lo que ya salió se cobra, reintentos incluidos (también gastan cuota).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .errors import SourceBudgetExhausted
 
 #: Por fuente y por escaneo (D-M4).
 DEFAULT_MAX_REQUESTS = 25
 DEFAULT_MAX_ITEMS = 500
+
+
+@dataclass
+class CupoDelEscaneo:
+    """Piezas que caben en un escaneo, compartidas por todas sus fuentes (Fase 3).
+
+    Ninguna fuente se lleva más de la mitad; lo que no usan las fuentes sin
+    resultados queda para las que sí traen, dentro de su mitad. En el escaneo 1
+    de la Fase 3, YouTube trajo 500 de 512 piezas y el resto de fuentes casi
+    nada: el juez vio un escaneo de YouTube.
+    """
+
+    total: int
+    gastado: int = 0
+
+    @property
+    def por_fuente(self) -> int:
+        return self.total // 2
 
 
 @dataclass
@@ -34,6 +52,8 @@ class SourceBudget:
     spent_items: int = 0
     spent_units: float = 0.0
     spent_usd: float = 0.0
+    #: El cupo compartido del escaneo en curso (lo pone run_multisource_scan).
+    cupo: CupoDelEscaneo | None = field(default=None, repr=False)
 
     def charge_request(self, units: float = 0.0, usd: float = 0.0) -> None:
         """Cobra una petición antes de enviarla; si no cabe, no sale."""
@@ -50,6 +70,12 @@ class SourceBudget:
     def charge_item(self) -> None:
         if self.spent_items >= self.max_items:
             self._agotado(f"{self.spent_items} de {self.max_items} ítems")
+        if self.cupo is not None:
+            if self.spent_items >= self.cupo.por_fuente:
+                self._agotado(f"la mitad del cupo del escaneo ({self.cupo.por_fuente} ítems)")
+            if self.cupo.gastado >= self.cupo.total:
+                self._agotado(f"cupo del escaneo lleno ({self.cupo.total} ítems)")
+            self.cupo.gastado += 1
         self.spent_items += 1
 
     def _agotado(self, detalle: str) -> None:

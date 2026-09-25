@@ -179,3 +179,51 @@ class TestParalelo(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Abundante(Base):
+    """Trae `cuantas` piezas distintas (fecha fija: la hora no da para 600)."""
+
+    cuantas = 0
+
+    async def search(self, query):
+        for n in range(self.cuantas):
+            yield self._item(nativo=str(n), community="c", kind="post",
+                             text=f"queja distinta número {n} de la fuente {self.id} con bastante texto",
+                             url=f"https://example.com/{self.id}/{n}", author=f"u{n}",
+                             created_at=datetime(2026, 9, 1, tzinfo=UTC))
+
+
+def abundante(nombre: str, cuantas: int):
+    clase = type(nombre, (Abundante,), {"id": nombre, "display_name": nombre, "cuantas": cuantas})
+    return fuente(clase)
+
+
+class TestRepartoEntreFuentes(unittest.IsolatedAsyncioTestCase):
+    """Fase 3 (Walter): en el escaneo 1, YouTube trajo 500 de 512 piezas. Ninguna
+    fuente se lleva más de la mitad del cupo del escaneo; lo que no usan las
+    fuentes sin resultados queda para las que sí traen, dentro de su mitad."""
+
+    async def test_una_fuente_abundante_no_pasa_de_la_mitad_del_cupo(self):
+        from core.sources.scan import CUPO_POR_ESCANEO
+
+        r = await run_multisource_scan([abundante("mucha", 600), abundante("poca", 30)], QUERY)
+        self.assertEqual(r.per_source["mucha"].items, CUPO_POR_ESCANEO // 2)
+        self.assertEqual(r.per_source["mucha"].stop_reason, "source_budget_exhausted")
+        self.assertEqual(r.per_source["poca"].items, 30)
+
+    async def test_el_total_no_pasa_del_cupo_y_nadie_pasa_de_la_mitad(self):
+        from core.sources.scan import CUPO_POR_ESCANEO
+
+        r = await run_multisource_scan([abundante(f"f{n}", 400) for n in range(3)], QUERY)
+        cuentas = [p.items for p in r.per_source.values()]
+        self.assertLessEqual(sum(cuentas), CUPO_POR_ESCANEO)
+        self.assertTrue(all(c <= CUPO_POR_ESCANEO // 2 for c in cuentas), cuentas)
+        self.assertEqual(sum(cuentas), CUPO_POR_ESCANEO, "el cupo libre se reparte hasta llenarse")
+
+    async def test_el_cupo_es_por_escaneo_y_no_se_arrastra_al_siguiente(self):
+        fuentes = [abundante("sola", 300)]
+        await run_multisource_scan(fuentes, QUERY)
+        fuentes[0].budget.spent_items = 0
+        r = await run_multisource_scan(fuentes, QUERY)
+        self.assertEqual(r.per_source["sola"].items, 250)

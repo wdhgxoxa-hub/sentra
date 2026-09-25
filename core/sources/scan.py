@@ -26,6 +26,7 @@ from typing import Any, Literal
 from core.evidence.model import EvidenceItem, SearchQuery
 
 from .base import SourceAdapter
+from .budget import CupoDelEscaneo
 from .dedup import Duplicate, deduplicate
 from .errors import SourceBudgetExhausted, SourceError
 
@@ -40,6 +41,10 @@ PROGRESS_EVERY = 10
 
 #: Motivo de parada de una fuente cuando quien mira cancela el escaneo.
 CANCELLED = "cancelled"
+
+#: Piezas por escaneo entre todas las fuentes; ninguna pasa de la mitad
+#: (Fase 3). 500 = lo que trajo el escaneo 1; el juez etiqueta 300 como mucho.
+CUPO_POR_ESCANEO = 500
 
 
 @dataclass
@@ -126,12 +131,17 @@ async def run_multisource_scan(
     on_event: EventSink | None = None,
     embed: Embedder | None = None,
     should_stop: StopCheck | None = None,
+    cupo: int = CUPO_POR_ESCANEO,
 ) -> MultiScanResult:
     """Escanea todas las fuentes a la vez y deduplica lo que traen.
 
     `should_stop` se consulta tras cada ítem: cancelar es cooperativo, para
-    que lo ya traído llegue a guardarse.
+    que lo ya traído llegue a guardarse. Las fuentes comparten el `cupo` de
+    piezas del escaneo y ninguna pasa de su mitad (CupoDelEscaneo).
     """
+    compartido = CupoDelEscaneo(total=cupo)
+    for fuente in fuentes:
+        fuente.budget.cupo = compartido
     resultados = await asyncio.gather(
         *(_escanear(f, query, on_event, should_stop) for f in fuentes))
     resultado = MultiScanResult(cancelled=should_stop is not None and should_stop())
