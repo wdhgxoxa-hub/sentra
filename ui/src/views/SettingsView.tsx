@@ -387,6 +387,7 @@ function PresupuestoDeGemini({ campo }: { campo: string }) {
               .replace("{calls}", guardado.spentToday.calls.toLocaleString())
               .replace("{tokens}", guardado.spentToday.tokens.toLocaleString())}
           </p>
+          <p className="text-[11px] leading-relaxed text-ink-faint">{t.settings.budget.historyFromZero}</p>
           <div>
             <button
               type="button"

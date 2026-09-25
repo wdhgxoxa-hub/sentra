@@ -1,5 +1,14 @@
 # Plan: calidad por fuente, nuevo escaneo de facturación y E8 (2026-09-24)
 
+> **Contador de Gemini OBSOLETO (Fase 1, 2026-09-25).** Las cuentas «N de 15» y
+> «N de 40» de este plan se llevaban a mano y la app no las conocía. Desde la
+> Fase 1 cada intento de llamada queda en la tabla `llm_usage` (migración 017) y
+> los topes se aplican en el motor (`llm_budget_settings`, Configuración ›
+> Presupuesto de Gemini). El histórico de este plan no se cargó en la tabla:
+> `sidecar.log` no tiene fecha ni tokens por línea y el re-juicio no escribe en
+> él, así que no se puede probar. La cuenta real al cerrarlo era 42 (40 de este
+> plan + 2 del escaneo «Cobros freelance»).
+
 Pedido del usuario tras el escaneo 01a0d475 («facturación para freelancers y
 pequeños negocios»): 136 piezas, 83 % de YouTube (títulos y descripciones
 promocionales), comentarios de HN fuera de tema, Bluesky y Mastodon con 0,

@@ -128,6 +128,8 @@ export const en: Dictionary = {
       dailyCalls: "Calls per day",
       dailyTokens: "Tokens per day",
       spentToday: "Spent today: {calls} calls · {tokens} tokens.",
+      historyFromZero:
+        "Usage tracking started on 2026-09-25: earlier calls were counted by hand and cannot be proven, so they are not included.",
       save: "Save budget",
       saved: "Budget saved",
       loading: "Reading the budget…",

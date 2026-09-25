@@ -128,6 +128,8 @@ export const es = {
       dailyCalls: "Llamadas por día",
       dailyTokens: "Tokens por día",
       spentToday: "Gastado hoy: {calls} llamadas · {tokens} tokens.",
+      historyFromZero:
+        "El registro de uso empezó el 2026-09-25: las llamadas anteriores se contaban a mano y no se pueden probar, así que no están.",
       save: "Guardar presupuesto",
       saved: "Presupuesto guardado",
       loading: "Leyendo el presupuesto…",
