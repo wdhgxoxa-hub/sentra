@@ -34,6 +34,14 @@ class TestRutaModelos(unittest.TestCase):
         with self.entorno():
             self.assertFalse(rutas.ruta_modelos().resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()))
 
+    def test_la_cache_de_modelos_de_gemini_admite_otra_ruta(self):
+        # El humo sirve al exe una caché fresca: así no pide la lista a Google
+        # ni deja filas en llm_usage. La app real no define la variable.
+        with self.entorno(RIR_CACHE_MODELOS="D:/humo/modelos.json", LOCALAPPDATA="C:/x"):
+            self.assertEqual(rutas.ruta_cache_modelos_gemini(), Path("D:/humo/modelos.json"))
+        with self.entorno(LOCALAPPDATA="C:/x"):
+            self.assertEqual(rutas.ruta_cache_modelos_gemini(), Path("C:/x/SENTRA/cache/gemini_models.json"))
+
     def test_fastembed_recibe_esa_carpeta(self):
         from core.storage.embeddings import FastEmbedEmbedder
 

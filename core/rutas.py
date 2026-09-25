@@ -20,6 +20,7 @@ from pathlib import Path
 
 DATA_DIR_ENV_VAR = "RIR_DATA_DIR"
 MODELS_DIR_ENV_VAR = "RIR_MODELS_DIR"
+CACHE_MODELOS_ENV_VAR = "RIR_CACHE_MODELOS"
 #: La aplicación la pone a "1" al lanzar el motor desde su copia versionada.
 VERSIONADO_ENV_VAR = "RIR_MOTOR_VERSIONADO"
 
@@ -61,8 +62,10 @@ def ruta_pgpass() -> Path:
 
 
 def ruta_cache_modelos_gemini() -> Path:
-    """Lista de modelos de Gemini entre arranques (AUD2-019)."""
-    return carpeta_local() / "cache" / "gemini_models.json"
+    """Lista de modelos de Gemini entre arranques (AUD2-019). RIR_CACHE_MODELOS
+    la cambia: la prueba de humo sirve así una caché fresca y no llama a Google."""
+    explicita = os.environ.get(CACHE_MODELOS_ENV_VAR, "").strip()
+    return Path(explicita) if explicita else carpeta_local() / "cache" / "gemini_models.json"
 
 
 def fnv1a64(datos: bytes) -> str:

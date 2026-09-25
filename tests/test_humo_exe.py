@@ -109,6 +109,36 @@ class TestEvaluar(unittest.TestCase):
         self.assertTrue(any("perfil aislado" in f for f in fallos), fallos)
 
 
+class TestSinGemini(unittest.TestCase):
+    """El humo es una prueba automática: no llama a Google ni escribe en el
+    llm_usage real, aunque haya caducado la lista de modelos (decisión de Walter)."""
+
+    def test_una_fila_nueva_en_llm_usage_es_un_fallo(self):
+        fallos = evaluar(observado(uso_gemini_nuevo=1), verdad(), ahora=AHORA)
+        self.assertTrue(any("Gemini" in f for f in fallos), fallos)
+
+    def test_la_cache_del_humo_es_la_real_con_la_hora_de_ahora(self):
+        import json
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        from tests.humo_exe import preparar_cache_modelos
+
+        carpeta = Path(tempfile.mkdtemp(prefix="humo_cache_"))
+        self.addCleanup(shutil.rmtree, carpeta, True)
+        origen, destino = carpeta / "real.json", carpeta / "humo" / "modelos.json"
+        modelos = [{"id": "gemini-x", "display_name": "X", "input_token_limit": 1, "output_token_limit": 2}]
+        origen.write_text(json.dumps({"huella": {"listed_at": 1.0, "models": modelos}}), "utf-8")
+        self.assertEqual(preparar_cache_modelos(origen, destino, ahora=5000.0), 1)
+        self.assertEqual(json.loads(destino.read_text("utf-8")),
+                         {"huella": {"listed_at": 5000.0, "models": modelos}})
+        # Sin caché real queda una vacía: si el motor llamara a Google, el
+        # recuento de llm_usage lo delataría.
+        self.assertEqual(preparar_cache_modelos(carpeta / "no_existe.json", destino, ahora=1.0), 0)
+        self.assertEqual(json.loads(destino.read_text("utf-8")), {})
+
+
 class TestEsperas(unittest.TestCase):
     def test_la_busqueda_se_espera_al_menos_lo_que_la_espera_la_app(self):
         # Falso rojo tras una compilación: el humo se rendía a los 30 s y la app

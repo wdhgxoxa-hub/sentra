@@ -120,6 +120,8 @@ class Observado:
     #: visible a propósito) no puede dejar el proceso colgado ni motores vivos.
     cierre_ventana_interna: bool = False
     huerfanos_tras_ventana_interna: int = 0
+    #: Filas que aparecieron en llm_usage (base real) mientras corría la app: 0.
+    uso_gemini_nuevo: int = 0
 
 
 def esperado(verdad: Verdad) -> Esperado:
@@ -178,6 +180,9 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"perfil real del usuario cambiado: {obs.perfil_real_antes} → {obs.perfil_real_despues}")
     if not obs.perfil_aislado_usado:
         fallos.append("perfil aislado: la app no lo usó (¿WEBVIEW2_USER_DATA_FOLDER ignorada?)")
+    if obs.uso_gemini_nuevo:
+        fallos.append(f"Gemini: la app llamó a Google durante el humo ({obs.uso_gemini_nuevo} filas nuevas "
+                      "en llm_usage); el humo no puede gastar ni registrar llamadas")
     return fallos
 
 
@@ -246,6 +251,34 @@ def verdad_de_la_base() -> Verdad:
                       fuentes_catalogo=len(SOURCES), hay_vectores=EvidenceVectorStore().count() > 0)
 
     return asyncio.run(leer(), loop_factory=asyncio.SelectorEventLoop)
+
+
+def contar_uso_gemini() -> int:
+    """Filas de llm_usage en la base real (solo lectura)."""
+    import psycopg
+
+    from core.storage.postgres_store import resolver_dsn
+
+    with psycopg.connect(resolver_dsn()) as con:
+        con.read_only = True
+        fila = con.execute("SELECT count(*) FROM radar.llm_usage").fetchone()
+    return int(fila[0]) if fila else 0
+
+
+def preparar_cache_modelos(origen: Path, destino: Path, *, ahora: float) -> int:
+    """La caché de modelos de Gemini del humo: las entradas de la real con la
+    hora de ahora. Con ella el motor no pide la lista a Google aunque la real
+    haya caducado. Devuelve cuántas entradas copió (sin caché real, 0: si el
+    motor llamara a Google, el recuento de llm_usage lo delataría)."""
+    try:
+        real = json.loads(origen.read_text("utf-8"))
+    except (OSError, ValueError):
+        real = {}
+    fresca = {huella: {**entrada, "listed_at": ahora} for huella, entrada in real.items()
+              if isinstance(entrada, dict) and "models" in entrada}
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(json.dumps(fresca), "utf-8")
+    return len(fresca)
 
 
 # --- La app real ------------------------------------------------------------
@@ -503,6 +536,14 @@ def main(argv: list[str] | None = None) -> int:
 
     verdad = verdad_de_la_base()
     perfil = Path(tempfile.mkdtemp(prefix="sentra_humo_webview_"))
+    # Sin Google: el exe (y su motor) leen una caché de modelos fresca, copia de la
+    # real; el recuento de llm_usage antes y después lo comprueba.
+    from core.rutas import CACHE_MODELOS_ENV_VAR, ruta_cache_modelos_gemini
+
+    cache = Path(tempfile.mkdtemp(prefix="sentra_humo_cache_")) / "gemini_models.json"
+    preparar_cache_modelos(ruta_cache_modelos_gemini(), cache, ahora=time.time())
+    os.environ[CACHE_MODELOS_ENV_VAR] = str(cache)
+    uso_antes = contar_uso_gemini()
     antes = huella_perfil()
     try:
         obs = recorrer(args.exe, perfil)
@@ -510,8 +551,10 @@ def main(argv: list[str] | None = None) -> int:
         matar_de_golpe(args.exe, obs, perfil)
         obs.perfil_real_antes, obs.perfil_real_despues = antes, huella_perfil()
         obs.perfil_aislado_usado = (perfil / "EBWebView").is_dir() or any(perfil.iterdir())
+        obs.uso_gemini_nuevo = contar_uso_gemini() - uso_antes
     finally:
         shutil.rmtree(perfil, ignore_errors=True)
+        shutil.rmtree(cache.parent, ignore_errors=True)
     fallos = evaluar(obs, verdad, ahora=datetime.now(UTC))
     informe = {"verdad": asdict(verdad), "esperado": asdict(esperado(verdad)), "observado": asdict(obs), "fallos": fallos}
     if args.salida:
