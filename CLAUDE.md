@@ -1,7 +1,7 @@
 # CLAUDE.md — SENTRA
 
-Léelo entero antes de tocar nada. Estado verificado el 2026-09-25 (cierre de la
-Fase 1) contra git, la base y la release. Si el repo contradice este archivo,
+Léelo entero antes de tocar nada. Estado verificado el 2026-09-25 (construcción
+de la Fase 2, rama `fase2/interfaz`) contra git, la base y la release. Si el repo contradice este archivo,
 manda el repo: corrígelo aquí en un commit aparte (`tests/test_claude_md.py`
 vigila lo que más cambia).
 
@@ -30,7 +30,7 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Pieza | Dónde |
 |---|---|
 | Repo | `F:\reddit_intelligence_radar` · GitHub `wdhgxoxa-hub/sentra` (público) |
-| Interfaz | `ui/src` — React 19 + TypeScript. Vistas: Radar, Búsqueda, Fuentes, Configuración |
+| Interfaz | `ui/src` — React 19 + TypeScript. Pantallas: **Nuevo escaneo** (la principal, asistente de 3 pasos), Radar (con la ficha de cada nicho), Búsqueda, Fuentes, Configuración. `pantallas/` y `components/nicho/` son genéricas (P2); `views/` son las páginas del modo Software y las compartidas |
 | Escritorio | `ui/src-tauri` — Tauri 2 (Rust): IPC, arranque del motor, salud |
 | Motor | `core/` — FastAPI en loopback con token. `core/sources` (adaptadores), `core/judge` (juez), `core/llm` (Gemini, control, estimación), `core/documents` (dossier y plan), `core/evidence` (búsqueda) |
 | Base | PostgreSQL 18 local, base `reddit_intelligence_radar`, esquema `radar`. Rol `sentra_owner` (dueño, sin superusuario, no crea bases); los tests usan `sentra_pruebas` (solo CREATEDB, bases `rir_*_test`). DSN: `RIR_PG_URL` o, por defecto, `postgresql://sentra_owner@localhost:5432/reddit_intelligence_radar` con el pgpass de SENTRA |
@@ -87,6 +87,48 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   migración 019). `stored` = piezas guardadas por la ejecución (0 en un re-juicio).
   `filtered_in`, `filtered_out`, `analyzed`, `qualified`, `rejected`, `cycles`,
   `last_cursor` y `graph_version` son de la pipeline antigua, sin uso.
+
+## Interfaz (Fase 2): principios que se vigilan
+
+- **P1, facilidad de uso.** Nada de jerga en lo que se ve: la lista única de
+  palabras prohibidas está en `tests/_lenguaje_llano.py` (tokens, G0–G9,
+  cluster, pipeline, regla N, LLM, API, JSON, compuerta, run…). Tres guardias:
+  i18n (`tests/test_lenguaje_llano.py`: todo salvo el bloque `detalle`), `t.detalle`
+  solo en `components/detalle/` (se pinta dentro de «Ver detalle»), y el humo, que
+  lee el texto visible del exe en cada pantalla. Las citas de la evidencia, los
+  nombres de nichos y las URL van con `data-ajeno` (son datos, no se tocan).
+  Una sola `AccionPrincipal` por pantalla del asistente, del Radar y de la ficha
+  (el humo las cuenta). Letra de al menos 12 px salvo el detalle técnico. Cada
+  estado lleva palabra e icono, no solo color. Tokens «unidades de texto».
+  Ningún `<a href>` externo: la ventana no abre enlaces.
+- **Radar.** Enseña la última ejecución **con nichos** (`latest_run_with_niches`,
+  algún veredicto que no sea DESCARTAR); si la última juzgada es otra, un aviso con
+  su nombre y fecha y su resultado al pulsar. `latest_judged_run` no cambia.
+  `GET /api/judge/top` añade `run` y `latestRun` (`RunOverview`).
+- **Documentos.** `GET /api/documents/status?verdictId=` dice si dossier y plan
+  están guardados (solo mira el disco). Exportar algo guardado lo reutiliza sin
+  resolver el modelo (0 llamadas); cambiar de modelo no regenera lo guardado.
+- **Palabras clave.** `POST /api/scan/keywords`: con Gemini, 1 llamada
+  `palabras_clave` (migración 020) dentro de los topes; sin clave, sin
+  presupuesto o con error, plantillas sin Gemini y `reason` dice por qué.
+
+## Modo Videos: cómo se enchufa (P2; no está construido)
+
+Walter tiene su propio prompt de arquitectura para el modo Videos: no se
+diseña por cuenta propia. Lo que la Fase 2 deja listo:
+
+1. `ui/src/modos/tipos.ts` define `Modo` (textos del asistente y cómo se dice
+   una métrica) y `NichoEnPantalla` (el tipo de nicho es un dato).
+2. Se escribe `ui/src/modos/videos.ts` con sus textos, sus métricas y su
+   adaptador `nichoDeVideos`, y se registra en `ui/src/modos/registro.ts`. Con dos
+   modos, el `SelectorDeModo` de la barra lateral aparece solo.
+3. `ui/src/lib/nichos.ts` lee los nichos del modo activo: se le añade la
+   lectura de Videos (su ruta del motor la define Walter).
+4. `pantallas/` (asistente, resultado, Radar, ficha) y `components/nicho/` no
+   se tocan: `tests/test_modo_videos_preparado.py` impide que dependan del modo
+   Software. Fuentes y Configuración son compartidas.
+5. No verificado aún: los componentes genéricos pintados con un nicho de tipo
+   «videos» (no hay pruebas de componentes con DOM sin dependencias nuevas).
 
 ## Presupuesto de Gemini (real desde la Fase 1)
 
@@ -165,28 +207,25 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 - «Verificado» solo con datos: antes y después sobre la app real y contrastado
   con SQL. Un DOM no vacío o un test verde no bastan.
 
-## Estado verificado (2026-09-25, cierre de la Fase 1)
+## Estado verificado (2026-09-25, construcción de la Fase 2)
 
-- `main` = `origin/main` = `b27c946` (Fase 0). La Fase 1 está en la rama
-  `fase1/deuda`, sin fusionar ni empujar, a la espera de Walter.
-- Base: 19 de 19 migraciones aplicadas. 27 ejecuciones, 67 veredictos (24
-  INVESTIGAR MÁS, 43 DESCARTAR, 0 CONSTRUIR), 2 221 piezas, 1 018 etiquetas,
-  6 resultados en la caché de G0. `llm_usage` vacía; topes 20 / 500 000 / 40 /
-  1 000 000. Ninguna ejecución antigua tiene `stop_reason`, `judge_summary` ni
-  filas en `run_source_outcomes` (no se inventa el pasado).
-- Primer nicho coherente: «Tener que reclamar facturas impagadas» →
-  INVESTIGAR MÁS (regla 9), re-juicio `01a0d5a3-0dc2-7ec8-afbe-a94a28314550`.
-  Su dossier no se ha regenerado con el nombre nuevo (1 llamada; espera aprobación).
-- Última ejecución `01a0d5d0-f8a1-736c-896d-3651c7b39afc` («Cobros freelance»,
-  solo «facturas impagadas»): 470 piezas (455 únicas), casi todo YouTube, 38
-  etiquetadas → 1 dolor → 0 nichos. Tema en un solo idioma = consultas solo en
-  español. El Radar enseña la última ejecución juzgada aunque no tenga nichos:
-  el nicho de impagos no se ve en el Radar (humo: «Top 0+0»).
+- `main` = `origin/main` = `2688c3d` (Fases 0 y 1). La Fase 2 está en la rama
+  `fase2/interfaz`, sin fusionar ni empujar, a la espera de Walter
+  (`docs/fase2/PROPUESTA.md`, sección 7, y `docs/fase2/capturas-exe/`).
+- Base: 20 de 20 migraciones (la 020 con respaldo `pre020.dump` y ensayo). 27
+  ejecuciones, 67 veredictos (24 INVESTIGAR MÁS, 43 DESCARTAR, 0 CONSTRUIR),
+  2 221 piezas. `llm_usage`: 2 filas (los dos dossiers de impagos, 25-09).
+- El Radar enseña la ejecución del 24-09 17:56 (1 nicho: «Tener que reclamar
+  facturas impagadas», INVESTIGAR MÁS por la regla 9, 9 personas; 3 descartados)
+  y avisa de que la del 24-09 18:47 («Cobros freelance») no formó nichos. Su
+  dossier está guardado en `%LOCALAPPDATA%\SENTRA\documentos` (se abre sin gastar).
+- Hallazgo sin arreglar: el adaptador de Mastodon guarda como «URL del original»
+  la de la API (`/api/v1/statuses/{id}`), no la del mensaje público.
 
 ## Pendiente (Walter aprueba cada fase)
 
-1. **Fase 1:** revisión y fusión de `fase1/deuda` (decide Walter).
-2. **Fase 2 — interfaz.** El escaneo está al fondo de Fuentes, el campo Tema no
+1. **Fase 2 — interfaz:** construida en `fase2/interfaz`; revisión y fusión
+   (decide Walter). Lo que decía la propuesta original: El escaneo está al fondo de Fuentes, el campo Tema no
    guía ni avisa de palabras clave insuficientes, «0 grupos» no dice qué hacer,
    el progreso por fuente es técnico y el Radar pierde el último nicho tras un
    escaneo vacío. Dirección a diseñar y aprobar antes de construir: «Nuevo

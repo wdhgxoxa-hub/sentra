@@ -29,6 +29,17 @@ class TestClaudeMd(unittest.TestCase):
             with self.subTest(clave=clave):
                 self.assertIn(clave, self.texto)
 
+    def test_describe_lo_que_trajo_la_fase_2(self):
+        """Interfaz nueva, sus guardias y cómo se enchufará el modo Videos."""
+        for clave in ("Nuevo escaneo", "latest_run_with_niches", "/api/documents/status",
+                      "/api/scan/keywords", "palabras_clave", "tests/_lenguaje_llano.py", "data-ajeno",
+                      "Modo Videos: cómo se enchufa", "ui/src/modos/registro.ts", "SelectorDeModo"):
+            with self.subTest(clave=clave):
+                self.assertIn(clave, self.texto)
+
+    def test_ya_no_dice_que_el_radar_pierde_el_nicho(self):
+        self.assertNotIn("el nicho de impagos no se ve en el Radar", self.texto)
+
     def test_ya_no_dice_que_el_presupuesto_es_un_contador_a_mano(self):
         self.assertNotIn("La app no lo conoce, no\n  lo muestra y no lo hace cumplir", self.texto)
         self.assertNotIn("1 000 000 (`core/llm/budget.py`", self.texto)

@@ -1,6 +1,6 @@
 # SENTRA · Fase 2 · Interfaz — propuesta
 
-Estado: **aprobada por Walter el 25-09 (maquetas y decisiones D1-D3), en construcción** en la rama `fase2/interfaz` (desde `main` 2688c3d).
+Estado: **aprobada por Walter el 25-09 (maquetas y decisiones D1-D3) y construida** (sección 9) en la rama `fase2/interfaz` (desde `main` 2688c3d).
 Principios obligatorios en cada pantalla: P1 facilidad de uso y P2 preparada para el modo Videos (sección 6).
 
 - Maquetas: `docs/fase2/maquetas/index.html`. Se abre con doble clic, sin servidor. Tiene conmutador claro/oscuro.
@@ -216,3 +216,45 @@ Cada commit pasa por la compuerta completa (`CLIPPY=1 AUDIT=1 HUMO=1`) antes de 
 - La Fase 4 (modo Vídeos): Walter tiene su propio prompt.
 - Cambios en las compuertas del juez o en sus umbrales.
 - Escaneos reales o llamadas a Gemini durante la construcción, salvo lo que Walter apruebe. Los tests usan el SDK falso y bases `rir_*_test`.
+
+## 9. Resultado de la construcción (25-09)
+
+Todos los commits pasaron la compuerta completa (`CLIPPY=1 AUDIT=1 HUMO=1`) y el exe de release se recompiló antes de cada uno que tocaba la interfaz o el motor. Las capturas del exe real, en claro y en oscuro, están en `docs/fase2/capturas-exe/`, con `informe.json`: acciones principales y jerga por pantalla, 0 excepciones y 0 filas nuevas en `llm_usage`.
+
+| # | Commit | Qué | RED → GREEN |
+|---|---|---|---|
+| 0 | b78be5e | Propuesta, maquetas y capturas | — |
+| 0b | 53c7c36 | Principios P1 y P2, D1-D3 | — |
+| 1 | f4b4cc2 | El Radar enseña la última ejecución con nichos y avisa | ImportError, contrato y humo 0≠2 → verde |
+| 2 | 680d834 | Estado de documentos; reutilizar sin resolver el modelo | 405 y «no debe resolver el modelo» → verde |
+| 3 | ab92058 | Palabras clave con Gemini y respaldo; migración 020 | CheckViolation, módulo ausente → verde |
+| 4 | 1bcb32d | Aviso de cobertura | módulo ausente → 6/6 |
+| 5 | 401cc94 | Progreso por fuente en palabras llanas | módulo ausente → 15/15 |
+| 6 | 1b0a7d2 | Resultado: qué significa y qué hacer | módulo ausente → 10/10 |
+| 7 | 4ca0273 | Acento cian, letra de 15 px, guardia de lenguaje llano | tono 265 y 4,30:1 → verde |
+| 8 | 3f81717 | Modos y asistente de 3 pasos (con el escaneo en curso) | modos, humo del asistente → verde |
+| 9 | b36e41a | Resultado genérico y marca D3 | resultado.test → 4/4 |
+| 10 | ae94607 | Radar y ficha genéricos, dossier y plan a la vista | humo del Radar nuevo → verde |
+| 11 | 2d4f031 | Fuentes, Configuración y Búsqueda llanas; guardia total | guardias ampliadas → verde |
+| rev | c3ef59a | Revisión: textos sin uso retirados | — |
+| 12 | (este) | CLAUDE.md, cómo se enchufa Videos, capturas finales y cifras de Búsqueda a «Ver detalle» | test_claude_md → verde |
+
+Desvíos respecto del plan de la sección 7:
+
+- El escaneo en curso entró en el commit 8, con el asistente: «Escanear» no puede existir sin su progreso. El resultado fue al 9.
+- Rust e ipc de palabras clave fueron al commit 8, no al 3: el test de superficie exige que cada método de `ipc` lo use una vista.
+- Se añadió un commit de revisión. En el 12, la tabla de Búsqueda deja de enseñar las columnas «Semántica / Exacta / Combinada» con sus cifras: pasan a «Ver detalle» de cada resultado.
+
+Errores míos durante la construcción, corregidos en la raíz:
+
+- **Espera vacía en el arnés.** Una espera sobre `document.querySelector(...)` sin `!!` nunca se cumplía, porque el nodo llega por CDP como `{}`. Me hizo creer que el asistente no pasaba al paso 2, y lo desmintió una sonda. La misma espera hacía que la búsqueda del humo esperase siempre 15 s. Ahora un test lo impide.
+- **Enlace «Abrir» que no hacía nada.** Lo puse en la ficha, pero la ventana no abre enlaces externos. Se quitó, y una guardia impide volver a ponerlo.
+
+No verificado:
+
+- El escaneo en curso y el resultado justo después de un escaneo real: el humo no escanea y no había aprobación para escanear. El componente de resultado sí se ve en el exe desde el aviso del Radar («cero_nichos»).
+- «Proponer palabras» con Gemini de verdad: probado con el SDK falso. En el exe no se pulsó, para no gastar.
+- Los componentes genéricos pintados con un nicho de tipo «videos»: sin pruebas de componentes con DOM, que exigirían una dependencia nueva. Lo que sí se comprueba es la guardia estática y el adaptador con node.
+- La marca D3 en el exe: exige terminar un escaneo real. La lógica tiene test.
+
+Hallazgo fuera de alcance: el adaptador de Mastodon guarda como «URL del original» la de la API (`/api/v1/statuses/{id}`).

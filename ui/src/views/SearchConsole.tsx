@@ -1,4 +1,4 @@
-import { Search as SearchIcon, Sparkles, Type } from "lucide-react";
+import { Search as SearchIcon } from "lucide-react";
 
 import { Explain } from "@/components/Explain";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -108,36 +108,6 @@ export function SearchConsole() {
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t.search.colText}
                 </th>
-                <th scope="col" className="px-2 py-2 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    {t.search.colSemantic}
-                    <Explain
-                      title={t.explain.semantic.title}
-                      body={t.explain.semantic.body}
-                    />
-                  </span>
-                </th>
-                <th scope="col" className="px-2 py-2 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    <Type className="size-3" aria-hidden="true" />
-                    {t.search.colExact}
-                    <Explain
-                      title={t.explain.exact.title}
-                      body={t.explain.exact.body}
-                    />
-                  </span>
-                </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    {t.search.colCombined}
-                    <Explain
-                      title={t.explain.rrf.title}
-                      body={t.explain.rrf.body}
-                      align="end"
-                    />
-                  </span>
-                </th>
               </tr>
             </thead>
 
@@ -170,17 +140,24 @@ export function SearchConsole() {
                               : t.search.onlyExact}
                         </span>
                       </p>
-                    </td>
-                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-ink-soft">
-                      {hit.denseRank ?? "—"}
-                    </td>
-                    <td className="px-2 py-2.5 font-mono text-xs tabular-nums text-ink-soft">
-                      {hit.lexicalRank ?? "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <span className="font-mono text-xs tabular-nums">
-                        {hit.rrfScore.toFixed(5)}
-                      </span>
+                      {/* P1 (Fase 2): las posiciones y la puntuación combinada, solo en «Ver detalle». */}
+                      <details className="mt-1 text-xs text-ink-faint">
+                        <summary className="cursor-pointer select-none">{t.comun.verDetalle}</summary>
+                        <p className="mt-1 flex flex-wrap items-center gap-3 font-mono tabular-nums">
+                          <span className="inline-flex items-center gap-1">
+                            {t.search.colSemantic} {hit.denseRank ?? "—"}
+                            <Explain title={t.explain.semantic.title} body={t.explain.semantic.body} />
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            {t.search.colExact} {hit.lexicalRank ?? "—"}
+                            <Explain title={t.explain.exact.title} body={t.explain.exact.body} />
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            {t.search.colCombined} {hit.rrfScore.toFixed(5)}
+                            <Explain title={t.explain.rrf.title} body={t.explain.rrf.body} />
+                          </span>
+                        </p>
+                      </details>
                     </td>
                   </tr>
                 );

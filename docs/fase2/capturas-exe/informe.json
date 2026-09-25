@@ -1,0 +1,64 @@
+{
+ "nuevo_1_tema": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\n¿Qué problema quieres escuchar?\n\nSENTRA busca en foros y redes a gente que se queja de ese problema. Después, el juez decide si hay un nicho.\n\n1\nTema\n2\nPalabras clave\n3\nRevisar y escanear\nTema\nEjemplos: clientes que pagan tarde · turnos de un restaurante · alquilar sin fiador\nIdiomas donde buscar\n✓ Español\n✓ Inglés\nMejor los dos: en inglés suele haber mucha más conversación.\nHasta cuándo mirar hacia atrás\n3 meses\n6 meses\n✓ 1 año\nEl juez necesita quejas de los últimos 6 meses. Un año da margen.\nMás opciones\nSiguiente: palabras clave"
+ },
+ "nuevo_2_palabras_cobertura_baja": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nPalabras para buscar «Facturas que los clientes no pagan»\nTema\n2\nPalabras clave\n3\nRevisar y escanear\n\nSon las búsquedas que se harán. Quita las que no encajen y añade las tuyas.\n\nUsa 1 llamada a Gemini\nProponer palabras\n\nESPAÑOL · 2\n\nfacturas impagadas\ncliente no paga\nAñadir\n\nINGLÉS · 0\n\nTodavía no hay palabras en inglés.\nAñadir\n\nPocas palabras para encontrar un nicho\n\nHay 2 palabras. Con menos de 6 es difícil encontrar un nicho.\nTodas las palabras están en un solo idioma.\nNo hay ninguna palabra en inglés.\nHay menos de 3 palabras en español.\nAtrás\nSiguiente: revisar y escanear"
+ },
+ "nuevo_2_palabras_cobertura_buena": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nPalabras para buscar «Facturas que los clientes no pagan»\nTema\n2\nPalabras clave\n3\nRevisar y escanear\n\nSon las búsquedas que se harán. Quita las que no encajen y añade las tuyas.\n\nUsa 1 llamada a Gemini\nProponer palabras\n\nESPAÑOL · 4\n\nfacturas impagadas\ncliente no paga\nreclamar pago\nmorosidad clientes\nAñadir\n\nINGLÉS · 3\n\nunpaid invoices\nclient won't pay\nchasing payments\nAñadir\n\nBuena variedad: 7 palabras en los dos idiomas.\n\nAtrás\nSiguiente: revisar y escanear"
+ },
+ "nuevo_3_revisar": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nRevisa y escanea\n\nNo se gasta nada hasta que pulses «Escanear».\n\nTema\nPalabras clave\n3\nRevisar y escanear\nQué se va a buscar\nTema\nFacturas que los clientes no pagan\nPalabras\n7 (4 en español, 3 en inglés)\nAntigüedad\n1 año\nFuentes\n8 activas\nNombre para recordarlo\nLo que costará en Gemini (estimado)\n\n0–19 llamadas\n\n0–475.000 unidades de texto · Gemini cobra por las unidades de texto que lee y escribe.\n\nHoy llevas 2 llamadas. Quedan 38.\n\nEs una estimación. El motor para solo al llegar a un tope.\n\nAtrás\nEscanear"
+ },
+ "radar_resultado_ultimo": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nRadar\n\nLos nichos del último escaneo que encontró alguno: primero los de construir, después los de investigar.\n\nNuevo escaneo\n\nTu último escaneo («Cobros freelance», 24/9/26, 18:47) no encontró nichos\n\nTe seguimos mostrando los del escaneo anterior.\n\nOcultar\n\nEsta vez no hay nicho\n\nNo es un error: hace falta que varias personas distintas se quejen del mismo problema.\n\nEste escaneo es anterior al 25-09 y no guardó el detalle.\n\nQué hacer ahora\nAñade más palabras: al menos 6.\nDescribe el problema, no el producto: «clientes que pagan tarde» funciona mejor que «software de cobros».\nTu Radar no cambia: sigue mostrando el último nicho.\nAjustar palabras y volver a escanear\nNichos\n\nDel escaneo «Clientes que no pagan facturas a freelancers», 24/9/26, 17:56\n\n1\nInvestigar más\n\n9 personas distintas · puntuación 16.5 de 100\n\nAlguien dice que ya usa algo que le funciona, pero son menos de 3 personas. Falta saber si el problema ya está resuelto.\n\nDossier guardado: se abre sin gastar\n\nVer nicho\n3 grupos descartados · Por qué no son nicho\nLo último que han traído las fuentes, sin filtrar (40)"
+ },
+ "ficha_nicho": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nVolver al Radar\nInvestigar más\nPrometedor, pero falta confirmar algo.\n\n9 personas distintas · puntuación 16.5 de 100\n\nDossier\nGuardado: se abre sin gastar\n\nQuién sufre el problema, con sus palabras, y lo que lo respalda.\n\nGuardar como PDF\nGuardar como texto\nPlan de construcción\nSin generar\n\nQué construir primero, para quién y cómo probarlo antes de programar.\n\nEl juez no recomienda construirlo todavía. Si generas el plan, lo dirá en cada página.\n\nGenerar el plan de todos modos\nGuardar como PDF\nGuardar como texto\n\nSi no está guardado, cuesta 1 llamada a Gemini. Después se guarda y no vuelve a costar.\n\nPor qué «Investigar más»\n\nAlguien dice que ya usa algo que le funciona, pero son menos de 3 personas. Falta saber si el problema ya está resuelto.\n\nAlgunas quejas\n· Bluesky\n· GitHub\n· Bluesky\nVer detalle"
+ },
+ "radar": {
+  "acciones_principales": 1,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nRadar\n\nLos nichos del último escaneo que encontró alguno: primero los de construir, después los de investigar.\n\nNuevo escaneo\n\nTu último escaneo («Cobros freelance», 24/9/26, 18:47) no encontró nichos\n\nTe seguimos mostrando los del escaneo anterior.\n\nVer por qué y qué hacer\nNichos\n\nDel escaneo «Clientes que no pagan facturas a freelancers», 24/9/26, 17:56\n\n1\nInvestigar más\n\n9 personas distintas · puntuación 16.5 de 100\n\nAlguien dice que ya usa algo que le funciona, pero son menos de 3 personas. Falta saber si el problema ya está resuelto.\n\nDossier guardado: se abre sin gastar\n\nVer nicho\n3 grupos descartados · Por qué no son nicho\nLo último que han traído las fuentes, sin filtrar (40)"
+ },
+ "search": {
+  "acciones_principales": 0,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nBúsqueda\n\nBusca en todo lo que han traído tus escaneos, por lo que significa y no solo por las palabras exactas. No gasta Gemini.\n\nPrueba con\nweek morning\nclients\nadelantar iva\nsits"
+ },
+ "search_resultados": {
+  "acciones_principales": 0,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nBúsqueda\n\nBusca en todo lo que han traído tus escaneos, por lo que significa y no solo por las palabras exactas. No gasta Gemini.\n\nPrueba con\nweek morning\nclients\nadelantar iva\nsits\nTEXTO\n\n\nGitHub\nalvarolobato/powershop-analytics\n·\n\nDatos reales\n·\nPor ambas vías\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nMastodon\nmastodon.world\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nGitHub\nmuaddibco/RealWorldProblems\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastodon\nsociedad-noticias.com\n·\n\nDatos reales\n·\nSolo por palabras\n\nVer detalle\n\n\n\nBluesky\nBluesky\n·\n\nDatos reales\n·\nSolo por significado\n\nVer detalle\n\n\n\nMastod"
+ },
+ "sources": {
+  "acciones_principales": 0,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nFuentes\n\nDe dónde salen las quejas que escucha SENTRA. Solo servicios oficiales: «Lista» quiere decir que respondió de verdad en la última prueba.\n\nModo comercial\nDeja fuera las fuentes cuyos términos solo permiten uso personal.\nFuente\nEstado\nÚltima respuesta\nActiva\nHacker News\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nStack Exchange\nSolo uso personal\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nGitHub\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nReddit\nSolo uso personal\nFalta conectarla\nConéctala desde «Ver detalle».\nnunca\nVer detalle\nBluesky\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nYouTube\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nMastodon\nSolo uso personal\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nDiscourse\nSolo uso personal\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nProduct Hunt\nSolo uso personal\nLista\nEntra en los escaneos.\n24/9/26, 18:49\nVer detalle\nX\nApagada\nNo entra en los escaneos.\nnunca\nVer detalle"
+ },
+ "settings": {
+  "acciones_principales": 0,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nConfiguración\n\nIdioma, tema y motor de IA\n\nGemini y presupuesto\nApariencia\nMotor de IA (Google Gemini)\nConfigurada · …ge2g\n\nLa clave se pide en aistudio.google.com y se guarda en el .env del proyecto. Sin ella, el juez no etiqueta la evidencia (nada sale Construir) y no se pueden generar el dossier ni el plan.\n\nClave de Gemini\nMostrar\nModelo para documentos\nAutomático (gemini-3.1-pro-preview)\ngemini-2.5-flash\ngemini-2.5-pro\ngemini-2.5-flash-preview-tts\ngemini-2.5-pro-preview-tts\ngemma-4-26b-a4b-it\ngemma-4-31b-it\ngemini-flash-latest\ngemini-flash-lite-latest\ngemini-pro-latest\ngemini-2.5-flash-lite\ngemini-2.5-flash-image\ngemini-3-flash-preview\ngemini-3.1-pro-preview\ngemini-3.1-pro-preview-customtools\ngemini-3.1-flash-lite-preview\ngemini-3.1-flash-lite\ngemini-3-pro-image-preview\ngemini-3-pro-image\nnano-banana-pro-preview\ngemini-3.1-flash-image-preview\ngemini-3.1-flash-image\ngemini-3.1-flash-lite-image\ngemini-3.5-flash\ngemini-3.5-flash-lite\ngemini-omni-flash-preview\ngemini-omni-1.1-flash\ngemini-3.5-transcribe\ngemini-3.6-flash\ngemini-3.7-flash\ngemini-3.8-flash\nlyria-3-clip-preview\nlyria-3-pro-preview\nlyria-3.5\ngemini-3.1-flash-tts-preview\ngemini-3.8-flash-tts\ngemini-3.8-flash-lite-tts\ngemini-robotics-er-2-preview\ngemini-2.5-computer-use-preview-10-2025\nantigravity-preview-05-2026\nantigravity-preview-09-2026\nantigravity-preview-latest\ndeep-research-max-preview-04-2026\ndeep-research-preview-04-2026\ndeep-research-pro-preview-12-2025\nEscribe el do"
+ },
+ "settings_apariencia": {
+  "acciones_principales": 0,
+  "jerga": [],
+  "texto": "Escucha el mercado antes de construir\n\nConfiguración\n\nIdioma, tema y motor de IA\n\nGemini y presupuesto\nApariencia\nApariencia\nIdioma\nEspañol\nEnglish\nTema\nClaro\nOscuro\nComo Windows"
+ },
+ "excepciones": [],
+ "llm_usage_nuevas": 0
+}
