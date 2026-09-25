@@ -55,8 +55,9 @@ def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
 #: Base por defecto: la misma URL que ui/src-tauri/src/db.rs (sqlx solo entiende
-#: URL; psycopg, URL o palabras clave).
-DEFAULT_DSN = "postgresql://postgres@localhost:5432/reddit_intelligence_radar"
+#: URL; psycopg, URL o palabras clave). El rol es el de SENTRA (sentra_owner),
+#: no el superusuario: su contraseña está en el pgpass propio (core/rutas.py).
+DEFAULT_DSN = "postgresql://sentra_owner@localhost:5432/reddit_intelligence_radar"
 #: AUD2-011: una sola variable para Rust y Python. Antes Rust leía RIR_PG_URL
 #: y Python RIR_PG_DSN: con una puesta, solo media aplicación iba a otra base.
 DSN_ENV_VAR = "RIR_PG_URL"
@@ -66,7 +67,8 @@ DSN_ENV_VAR_ANTIGUA = "RIR_PG_DSN"
 
 def resolver_dsn(explicito: str | None = None) -> str:
     """La base a la que conectar: la indicada, RIR_PG_URL, RIR_PG_DSN (antigua,
-    con aviso) o la de por defecto. El único sitio que la resuelve."""
+    con aviso) o la de por defecto con el pgpass de SENTRA (sin él, libpq leería
+    el pgpass.conf que comparten los proyectos). El único sitio que la resuelve."""
     if explicito:
         return explicito
     valor = os.environ.get(DSN_ENV_VAR, "").strip()
@@ -77,7 +79,11 @@ def resolver_dsn(explicito: str | None = None) -> str:
         logger.warning("%s está obsoleta: usa %s (la lee también la interfaz)",
                        DSN_ENV_VAR_ANTIGUA, DSN_ENV_VAR)
         return antigua
-    return DEFAULT_DSN
+    from urllib.parse import quote
+
+    from core.rutas import ruta_pgpass
+
+    return f"{DEFAULT_DSN}?passfile={quote(str(ruta_pgpass()), safe='')}"
 
 # El adaptador fija el search_path en la conexión, no por sentencia: así
 # sobrevive a los rollbacks, que revierten cualquier SET hecho dentro de

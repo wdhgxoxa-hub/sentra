@@ -207,7 +207,7 @@ export const en: Dictionary = {
 
   database: {
     title: "No database",
-    hint: "Start PostgreSQL (or check RIR_PG_URL and pgpass.conf) and press Retry. Settings are still available in the menu.",
+    hint: "Start PostgreSQL (or check RIR_PG_URL and the sentra_owner password in %LOCALAPPDATA%\\SENTRA\\pgpass.conf) and press Retry. Settings is still available in the menu.",
     retrying: "Connecting…",
   },
 

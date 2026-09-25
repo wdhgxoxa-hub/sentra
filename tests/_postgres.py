@@ -12,9 +12,21 @@ import functools
 import os
 import re
 
-ADMIN_DSN = os.environ.get(
-    "RIR_PG_ADMIN_DSN", "host=localhost port=5432 user=postgres dbname=postgres"
-)
+
+def dsn_de_administracion() -> str:
+    """RIR_PG_ADMIN_DSN o el rol de pruebas de SENTRA (sentra_pruebas, CREATEDB),
+    con el pgpass propio de SENTRA: nunca el superusuario ni el pgpass compartido."""
+    explicito = os.environ.get("RIR_PG_ADMIN_DSN", "").strip()
+    if explicito:
+        return explicito
+    from core.rutas import ruta_pgpass
+
+    # Palabras clave de libpq: dentro de comillas simples, \ y ' van escapadas.
+    ruta = str(ruta_pgpass()).replace("\\", "\\\\").replace("'", "\\'")
+    return f"host=localhost port=5432 user=sentra_pruebas dbname=postgres passfile='{ruta}'"
+
+
+ADMIN_DSN = dsn_de_administracion()
 
 
 @functools.cache

@@ -32,7 +32,8 @@ class TestResolverDsn(unittest.TestCase):
             self.assertEqual(resolver_dsn("postgresql://explicito@h/b"), "postgresql://explicito@h/b")
             self.assertEqual(resolver_dsn(), "postgresql://a@h/b")
         with self.entorno():
-            self.assertEqual(resolver_dsn(), DEFAULT_DSN)
+            # Por defecto, con el pgpass de SENTRA (tests/test_pgpass_de_sentra.py).
+            self.assertTrue(resolver_dsn().startswith(f"{DEFAULT_DSN}?passfile="), resolver_dsn())
 
     def test_la_variable_antigua_vale_con_aviso(self):
         with self.entorno(RIR_PG_DSN="host=antigua"), self.assertLogs("core.storage.postgres_store", logging.WARNING):

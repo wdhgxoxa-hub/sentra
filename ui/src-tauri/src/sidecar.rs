@@ -268,6 +268,11 @@ impl SidecarManager {
         if matches!(self.motor(), Motor::Versionado { .. }) {
             entorno.push(("RIR_MOTOR_VERSIONADO", "1".into()));
         }
+        // libpq en el motor lee el pgpass de SENTRA, no el que comparten los
+        // proyectos de la maquina (resolver_dsn tambien lo nombra).
+        if let Some(ruta) = crate::db::ruta_pgpass() {
+            entorno.push(("PGPASSFILE", ruta.display().to_string()));
+        }
         entorno
     }
 
@@ -638,6 +643,14 @@ mod tests {
         assert!(entorno.contains(&("RIR_DATA_DIR", proyecto.display().to_string())));
         assert!(entorno.contains(&("RIR_MOTOR_VERSIONADO", "1".to_string())));
         assert_eq!(manager.directorio_de_trabajo(), Some(copia));
+    }
+
+    #[test]
+    fn el_motor_recibe_el_pgpass_de_sentra() {
+        // Sin esto, libpq en el motor leería el pgpass.conf compartido.
+        let entorno = SidecarManager::with_config(config(None, None, TEST_PORT)).entorno();
+        let ruta = crate::db::ruta_pgpass().expect("LOCALAPPDATA en Windows");
+        assert!(entorno.contains(&("PGPASSFILE", ruta.display().to_string())));
     }
 
     #[test]

@@ -10,9 +10,10 @@ use std::time::Duration;
 
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 
-/// DSN por defecto, alineado con `core/storage/postgres_store.py`.
+/// DSN por defecto, alineado con `core/storage/postgres_store.py`: el rol de
+/// SENTRA, no el superusuario. Su contrasena esta en el pgpass propio.
 const DEFAULT_DSN: &str =
-    "postgres://postgres@localhost:5432/reddit_intelligence_radar";
+    "postgres://sentra_owner@localhost:5432/reddit_intelligence_radar";
 
 const DSN_ENV_VAR: &str = "RIR_PG_URL";
 
@@ -101,17 +102,15 @@ impl serde::Serialize for RadarError {
 
 pub type RadarResult<T> = Result<T, RadarError>;
 
-/// Base de datos por defecto del radar.
-const DEFAULT_DATABASE: &str = "reddit_intelligence_radar";
-
 /// Credenciales de conexion, en cascada.
 ///
 /// 1. `RIR_PG_URL`, si esta definida.
-/// 2. El `pgpass.conf` del usuario. sqlx, a diferencia de libpq, no lo lee
-///    solo; y en una instalacion normal de PostgreSQL en Windows es ahi
-///    donde vive la contrasena. Sin este paso la aplicacion no arranca en
-///    una maquina perfectamente configurada.
-/// 3. El DSN por defecto, sin contrasena (servidor con `trust`).
+/// 2. El DSN por defecto (rol `sentra_owner`) con la contrasena del pgpass
+///    propio de SENTRA. sqlx, a diferencia de libpq, no lee pgpass solo. El
+///    pgpass.conf que comparten los proyectos no se lee: el 2026-09-24 otro
+///    proyecto lo reescribio y SENTRA se quedo sin base (y antes se tomaba
+///    su primera linea, fuera del usuario que fuera).
+/// 3. Sin contrasena en el pgpass propio, el DSN por defecto tal cual.
 pub fn connect_options() -> PgConnectOptions {
     if let Ok(url) = std::env::var(DSN_ENV_VAR) {
         if let Ok(options) = url.parse::<PgConnectOptions>() {
@@ -120,51 +119,73 @@ pub fn connect_options() -> PgConnectOptions {
         log::warn!("{DSN_ENV_VAR} no es una URL valida; se ignora");
     }
 
-    if let Some(options) = options_from_pgpass(DEFAULT_DATABASE) {
-        log::info!("Credenciales de PostgreSQL tomadas de pgpass.conf");
-        return options;
-    }
-
-    DEFAULT_DSN
+    let options = DEFAULT_DSN
         .parse::<PgConnectOptions>()
-        .expect("el DSN por defecto debe ser valido")
+        .expect("el DSN por defecto debe ser valido");
+    let clave = ruta_pgpass()
+        .and_then(|ruta| std::fs::read_to_string(ruta).ok())
+        .and_then(|contenido| {
+            contrasena_en_pgpass(
+                &contenido,
+                options.get_host(),
+                options.get_port(),
+                options.get_database().unwrap_or_default(),
+                options.get_username(),
+            )
+        });
+    match clave {
+        Some(clave) => {
+            log::info!("Credenciales de PostgreSQL tomadas del pgpass de SENTRA");
+            options.password(&clave)
+        }
+        None => options,
+    }
 }
 
-/// Busca en `pgpass.conf` una entrada para el servidor local.
-///
-/// Formato: `host:puerto:base:usuario:contrasena`. Se acepta cualquier
-/// entrada de localhost, sea cual sea el usuario: quien la puso ahi sabe
-/// con que credenciales quiere conectarse.
-pub fn options_from_pgpass(database: &str) -> Option<PgConnectOptions> {
-    let appdata = std::env::var("APPDATA").ok()?;
-    let path = std::path::Path::new(&appdata)
-        .join("postgresql")
-        .join("pgpass.conf");
-    let content = std::fs::read_to_string(path).ok()?;
+/// El pgpass propio de SENTRA: `%LOCALAPPDATA%\SENTRA\pgpass.conf`, la misma
+/// ruta que `core/rutas.py` (`ruta_pgpass`). El motor la recibe en `PGPASSFILE`.
+pub fn ruta_pgpass() -> Option<std::path::PathBuf> {
+    let local = std::env::var_os("LOCALAPPDATA")?;
+    Some(std::path::Path::new(&local).join("SENTRA").join("pgpass.conf"))
+}
 
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
+/// La contrasena de `usuario` en un pgpass, con las reglas de libpq: campos
+/// `host:puerto:base:usuario:contrasena`, `*` como comodin en los cuatro
+/// primeros, `\:` y `\\` escapados y gana la primera linea que encaja. Solo
+/// la del usuario pedido: nunca la de otro.
+pub fn contrasena_en_pgpass(
+    contenido: &str,
+    host: &str,
+    puerto: u16,
+    base: &str,
+    usuario: &str,
+) -> Option<String> {
+    let puerto = puerto.to_string();
+    contenido
+        .lines()
+        .filter(|linea| !linea.trim_start().starts_with('#'))
+        .filter_map(campos_de_pgpass)
+        .find(|c| {
+            [host, puerto.as_str(), base, usuario]
+                .iter()
+                .zip(c.iter())
+                .all(|(pedido, campo)| campo == "*" || campo == pedido)
+        })
+        .map(|c| c[4].clone())
+}
+
+/// Los cinco campos de una linea de pgpass, sin escapes; `None` si no hay cinco.
+fn campos_de_pgpass(linea: &str) -> Option<[String; 5]> {
+    let mut campos = vec![String::new()];
+    let mut letras = linea.trim_end_matches(['\r', '\n']).chars();
+    while let Some(c) = letras.next() {
+        match c {
+            '\\' => campos.last_mut()?.push(letras.next().unwrap_or('\\')),
+            ':' if campos.len() < 5 => campos.push(String::new()),
+            _ => campos.last_mut()?.push(c),
         }
-
-        // La contrasena puede contener ':', asi que solo se parten los
-        // cuatro primeros campos.
-        let parts: Vec<&str> = line.splitn(5, ':').collect();
-        if parts.len() != 5 || parts[0] != "localhost" {
-            continue;
-        }
-
-        return Some(
-            PgConnectOptions::new()
-                .host("localhost")
-                .port(parts[1].parse().unwrap_or(5432))
-                .username(parts[3])
-                .password(parts[4])
-                .database(database),
-        );
     }
-    None
+    campos.try_into().ok()
 }
 
 /// Cuanto se espera a PostgreSQL al conectar. Sin limite, sqlx insiste 30 s
@@ -315,6 +336,46 @@ mod tests {
                     .then(|| clave.to_string())
             })
             .collect()
+    }
+
+    /// El archivo compartido del 2026-09-24: otros proyectos delante. Antes se
+    /// tomaba la primera linea de localhost, fuera de quien fuera.
+    const COMPARTIDO: &str = "localhost:5432:*:faceless:f\nlocalhost:5432:*:dsfactory:d\n";
+
+    #[test]
+    fn el_pgpass_solo_da_la_contrasena_de_su_usuario() {
+        let propio = format!("{COMPARTIDO}localhost:5432:reddit_intelligence_radar:sentra_owner:s\n");
+        let clave = |contenido: &str| {
+            contrasena_en_pgpass(contenido, "localhost", 5432, "reddit_intelligence_radar", "sentra_owner")
+        };
+        assert_eq!(clave(&propio).as_deref(), Some("s"));
+        assert_eq!(clave(COMPARTIDO), None);
+    }
+
+    #[test]
+    fn el_pgpass_sigue_las_reglas_de_libpq() {
+        // Comodines, `\:` y `\\` escapados, comentarios y la primera que encaja.
+        let contenido = "# comentario\nlocalhost:5432:otra:sentra_owner:no\n*:*:*:sentra_owner:a\\:b\\\\c\nlocalhost:5432:*:sentra_owner:tarde\n";
+        assert_eq!(
+            contrasena_en_pgpass(contenido, "localhost", 5432, "reddit_intelligence_radar", "sentra_owner").as_deref(),
+            Some("a:b\\c")
+        );
+        assert_eq!(contrasena_en_pgpass(contenido, "localhost", 5432, "x", "otro"), None);
+    }
+
+    #[test]
+    fn el_pgpass_de_sentra_vive_en_su_carpeta_local() {
+        let local = std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA en Windows");
+        assert_eq!(
+            ruta_pgpass(),
+            Some(std::path::Path::new(&local).join("SENTRA").join("pgpass.conf"))
+        );
+    }
+
+    #[test]
+    fn el_dsn_por_defecto_usa_el_rol_de_sentra() {
+        let opciones: PgConnectOptions = DEFAULT_DSN.parse().unwrap();
+        assert_eq!(opciones.get_username(), "sentra_owner");
     }
 
     /// Nada escucha en el puerto 1: la conexion se rechaza al momento.

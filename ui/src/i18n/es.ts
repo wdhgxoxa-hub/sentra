@@ -213,7 +213,7 @@ export const es = {
 
   database: {
     title: "Sin base de datos",
-    hint: "Arranca PostgreSQL (o revisa RIR_PG_URL y pgpass.conf) y pulsa Reintentar. Los ajustes siguen disponibles en el menú.",
+    hint: "Arranca PostgreSQL (o revisa RIR_PG_URL y la contraseña de sentra_owner en %LOCALAPPDATA%\\SENTRA\\pgpass.conf) y pulsa Reintentar. Configuración sigue disponible en el menú.",
     retrying: "Conectando…",
   },
 

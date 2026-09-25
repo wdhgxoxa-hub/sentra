@@ -53,6 +53,13 @@ def ruta_modelos() -> Path:
     return Path(explicita) if explicita else carpeta_local() / "models"
 
 
+def ruta_pgpass() -> Path:
+    """Contraseñas de los roles de SENTRA (sentra_owner, sentra_pruebas): propias,
+    fuera del pgpass.conf que comparten los proyectos de la máquina. Rust usa la
+    misma ruta (ui/src-tauri/src/db.rs, ruta_pgpass)."""
+    return carpeta_local() / "pgpass.conf"
+
+
 def ruta_cache_modelos_gemini() -> Path:
     """Lista de modelos de Gemini entre arranques (AUD2-019)."""
     return carpeta_local() / "cache" / "gemini_models.json"

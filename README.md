@@ -45,9 +45,20 @@ en `docs/pipeline-antigua.md`.
    Antes de migrar una base con datos, haz una copia con
    `pg_dump -Fc … > copia.dump`.
 
+   SENTRA no usa el superusuario ni el `pgpass.conf` que comparten los
+   proyectos de la máquina. Una vez, como `postgres`, se crean sus roles
+   (`sentra_owner`, dueño de la base; `sentra_pruebas`, solo para las bases
+   desechables de los tests) y su propio `%LOCALAPPDATA%\SENTRA\pgpass.conf`,
+   solo legible por tu usuario. Las contraseñas se teclean al ejecutarlo:
+
+   ```powershell
+   python -m scripts.rol_sentra --en-seco   # enseña las sentencias
+   python -m scripts.rol_sentra             # crea los roles y el pgpass
+   ```
+
 3. **Configuración.** Copia `.env.example` a `.env`. Las credenciales de cada
    fuente y la clave de Gemini se introducen desde la aplicación (Fuentes y
-   Ajustes) y nunca se muestran de vuelta.
+   Configuración) y nunca se muestran de vuelta.
 
 4. **Interfaz.**
 
