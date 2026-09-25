@@ -229,3 +229,24 @@ class TestLienzo(BaseTema):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDireccionDeLaFase2(BaseTema):
+    """Dirección visual aprobada por Walter (maquetas de la Fase 2): un solo
+    acento, cian, en los dos temas, y letra base legible (P1)."""
+
+    def test_el_acento_es_cian_en_los_dos_temas(self):
+        for tema, paleta in (("claro", self.claro), ("oscuro", self.oscuro)):
+            for nombre in ("--color-accent", "--color-accent-hover", "--color-accent-soft"):
+                with self.subTest(tema=tema, token=nombre):
+                    self.assertTrue(190 <= paleta[nombre][2] <= 230, f"{nombre}: tono {paleta[nombre][2]}")
+
+    def test_el_acento_se_lee_como_texto_sobre_cada_superficie(self):
+        for tema, paleta in (("claro", self.claro), ("oscuro", self.oscuro)):
+            for superficie in ("--color-bg", "--color-surface", "--color-surface-2"):
+                self.comprobar(paleta, tema, "--color-accent", superficie)
+
+    def test_la_letra_base_es_de_15_px(self):
+        cuerpo = _bloque(self.css, "\nbody {")
+        self.assertRegex(cuerpo, r"font-size:\s*15px")
+

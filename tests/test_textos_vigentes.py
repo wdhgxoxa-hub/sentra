@@ -43,7 +43,7 @@ _TRAS_PREPOSICION = {
 }
 NO_SON_VISTAS = {
     "es": {"Google", "Gemini", "PostgreSQL", "Investigar"},  # «baja a Investigar más»: un veredicto
-    "en": {"Google", "Gemini", "PostgreSQL", "Investigate"},
+    "en": {"Google", "Gemini", "PostgreSQL", "Investigate", "English", "Spanish"},  # idiomas, no vistas
 }
 
 

@@ -40,11 +40,11 @@
   --color-low-ink: oklch(0.50 0.09 240);
 
   /* --- Acento ------------------------------------------------------- */
-  /* A 0.62 el blanco encima daba 3,8:1 y los botones primarios no llegaban
-     al mínimo legible. A 0.55 son 5,1:1 y el azul sigue siendo el mismo. */
-  --color-accent: oklch(0.55 0.19 265);
-  --color-accent-hover: oklch(0.49 0.19 265);
-  --color-accent-soft: oklch(0.55 0.19 265 / 0.12);
+  /* Cian (dirección de la Fase 2, un solo acento). A 0.50 el blanco encima
+     da 5,7:1 y como texto se lee sobre las tres superficies (≥ 4,8:1). */
+  --color-accent: oklch(0.5 0.1 215);
+  --color-accent-hover: oklch(0.44 0.1 215);
+  --color-accent-soft: oklch(0.5 0.1 215 / 0.12);
   /* Lo que se escribe ENCIMA del acento. En claro es blanco; en
      oscuro el acento se aclara tanto que el blanco encima baja a
      2,8:1, asi que alli el texto va en grafito. */
@@ -120,9 +120,9 @@
   --color-ink: oklch(0.96 0.004 265);
   --color-ink-soft: oklch(0.76 0.008 265);
   --color-ink-faint: oklch(0.65 0.01 265);
-  --color-accent: oklch(0.7 0.17 265);
-  --color-accent-hover: oklch(0.76 0.16 265);
-  --color-accent-soft: oklch(0.7 0.17 265 / 0.16);
+  --color-accent: oklch(0.78 0.12 210);
+  --color-accent-hover: oklch(0.84 0.11 210);
+  --color-accent-soft: oklch(0.78 0.12 210 / 0.16);
   --color-on-accent: oklch(0.18 0.012 265);
   --color-ok: oklch(0.72 0.16 155);
   --color-warn: oklch(0.78 0.15 75);
@@ -151,9 +151,9 @@
     --color-ink: oklch(0.96 0.004 265);
     --color-ink-soft: oklch(0.76 0.008 265);
     --color-ink-faint: oklch(0.65 0.01 265);
-    --color-accent: oklch(0.7 0.17 265);
-    --color-accent-hover: oklch(0.76 0.16 265);
-    --color-accent-soft: oklch(0.7 0.17 265 / 0.16);
+    --color-accent: oklch(0.78 0.12 210);
+    --color-accent-hover: oklch(0.84 0.11 210);
+    --color-accent-soft: oklch(0.78 0.12 210 / 0.16);
     --color-on-accent: oklch(0.18 0.012 265);
     --color-ok: oklch(0.72 0.16 155);
     --color-warn: oklch(0.78 0.15 75);
@@ -180,6 +180,8 @@ body,
 }
 
 body {
+  /* P1 (Fase 2): letra base legible para cualquiera. */
+  font-size: 15px;
   background-color: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
