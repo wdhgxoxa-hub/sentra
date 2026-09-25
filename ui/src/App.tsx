@@ -8,10 +8,14 @@ import { queryClient, queryKeys, useDatabaseStatus } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
 import { useT } from "@/stores/settingsStore";
 import { useUiStore } from "@/stores/uiStore";
-import { RadarViewPage } from "@/views/RadarView";
+import { NuevoEscaneo } from "@/pantallas/NuevoEscaneo";
 
-// El Radar es lo primero que se ve y va en el chunk principal; las demás
-// vistas se cargan al abrirlas (C3: dividir en lugar de subir el límite).
+// «Nuevo escaneo» es lo primero que se ve (Fase 2) y va en el chunk
+// principal; las demás vistas se cargan al abrirlas (C3: dividir en lugar
+// de subir el límite).
+const RadarViewPage = lazy(() =>
+  import("@/views/RadarView").then((m) => ({ default: m.RadarViewPage })),
+);
 const SearchConsole = lazy(() =>
   import("@/views/SearchConsole").then((m) => ({ default: m.SearchConsole })),
 );
@@ -88,6 +92,7 @@ export default function App() {
               <DatabaseStatusScreen status={baseDeDatos.data} />
             ) : (
               <Suspense fallback={<p className="text-sm text-ink-faint">{t.common.loading}</p>}>
+                {view === "nuevo" && <NuevoEscaneo />}
                 {view === "radar" && <RadarViewPage />}
                 {view === "search" && <SearchConsole />}
                 {view === "settings" && <SettingsView />}

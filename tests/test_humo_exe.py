@@ -33,7 +33,9 @@ def observado(**cambios: Any) -> Observado:
         url_interfaz="http://tauri.localhost/", cierre_ventana_interna=True,
         huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
         raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
-        perfil_real_antes="0123abcd", perfil_real_despues="0123abcd", perfil_aislado_usado=True),
+        perfil_real_antes="0123abcd", perfil_real_despues="0123abcd", perfil_aislado_usado=True,
+        pantalla_inicial="nuevo", acciones_principales={"nuevo": 1}, jerga={"nuevo": []},
+        asistente_paso2=True),
         **cambios)
 
 
@@ -54,6 +56,24 @@ class TestEvaluar(unittest.TestCase):
     def test_una_vista_vacia_con_datos_en_la_base_es_un_fallo(self):
         fallos = evaluar(observado(radar_top=0, radar_resto=0, radar_feed=0), verdad(), ahora=AHORA)
         self.assertTrue(any("radar" in f.lower() for f in fallos), fallos)
+
+    def test_la_app_tiene_que_arrancar_en_nuevo_escaneo(self):
+        """Fase 2: «Nuevo escaneo» es la pantalla principal."""
+        fallos = evaluar(observado(pantalla_inicial="radar"), verdad(), ahora=AHORA)
+        self.assertTrue(any("nuevo escaneo" in f.lower() for f in fallos), fallos)
+
+    def test_cada_pantalla_nueva_tiene_una_sola_accion_principal(self):
+        for n in (0, 2):
+            fallos = evaluar(observado(acciones_principales={"nuevo": n}), verdad(), ahora=AHORA)
+            self.assertTrue(any("acción principal" in f for f in fallos), (n, fallos))
+
+    def test_la_jerga_visible_es_un_fallo(self):
+        fallos = evaluar(observado(jerga={"nuevo": ["tokens", "G0-G9"]}), verdad(), ahora=AHORA)
+        self.assertTrue(any("tokens" in f and "nuevo" in f for f in fallos), fallos)
+
+    def test_el_asistente_que_no_pasa_al_paso_2_es_un_fallo(self):
+        fallos = evaluar(observado(asistente_paso2=False), verdad(), ahora=AHORA)
+        self.assertTrue(any("asistente" in f for f in fallos), fallos)
 
     def test_el_motor_que_no_arranca_es_un_fallo(self):
         self.assertTrue(evaluar(observado(motor_activo_s=None), verdad(), ahora=AHORA))
@@ -227,3 +247,24 @@ class TestLectorCdp(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEsperasQueMidenBien(unittest.TestCase):
+    """Un nodo del DOM llega por CDP como {} y en Python {} es falso: una espera
+    sobre `document.querySelector(...)` sin `!!` nunca se cumple y agota su
+    tiempo en silencio (la búsqueda esperaba 15 s siempre; el asistente de la
+    Fase 2 parecía no pasar al paso 2). Toda espera sobre un nodo lo convierte
+    antes en booleano."""
+
+    def test_ninguna_espera_devuelve_un_nodo(self):
+        import re
+
+        fuente = (RAIZ / "tests" / "humo_exe.py").read_text("utf-8")
+        esperas = re.findall(r"""\.esperar\(\s*(?:f?"|f?')(.*?)(?:"|')\s*,""", fuente)
+        self.assertTrue(esperas)
+        for expresion in esperas:
+            with self.subTest(expresion=expresion):
+                if "querySelector(" in expresion:
+                    self.assertTrue(expresion.lstrip().startswith("!!") or ".length" in expresion
+                                    or "==" in expresion, expresion)
+

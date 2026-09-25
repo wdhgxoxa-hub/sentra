@@ -118,6 +118,7 @@ pub fn run() {
             commands::sources::set_commercial_mode,
             commands::sources::estimate_scan,
             commands::sources::trigger_multiscan,
+            commands::palabras::propose_keywords,
             // Juez de nichos (F3)
             commands::judge::get_judge_top,
             commands::judge::get_evidence_feed,

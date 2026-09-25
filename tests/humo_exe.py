@@ -122,6 +122,14 @@ class Observado:
     huerfanos_tras_ventana_interna: int = 0
     #: Filas que aparecieron en llm_usage (base real) mientras corría la app: 0.
     uso_gemini_nuevo: int = 0
+    #: Fase 2: la pantalla con la que arranca («nuevo»), cuántas acciones
+    #: principales tiene cada pantalla nueva (1), la jerga visible de cada una
+    #: (tests/_lenguaje_llano.py; los «Ver detalle» cerrados no cuentan) y si el
+    #: asistente pasa del tema a las palabras sin gastar.
+    pantalla_inicial: str | None = None
+    acciones_principales: dict[str, int] = field(default_factory=dict)
+    jerga: dict[str, list[str]] = field(default_factory=dict)
+    asistente_paso2: bool = False
 
 
 def esperado(verdad: Verdad) -> Esperado:
@@ -180,6 +188,16 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"perfil real del usuario cambiado: {obs.perfil_real_antes} → {obs.perfil_real_despues}")
     if not obs.perfil_aislado_usado:
         fallos.append("perfil aislado: la app no lo usó (¿WEBVIEW2_USER_DATA_FOLDER ignorada?)")
+    if obs.pantalla_inicial != "nuevo":
+        fallos.append(f"inicio: la app arranca en «{obs.pantalla_inicial}», no en Nuevo escaneo")
+    for pantalla, n in obs.acciones_principales.items():
+        if n != 1:
+            fallos.append(f"{pantalla}: {n} acciones principales; tiene que haber una sola acción principal")
+    for pantalla, palabras in obs.jerga.items():
+        if palabras:
+            fallos.append(f"{pantalla}: jerga visible ({', '.join(palabras)})")
+    if not obs.asistente_paso2:
+        fallos.append("asistente: no pasa del tema a las palabras clave")
     if obs.uso_gemini_nuevo:
         fallos.append(f"Gemini: la app llamó a Google durante el humo ({obs.uso_gemini_nuevo} filas nuevas "
                       "en llm_usage); el humo no puede gastar ni registrar llamadas")
@@ -428,6 +446,15 @@ def url_de_la_interfaz(
     return url
 
 
+def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str) -> None:
+    """P1 en la pantalla abierta: cuántas acciones principales hay y qué jerga se
+    ve (innerText no incluye lo que hay dentro de un «Ver detalle» cerrado)."""
+    from tests._lenguaje_llano import palabras_prohibidas
+
+    obs.acciones_principales[nombre] = app.js("document.querySelectorAll('main [data-accion-principal]').length") or 0
+    obs.jerga[nombre] = palabras_prohibidas(app.js("document.querySelector('main')?.innerText ?? ''") or "")
+
+
 def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     obs = Observado()
     app = _Cdp(exe, perfil)
@@ -435,6 +462,19 @@ def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     if app.esperar("[...document.querySelectorAll('nav [title]')].some(d => /^(Motor|Engine)/.test(d.innerText.trim()) "
                    "&& /(activo|up)$/.test(d.innerText.replace(/\\s+/g, ' ').trim()))", ARRANQUE_MAX_S + 5):
         obs.motor_activo_s = round(time.time() - app.t0, 1)
+
+    # Fase 2: arranca en «Nuevo escaneo»; el asistente pasa al paso 2 sin gastar.
+    # `!!`: un nodo llega por CDP como {} y en Python {} es falso (espera vacua).
+    app.esperar("!!document.querySelector('[data-pantalla=nuevo]')", 20)
+    obs.pantalla_inicial = app.js("document.querySelector('nav [aria-current=page]')?.dataset.vista ?? null")
+    _pantalla_llana(app, obs, "nuevo")
+    app.js("(() => { const i = document.querySelector('[data-campo=tema]');"
+           " const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
+           " set.call(i, 'clientes que pagan tarde'); i.dispatchEvent(new Event('input', {bubbles: true})); })()")
+    app.js("document.querySelector('main [data-accion-principal]')?.click()")
+    obs.asistente_paso2 = app.esperar("!!document.querySelector('[data-pantalla=nuevo][data-paso=\"2\"]')", 10)
+    if obs.asistente_paso2:
+        _pantalla_llana(app, obs, "nuevo, paso 2")
 
     app.ir("Radar")
     app.esperar("document.querySelectorAll('section[aria-labelledby=top-juez] article').length > 0", 30)
@@ -451,8 +491,10 @@ def recorrer(exe: Path, perfil: Path | None = None) -> Observado:
     obs.feed_fechas, obs.feed_fuente_desconocida = radar.get("fechas", []), radar.get("desconocida", 0)
 
     app.ir("Búsqueda", "Semantic", "Search")
-    app.esperar("document.querySelector('main input')", 15)
-    app.js("(() => { const i = document.querySelector('main input');"
+    # El campo de la búsqueda, no «main input»: justo después de pulsar puede
+    # seguir en pantalla el campo de la vista anterior (sonda del 25-09).
+    app.esperar("!!document.querySelector('main [data-campo=busqueda]')", 15)
+    app.js("(() => { const i = document.querySelector('main [data-campo=busqueda]');"
            " const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
            " set.call(i, 'email notifications'); i.dispatchEvent(new Event('input', {bubbles: true})); })()")
     inicio = time.time()

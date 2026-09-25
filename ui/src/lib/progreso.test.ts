@@ -74,3 +74,33 @@ test("nada depende solo del color: todo estado tiene palabra e icono", () => {
     assert.ok(e.palabra && e.icono, JSON.stringify(e));
   }
 });
+
+// --- Fase del escaneo (Buscar → Limpiar → Juez → Resultado) -------------
+
+import { faseDelEscaneo } from "./progreso.ts";
+
+const escaneo = (cambios: Record<string, unknown>) => ({
+  status: "running", perSource: { a: enCurso, b: lista }, final: null,
+  judge: { status: "idle", summary: null, error: null }, ...cambios,
+}) as Parameters<typeof faseDelEscaneo>[0];
+
+test("mientras alguna fuente busca, la fase es «buscar»", () => {
+  assert.equal(faseDelEscaneo(escaneo({})), "buscar");
+});
+
+test("con todas las fuentes terminadas y el escaneo aún abierto, «limpiar»", () => {
+  assert.equal(faseDelEscaneo(escaneo({ perSource: { a: lista, b: fallo("source_error") } })), "limpiar");
+});
+
+test("guardado y con el juez por empezar o trabajando, «juez»", () => {
+  const guardado = { persisted: true };
+  assert.equal(faseDelEscaneo(escaneo({ status: "done", final: guardado })), "juez");
+  assert.equal(faseDelEscaneo(escaneo({ status: "done", final: guardado,
+    judge: { status: "running", summary: null, error: null } })), "juez");
+});
+
+test("con el juez terminado, o sin guardar, «resultado»", () => {
+  assert.equal(faseDelEscaneo(escaneo({ status: "done", final: { persisted: true },
+    judge: { status: "done", summary: null, error: null } })), "resultado");
+  assert.equal(faseDelEscaneo(escaneo({ status: "done", final: { persisted: false } })), "resultado");
+});

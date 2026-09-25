@@ -238,6 +238,16 @@ export function useEstimateScan() {
   });
 }
 
+/** Palabras clave propuestas (Fase 2): puede gastar 1 llamada; el presupuesto cambia. */
+export function useProposeKeywords() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ topic, languages }: { topic: string; languages: string[] }) =>
+      ipc.proposeKeywords(topic, languages),
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.geminiBudget }),
+  });
+}
+
 export function useTriggerMultiscan() {
   const client = useQueryClient();
   return useMutation({

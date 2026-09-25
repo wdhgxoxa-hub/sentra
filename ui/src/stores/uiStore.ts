@@ -8,11 +8,17 @@
 
 import { create } from "zustand";
 
-export type RadarView = "radar" | "search" | "sources" | "settings";
+import type { TipoDeNicho } from "@/modos/tipos";
+
+/** «nuevo» es la pantalla principal (Fase 2): Nuevo escaneo. */
+export type RadarView = "nuevo" | "radar" | "search" | "sources" | "settings";
 
 interface UiState {
   view: RadarView;
   setView: (view: RadarView) => void;
+
+  /** Modo activo (P2). Hoy solo hay Software; Videos se enchufará aquí. */
+  modo: TipoDeNicho;
 
   // --- Consola de búsqueda ---
   searchQuery: string;
@@ -20,8 +26,10 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  view: "radar",
+  view: "nuevo",
   setView: (view) => set({ view }),
+
+  modo: "software",
 
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),

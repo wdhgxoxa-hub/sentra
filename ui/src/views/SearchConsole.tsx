@@ -58,6 +58,7 @@ export function SearchConsole() {
         />
         <input
           type="search"
+          data-campo="busqueda"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder={t.search.placeholder}

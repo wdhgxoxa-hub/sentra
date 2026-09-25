@@ -42,6 +42,7 @@ import {
   type ExportDocumentParams,
   type ExportedDocument,
   type DocumentsStatus,
+  type KeywordProposal,
 } from "@/types/radar";
 
 export const ipc = {
@@ -117,6 +118,13 @@ export const ipc = {
    * que el escaneo exige (un solo uso, caduca): sin confirmarla no se escanea.
    */
   estimateScan: (profile: ScanProfileInput) => invoke<ScanEstimate>("estimate_scan", { profile }),
+
+  /**
+   * [sidecar] Palabras clave propuestas para un tema (Fase 2, D1): con Gemini
+   * (1 llamada, cuenta para los topes) o, si no se puede, básicas sin Gemini.
+   */
+  proposeKeywords: (topic: string, languages: string[]) =>
+    invoke<KeywordProposal>("propose_keywords", { topic, languages }),
 
   /** [sidecar] Top 6 del juez: de una ejecución o de la última juzgada. */
   getJudgeTop: (runId: string | null = null) => invoke<JudgeTop>("get_judge_top", { runId }),

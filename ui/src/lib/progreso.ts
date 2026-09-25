@@ -9,6 +9,7 @@
  * hay, se guarda en `codigo` para «Ver detalle» y nunca se pinta suelto.
  */
 
+import type { MultiScanState } from "@/stores/multiscanStore";
 import type { SourceScanSummary } from "@/types/radar";
 
 export type TonoDeFuente = "en_curso" | "bien" | "aviso" | "mal" | "neutro";
@@ -79,4 +80,22 @@ export function estadoDeFuente(s: SourceScanSummary): EstadoDeFuente {
     return estado(["aviso", "parcial", "tope_propio"], s.items, s.stopReason);
   }
   return estado(["aviso", "parcial", "parada_antes"], s.items, s.stopReason);
+}
+
+export type FaseDelEscaneo = "buscar" | "limpiar" | "juez" | "resultado";
+
+/**
+ * En qué fase va el escaneo. Tras `scan:done` el juez tarda un instante en
+ * anunciar que empieza: si el escaneo se guardó y el juez aún no ha dicho
+ * nada, la fase ya es la del juez, no la del resultado.
+ */
+export function faseDelEscaneo(
+  scan: Pick<MultiScanState, "status" | "perSource" | "judge"> & { final: { persisted: boolean } | null },
+): FaseDelEscaneo {
+  if (scan.status === "running") {
+    return Object.values(scan.perSource).some((s) => s.status === "running") ? "buscar" : "limpiar";
+  }
+  if (scan.judge.status === "running") return "juez";
+  if (scan.judge.status === "idle" && scan.final?.persisted) return "juez";
+  return "resultado";
 }

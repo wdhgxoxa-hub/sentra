@@ -1,12 +1,15 @@
-import { Radar, RadioTower, Search, Settings } from "lucide-react";
+import { Plus, Radar, RadioTower, Search, Settings } from "lucide-react";
 
 import isotipo from "@/assets/isotipo.png";
 import { HealthIndicator } from "@/components/HealthIndicator";
+import { SelectorDeModo } from "@/components/SelectorDeModo";
 import { useSources } from "@/lib/queries";
 import { useT } from "@/stores/settingsStore";
+import { useAsistenteStore } from "@/stores/asistenteStore";
 import { useUiStore, type RadarView } from "@/stores/uiStore";
 
 const ICONS = {
+  nuevo: Plus,
   radar: Radar,
   search: Search,
   sources: RadioTower,
@@ -40,11 +43,15 @@ function SourcesSummary() {
   );
 }
 
-/** Navegación principal: el escaneo vive en Fuentes (D-C2). */
+/**
+ * Navegación principal (Fase 2): «Nuevo escaneo» arriba y aparte, que es la
+ * pantalla principal; debajo, el sitio del selector de modo (P2) y las vistas.
+ */
 export function Sidebar() {
   const t = useT();
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
+  const resultadoSinVer = useAsistenteStore((state) => state.resultadoSinVer);
 
   return (
     <nav
@@ -77,6 +84,27 @@ export function Sidebar() {
         </p>
       </div>
 
+      <SelectorDeModo />
+
+      <button
+        type="button"
+        data-vista="nuevo"
+        onClick={() => setView("nuevo")}
+        aria-current={view === "nuevo" ? "page" : undefined}
+        className={`flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-[15px] font-semibold transition-colors ${
+          view === "nuevo" ? "bg-accent-soft text-ink" : "text-ink hover:bg-surface-2"
+        }`}
+      >
+        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-accent text-on-accent" aria-hidden="true">
+          <Plus className="size-4" />
+        </span>
+        <span className="truncate">{t.nav.nuevo}</span>
+        {resultadoSinVer && view !== "nuevo" && (
+          <span className="ml-auto size-2.5 rounded-full bg-accent" role="img" aria-label={t.nuevoEscaneo.marca} />
+        )}
+      </button>
+      <div className="my-2 border-t border-border" />
+
       <ul className="flex flex-col gap-0.5">
         {ITEMS.map((item) => {
           const Icon = ICONS[item];
@@ -85,11 +113,12 @@ export function Sidebar() {
             <li key={item}>
               <button
                 type="button"
+                data-vista={item}
                 onClick={() => setView(item)}
                 aria-current={active ? "page" : undefined}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+                className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors ${
                   active
-                    ? "bg-accent-soft font-medium text-accent"
+                    ? "bg-accent-soft font-medium text-ink"
                     : "text-ink-soft hover:bg-surface-2 hover:text-ink"
                 }`}
               >
