@@ -26,6 +26,7 @@ from .labels import MAX_ITEMS_PER_SCAN, LabelCache
 from .pipeline import run_judge
 from .store import (
     PostgresCoherenceCache,
+    guardar_resumen_del_juez,
     marcar_juzgada,
     marcar_parada,
     previous_identities,
@@ -99,11 +100,14 @@ def rejuzgar(
             await store.save_verdicts(nueva, juicio.verdicts)
             # finish_run reescribe top_n_* (sus valores por defecto son None):
             # se cierra primero y se marca después, o la marca se perdería.
-            await store.finish_run(nueva, {"fetched": len(items), "stored": len(juicio.verdicts)})
+            # stored = piezas guardadas por esta ejecución: ninguna, reutiliza las del
+            # origen (los veredictos van en judge_summary, B3).
+            await store.finish_run(nueva, {"fetched": len(items), "stored": 0})
             await marcar_juzgada(store, nueva, construir=sum(
                 1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))
             if control is not None and control.motivo_de_corte:
                 await marcar_parada(store, nueva, control.motivo_de_corte)
+            await guardar_resumen_del_juez(store, nueva, juicio.summary)
             return nueva, juicio.summary
 
     return run_async(correr())

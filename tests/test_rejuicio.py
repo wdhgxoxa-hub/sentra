@@ -112,6 +112,26 @@ class TestRejuicio(unittest.TestCase):
         self.assertTrue(nuevos)
         self.assertTrue(all("invoice" not in fila["keywords"] for fila in nuevos), "el tema no nombra nichos")
 
+    def test_stored_son_piezas_guardadas_y_el_resumen_del_juez_va_aparte(self):
+        # B3 (Walter): el re-juicio escribía en `stored` el número de veredictos;
+        # en el escaneo `stored` son las piezas guardadas. El re-juicio no guarda
+        # piezas (reutiliza las del origen): stored = 0, y lo del juez va en judge_summary.
+        origen, propias = self._sembrar()
+        vectores = {i.id: [1.0, 0.01 * n, 0.0] for n, i in enumerate(propias)}
+        nueva, resumen = rejuzgar(self.dsn, origen, provider=LLMDoble(), model="m", cache=InMemoryLabelCache(),
+                                  vectores=lambda ids: {k: vectores[k] for k in ids if k in vectores},
+                                  vectores_frase=lambda frases: {k: vectores[k] for k in frases if k in vectores},
+                                  now=AHORA)
+
+        async def leer(store):
+            return dict(await store._fetchone(
+                "SELECT fetched, stored, judge_summary FROM pipeline_runs WHERE id = %s", (nueva,)))
+
+        fila = self._en_store(leer)
+        self.assertEqual((fila["fetched"], fila["stored"]), (6, 0))
+        self.assertEqual(fila["judge_summary"]["items"], 6)
+        self.assertEqual(fila["judge_summary"]["verdicts"], resumen["verdicts"])
+
     def test_el_segundo_rejuicio_reutiliza_g0_de_la_base_sin_llamar(self):
         # Estabilidad de G0 (tras E8): el resultado de cada grupo se guarda en la base.
         origen, propias = self._sembrar()

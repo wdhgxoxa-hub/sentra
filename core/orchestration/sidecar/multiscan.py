@@ -131,6 +131,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     from core.judge.store import (
         PostgresCoherenceCache,
         PostgresLabelCache,
+        guardar_resumen_del_juez,
         marcar_juzgada,
         marcar_parada,
         previous_identities,
@@ -160,13 +161,15 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             # Un tope de Gemini cortó el juez: el motivo de parada queda en la ejecución.
             if control.motivo_de_corte:
                 await marcar_parada(store, run_id, control.motivo_de_corte)
-            return juicio.summary
+            resumen = dict(juicio.summary)
+            resumen["llm"] = {"model": modelo, "unavailable": motivo,
+                              "calls": len(getattr(proveedor, "usage", []) or []),
+                              "stopReason": control.motivo_de_corte}
+            # El resumen queda con la ejecución (migración 019), no solo en judge:done.
+            await guardar_resumen_del_juez(store, run_id, resumen)
+            return resumen
 
-    resumen = run_async(juzgar())
-    resumen["llm"] = {"model": modelo, "unavailable": motivo,
-                      "calls": len(getattr(proveedor, "usage", []) or []),
-                      "stopReason": control.motivo_de_corte}
-    return resumen
+    return run_async(juzgar())
 
 
 def _nuevo_id() -> str:

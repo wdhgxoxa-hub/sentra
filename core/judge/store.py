@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import psycopg
@@ -117,6 +118,16 @@ async def marcar_juzgada(store: PostgresStore, run_id: str, *, construir: int) -
         (TOP_TARGET, encontrados, motivo, store.tenant_id, run_id),
     )
     # La conexión no es autocommit: sin esto, cerrarla desharía la marca.
+    await store.connection.commit()
+
+
+async def guardar_resumen_del_juez(store: PostgresStore, run_id: str, resumen: Mapping[str, Any]) -> None:
+    """El resumen del juez con su ejecución (migración 019): piezas, las que pasan
+    el filtro, etiquetadas, dolor, grupos, veredictos y uso del LLM."""
+    await store._fetchone_returning(
+        "UPDATE pipeline_runs SET judge_summary = %s WHERE tenant_id = %s AND id = %s RETURNING id",
+        (json.dumps(resumen, default=str), store.tenant_id, run_id),
+    )
     await store.connection.commit()
 
 
