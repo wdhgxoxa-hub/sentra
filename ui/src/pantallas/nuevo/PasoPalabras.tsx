@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AccionPrincipal, Aviso, BotonSecundario } from "@/components/comunes/Comunes";
 import { coberturaDePalabras, palabrasDistintas, type IdiomaDeBusqueda } from "@/lib/cobertura";
 import { useProposeKeywords } from "@/lib/queries";
-import { rellenar } from "@/lib/texto";
+import { rellenar, unirIdiomas } from "@/lib/texto";
 import { useAsistenteStore } from "@/stores/asistenteStore";
 import { useT } from "@/stores/settingsStore";
 
@@ -84,8 +84,9 @@ export function PasoPalabras() {
   const a = useAsistenteStore();
   const proponer = useProposeKeywords();
   const cobertura = coberturaDePalabras(a.palabras, a.idiomas);
-  const nombres = (idiomas: IdiomaDeBusqueda[]) =>
-    idiomas.map((i) => t.nuevoEscaneo.idioma[i].toLowerCase()).join(", ");
+  // «en español ni en inglés» / «en español y en inglés», no «en español, inglés».
+  const nombres = (idiomas: IdiomaDeBusqueda[], nexo: string) =>
+    unirIdiomas(idiomas.map((i) => t.nuevoEscaneo.idioma[i].toLowerCase()), nexo);
 
   const pedirPropuesta = () =>
     proponer.mutate(
@@ -139,8 +140,12 @@ export function PasoPalabras() {
             {cobertura.motivos.map((motivo) => (
               <li key={motivo}>
                 {rellenar(t.nuevoEscaneo.motivo[motivo], {
-                  n: cobertura.total,
-                  idiomas: nombres(motivo === "idioma_escaso" ? cobertura.escasos : cobertura.sinPalabras),
+                  n: motivo === "largas" ? cobertura.largas.length : cobertura.total,
+                  lista: cobertura.largas.map((p) => `«${p}»`).join(", "),
+                  idiomas:
+                    motivo === "idioma_escaso"
+                      ? nombres(cobertura.escasos, t.nuevoEscaneo.nexoY)
+                      : nombres(cobertura.sinPalabras, t.nuevoEscaneo.nexoNi),
                 })}
               </li>
             ))}

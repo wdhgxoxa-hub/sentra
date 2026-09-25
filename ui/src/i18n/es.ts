@@ -482,7 +482,11 @@ export const es = {
       un_idioma: "Todas las palabras están en un solo idioma.",
       idioma_sin_palabras: "No hay ninguna palabra en {idiomas}.",
       idioma_escaso: "Hay menos de 3 palabras en {idiomas}.",
+      largas:
+        "{n} búsquedas tienen más de 3 palabras ({lista}). Los buscadores piden todas a la vez y encuentran poco: mejor términos cortos, como «pdf a word».",
     },
+    nexoNi: " ni en ",
+    nexoY: " y en ",
     masOpciones: "Más opciones",
     sinTema: "Buscar quejas de cualquier tema, sin palabras clave",
     irAEscanear: "Siguiente: revisar y escanear",

@@ -8,3 +8,11 @@ test("cambia cada marcador, aunque se repita, y deja los que no conoce", () => {
   assert.equal(rellenar("{n} de {total} · {n}", { n: 3, total: 8 }), "3 de 8 · 3");
   assert.equal(rellenar("Hola {nombre}", {}), "Hola {nombre}");
 });
+
+import { unirIdiomas } from "./texto.ts";
+
+test("une idiomas en una frase: «español ni en inglés», «español y en inglés»", () => {
+  assert.equal(unirIdiomas(["español", "inglés"], " ni en "), "español ni en inglés");
+  assert.equal(unirIdiomas(["español"], " ni en "), "español");
+  assert.equal(unirIdiomas(["español", "inglés"], " y en "), "español y en inglés");
+});

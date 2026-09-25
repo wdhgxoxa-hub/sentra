@@ -56,3 +56,13 @@ test("las repetidas y las vacías no cuentan", () => {
   assert.equal(c.total, 6);
   assert.equal(c.nivel, "buena");
 });
+
+test("Fase 3: las búsquedas de más de 3 palabras se señalan (los buscadores piden todas a la vez)", () => {
+  const c = coberturaDePalabras(
+    { es: ["pdf a word", "convertir pdf", "pdf a word pierde formato"], en: ["pdf to word", "pdf converter", "docx"] },
+    ["es", "en"],
+  );
+  assert.deepEqual(c.motivos, ["largas"]);
+  assert.deepEqual(c.largas, ["pdf a word pierde formato"]);
+  assert.equal(c.nivel, "baja");
+});

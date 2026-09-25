@@ -10,14 +10,17 @@
  */
 
 export type IdiomaDeBusqueda = "es" | "en";
-export type MotivoDeCobertura = "pocas" | "un_idioma" | "idioma_sin_palabras" | "idioma_escaso";
+export type MotivoDeCobertura = "pocas" | "un_idioma" | "idioma_sin_palabras" | "idioma_escaso" | "largas";
 
 export const MINIMO_TOTAL = 6;
 export const MINIMO_POR_IDIOMA = 3;
+/** Fase 3: HN, Stack Exchange, Bluesky y Mastodon piden todas las palabras;
+ *  GitHub, la frase exacta. Con más de 3, casi nada coincide (medido el 25-09). */
+export const MAXIMO_DE_PALABRAS = 3;
 
 export interface Cobertura {
   nivel: "buena" | "baja";
-  /** En este orden: pocas, un_idioma, idioma_sin_palabras, idioma_escaso. */
+  /** En este orden: pocas, un_idioma, idioma_sin_palabras, idioma_escaso, largas. */
   motivos: MotivoDeCobertura[];
   total: number;
   porIdioma: Record<IdiomaDeBusqueda, number>;
@@ -25,6 +28,8 @@ export interface Cobertura {
   sinPalabras: IdiomaDeBusqueda[];
   /** Idiomas elegidos con alguna palabra, pero menos de 3. */
   escasos: IdiomaDeBusqueda[];
+  /** Búsquedas de más de 3 palabras. */
+  largas: string[];
 }
 
 /** Palabras distintas de una lista: sin vacías y sin repetir (mayúsculas y espacios aparte). */
@@ -59,5 +64,9 @@ export function coberturaDePalabras(
   if (conPalabras.length === 1) motivos.push("un_idioma");
   if (sinPalabras.length > 0) motivos.push("idioma_sin_palabras");
   if (escasos.length > 0) motivos.push("idioma_escaso");
-  return { nivel: motivos.length ? "baja" : "buena", motivos, total, porIdioma, sinPalabras, escasos };
+  const largas = elegidos
+    .flatMap((i) => palabrasDistintas(palabras[i]))
+    .filter((p) => p.split(" ").length > MAXIMO_DE_PALABRAS);
+  if (largas.length > 0) motivos.push("largas");
+  return { nivel: motivos.length ? "baja" : "buena", motivos, total, porIdioma, sinPalabras, escasos, largas };
 }

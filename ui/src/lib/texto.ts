@@ -4,3 +4,8 @@ export function rellenar(plantilla: string, valores: Record<string, string | num
     clave in valores ? String(valores[clave]) : marca,
   );
 }
+
+/** Une nombres de idioma en una frase con su nexo (« ni en », « y en »). */
+export function unirIdiomas(nombres: readonly string[], nexo: string): string {
+  return nombres.join(nexo);
+}

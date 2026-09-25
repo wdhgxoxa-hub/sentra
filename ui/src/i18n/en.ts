@@ -475,7 +475,11 @@ export const en: Dictionary = {
       un_idioma: "All the words are in a single language.",
       idioma_sin_palabras: "There are no words in {idiomas}.",
       idioma_escaso: "There are fewer than 3 words in {idiomas}.",
+      largas:
+        "{n} searches have more than 3 words ({lista}). Search engines require every word and find little: short terms like «pdf to word» work better.",
     },
+    nexoNi: " or in ",
+    nexoY: " and in ",
     masOpciones: "More options",
     sinTema: "Look for complaints about any topic, without keywords",
     irAEscanear: "Next: review and scan",
