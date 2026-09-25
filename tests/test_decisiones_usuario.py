@@ -83,7 +83,9 @@ class TestDecisionesDelUsuario(unittest.TestCase):
         self.assertNotIn("autora_inventada", item.model_dump_json())
         self.assertEqual(len(item.author_hash or ""), 64)
 
-    def test_d_m11_mastodon_enlaza_la_api_sin_usuario(self):
+    def test_d_m11_mastodon_enlaza_la_direccion_publica_sin_usuario(self):
+        """Walter, 25-09: la «URL del original» es la que abre una persona en el
+        navegador (/statuses/<id>), no la de la API; sigue sin @usuario (R9)."""
         from core.sources.mastodon import MastodonSource
 
         estado = {"id": "9", "created_at": "2026-06-01T00:00:00.000Z", "visibility": "public",
@@ -96,7 +98,7 @@ class TestDecisionesDelUsuario(unittest.TestCase):
             budget=SourceBudget(), credentials={"instance": "mastodon.social", "access_token": "t"},
             author_salt=SAL)
         [item] = asyncio.run(todos(fuente.search(SearchQuery(keywords=["x"]))))
-        self.assertEqual(item.url, "https://mastodon.social/api/v1/statuses/9")
+        self.assertEqual(item.url, "https://mastodon.social/statuses/9")
         self.assertNotIn("@", item.url)
         self.assertNotIn("autora_inventada", item.model_dump_json())
 

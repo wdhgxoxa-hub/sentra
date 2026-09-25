@@ -10,8 +10,10 @@ Dobles con la forma documentada (docs.joinmastodon.org):
   account {id, acct, username}.
 - Cuota: X-RateLimit-Limit/-Remaining y X-RateLimit-Reset en ISO 8601.
 
-D-M7: la URL guardada es la de la API por id de estado
-(https://<instancia>/api/v1/statuses/<id>), sin @usuario; la comunidad es el
+D-M7: la URL guardada va por id de estado y sin @usuario. Es la dirección
+pública que abre una persona en el navegador (https://<instancia>/statuses/<id>,
+la web de Mastodon pinta el mensaje; comprobado el 25-09 en mastodon.social),
+no la de la API (/api/v1/statuses/<id>, que devuelve JSON). La comunidad es el
 dominio del servidor del autor, sin su nombre. Solo estados públicos. El
 token solo tiene read:search y read:statuses: la sonda es una búsqueda
 mínima (verify_credentials exigiría read:accounts). Datos inventados (R8).
@@ -90,7 +92,7 @@ class TestBusqueda(unittest.IsolatedAsyncioTestCase):
         [item] = await todos(fuente(lambda _r: httpx.Response(200, json=respuesta(ESTADO)))
                              .search(SearchQuery(keywords=["invoice"])))
         self.assertEqual(item.id, "mastodon:mastodon.social:113000000000000001")
-        self.assertEqual(item.url, "https://mastodon.social/api/v1/statuses/113000000000000001")
+        self.assertEqual(item.url, "https://mastodon.social/statuses/113000000000000001")
         self.assertEqual(item.community, "fosstodon.example")
         self.assertEqual(item.text, "Every quarter I rebuild invoices by hand.\nIs there a tool?")
         self.assertEqual((item.language, item.kind), ("en", "post"))

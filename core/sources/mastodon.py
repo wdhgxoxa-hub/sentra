@@ -8,9 +8,10 @@ búsqueda de texto completo solo alcanza lo que la instancia indexa: estados
 cuyos autores aceptaron aparecer en búsquedas, y los que ya conoce.
 
 - Solo estados públicos: lo no listado o privado no se guarda.
-- D-M7 (R5 frente a R9): la URL guardada es la de la API por id de estado,
-  https://<instancia>/api/v1/statuses/<id>, que no lleva @usuario; la
-  comunidad es el dominio del servidor del autor, sin su nombre. El autor,
+- D-M7 (R5 frente a R9): la URL guardada va por id de estado y sin @usuario:
+  https://<instancia>/statuses/<id>, la dirección pública que abre una persona
+  en el navegador (Walter, 25-09; antes era la de la API, que devuelve JSON).
+  La comunidad es el dominio del servidor del autor, sin su nombre. El autor,
   solo como hash (instancia + id de cuenta).
 - Cuota: 300 peticiones cada 5 minutos por cuenta; X-RateLimit-Reset llega
   en ISO 8601.
@@ -111,7 +112,9 @@ class MastodonSource(SourceAdapter):
         servidor = acct.split("@", 1)[1] if "@" in acct else instancia
         return self._item(
             nativo=f"{instancia}:{nativo}", community=servidor, kind="post", text=texto,
-            url=f"https://{instancia}/api/v1/statuses/{nativo}",
+            # La dirección pública del mensaje, sin @usuario (D-M7, R9): la web de
+            # Mastodon la pinta; la de la API (/api/v1/statuses/) devuelve JSON.
+            url=f"https://{instancia}/statuses/{nativo}",
             author=f"{instancia}:{cuenta.get('id')}" if cuenta.get("id") else None,
             created_at=cuando, language=estado.get("language"),
             engagement=Engagement(replies=estado.get("replies_count"),
