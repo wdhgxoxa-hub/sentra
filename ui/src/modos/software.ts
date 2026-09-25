@@ -14,7 +14,7 @@ import type { Modo, NichoEnPantalla } from "./tipos.ts";
 /** Lo que el adaptador lee de un veredicto. */
 export type VeredictoParaNicho = Pick<
   JudgeVerdict,
-  "id" | "verdict" | "rule" | "score" | "memberCount" | "problemName" | "keywords" | "evidence"
+  "id" | "verdict" | "rule" | "score" | "memberCount" | "problemName" | "evidence"
 >;
 
 /** Cuántas quejas se enseñan de muestra. */
@@ -30,9 +30,12 @@ function porQue(regla: string): string {
 export function nichoDeSoftware(v: VeredictoParaNicho, idioma: "es" | "en"): NichoEnPantalla {
   const otro = idioma === "es" ? "en" : "es";
   const mezcla = v.score === null;
-  // Nunca la clave interna del grupo: lleva ids de piezas (R9, Fase 3).
-  const nombre = v.problemName?.[idioma] || v.keywords.slice(0, 3).join(" · ") || fraseDeEjemplo(v.evidence) || "";
-  const subnombre = v.problemName?.[otro] && v.problemName[otro] !== nombre ? v.problemName[otro] : null;
+  // El nombre de G0 o una frase de sus quejas (Fase 3): nunca palabras sueltas
+  // ni la clave interna del grupo, que lleva ids de piezas (R9). Una mezcla no
+  // usa el nombre de G0: G0 dice justo que no es un solo problema.
+  const problema = mezcla ? null : v.problemName;
+  const nombre = problema?.[idioma] || fraseDeEjemplo(v.evidence) || "";
+  const subnombre = problema?.[otro] && problema[otro] !== nombre ? problema[otro] : null;
   return {
     id: v.id,
     tipo: "software",

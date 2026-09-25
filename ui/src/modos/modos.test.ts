@@ -50,6 +50,19 @@ test("un grupo mezclado no tiene nombre propio ni puntuación", () => {
   assert.deepEqual(n.metricas, [{ clave: "personas", valor: 9 }]);
 });
 
+test("un grupo sin nombre de G0 se enseña con una frase de sus quejas, nunca con palabras sueltas", () => {
+  // `veredicto` trae palabras («facturas»): no se enseñan.
+  const n = nichoDeSoftware({ ...veredicto, problemName: null }, "es");
+  assert.equal(n.nombre, "«I spend every Friday chasing clients»");
+  assert.equal(n.subnombre, null);
+});
+
+test("una mezcla se nombra con una frase de sus quejas aunque G0 le diera nombre", () => {
+  const n = nichoDeSoftware({ ...veredicto, score: null }, "es");
+  assert.equal(n.nombre, "«I spend every Friday chasing clients»");
+  assert.equal(n.subnombre, null, "G0 dice que no es un solo problema: su nombre no lo describe");
+});
+
 test("una regla que no se conoce se explica en «Ver detalle»", () => {
   assert.equal(nichoDeSoftware({ ...veredicto, rule: "42: nueva" }, "es").porQue, "otra");
 });

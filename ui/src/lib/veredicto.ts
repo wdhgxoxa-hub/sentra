@@ -7,10 +7,9 @@
  */
 export interface GrupoEnPantalla {
   score: number | null;
-  keywords: string[];
-  /** El nombre que da G0 (el mismo del dossier); sin él, las palabras del grupo. */
+  /** El nombre que da G0 (el mismo del dossier); sin él, una frase de sus quejas. */
   problemName?: { es: string; en: string } | null;
-  /** Sus quejas: sin nombre ni palabras, se enseña una de ejemplo. */
+  /** Sus quejas: sin nombre, se enseña una de ejemplo (nunca palabras sueltas). */
   evidence?: { excerpt: string }[];
 }
 
@@ -33,7 +32,7 @@ export function fraseDeEjemplo(evidencia: readonly { excerpt: string }[] | undef
 
 export function nombreDelGrupo(v: GrupoEnPantalla, sinProblemaComun: string, idioma: "es" | "en" = "es"): string {
   if (v.score === null) return sinProblemaComun;
-  return v.problemName?.[idioma] || v.keywords.slice(0, 3).join(" · ") || fraseDeEjemplo(v.evidence) || sinProblemaComun;
+  return v.problemName?.[idioma] || fraseDeEjemplo(v.evidence) || sinProblemaComun;
 }
 
 export function puntuacionDelGrupo(v: GrupoEnPantalla, plantilla: string): string | null {
