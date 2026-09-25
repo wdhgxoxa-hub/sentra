@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 from collections.abc import AsyncIterator, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import psycopg
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core.evidence.author import load_or_create_salt
 from core.llm.control import ControlDeGemini
+from core.llm.estimacion import Estimacion, estimar
 from core.sources import http as fuentes_http
 from core.sources.catalog import SOURCES
 from core.sources.persist import persist_multiscan, record_source_outcomes
@@ -64,6 +68,50 @@ def _sse(payload: dict[str, Any]) -> str:
 class MultiScanRequest(BaseModel):
     profile: ScanProfile
     persist: bool | None = None
+    #: El identificador de /api/scan/estimate: sin él no se escanea (Fase 1, B4).
+    confirmation: str | None = None
+
+
+class EstimateRequest(BaseModel):
+    profile: ScanProfile
+
+
+#: Lo que vale una estimación confirmada: pasado este rato, hay que volver a estimar.
+CONFIRMACION_VALIDA_S = 600.0
+_MENSAJES_CONFIRMACION = {
+    "scan_confirmation_required": "Antes de escanear hay que ver y confirmar la estimación de Gemini.",
+    "scan_confirmation_used": "Esa confirmación ya se usó: cada escaneo se confirma una vez.",
+    "scan_confirmation_expired": "La confirmación caducó: vuelve a ver la estimación y confírmala.",
+    "scan_confirmation_mismatch": "La confirmación es de otro perfil: confirma la estimación de este.",
+}
+
+
+def _huella_perfil(perfil: ScanProfile) -> str:
+    return hashlib.sha256(perfil.model_dump_json().encode()).hexdigest()
+
+
+def _usar_confirmacion(ctx: SidecarContext, confirmacion: str | None, perfil: ScanProfile) -> str | None:
+    """El código del rechazo, o None si la confirmación vale (y queda usada)."""
+    if confirmacion is not None and confirmacion in ctx.confirmaciones_usadas:
+        return "scan_confirmation_used"
+    if confirmacion is None or confirmacion not in ctx.confirmaciones:
+        return "scan_confirmation_required"
+    huella, creada = ctx.confirmaciones[confirmacion]
+    if time.monotonic() - creada > CONFIRMACION_VALIDA_S:
+        del ctx.confirmaciones[confirmacion]
+        return "scan_confirmation_expired"
+    if huella != _huella_perfil(perfil):
+        return "scan_confirmation_mismatch"
+    del ctx.confirmaciones[confirmacion]
+    ctx.confirmaciones_usadas.add(confirmacion)
+    return None
+
+
+def _estimacion(ctx: SidecarContext) -> Estimacion:
+    """Estimación con los topes, lo gastado hoy y las medias de llm_usage. En un hilo."""
+    registro = ctx.registro_de_uso
+    return estimar(registro.topes(), uso_hoy=registro.uso_de_hoy(datetime.now(UTC)),
+                   medias=registro.medias_de_tokens(), tope_etiquetas=_tope_de_etiquetas())
 
 
 def _abrir_ejecucion(ctx: SidecarContext, perfil: ScanProfile) -> tuple[str | None, str | None]:
@@ -187,6 +235,32 @@ def _resumen_fuente(progreso: SourceProgress) -> dict[str, Any]:
 def router(ctx: SidecarContext) -> APIRouter:
     rutas = APIRouter()
 
+    @rutas.post("/api/scan/estimate")
+    async def scan_estimate(request: EstimateRequest) -> dict[str, Any]:
+        """Llamadas y tokens estimados del escaneo, lo gastado hoy y lo que queda,
+        con el identificador que el escaneo exige (un solo uso, caduca)."""
+        try:
+            e = await asyncio.to_thread(_estimacion, ctx)
+        except psycopg.errors.UndefinedTable:
+            detalle = await asyncio.to_thread(pending_detail, ctx)
+            raise HTTPException(status_code=503, detail={"code": "migrations_pending",
+                                                         "detail": detalle}) from None
+        identificador = uuid.uuid4().hex
+        ctx.confirmaciones[identificador] = (_huella_perfil(request.profile), time.monotonic())
+        return {
+            "confirmationId": identificador,
+            "expiresInS": CONFIRMACION_VALIDA_S,
+            "estimate": {
+                "estimated": True,
+                "calls": {"min": e.llamadas_min, "max": e.llamadas_max},
+                "tokens": {"min": e.tokens_min, "max": e.tokens_max},
+                "spentToday": {"calls": e.gastado_hoy[0], "tokens": e.gastado_hoy[1]},
+                "leftToday": {"calls": e.queda_hoy[0], "tokens": e.queda_hoy[1]},
+                "withHistory": e.con_historial,
+                "canScan": e.puede_escanear,
+            },
+        }
+
     @rutas.post("/api/scan/cancel", response_model=CancelResponse)
     def cancel(request: CancelRequest) -> CancelResponse:
         """
@@ -205,6 +279,12 @@ def router(ctx: SidecarContext) -> APIRouter:
     @rutas.post("/api/sources/scan/stream")
     async def multiscan_stream(request: MultiScanRequest) -> StreamingResponse:
         perfil = request.profile
+        # Sin confirmar la estimación de Gemini no se escanea (Fase 1, B4): lo
+        # impone el motor, no solo la interfaz.
+        rechazo = _usar_confirmacion(ctx, request.confirmation, perfil)
+        if rechazo is not None:
+            raise HTTPException(status_code=409, detail={"code": rechazo,
+                                                         "detail": _MENSAJES_CONFIRMACION[rechazo]})
         persistir = ctx.persist_default if request.persist is None else request.persist
 
         async def emitir() -> AsyncIterator[str]:

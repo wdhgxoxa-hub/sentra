@@ -90,6 +90,10 @@ class RegistroDeUso(Protocol):
         """(llamadas, tokens) que cuentan, del día de Lima de `ahora`."""
         ...
 
+    def medias_de_tokens(self) -> dict[str, float]:
+        """Tokens medios por llamada que salió bien, por propósito (para estimar)."""
+        ...
+
 
 class ControlDeGemini:
     """Lo que el proveedor consulta antes de cada intento y avisa después.
@@ -185,6 +189,13 @@ class RegistroEnMemoria:
                    if i.cuenta and dia_de_lima(m) == hoy]
         return len(del_dia), sum(i.tokens for i in del_dia)
 
+    def medias_de_tokens(self) -> dict[str, float]:
+        por_proposito: dict[str, list[int]] = {}
+        for _, i in self.filas:
+            if i.outcome == "ok" and i.purpose != SIN_TOPE:
+                por_proposito.setdefault(i.purpose, []).append(i.tokens)
+        return {p: sum(t) / len(t) for p, t in por_proposito.items()}
+
 
 class RegistroPostgres:
     """Una fila de `llm_usage` por intento; los topes, de `llm_budget_settings`.
@@ -236,3 +247,14 @@ class RegistroPostgres:
                 "AND (created_at AT TIME ZONE 'America/Lima')::date = (%s::timestamptz AT TIME ZONE 'America/Lima')::date",
                 (self._tenant, SIN_TOPE, ahora)).fetchone()
         return (int(fila[0]), int(fila[1])) if fila else (0, 0)
+
+    def medias_de_tokens(self) -> dict[str, float]:
+        import psycopg
+
+        with psycopg.connect(self._dsn) as conn:
+            filas = conn.execute(
+                "SELECT purpose, avg(coalesce(input_tokens, 0) + coalesce(output_tokens, 0) "
+                "+ coalesce(thinking_tokens, 0)) FROM radar.llm_usage "
+                "WHERE tenant_id = %s AND outcome = 'ok' AND purpose <> %s GROUP BY purpose",
+                (self._tenant, SIN_TOPE)).fetchall()
+        return {str(p): float(m) for p, m in filas}

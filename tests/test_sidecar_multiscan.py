@@ -44,10 +44,16 @@ def eventos(respuesta):
             if linea.startswith("data: ")]
 
 
+def confirmacion(client, perfil=PERFIL):
+    """Sin confirmar la estimación de Gemini no se escanea (Fase 1, B4)."""
+    return client.post("/api/scan/estimate", json={"profile": perfil}).json()["confirmationId"]
+
+
 class TestEscaneoMultifuente(ConfigTestCase):
     def escanear(self, **extra):
         return eventos(self.client.post("/api/sources/scan/stream",
-                                        json={"profile": PERFIL, **extra}))
+                                        json={"profile": PERFIL, "confirmation": confirmacion(self.client),
+                                              **extra}))
 
     def test_emite_el_progreso_por_fuente_y_el_resumen(self):
         with con_transporte(hn_con_una_queja):
@@ -204,7 +210,8 @@ class TestEscaneoMultifuente(ConfigTestCase):
                 mock.patch.object(multiscan, "_guardar", return_value=None), \
                 mock.patch.object(multiscan, "_juzgar", side_effect=juez_lento):
             respuesta = self.client.post("/api/sources/scan/stream",
-                                         json={"profile": PERFIL, "persist": True})
+                                         json={"profile": PERFIL, "persist": True,
+                                               "confirmation": confirmacion(self.client)})
         self.assertGreaterEqual(respuesta.text.count(": keepalive"), 3)
         self.assertEqual(eventos(respuesta)[-1]["type"], "judge:done")
 

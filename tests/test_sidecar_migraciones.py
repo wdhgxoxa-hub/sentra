@@ -69,8 +69,10 @@ class TestMigracionesPendientes(unittest.TestCase):
         self.assertEqual(respuesta.json()["detail"]["code"], "migrations_pending")
 
     def test_el_escaneo_multifuente_lo_emite_como_evento(self):
+        perfil = {"name": "x", "keywords": ["y"]}
+        confirmacion = self.client.post("/api/scan/estimate", json={"profile": perfil}).json()["confirmationId"]
         respuesta = self.client.post("/api/sources/scan/stream",
-                                     json={"profile": {"name": "x", "keywords": ["y"]}})
+                                     json={"profile": perfil, "confirmation": confirmacion})
         eventos = [json.loads(linea[6:]) for linea in respuesta.text.splitlines()
                    if linea.startswith("data: ")]
         self.assertEqual([(e["type"], e["code"]) for e in eventos],

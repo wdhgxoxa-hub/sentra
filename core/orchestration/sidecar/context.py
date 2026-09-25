@@ -77,6 +77,10 @@ class SidecarContext:
     # PostgreSQL con persistencia; en memoria sin ella (tests, demo sin base),
     # como sources_state. Nadie resuelve aquí el DSN por su cuenta.
     registro_de_uso: RegistroDeUso = field(default_factory=RegistroEnMemoria)
+    # Confirmaciones de escaneo pendientes (Fase 1, B4): id → (huella del perfil
+    # estimado, momento). De un solo uso; las usadas se recuerdan para decirlo.
+    confirmaciones: dict[str, tuple[str, float]] = field(default_factory=dict)
+    confirmaciones_usadas: set[str] = field(default_factory=set)
 
     def control(self, run_id: str | None = None, *, escaneo: bool = False) -> ControlDeGemini:
         """El punto de control de Gemini de este motor, cargado a `run_id`;
