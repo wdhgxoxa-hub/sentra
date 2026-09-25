@@ -45,8 +45,8 @@ VIDEO = {"kind": "youtube#searchResult", "id": {"kind": "youtube#video", "videoI
 HILO = {"kind": "youtube#commentThread", "id": "hiloInvent01", "snippet": {
     "videoId": "vidInvent01", "totalReplyCount": 3,
     "topLevelComment": {"id": "comInvent01", "snippet": {
-        "textOriginal": "Same here, I would pay for a tool that just works.",
-        "textDisplay": "Same here, I would pay for a tool that just works.",
+        "textOriginal": "Same here, every invoice export is a mess. I would pay for a tool that just works.",
+        "textDisplay": "Same here, every invoice export is a mess. I would pay for a tool that just works.",
         "authorDisplayName": "@autora-inventada",
         "authorChannelId": {"value": "UCautoraInventada"},
         "likeCount": 8, "publishedAt": "2026-05-11T10:00:00Z"}}}}
@@ -248,7 +248,9 @@ def api_abundante(peticiones: list[httpx.Request]):
             hilo: dict[str, Any] = HILO
             return httpx.Response(200, json={"items": [
                 {**hilo, "snippet": {**hilo["snippet"], "topLevelComment": {
-                    **hilo["snippet"]["topLevelComment"], "id": f"{video}c{k}"}}} for k in range(cuantos)]})
+                    "id": f"{video}c{k}", "snippet": {**hilo["snippet"]["topLevelComment"]["snippet"],
+                                                      "textOriginal": "pdf to word ruins formatting every time"}}}}
+                for k in range(cuantos)]})
         return httpx.Response(200, json={"items": []})
     return manejador
 
@@ -298,3 +300,31 @@ class TestTodasLasPalabrasSeBuscan(unittest.IsolatedAsyncioTestCase):
         # Peor caso con estas 14 palabras, aunque no hubiera tope de piezas:
         _, sin_tope, _ = await self.buscar(max_items=100_000)
         self.assertLessEqual(sin_tope.spent_units, UNIDADES_ESCANEO_1)
+
+
+class TestFiltroDeTemaAlTraer(unittest.IsolatedAsyncioTestCase):
+    """Fase 3, medida c (Walter): un comentario que no nombra el tema no gasta
+    cupo. Es la misma regla local (menciona_el_tema) con la que el juez lo
+    descartaba después como «fuera de tema»: en el escaneo 1 habría evitado los
+    347 de 347 y no habría perdido ninguno de los 35 que llegaron al etiquetado
+    (medido el 25-09 con los datos guardados)."""
+
+    def hilo(self, nativo: str, texto: str) -> dict[str, Any]:
+        base: dict[str, Any] = HILO
+        return {**base, "snippet": {**base["snippet"], "topLevelComment": {
+            "id": nativo, "snippet": {**base["snippet"]["topLevelComment"]["snippet"], "textOriginal": texto}}}}
+
+    async def test_un_comentario_fuera_de_tema_no_se_trae_ni_gasta_cupo(self):
+        from core.sources.budget import SourceBudget
+
+        hilos = httpx.Response(200, json={"items": [
+            self.hilo("comGracias", "Thank you so much, great video!"),
+            self.hilo("comQueja", "Every invoice export breaks the layout, I hate it")]})
+        presupuesto = SourceBudget(source="youtube", max_units=2000, max_requests=200)
+        items = await todos(fuente(api(hilos=hilos), presupuesto).search(SearchQuery(keywords=["invoice"])))
+        self.assertEqual([i.id for i in items], ["youtube:comQueja"])
+        self.assertEqual(presupuesto.spent_items, 1, "el de fuera de tema no gasta cupo")
+
+    async def test_en_descubrimiento_no_hay_tema_que_filtrar(self):
+        items = await todos(fuente(api()).search(SearchQuery(discovery=True, phrases=["i hate"])))
+        self.assertEqual(len(items), 1)

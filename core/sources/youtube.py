@@ -41,7 +41,7 @@ from .errors import (
     SourceNotFound,
     SourceRateLimited,
 )
-from .profile import term_pairs
+from .profile import menciona_el_tema, term_pairs
 
 API = "https://www.googleapis.com/youtube/v3"
 WATCH = "https://www.youtube.com/watch?v={video}"
@@ -135,7 +135,8 @@ class YouTubeSource(SourceAdapter):
         for turno in range(VIDEOS_WITH_COMMENTS):
             for videos, titulos in por_busqueda:
                 if turno < len(videos):
-                    async for comentario in self._comentarios(videos[turno], titulos[videos[turno]], vistos):
+                    async for comentario in self._comentarios(videos[turno], titulos[videos[turno]], vistos,
+                                                              query):
                         yield comentario
 
     def _grupos(self, query: SearchQuery) -> list[list[str]]:
@@ -159,10 +160,14 @@ class YouTubeSource(SourceAdapter):
         con_comentarios = [i for i in ids if cuenta.get(i, 0) > 0]
         return sorted(con_comentarios, key=lambda i: -cuenta[i])[:VIDEOS_WITH_COMMENTS]
 
-    async def _comentarios(self, video_id: str, titulo: str, vistos: set[str]) -> AsyncIterator[EvidenceItem]:
-        """Los comentarios nuevos del vídeo. El repetido (el mismo vídeo sale en
-        varias búsquedas) se descarta antes de construir el ítem, que es lo que
-        cobra el presupuesto: un repetido no gasta ítems."""
+    async def _comentarios(self, video_id: str, titulo: str, vistos: set[str],
+                           query: SearchQuery) -> AsyncIterator[EvidenceItem]:
+        """Los comentarios nuevos del vídeo que nombran el tema. El repetido (el
+        mismo vídeo sale en varias búsquedas) y el que no nombra el tema se
+        descartan antes de construir el ítem, que es lo que cobra el
+        presupuesto: ninguno de los dos gasta cupo. El de fuera de tema es el
+        que el juez descartaba después como «off_topic» con la misma regla
+        local (Fase 3: 347 de 347 en el escaneo 1)."""
         try:
             datos = await self._api("commentThreads", {
                 "part": "snippet", "videoId": video_id, "maxResults": COMMENTS_PER_VIDEO,
@@ -172,6 +177,10 @@ class YouTubeSource(SourceAdapter):
         for hilo in datos.get("items") or []:
             nativo = str(((hilo.get("snippet") or {}).get("topLevelComment") or {}).get("id") or "")
             if nativo in vistos:
+                continue
+            texto = str((((hilo.get("snippet") or {}).get("topLevelComment") or {}).get("snippet") or {})
+                        .get("textOriginal") or "")
+            if not menciona_el_tema(texto, query):
                 continue
             item = self._comentario(hilo, video_id, titulo)
             if item is not None:
