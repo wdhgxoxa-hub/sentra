@@ -81,6 +81,17 @@ class TestTopesPorEscaneo(unittest.TestCase):
         self.assertEqual(len(cliente.llamadas), 2)
         self.assertEqual(cortadas(registro), [("r1", "etiquetado", "tope_escaneo_tokens")])
 
+    def test_el_control_recuerda_su_primer_motivo_de_corte(self):
+        # Con él se rellena pipeline_runs.stop_reason (migración 018).
+        proveedor, _, _ = montar(Topes(1, 10**6, 40, 10**6))
+        control = proveedor._control
+        self.assertIsNone(control.motivo_de_corte)
+        llamar(proveedor)
+        for _ in range(2):
+            with self.assertRaises(LLMBudgetExhausted):
+                llamar(proveedor)
+        self.assertEqual(control.motivo_de_corte, "tope_escaneo_llamadas")
+
     def test_un_documento_no_es_un_escaneo(self):
         proveedor, _, cliente = montar(Topes(1, 10**6, 40, 10**6), escaneo=False)
         llamar(proveedor, "dossier")

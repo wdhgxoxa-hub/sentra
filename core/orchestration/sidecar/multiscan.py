@@ -132,6 +132,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
         PostgresCoherenceCache,
         PostgresLabelCache,
         marcar_juzgada,
+        marcar_parada,
         previous_identities,
     )
     from core.storage.postgres_store import (
@@ -141,7 +142,8 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     )
 
     dsn = resolver_dsn(ctx.postgres_dsn)
-    proveedor, modelo, motivo = _proveedor_del_juez(ctx, ctx.control(run_id, escaneo=True))
+    control = ctx.control(run_id, escaneo=True)
+    proveedor, modelo, motivo = _proveedor_del_juez(ctx, control)
 
     async def juzgar() -> dict[str, Any]:
         async with PostgresStore(dsn=dsn) as store:
@@ -155,11 +157,15 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             await store.save_verdicts(run_id, juicio.verdicts)
             await marcar_juzgada(store, run_id, construir=sum(
                 1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))
+            # Un tope de Gemini cortó el juez: el motivo de parada queda en la ejecución.
+            if control.motivo_de_corte:
+                await marcar_parada(store, run_id, control.motivo_de_corte)
             return juicio.summary
 
     resumen = run_async(juzgar())
     resumen["llm"] = {"model": modelo, "unavailable": motivo,
-                      "calls": len(getattr(proveedor, "usage", []) or [])}
+                      "calls": len(getattr(proveedor, "usage", []) or []),
+                      "stopReason": control.motivo_de_corte}
     return resumen
 
 

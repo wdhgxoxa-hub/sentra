@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from psycopg import AsyncConnection
 
     from core.sources.dedup import Duplicate
+    from core.sources.scan import SourceProgress
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,26 @@ class PostgresStore:
             )
         await self.connection.commit()
         return len(duplicates)
+
+    async def save_source_outcomes(self, run_id: str, outcomes: Sequence[SourceProgress]) -> int:
+        """Cómo terminó cada fuente en la ejecución (migración 018)."""
+        for o in outcomes:
+            await self.connection.execute(
+                """
+                INSERT INTO run_source_outcomes (tenant_id, run_id, source, status, stop_reason,
+                                                 error_code, detail, items, requests, units, usd)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (run_id, source) DO UPDATE SET
+                    status = EXCLUDED.status, stop_reason = EXCLUDED.stop_reason,
+                    error_code = EXCLUDED.error_code, detail = EXCLUDED.detail,
+                    items = EXCLUDED.items, requests = EXCLUDED.requests,
+                    units = EXCLUDED.units, usd = EXCLUDED.usd
+                """,
+                (self.tenant_id, run_id, o.source, o.status, o.stop_reason, o.error_code, o.detail,
+                 o.items, o.requests, o.units, o.usd),
+            )
+        await self.connection.commit()
+        return len(outcomes)
 
     @classmethod
     def from_env(cls) -> PostgresStore:

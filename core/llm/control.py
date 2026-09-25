@@ -110,6 +110,8 @@ class ControlDeGemini:
         self._sin_ejecucion: list[int] = []
         self.llamadas = 0
         self.tokens = 0
+        #: El primer tope que cortó una llamada: el motivo de parada de la ejecución.
+        self.motivo_de_corte: str | None = None
 
     def asignar_ejecucion(self, run_id: str) -> None:
         self.run_id = run_id
@@ -126,6 +128,7 @@ class ControlDeGemini:
             return
         motivo = self._tope_alcanzado()
         if motivo is not None:
+            self.motivo_de_corte = self.motivo_de_corte or motivo
             self.anotar(Intento(model, purpose, "cortada", motivo))
             raise LLMBudgetExhausted(f"Tope de Gemini alcanzado: {motivo}", motivo=motivo)
 

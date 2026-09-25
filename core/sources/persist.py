@@ -32,6 +32,8 @@ class EvidenceStore(Protocol):
 
     async def save_duplicates(self, duplicates: Sequence[Duplicate]) -> int: ...
 
+    async def save_source_outcomes(self, run_id: str, outcomes: Sequence[SourceProgress]) -> int: ...
+
     async def finish_run(
         self, run_id: str, stats: dict[str, int], errors: Sequence[str] = (),
         status: str = "completed",
@@ -87,6 +89,8 @@ async def persist_multiscan(
         estado = "failed"
     else:
         estado = "completed"
+    # Cómo terminó cada fuente, motivo de parada incluido (Fase 1, B4; migración 018).
+    await store.save_source_outcomes(run_id, list(result.per_source.values()))
     stats = {"fetched": len(result.fetched), "stored": len(result.fetched)}
     await store.finish_run(run_id, stats, errores, status=estado)
     return {"runId": run_id, "status": estado, "stored": len(result.fetched),

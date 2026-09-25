@@ -24,7 +24,12 @@ from core.storage.postgres_store import PostgresStore, run_async
 
 from .labels import MAX_ITEMS_PER_SCAN, LabelCache
 from .pipeline import run_judge
-from .store import PostgresCoherenceCache, marcar_juzgada, previous_identities
+from .store import (
+    PostgresCoherenceCache,
+    marcar_juzgada,
+    marcar_parada,
+    previous_identities,
+)
 
 #: trigger_source de las ejecuciones que re-juzgan un escaneo guardado.
 TRIGGER_REJUICIO = "rejuicio"
@@ -97,6 +102,8 @@ def rejuzgar(
             await store.finish_run(nueva, {"fetched": len(items), "stored": len(juicio.verdicts)})
             await marcar_juzgada(store, nueva, construir=sum(
                 1 for v in juicio.verdicts if v["verdict"] == "CONSTRUIR"))
+            if control is not None and control.motivo_de_corte:
+                await marcar_parada(store, nueva, control.motivo_de_corte)
             return nueva, juicio.summary
 
     return run_async(correr())

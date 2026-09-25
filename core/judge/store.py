@@ -120,6 +120,16 @@ async def marcar_juzgada(store: PostgresStore, run_id: str, *, construir: int) -
     await store.connection.commit()
 
 
+async def marcar_parada(store: PostgresStore, run_id: str, motivo: str) -> None:
+    """Por qué se paró la ejecución (migración 018): hoy, el tope de Gemini que
+    cortó sus llamadas. Su detalle está en la fila «cortada» de llm_usage."""
+    await store._fetchone_returning(
+        "UPDATE pipeline_runs SET stop_reason = %s WHERE tenant_id = %s AND id = %s RETURNING id",
+        (motivo, store.tenant_id, run_id),
+    )
+    await store.connection.commit()
+
+
 async def latest_judged_run(store: PostgresStore) -> str | None:
     """La última ejecución que pasó por el juez, aunque no formase nichos; las
     anteriores a la marca se reconocen por tener veredictos."""

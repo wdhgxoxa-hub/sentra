@@ -43,6 +43,10 @@ class AlmacenDoble:
         self.llamadas.append(("duplicados", [d.duplicate_id for d in duplicates]))
         return len(duplicates)
 
+    async def save_source_outcomes(self, run_id, outcomes):
+        self.llamadas.append(("fuentes", run_id, [(o.source, o.status, o.stop_reason) for o in outcomes]))
+        return len(outcomes)
+
     async def finish_run(self, run_id, stats, errors=(), status="completed", **_):
         self.llamadas.append(("cierre", run_id, dict(stats), list(errors), status))
 
@@ -93,6 +97,19 @@ class TestPersistencia(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((stats["fetched"], stats["stored"]), (3, 3))
         self.assertEqual(errores, ["se: source_rate_limited (HTTP 429)"])
         self.assertEqual(estado, "completed")
+
+    async def test_guarda_como_termino_cada_fuente_antes_de_cerrar(self):
+        # Fase 1, B4: el motivo de parada de una fuente (YouTube por su presupuesto)
+        # queda en run_source_outcomes; antes solo viajaba a la interfaz.
+        almacen = AlmacenDoble()
+        cortado = resultado()
+        cortado.per_source["yt"] = SourceProgress("yt", status="done", items=419,
+                                                  stop_reason="source_budget_exhausted")
+        await persist_multiscan(almacen, "run-1", cortado)
+        fuentes = [llamada for llamada in almacen.llamadas if llamada[0] == "fuentes"]
+        self.assertEqual(fuentes, [("fuentes", "run-1", [("hn", "done", None), ("se", "failed", None),
+                                                         ("yt", "done", "source_budget_exhausted")])])
+        self.assertEqual(almacen.llamadas[-1][0], "cierre")
 
     async def test_si_todas_fallan_sin_traer_nada_la_ejecucion_falla(self):
         almacen = AlmacenDoble()
