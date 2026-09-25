@@ -9,8 +9,15 @@ luego edita. Decisión de Walter:
 - Con Gemini (A): una llamada del modelo general, registrada como
   `palabras_clave` en llm_usage y dentro de los topes del día.
 - Sin Gemini (B), si no hay clave, no queda presupuesto o Gemini falla:
-  plantillas de queja en el idioma en que está escrito el tema. No traduce;
+  términos con las palabras de contenido del tema, en su idioma. No traduce;
   el aviso de cobertura de la interfaz pide el otro idioma.
+
+Una palabra clave es un TÉRMINO de 1 a 3 palabras («pdf a word»), no una frase
+de queja: las fuentes exigen todas las palabras (HN, Stack Exchange,
+Bluesky, Mastodon), la frase exacta (GitHub) o un nombre de tema (Product
+Hunt), y las frases de queja ya las añade aparte la biblioteca de frases.
+Escaneo 1 de la Fase 3 (25-09): con frases de 4-6 palabras, cinco fuentes
+dieron 0; «pdf to word» da 215 en HN y 681 en GitHub (medido ese día).
 """
 
 from __future__ import annotations
@@ -25,26 +32,21 @@ from core.llm.base import JsonGenerator
 
 Idioma = Literal["es", "en"]
 
-#: Cuántas propone por idioma y el largo máximo de cada una: son búsquedas.
+#: Cuántas propone por idioma, el largo máximo de cada una y sus palabras.
 MAX_POR_IDIOMA = 8
 MAX_CARACTERES = 60
+MAX_PALABRAS = 3
 MAX_OUTPUT_TOKENS = 1_024
 TIMEOUT_MS = 60_000
 THINKING_BUDGET = 512
 
 _COMUNES = {
     "es": {"de", "la", "el", "los", "las", "que", "no", "con", "para", "por", "y", "en", "un", "una",
-           "mi", "sin", "cómo", "como", "del", "al", "se"},
+           "mi", "sin", "cómo", "como", "del", "al", "se", "a", "lo", "su", "sus", "mis"},
     "en": {"the", "and", "to", "of", "with", "my", "for", "is", "a", "an", "who", "how", "in", "on",
            "not", "without", "that", "their"},
 }
 _ACENTOS = re.compile(r"[áéíóúñ¿¡]", re.IGNORECASE)
-
-_PLANTILLAS: dict[str, tuple[str, ...]] = {
-    "es": ("{tema}", "problema con {tema}", "{tema} no funciona", "cómo resolver {tema}", "harto de {tema}"),
-    "en": ("{tema}", "{tema} problem", "{tema} not working", "how to fix {tema}", "tired of {tema}"),
-}
-
 
 class PalabrasPropuestas(BaseModel):
     """Búsquedas propuestas por idioma. Es también el esquema que se pide a Gemini."""
@@ -63,13 +65,14 @@ def idioma_del_tema(tema: str) -> Idioma:
 
 
 def _limpias(frases: Iterable[str]) -> list[str]:
-    """Sin vacías, sin repetidas (ignorando mayúsculas y espacios) y sin las largas."""
+    """Sin vacías, sin repetidas (ignorando mayúsculas y espacios) y sin las
+    largas: más de 60 caracteres o más de 3 palabras."""
     vistas: set[str] = set()
     limpias: list[str] = []
     for frase in frases:
         normal = " ".join(frase.split())
         clave = normal.lower()
-        if not normal or len(normal) > MAX_CARACTERES or clave in vistas:
+        if not normal or len(normal) > MAX_CARACTERES or len(normal.split()) > MAX_PALABRAS or clave in vistas:
             continue
         vistas.add(clave)
         limpias.append(normal)
@@ -77,13 +80,16 @@ def _limpias(frases: Iterable[str]) -> list[str]:
 
 
 def proponer_sin_gemini(tema: str, idiomas: Sequence[str]) -> PalabrasPropuestas:
-    """Plantillas de queja en el idioma del tema, si es uno de los elegidos."""
+    """Términos cortos con las palabras de contenido del tema (sin artículos ni
+    nexos), en su idioma si es uno de los elegidos: las tres primeras, las dos
+    primeras y cada pareja seguida."""
     idioma = idioma_del_tema(tema)
     if idioma not in idiomas:
         return PalabrasPropuestas()
-    base = " ".join(tema.lower().split())
-    frases = _limpias(p.format(tema=base) for p in _PLANTILLAS[idioma])
-    return PalabrasPropuestas(**{idioma: frases})
+    contenido = [p for p in re.findall(r"[\wáéíóúñ]+", tema.lower()) if p not in _COMUNES[idioma]]
+    terminos = [" ".join(contenido[:3]), " ".join(contenido[:2])]
+    terminos += [" ".join(contenido[i:i + 2]) for i in range(len(contenido) - 1)]
+    return PalabrasPropuestas(**{idioma: _limpias(terminos)})
 
 
 def _prompt(tema: str, idiomas: Sequence[str]) -> str:
@@ -93,8 +99,10 @@ def _prompt(tema: str, idiomas: Sequence[str]) -> str:
         "Eres un asistente que prepara búsquedas en foros y redes (Hacker News, Stack Exchange, "
         "GitHub, YouTube, Bluesky, Mastodon) para encontrar a personas que se quejan de un problema.\n"
         f"Tema que describe la persona: «{tema}».\n"
-        f"Propón entre 5 y {MAX_POR_IDIOMA} búsquedas cortas (2 a 5 palabras) en {pedidos}, "
-        "con las palabras que usaría alguien al quejarse de ese problema, no nombres de productos. "
+        f"Propón entre 5 y {MAX_POR_IDIOMA} términos de búsqueda de 1 a 3 palabras en {pedidos}: "
+        "la tarea o el objeto del problema tal como lo nombra la gente (por ejemplo «pdf a word», "
+        "«convertir pdf»), no frases de queja: las frases de queja las añade SENTRA aparte, y los "
+        "buscadores exigen todas las palabras. Nada de nombres de productos. "
         "Cada idioma con sus propias expresiones naturales, no traducciones literales. "
         "Deja vacía la lista de un idioma no pedido."
     )

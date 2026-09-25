@@ -48,7 +48,7 @@ class TestIdiomaDelTema(unittest.TestCase):
 class TestSinGemini(unittest.TestCase):
     def test_propone_en_el_idioma_del_tema_y_no_inventa_el_otro(self):
         propuesta = proponer_sin_gemini("Facturas que los clientes no pagan", ["es", "en"])
-        self.assertIn("facturas que los clientes no pagan", propuesta.es)
+        self.assertIn("facturas clientes pagan", propuesta.es)
         self.assertGreaterEqual(len(propuesta.es), 3)
         self.assertEqual(propuesta.en, [], "sin Gemini no se traduce")
 
@@ -57,10 +57,42 @@ class TestSinGemini(unittest.TestCase):
                          PalabrasPropuestas(es=[], en=[]))
 
 
+class TestTerminosCortos(unittest.TestCase):
+    """Fase 3, escaneo 1 (25-09): Gemini propuso frases de queja de 4-6 palabras
+    («pdf to word ruins formatting») y HN, Stack Exchange, GitHub, Discourse y
+    Product Hunt dieron 0: exigen todas las palabras, la frase exacta o un nombre
+    de tema. Medido el 25-09 con llamadas directas: «pdf to word» da 215 en HN
+    (90 días), 681 en GitHub (frase exacta) y 50 en Discourse; la frase larga, 0.
+    Una palabra clave es un término de 1 a 3 palabras; las frases de queja las
+    añade aparte la biblioteca de frases."""
+
+    def test_gemini_no_cuela_frases_de_mas_de_tres_palabras(self):
+        modelo = PalabrasPropuestas(es=["pdf a word", "pdf a word pierde formato"],
+                                    en=["pdf to word", "pdf converter", "pdf to word ruins formatting"])
+        propuesta = proponer_con_gemini(Generador(modelo), "m", "PDF a Word", ["es", "en"])
+        self.assertEqual((propuesta.es, propuesta.en), (["pdf a word"], ["pdf to word", "pdf converter"]))
+
+    def test_se_piden_terminos_cortos_y_no_quejas(self):
+        generador = Generador(PalabrasPropuestas(es=["pdf a word"], en=["pdf to word"]))
+        proponer_con_gemini(generador, "m", "PDF a Word", ["es", "en"])
+        prompt = generador.pedidos[0]["prompt"]
+        self.assertIn("1 a 3 palabras", prompt)
+        self.assertIn("no frases de queja", prompt)
+
+    def test_sin_gemini_tambien_son_cortas(self):
+        propuesta = proponer_sin_gemini("Convertir un PDF a Word sin perder el formato", ["es", "en"])
+        self.assertTrue(propuesta.es)
+        for palabra in propuesta.es:
+            with self.subTest(palabra=palabra):
+                self.assertLessEqual(len(palabra.split()), 3)
+        self.assertIn("convertir pdf word", propuesta.es)
+
+
 class TestConGemini(unittest.TestCase):
     def test_limpia_la_propuesta_y_la_pide_como_palabras_clave(self):
         modelo = PalabrasPropuestas(
-            es=["facturas impagadas", "Facturas impagadas ", "", "cliente no paga", "x" * 90],
+            es=["facturas impagadas", "Facturas impagadas ", "", "cliente no paga", "x" * 90,
+                "cliente que no paga nunca"],
             en=["unpaid invoices", "chasing payments"])
         generador = Generador(modelo)
         propuesta = proponer_con_gemini(generador, "m", "Facturas que los clientes no pagan", ["es", "en"])
