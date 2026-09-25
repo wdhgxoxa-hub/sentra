@@ -129,7 +129,7 @@ def generate_document(provider: JsonGenerator, model: str, kind: DocKind,
     def pedir(esquema: type[BaseModel]) -> BaseModel:
         return provider.generate_json(
             peticion, esquema, model=model, max_output_tokens=DOC_MAX_OUTPUT_TOKENS[kind],
-            timeout_ms=DOC_TIMEOUT_MS, system=sistema, thinking_budget=DOC_THINKING_BUDGET,
+            timeout_ms=DOC_TIMEOUT_MS, purpose=kind, system=sistema, thinking_budget=DOC_THINKING_BUDGET,
         )
 
     try:

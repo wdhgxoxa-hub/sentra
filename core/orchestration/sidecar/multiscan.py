@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core.evidence.author import load_or_create_salt
+from core.llm.control import ControlDeGemini
 from core.sources import http as fuentes_http
 from core.sources.catalog import SOURCES
 from core.sources.persist import persist_multiscan, record_source_outcomes
@@ -103,15 +104,16 @@ def _guardar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult) -> st
         return f"{type(exc).__name__}: {exc}"
 
 
-def _proveedor_del_juez(ctx: SidecarContext) -> tuple[Any, str | None, str | None]:
+def _proveedor_del_juez(ctx: SidecarContext, control: ControlDeGemini) -> tuple[Any, str | None, str | None]:
     """(proveedor, modelo, motivo). Sin Gemini, el juez corre sin proveedor:
-    todo queda undetermined y nada sale CONSTRUIR."""
+    todo queda undetermined y nada sale CONSTRUIR. Cada llamada pasa por
+    `control` (una fila de llm_usage por intento)."""
     try:
         from core.llm.budget import LLMBudget
         from core.llm.gemini import GeminiProvider
 
         clave, modelo = ctx.resolver_modelo("defecto")
-        return GeminiProvider(clave, budget=LLMBudget()), modelo, None
+        return GeminiProvider(clave, control=control, budget=LLMBudget()), modelo, None
     except Exception as exc:  # noqa: BLE001 - sin Gemini el juez sigue, sin etiquetas
         motivo = getattr(exc, "code", type(exc).__name__)
         # AUD-051: se degrada, pero no en silencio: queda en el log y el motivo
@@ -140,7 +142,7 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
     )
 
     dsn = resolver_dsn(ctx.postgres_dsn)
-    proveedor, modelo, motivo = _proveedor_del_juez(ctx)
+    proveedor, modelo, motivo = _proveedor_del_juez(ctx, ctx.control(run_id))
 
     async def juzgar() -> dict[str, Any]:
         async with PostgresStore(dsn=dsn) as store:

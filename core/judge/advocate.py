@@ -94,7 +94,7 @@ def run_advocate(juicio: ClusterJudgement, items: Sequence[EvidenceItem], *,
     try:
         informe = provider.generate_json(_prompt(items), AdvocateReport, model=model,
                                          max_output_tokens=MAX_OUTPUT_TOKENS,
-                                         timeout_ms=TIMEOUT_MS, system=SYSTEM_PROMPT)
+                                         timeout_ms=TIMEOUT_MS, purpose="abogado", system=SYSTEM_PROMPT)
     except LLMError as exc:
         logger.warning("Abogado del diablo no disponible: %s", exc.code)
         return AdvocateOutcome("CONSTRUIR", "INVESTIGAR MÁS", True,

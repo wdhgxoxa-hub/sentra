@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.envfile import default_env_path
+from core.llm.control import ControlDeGemini, RegistroDeUso, RegistroEnMemoria
 from core.sources.registry import InMemorySourcesState, SourcesStateRepository
 
 if TYPE_CHECKING:
@@ -72,6 +73,14 @@ class SidecarContext:
     modelos_gemini: dict[str, tuple[float, list[ModelInfo]]] = field(default_factory=dict)
     # Fichero donde sobrevive esa lista entre arranques; None = solo en memoria.
     cache_modelos: Path | None = None
+    # Dónde queda cada intento de llamada a Gemini (llm_usage, migración 017):
+    # PostgreSQL con persistencia; en memoria sin ella (tests, demo sin base),
+    # como sources_state. Nadie resuelve aquí el DSN por su cuenta.
+    registro_de_uso: RegistroDeUso = field(default_factory=RegistroEnMemoria)
+
+    def control(self, run_id: str | None = None) -> ControlDeGemini:
+        """El punto de control de Gemini de este motor, cargado a `run_id`."""
+        return ControlDeGemini(self.registro_de_uso, run_id=run_id)
 
     def listar_modelos(self, key: str, *, refrescar: bool = False) -> list[ModelInfo]:
         """Modelos que la clave puede usar, reutilizando la lista un día."""
@@ -87,7 +96,8 @@ class SidecarContext:
             if guardada and time.time() - guardada[0] < MODELOS_TTL_S:
                 self.modelos_gemini[huella] = guardada
                 return guardada
-        self.modelos_gemini[huella] = (time.time(), GeminiProvider(key).list_models())
+        # El listado queda en llm_usage (listado_modelos) pero no cuenta para los topes.
+        self.modelos_gemini[huella] = (time.time(), GeminiProvider(key, control=self.control()).list_models())
         self._escribir_cache_modelos()
         return self.modelos_gemini[huella]
 

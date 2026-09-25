@@ -19,6 +19,7 @@ from core.judge.rejuicio import evidencia_de_ejecucion, rejuzgar
 from core.judge.store import latest_judged_run
 from core.sources.dedup import Duplicate
 from core.storage.postgres_store import PostgresStore, run_async
+from tests._gemini_dobles import control_de_prueba
 from tests._postgres import ADMIN_DSN, borrar_base_de_prueba, postgres_available
 from tests.test_judge_pipeline import QUEJA, LLMDoble
 
@@ -157,7 +158,7 @@ class TestProveedorDelRejuicio(unittest.TestCase):
 
         with mock.patch.object(context, "SidecarContext", Espia), \
                 mock.patch.object(multiscan, "_proveedor_del_juez", return_value=(None, None, "sin clave")):
-            script._proveedor("postgresql://x@localhost/y")
+            script._proveedor("postgresql://x@localhost/y", control_de_prueba())
         self.assertEqual([c.cache_modelos for c in construidos], [rutas.ruta_cache_modelos_gemini()])
 
     def test_max_etiquetas_llega_al_juez_y_sin_el_se_usa_el_tope_por_defecto(self):

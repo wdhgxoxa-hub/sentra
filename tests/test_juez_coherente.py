@@ -35,7 +35,7 @@ class DobleQueSeEquivoca:
     """Etiqueta como dolor con parche TODO, lanzamientos incluidos (el error real);
     el ítem «opinion» no es dolor y habla bien de un competidor gratuito."""
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         if schema is AdvocateReport:
             return AdvocateReport()

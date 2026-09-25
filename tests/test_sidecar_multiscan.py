@@ -17,6 +17,7 @@ from unittest import mock
 import httpx
 
 from tests._ayudas import presente
+from tests._gemini_dobles import control_de_prueba
 from tests.test_sidecar_config import ConfigTestCase
 from tests.test_sidecar_sources import con_transporte
 
@@ -317,6 +318,6 @@ class TestJuezSinGemini(ConfigTestCase):
         ctx = SidecarContext(persist_default=False, postgres_dsn=None,
                              env_path=str(self.env_path), started_at=0.0)
         with self.assertLogs("core.orchestration.sidecar.multiscan", "WARNING") as registro:
-            proveedor, modelo, motivo = multiscan._proveedor_del_juez(ctx)
+            proveedor, modelo, motivo = multiscan._proveedor_del_juez(ctx, control_de_prueba())
         self.assertEqual((proveedor, modelo, motivo), (None, None, "gemini_not_configured"))
         self.assertIn("gemini_not_configured", "\n".join(registro.output))

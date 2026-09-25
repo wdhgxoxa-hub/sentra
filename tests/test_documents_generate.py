@@ -73,7 +73,7 @@ class Doble:
         self.trunca = set(trunca)
         self.llamadas = []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         self.llamadas.append({"schema": schema, "model": model, "thinking_budget": thinking_budget,
                               "max_output_tokens": max_output_tokens, "prompt": prompt, "system": system})

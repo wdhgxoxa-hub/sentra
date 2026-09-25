@@ -94,6 +94,7 @@ class JsonGenerator(Protocol):
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
         thinking_budget: int | None = None,
     ) -> T: ...
@@ -118,6 +119,7 @@ class LLMProvider(Protocol):
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
         temperature: float | None = None,
     ) -> str: ...
@@ -129,6 +131,7 @@ class LLMProvider(Protocol):
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
     ) -> Iterator[str]: ...
 
@@ -140,6 +143,7 @@ class LLMProvider(Protocol):
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
         thinking_budget: int | None = None,
     ) -> T: ...

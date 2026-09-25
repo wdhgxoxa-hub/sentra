@@ -19,6 +19,7 @@ from typing import Any
 
 from core.evidence.model import Engagement, EvidenceItem
 from core.llm.base import JsonGenerator
+from core.llm.control import ControlDeGemini
 from core.storage.postgres_store import PostgresStore, run_async
 
 from .labels import MAX_ITEMS_PER_SCAN, LabelCache
@@ -63,8 +64,12 @@ def rejuzgar(
     vectores_frase: Callable[[Mapping[str, str]], Mapping[str, Sequence[float]]],
     now: datetime,
     label_max_items: int = MAX_ITEMS_PER_SCAN,
+    control: ControlDeGemini | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Re-juzga el escaneo `run_origen`; devuelve (id de la ejecución nueva, resumen)."""
+    """Re-juzga el escaneo `run_origen`; devuelve (id de la ejecución nueva, resumen).
+
+    Las llamadas al LLM salen antes de que exista la ejecución nueva: al
+    crearla, `control` se la asigna también a lo ya anotado en llm_usage."""
 
     async def correr() -> tuple[str, dict[str, Any]]:
         async with PostgresStore(dsn=dsn) as store:
@@ -84,6 +89,8 @@ def rejuzgar(
             nueva = await store.start_run(origen["subreddit_name"], trigger_source=TRIGGER_REJUICIO,
                                           parameters={**parametros, "rejuicio_de": run_origen},
                                           data_source="real")
+            if control is not None:
+                control.asignar_ejecucion(nueva)
             await store.save_verdicts(nueva, juicio.verdicts)
             # finish_run reescribe top_n_* (sus valores por defecto son None):
             # se cierra primero y se marca después, o la marca se perdería.

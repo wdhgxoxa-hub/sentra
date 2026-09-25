@@ -37,6 +37,13 @@ def _juez_prohibido(*_args: object) -> NoReturn:
     )
 
 
+def _registro_prohibido(*_args: object) -> NoReturn:
+    raise AssertionError(
+        "Base real prohibida en los tests: el registro de uso de Gemini escribiría en "
+        "PostgreSQL (llm_usage). El motor sin persistencia usa RegistroEnMemoria; si el test "
+        "necesita otro, pásalo en SidecarContext(registro_de_uso=...).")
+
+
 def prohibir_red_real(caso: unittest.TestCase) -> None:
     """Durante el test no se pueden crear ni el cliente del SDK de Gemini ni el
     cliente HTTP de las fuentes."""
@@ -61,3 +68,8 @@ def prohibir_red_real(caso: unittest.TestCase) -> None:
     documentos = mock.patch("core.orchestration.sidecar.documents._cargar", _juez_prohibido)
     documentos.start()
     caso.addCleanup(documentos.stop)
+    # 2026-09-25: el registro del listado de modelos escribió 25 filas en la base real.
+    for metodo in ("guardar", "reasignar"):
+        registro = mock.patch(f"core.llm.control.RegistroPostgres.{metodo}", _registro_prohibido)
+        registro.start()
+        caso.addCleanup(registro.stop)

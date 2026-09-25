@@ -67,7 +67,7 @@ class LLMDoble:
         self.omite = set(omite)
         self.presupuestos = []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         assert schema is LLMLabelBatch
         self.presupuestos.append(thinking_budget)

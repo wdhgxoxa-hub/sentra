@@ -1,4 +1,5 @@
-"""Dobles del SDK de Gemini compartidos por los tests: un catálogo de modelos."""
+"""Dobles del SDK de Gemini compartidos por los tests: un catálogo de modelos y
+el control de prueba (registro en memoria de core.llm.control)."""
 
 from types import SimpleNamespace
 
@@ -32,3 +33,10 @@ class ClienteConCatalogo:
     def list(self):
         ClienteConCatalogo.llamadas_a_list += 1
         return iter(CATALOGO)
+
+
+def control_de_prueba(run_id=None):
+    """Un ControlDeGemini con registro en memoria (el proveedor no se crea sin control)."""
+    from core.llm.control import ControlDeGemini, RegistroEnMemoria
+
+    return ControlDeGemini(RegistroEnMemoria(), run_id=run_id)

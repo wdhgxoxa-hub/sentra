@@ -46,6 +46,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
 from core.envfile import EnvValueInvalid
+from core.llm.control import RegistroDeUso, RegistroEnMemoria, RegistroPostgres
 from core.rutas import ruta_cache_modelos_gemini
 from core.sources.registry import (
     InMemorySourcesState,
@@ -99,6 +100,16 @@ def _estado_de_fuentes(persist: bool, postgres_dsn: str | None) -> SourcesStateR
     return PostgresSourcesState(resolver_dsn(postgres_dsn))
 
 
+def _registro_de_uso(persist: bool, postgres_dsn: str | None) -> RegistroDeUso:
+    """Uso de Gemini en llm_usage si se persiste; en memoria si no (tests, demo
+    sin base). Como sources_state: el único sitio que lo decide."""
+    if not persist:
+        return RegistroEnMemoria()
+    from core.storage.postgres_store import resolver_dsn
+
+    return RegistroPostgres(resolver_dsn(postgres_dsn))
+
+
 def _vectores_de_evidencia() -> Callable[[], EvidenceVectorStore]:
     """El almacén e5 se abre la primera vez que un escaneo lo pide, y una sola vez."""
 
@@ -147,6 +158,7 @@ def create_app(
         env_path=env_path,
         started_at=time.monotonic(),
         sources_state=_estado_de_fuentes(persist_default, postgres_dsn),
+        registro_de_uso=_registro_de_uso(persist_default, postgres_dsn),
         evidence_vectors=_vectores_de_evidencia() if persist_default else None,
         cache_modelos=cache_modelos,
     )

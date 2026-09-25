@@ -68,8 +68,9 @@ def _proveedor(ctx: SidecarContext) -> tuple[JsonGenerator, str]:
     from core.llm.budget import LLMBudget
     from core.llm.gemini import GeminiProvider
 
+    # Un documento no es de ningún escaneo: su uso va sin ejecución.
     clave, modelo = ctx.resolver_modelo("documentos")
-    return GeminiProvider(clave, budget=LLMBudget()), modelo
+    return GeminiProvider(clave, control=ctx.control(), budget=LLMBudget()), modelo
 
 
 def nombre_de_archivo(documento: DocumentModel, formato: str) -> str:

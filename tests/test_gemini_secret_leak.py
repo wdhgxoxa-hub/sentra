@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from core.llm import gemini as gemini_client
 from core.orchestration.sidecar_server import create_app
+from tests._gemini_dobles import control_de_prueba
 from tests._sin_red import prohibir_red_real
 
 CLAVE = "AIza" + "Sy" + "Q7x" * 11  # 39 caracteres, forma de clave de Google
@@ -91,23 +92,23 @@ class TestFrontera(ConLogs):
 
     def test_el_error_del_streaming_no_arrastra_la_clave(self):
         with self.assertRaises(gemini_client.GeminiError) as ctx:
-            list(gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra).stream_text(
-                "x", model="m", max_output_tokens=64, timeout_ms=1))
+            list(gemini_client.GeminiProvider(CLAVE, control=control_de_prueba(), client_factory=cliente_que_filtra).stream_text(
+                "x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros"))
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
         # La excepción original (con la clave) no viaja encadenada.
         self.assertIsNone(ctx.exception.__cause__)
         self.assertTrue(ctx.exception.__suppress_context__)
 
     def test_listar_modelos_no_la_devuelve(self):
-        proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra)
+        proveedor = gemini_client.GeminiProvider(CLAVE, control=control_de_prueba(), client_factory=cliente_que_filtra)
         with self.assertRaises(gemini_client.GeminiError) as ctx:
             proveedor.list_models()
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
 
     def test_el_error_del_texto_completo_tampoco_la_arrastra(self):
-        proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=cliente_que_filtra)
+        proveedor = gemini_client.GeminiProvider(CLAVE, control=control_de_prueba(), client_factory=cliente_que_filtra)
         with self.assertRaises(gemini_client.GeminiError) as ctx:
-            proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1)
+            proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         self.assertSinClaves(str(ctx.exception), repr(ctx.exception))
 
 

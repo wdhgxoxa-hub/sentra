@@ -266,7 +266,7 @@ def label_items(
         try:
             respuesta = provider.generate_json(
                 _prompt(lote), LLMLabelBatch, model=model, max_output_tokens=MAX_OUTPUT_TOKENS,
-                timeout_ms=TIMEOUT_MS, system=SYSTEM_PROMPT,
+                timeout_ms=TIMEOUT_MS, purpose="etiquetado", system=SYSTEM_PROMPT,
                 thinking_budget=LABEL_THINKING_BUDGET)
         except LLMTruncated:
             if len(lote) > 1 and divisiones < TRUNCATION_MAX_SPLITS:

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from core.llm.base import LLMModelUnavailable, ModelInfo
 from core.llm.gemini import GeminiProvider, elegir_modelo
+from tests._gemini_dobles import control_de_prueba
 
 
 def modelo(nombre, acciones=("generateContent", "countTokens")):
@@ -49,7 +50,7 @@ class ClienteConCatalogo:
 
 
 def disponibles(catalogo=CATALOGO):
-    proveedor = GeminiProvider("clave", client_factory=lambda _k: ClienteConCatalogo(catalogo))
+    proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=lambda _k: ClienteConCatalogo(catalogo))
     return proveedor.list_models()
 
 

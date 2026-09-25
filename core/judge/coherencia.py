@@ -169,7 +169,7 @@ def _preguntar(grupos: Mapping[str, Mapping[str, str]], *, provider: JsonGenerat
         informe = provider.generate_json(
             "¿Describe cada grupo un mismo problema?\n" + json.dumps(entrada, ensure_ascii=False),
             CoherenceReport, model=model, max_output_tokens=MAX_OUTPUT_TOKENS,
-            timeout_ms=TIMEOUT_MS, system=SYSTEM_PROMPT)
+            timeout_ms=TIMEOUT_MS, purpose="g0", system=SYSTEM_PROMPT)
     except LLMError as exc:
         logger.warning("Comprobación de coherencia no disponible: %s", exc.code)
         return {g: ResultadoCoherencia("sin_comprobar", f"coherencia no disponible: {exc.code}")

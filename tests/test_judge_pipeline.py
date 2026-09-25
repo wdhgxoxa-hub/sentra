@@ -42,7 +42,7 @@ class LLMDoble:
     def __init__(self):
         self.llamadas = {"etiquetas": 0, "abogado": 0}
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         if schema is AdvocateReport:
             self.llamadas["abogado"] += 1

@@ -25,13 +25,15 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from core.judge.rejuicio import rejuzgar
+from core.llm.control import ControlDeGemini, RegistroPostgres
 
 if TYPE_CHECKING:
     from core.evidence.vectors import EvidenceVectorStore
 
 
-def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
-    """(proveedor, modelo, motivo): exactamente la resolución del escaneo."""
+def _proveedor(dsn: str, control: ControlDeGemini) -> tuple[Any, str | None, str | None]:
+    """(proveedor, modelo, motivo): exactamente la resolución del escaneo, con
+    cada llamada pasando por `control`."""
     from core.orchestration.sidecar.context import SidecarContext
     from core.orchestration.sidecar.multiscan import _proveedor_del_juez
     from core.rutas import ruta_cache_modelos_gemini
@@ -39,7 +41,7 @@ def _proveedor(dsn: str) -> tuple[Any, str | None, str | None]:
     # La lista de modelos guardada (AUD2-019): el re-juicio no la vuelve a pedir a Google.
     ctx = SidecarContext(persist_default=True, postgres_dsn=dsn, env_path=None, started_at=time.monotonic(),
                          cache_modelos=ruta_cache_modelos_gemini())
-    return _proveedor_del_juez(ctx)
+    return _proveedor_del_juez(ctx, control)
 
 
 class ProveedorConTope:
@@ -85,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     dsn = resolver_dsn(args.dsn)
 
-    proveedor, modelo, motivo = _proveedor(dsn)
+    control = ControlDeGemini(RegistroPostgres(dsn))
+    proveedor, modelo, motivo = _proveedor(dsn, control)
     if proveedor is None:
         print(f"No se re-juzga: sin proveedor del juez ({motivo}). Sin etiquetas no hay nichos.")
         return 2
@@ -100,7 +103,8 @@ def main(argv: list[str] | None = None) -> int:
     nueva, resumen = rejuzgar(dsn, args.run, provider=proveedor, model=modelo,
                               cache=PostgresLabelCache(dsn), vectores=almacen.vectors,
                               vectores_frase=almacen.embed_frases, now=datetime.now(UTC),
-                              label_max_items=MAX_ITEMS_PER_SCAN if args.max_etiquetas is None else args.max_etiquetas)
+                              label_max_items=MAX_ITEMS_PER_SCAN if args.max_etiquetas is None else args.max_etiquetas,
+                              control=control)
     uso = list(getattr(proveedor, "usage", []) or [])
     print(f"ejecución nueva: {nueva} (rejuicio de {args.run})")
     print(f"modelo: {modelo} · llamadas al LLM: {len(uso)}")

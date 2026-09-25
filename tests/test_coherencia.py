@@ -38,7 +38,7 @@ class ProveedorDoble:
     def __init__(self, respuesta=None, error=None):
         self.respuesta, self.error, self.prompts = respuesta, error, []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         assert schema is CoherenceReport
         self.prompts.append(prompt)

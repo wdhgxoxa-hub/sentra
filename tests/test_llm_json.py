@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from core.llm.base import LLMInvalidJson
 from core.llm.gemini import GeminiProvider
+from tests._gemini_dobles import control_de_prueba
 
 
 class Etiqueta(BaseModel):
@@ -46,8 +47,8 @@ class Cliente:
 
 
 def generar(cliente):
-    return GeminiProvider("clave", client_factory=cliente).generate_json(
-        "etiqueta esto", Etiqueta, model="m", max_output_tokens=256, timeout_ms=1,
+    return GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente).generate_json(
+        "etiqueta esto", Etiqueta, model="m", max_output_tokens=256, timeout_ms=1, purpose="otros",
     )
 
 
@@ -110,8 +111,8 @@ class TestPresupuestoDeRazonamiento(unittest.TestCase):
 
     def test_el_presupuesto_viaja_como_thinking_config(self):
         cliente = Cliente(VALIDO)
-        GeminiProvider("clave", client_factory=cliente).generate_json(
-            "x", Etiqueta, model="m", max_output_tokens=256, timeout_ms=1, thinking_budget=1024)
+        GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente).generate_json(
+            "x", Etiqueta, model="m", max_output_tokens=256, timeout_ms=1, purpose="otros", thinking_budget=1024)
         self.assertEqual(cliente.llamadas[0]["config"].thinking_config.thinking_budget, 1024)
 
     def test_sin_presupuesto_no_se_toca_el_razonamiento(self):

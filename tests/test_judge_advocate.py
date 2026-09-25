@@ -48,7 +48,7 @@ class LLMAbogado:
     def __init__(self, informe=None, error=None):
         self.informe, self.error, self.prompts = informe, error, []
 
-    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, system=None,
+    def generate_json(self, prompt, schema, *, model, max_output_tokens, timeout_ms, purpose, system=None,
                       thinking_budget=None):
         self.prompts.append(prompt)
         if self.error:

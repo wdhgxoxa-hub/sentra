@@ -47,6 +47,7 @@ from .base import (
     UsageRecord,
 )
 from .budget import LLMBudget
+from .control import ControlDeGemini, Intento
 
 #: Forma de una clave de API de Google: «AIza» y 35 caracteres más.
 KEY_PATTERN = re.compile(r"AIza[0-9A-Za-z_\-]{35}")
@@ -369,41 +370,57 @@ class GeminiProvider:
     def __init__(
         self,
         api_key: str,
+        *,
+        control: ControlDeGemini,
         client_factory: ClientFactory | None = None,
         budget: LLMBudget | None = None,
         max_retries: int = MAX_RETRIES,
     ) -> None:
         self._api_key = api_key
+        self._control = control
         self._fabrica = client_factory or _cliente_real
         self._budget = budget
         self._max_retries = max_retries
         self.usage: list[UsageRecord] = []
 
-    def _registrar(self, model: str, inicio: float, respuesta: Any) -> None:
-        entrada, salida, razonamiento = _uso(respuesta)
-        registro = UsageRecord(model, entrada, salida, razonamiento, time.monotonic() - inicio)
-        self.usage.append(registro)
-        if self._budget is not None:
-            self._budget.charge(registro)
+    def _anotar(self, model: str, purpose: str, inicio: float, respuesta: Any,
+                error: GeminiError | None = None) -> None:
+        """Un intento que salió: su fila en el control (ok o error) y su registro
+        de uso y su cargo si hubo respuesta o terminó bien (como antes)."""
+        entrada, salida, razonamiento = _uso(respuesta) if respuesta is not None else (None, None, None)
+        if respuesta is not None or error is None:
+            registro = UsageRecord(model, entrada, salida, razonamiento, time.monotonic() - inicio)
+            self.usage.append(registro)
+            if self._budget is not None:
+                self._budget.charge(registro)
+        self._control.anotar(Intento(model, purpose, "ok" if error is None else "error",
+                                     None if error is None else error.code, entrada, salida, razonamiento))
 
-    def _antes_de_llamar(self) -> None:
+    def _antes_de_llamar(self, purpose: str) -> None:
+        self._control.antes(purpose)
         if self._budget is not None:
             self._budget.check()
 
     def list_models(self) -> list[ModelInfo]:
         """Modelos que la clave puede usar para generar texto (`models.list`)."""
-        with frontera(self._api_key):
-            cliente = self._fabrica(self._api_key)  # vivo durante la petición (AUD-031)
-            modelos = [
-                ModelInfo(
-                    id=str(m.name).removeprefix("models/"),
-                    display_name=str(getattr(m, "display_name", None) or m.name),
-                    input_token_limit=getattr(m, "input_token_limit", None),
-                    output_token_limit=getattr(m, "output_token_limit", None),
-                )
-                for m in cliente.models.list()
-                if "generateContent" in (getattr(m, "supported_actions", None) or [])
-            ]
+        self._control.antes("listado_modelos")
+        try:
+            with frontera(self._api_key):
+                cliente = self._fabrica(self._api_key)  # vivo durante la petición (AUD-031)
+                modelos = [
+                    ModelInfo(
+                        id=str(m.name).removeprefix("models/"),
+                        display_name=str(getattr(m, "display_name", None) or m.name),
+                        input_token_limit=getattr(m, "input_token_limit", None),
+                        output_token_limit=getattr(m, "output_token_limit", None),
+                    )
+                    for m in cliente.models.list()
+                    if "generateContent" in (getattr(m, "supported_actions", None) or [])
+                ]
+        except GeminiError as exc:
+            self._control.anotar(Intento("-", "listado_modelos", "error", exc.code))
+            raise
+        self._control.anotar(Intento("-", "listado_modelos", "ok"))
         return modelos
 
     def stream_text(
@@ -413,6 +430,7 @@ class GeminiProvider:
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
     ) -> Iterator[str]:
         """Texto de `generate_content_stream`, trozo a trozo.
@@ -423,7 +441,7 @@ class GeminiProvider:
             timeout_ms=timeout_ms, max_output_tokens=max_output_tokens, system_instruction=system
         )
         for intento in range(self._max_retries + 1):
-            self._antes_de_llamar()
+            self._antes_de_llamar(purpose)
             entregado = False
             inicio = time.monotonic()
             ultimo: Any = None
@@ -445,15 +463,16 @@ class GeminiProvider:
                             yield texto
                         _revisar(trozo)
             except GeminiError as exc:
-                if ultimo is not None:
-                    self._registrar(model, inicio, ultimo)
+                self._anotar(model, purpose, inicio, ultimo, exc)
                 if entregado:
                     raise
                 _reintentar(intento, exc, self._max_retries)
                 continue
-            self._registrar(model, inicio, ultimo)
             if not entregado:
-                raise GeminiEmpty("El modelo terminó sin devolver texto.")
+                vacio = GeminiEmpty("El modelo terminó sin devolver texto.")
+                self._anotar(model, purpose, inicio, ultimo, vacio)
+                raise vacio
+            self._anotar(model, purpose, inicio, ultimo)
             return
 
     def generate_text(
@@ -463,6 +482,7 @@ class GeminiProvider:
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
         temperature: float | None = None,
     ) -> str:
@@ -473,7 +493,7 @@ class GeminiProvider:
             system_instruction=system,
             temperature=temperature,
         )
-        return self._generar(prompt, model=model, config=config)
+        return self._generar(prompt, model=model, config=config, purpose=purpose)
 
     def generate_json[T: BaseModel](
         self,
@@ -483,6 +503,7 @@ class GeminiProvider:
         model: str,
         max_output_tokens: int,
         timeout_ms: int,
+        purpose: str,
         system: str | None = None,
         thinking_budget: int | None = None,
     ) -> T:
@@ -502,7 +523,7 @@ class GeminiProvider:
         peticion = prompt
         error = ""
         for _ in range(JSON_ATTEMPTS):
-            texto = self._generar(peticion, model=model, config=config)
+            texto = self._generar(peticion, model=model, config=config, purpose=purpose)
             try:
                 return schema.model_validate_json(texto)
             except ValidationError as exc:
@@ -516,25 +537,30 @@ class GeminiProvider:
             )
         raise LLMInvalidJson(f"La respuesta no cumple el esquema {schema.__name__}: {error}")
 
-    def _generar(self, prompt: str, *, model: str, config: Any) -> str:
-        """Una llamada a `generate_content` con reintentos transitorios y registro."""
+    def _generar(self, prompt: str, *, model: str, config: Any, purpose: str) -> str:
+        """Una llamada a `generate_content` con reintentos transitorios; cada
+        intento deja su fila en el control."""
         for intento in range(self._max_retries + 1):
-            self._antes_de_llamar()
+            self._antes_de_llamar(purpose)
             inicio = time.monotonic()
+            respuesta: Any = None
             try:
                 with frontera(self._api_key):
                     cliente = self._fabrica(self._api_key)  # vivo durante la petición
                     respuesta = cliente.models.generate_content(
                         model=model, contents=prompt, config=config
                     )
-                    self._registrar(model, inicio, respuesta)
                     _revisar(respuesta)
                     texto = _texto(respuesta)
             except GeminiError as exc:
+                self._anotar(model, purpose, inicio, respuesta, exc)
                 _reintentar(intento, exc, self._max_retries)
                 continue
             if not texto:
-                raise GeminiEmpty("El modelo terminó sin devolver texto.")
+                vacio = GeminiEmpty("El modelo terminó sin devolver texto.")
+                self._anotar(model, purpose, inicio, respuesta, vacio)
+                raise vacio
+            self._anotar(model, purpose, inicio, respuesta)
             return texto
         raise AssertionError("inalcanzable: el último intento devuelve o relanza")
 
@@ -546,18 +572,23 @@ class GeminiProvider:
         Sin reintentos ni exigencia de texto: un modelo de razonamiento puede
         gastar el primer trozo pensando, y eso ya demuestra que la clave sirve.
         """
-        self._antes_de_llamar()
+        self._antes_de_llamar("prueba_clave")
         config = _build_config(timeout_ms=timeout_ms, max_output_tokens=max_output_tokens)
         inicio = time.monotonic()
-        with frontera(self._api_key):
-            cliente = self._fabrica(self._api_key)  # vivo durante la petición
-            respuesta = cliente.models.generate_content_stream(
-                model=model, contents="ping", config=config
-            )
-            for trozo in respuesta:
-                self._registrar(model, inicio, trozo)
-                try:
-                    _revisar(trozo)
-                except GeminiTruncated:
-                    pass  # agotar el límite de la prueba no dice nada de la clave
-                break
+        trozo: Any = None
+        try:
+            with frontera(self._api_key):
+                cliente = self._fabrica(self._api_key)  # vivo durante la petición
+                respuesta = cliente.models.generate_content_stream(
+                    model=model, contents="ping", config=config
+                )
+                for trozo in respuesta:
+                    try:
+                        _revisar(trozo)
+                    except GeminiTruncated:
+                        pass  # agotar el límite de la prueba no dice nada de la clave
+                    break
+        except GeminiError as exc:
+            self._anotar(model, "prueba_clave", inicio, trozo, exc)
+            raise
+        self._anotar(model, "prueba_clave", inicio, trozo)

@@ -16,6 +16,7 @@ from google.genai import types
 from core.llm.base import LLMBudgetExhausted, LLMProvider, UsageRecord
 from core.llm.budget import LLMBudget
 from core.llm.gemini import GeminiProvider
+from tests._gemini_dobles import control_de_prueba
 
 
 def respuesta(texto, entrada=10, salida=5, razonamiento=3):
@@ -54,12 +55,12 @@ class Cliente:
 
 class TestInterfaz(unittest.TestCase):
     def test_gemini_cumple_la_interfaz(self):
-        self.assertIsInstance(GeminiProvider("clave"), LLMProvider)
+        self.assertIsInstance(GeminiProvider("clave", control=control_de_prueba()), LLMProvider)
 
     def test_la_configuracion_del_sdk_la_construye_el_proveedor(self):
         cliente = Cliente(respuesta("hola"))
-        texto = GeminiProvider("clave", client_factory=cliente).generate_text(
-            "di hola", model="m", system="eres breve", max_output_tokens=64, timeout_ms=5_000,
+        texto = GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente).generate_text(
+            "di hola", model="m", system="eres breve", max_output_tokens=64, timeout_ms=5_000, purpose="otros",
         )
         self.assertEqual(texto, "hola")
         config = cliente.llamadas[0]["config"]
@@ -70,8 +71,8 @@ class TestInterfaz(unittest.TestCase):
 
 class TestContabilidad(unittest.TestCase):
     def test_cada_llamada_registra_tokens_modelo_y_duracion(self):
-        proveedor = GeminiProvider("clave", client_factory=Cliente(respuesta("a", 10, 5, 3)))
-        proveedor.generate_text("x", model="gemini-3.6-flash", max_output_tokens=64, timeout_ms=1)
+        proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=Cliente(respuesta("a", 10, 5, 3)))
+        proveedor.generate_text("x", model="gemini-3.6-flash", max_output_tokens=64, timeout_ms=1, purpose="otros")
         registro = proveedor.usage[-1]
         self.assertIsInstance(registro, UsageRecord)
         self.assertEqual(
@@ -83,8 +84,8 @@ class TestContabilidad(unittest.TestCase):
 
     def test_el_streaming_registra_el_uso_del_ultimo_trozo(self):
         trozos = [respuesta("a", 10, 1, 0), respuesta("b", 10, 7, 4)]
-        proveedor = GeminiProvider("clave", client_factory=Cliente(trozos))
-        texto = "".join(proveedor.stream_text("x", model="m", max_output_tokens=64, timeout_ms=1))
+        proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=Cliente(trozos))
+        texto = "".join(proveedor.stream_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros"))
         self.assertEqual(texto, "ab")
         self.assertEqual(proveedor.usage[-1].total_tokens, 21)
 
@@ -93,8 +94,8 @@ class TestContabilidad(unittest.TestCase):
             content=types.Content(parts=[types.Part(text="a")]),
             finish_reason=types.FinishReason.STOP,
         )])
-        proveedor = GeminiProvider("clave", client_factory=Cliente(sin_uso))
-        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1)
+        proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=Cliente(sin_uso))
+        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         self.assertIsNone(proveedor.usage[-1].input_tokens)
 
 
@@ -102,13 +103,13 @@ class TestPresupuesto(unittest.TestCase):
     def test_agotado_el_presupuesto_la_llamada_siguiente_no_sale(self):
         cliente = Cliente(respuesta("a", 10, 5, 3), respuesta("b"))
         presupuesto = LLMBudget(max_tokens=20)
-        proveedor = GeminiProvider("clave", client_factory=cliente, budget=presupuesto)
-        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1)
+        proveedor = GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente, budget=presupuesto)
+        proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         self.assertEqual(presupuesto.spent_tokens, 18)
 
         presupuesto.charge(UsageRecord("m", 5, 0, 0, 0.0))  # 23 > 20
         with self.assertRaises(LLMBudgetExhausted) as ctx:
-            proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1)
+            proveedor.generate_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
         self.assertEqual(ctx.exception.code, "llm_budget_exhausted")
         self.assertEqual(len(cliente.llamadas), 1, "la llamada no debía salir")
 
@@ -119,7 +120,7 @@ class TestPresupuesto(unittest.TestCase):
 class TestPing(unittest.TestCase):
     def test_ping_prueba_la_clave_con_el_modelo_indicado(self):
         cliente = Cliente([respuesta("")])
-        GeminiProvider("clave", client_factory=cliente).ping(model="gemini-3.6-flash")
+        GeminiProvider("clave", control=control_de_prueba(), client_factory=cliente).ping(model="gemini-3.6-flash")
         self.assertEqual(cliente.llamadas[0]["model"], "gemini-3.6-flash")
 
 

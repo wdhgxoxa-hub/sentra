@@ -26,6 +26,7 @@ from google.genai import errors, types
 
 from core.llm import gemini as gemini_client
 from tests._ayudas import presente
+from tests._gemini_dobles import control_de_prueba
 
 CLAVE = "clave-de-prueba"
 
@@ -98,8 +99,8 @@ class Guion:
 def generar(guion):
     """Texto en streaming del proveedor (antes se probaba a través del plan de
     arquitectura, retirado en C2): reintentos y respuestas inservibles."""
-    proveedor = gemini_client.GeminiProvider(CLAVE, client_factory=guion)
-    return "".join(proveedor.stream_text("x", model="m", max_output_tokens=64, timeout_ms=1))
+    proveedor = gemini_client.GeminiProvider(CLAVE, control=control_de_prueba(), client_factory=guion)
+    return "".join(proveedor.stream_text("x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros"))
 
 
 class ConEsperaFalsa(unittest.TestCase):
@@ -184,8 +185,8 @@ class TestRespuestasInservibles(ConEsperaFalsa):
     def test_la_traduccion_tambien_detecta_el_bloqueo(self):
         guion = Guion(trozo(bloqueo="PROHIBITED_CONTENT"))
         with self.assertRaises(gemini_client.GeminiBlocked):
-            gemini_client.GeminiProvider(CLAVE, client_factory=guion).generate_text(
-                "x", model="m", max_output_tokens=64, timeout_ms=1)
+            gemini_client.GeminiProvider(CLAVE, control=control_de_prueba(), client_factory=guion).generate_text(
+                "x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros")
 
 
 class TestCodigosTraducidos(unittest.TestCase):
@@ -282,19 +283,19 @@ class TestCicloDeVidaDelCliente(ConEsperaFalsa):
         return ClienteComoElSdk(trozo("hola", "STOP"))
 
     def test_stream_text_llega_a_enviar(self):
-        textos = list(gemini_client.GeminiProvider("clave", client_factory=self.fabrica).stream_text(
-            "x", model="m", max_output_tokens=64, timeout_ms=1,
+        textos = list(gemini_client.GeminiProvider("clave", control=control_de_prueba(), client_factory=self.fabrica).stream_text(
+            "x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros",
         ))
         self.assertEqual(textos, ["hola"])
 
     def test_generate_text_llega_a_enviar(self):
-        texto = gemini_client.GeminiProvider("clave", client_factory=self.fabrica).generate_text(
-            "x", model="m", max_output_tokens=64, timeout_ms=1,
+        texto = gemini_client.GeminiProvider("clave", control=control_de_prueba(), client_factory=self.fabrica).generate_text(
+            "x", model="m", max_output_tokens=64, timeout_ms=1, purpose="otros",
         )
         self.assertEqual(texto, "hola")
 
     def test_ping_llega_a_enviar(self):
-        gemini_client.GeminiProvider("clave", client_factory=self.fabrica).ping(model="m")
+        gemini_client.GeminiProvider("clave", control=control_de_prueba(), client_factory=self.fabrica).ping(model="m")
 
 
 if __name__ == "__main__":
