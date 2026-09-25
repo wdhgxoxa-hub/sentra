@@ -5,17 +5,19 @@ automatizar ya lo están; el resto se cumple a mano y se revisa en cada informe.
 
 ## Automatizadas
 
-- **Compuerta en cada commit.** `scripts/compuerta.sh` falla si falla
-  cualquier paso; el hook `.githooks/pre-commit` la ejecuta
-  (`git config core.hooksPath .githooks`). No se usa `--no-verify`.
+- **Compuerta completa en cada commit.** `scripts/compuerta.sh` falla si falla
+  cualquier paso; el hook `.githooks/pre-commit` la ejecuta con `CLIPPY=1
+  AUDIT=1 HUMO=1` (`git config core.hooksPath .githooks`). No se usa `--no-verify`.
+  La prueba de humo abre la release compilada: si el commit cambia la interfaz
+  o el motor, la release se recompila antes para que el humo pruebe ese código.
   Límite conocido: la compuerta corre sobre el árbol de trabajo, no solo sobre
   lo preparado; antes de un commit no debe haber cambios sin preparar que
   hagan pasar la compuerta (`git status` limpio salvo lo que se commitea).
-- **Prueba de humo antes de cada release** (`HUMO=1`). Detecta un exe sin la
+- **Prueba de humo en cada commit y antes de cada release** (`HUMO=1`). Detecta un exe sin la
   interfaz embebida, un motor que no es el de esa interfaz, vistas vacías con
   datos en la base, motores huérfanos y cierres que dejan la app colgada. Corre
   con un perfil de WebView aislado: falla si el perfil real cambia un byte.
-- **Dependencias auditadas antes de cada release** (`AUDIT=1`).
+- **Dependencias auditadas en cada commit** (`AUDIT=1`).
 
 ## A mano
 

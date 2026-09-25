@@ -58,10 +58,37 @@ class TestCompuerta(unittest.TestCase):
         self.assertIn("COMPUERTA OK", r.stdout)
 
 
+@unittest.skipUnless(bash() and shutil.which("git"), "sin bash o sin git")
+class TestHookCompleto(unittest.TestCase):
+    """Regla de Walter (2026-09-24): el repo impone la compuerta COMPLETA en cada
+    commit, no solo la reducida. Se ejecuta el hook de verdad en un repo
+    temporal cuya compuerta es un doble que dice qué banderas recibió."""
+
+    def correr_hook(self, sale: int) -> subprocess.CompletedProcess[str]:
+        repo = Path(tempfile.mkdtemp(prefix="hook_"))
+        self.addCleanup(shutil.rmtree, repo, True)
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        (repo / "scripts").mkdir()
+        (repo / "scripts" / "compuerta.sh").write_text(
+            f'#!/usr/bin/env bash\necho "CLIPPY=${{CLIPPY:-}} AUDIT=${{AUDIT:-}} HUMO=${{HUMO:-}}"\nexit {sale}\n',
+            newline="\n")
+        entorno = {k: v for k, v in os.environ.items() if k not in ("CLIPPY", "AUDIT", "HUMO")}
+        ejecutable = bash()
+        assert ejecutable is not None  # la clase se salta sin bash
+        return subprocess.run([ejecutable, str(RAIZ / ".githooks" / "pre-commit")], cwd=repo,
+                              env=entorno, capture_output=True, text=True, encoding="utf-8",
+                              check=False)
+
+    def test_el_hook_ejecuta_la_compuerta_completa(self):
+        r = self.correr_hook(0)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("CLIPPY=1 AUDIT=1 HUMO=1", r.stdout)
+
+    def test_el_hook_devuelve_el_codigo_real_de_la_compuerta(self):
+        self.assertEqual(self.correr_hook(3).returncode, 3)
+
+
 class TestHookYPasos(unittest.TestCase):
-    def test_el_hook_de_pre_commit_ejecuta_la_compuerta(self):
-        hook = (RAIZ / ".githooks" / "pre-commit").read_text("utf-8")
-        self.assertIn("scripts/compuerta.sh", hook)
 
     def test_la_compuerta_tiene_todos_los_pasos(self):
         texto = COMPUERTA.read_text("utf-8")

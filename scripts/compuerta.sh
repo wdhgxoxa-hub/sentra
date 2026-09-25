@@ -2,11 +2,11 @@
 # Compuerta de SENTRA (R3, AUD2-022): falla si falla CUALQUIER paso.
 #
 # Cada paso guarda el código de salida real de su herramienta: sin tuberías
-# que lo oculten. La ejecuta el hook .githooks/pre-commit (activarlo una vez:
-# `git config core.hooksPath .githooks`) y se puede lanzar a mano:
+# que lo oculten. El hook .githooks/pre-commit la ejecuta completa en cada commit
+# (activarlo una vez: `git config core.hooksPath .githooks`); a mano:
 #
 #   bash scripts/compuerta.sh                  # ruff, mypy, Python, tsc, node, cargo
-#   CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh   # la de antes de una release
+#   CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh   # la completa: la del hook
 #
 # CLIPPY=1: clippy sin avisos. AUDIT=1: pip-audit y cargo audit (AUD2-021;
 # consultan sus bases de vulnerabilidades en la red). HUMO=1: la prueba de humo

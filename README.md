@@ -62,13 +62,14 @@ en `docs/pipeline-antigua.md`.
 
 El proyecto no tiene CI remota (D-C8). La compuerta local cumple ese papel:
 `scripts/compuerta.sh` falla si falla cualquier paso, con el código de salida
-real de cada herramienta (AUD2-022). El hook de pre-commit la ejecuta; se
-activa una vez por clon:
+real de cada herramienta (AUD2-022). El hook de pre-commit la ejecuta
+**completa** (clippy, auditorías y prueba de humo incluidas; con SENTRA
+cerrada) en cada commit; se activa una vez por clon:
 
 ```powershell
 git config core.hooksPath .githooks
-bash scripts/compuerta.sh                               # la de cada commit
-$env:CLIPPY=1; $env:AUDIT=1; $env:HUMO=1; bash scripts/compuerta.sh   # la de cada release
+$env:CLIPPY=1; $env:AUDIT=1; $env:HUMO=1; bash scripts/compuerta.sh   # la completa: la del hook
+bash scripts/compuerta.sh                               # la reducida, para iterar a mano
 ```
 
 | Paso | Herramienta |
