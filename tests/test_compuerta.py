@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 RAIZ = Path(__file__).resolve().parents[1]
 COMPUERTA = RAIZ / "scripts" / "compuerta.sh"
@@ -35,11 +36,15 @@ def bash() -> str | None:
 
 @unittest.skipUnless(bash(), "sin bash")
 class TestCompuerta(unittest.TestCase):
-    def correr(self, ruff_sale: int) -> subprocess.CompletedProcess[str]:
+    def correr(self, ruff_sale: int, dobles: tuple[str, ...] = ()) -> subprocess.CompletedProcess[str]:
         falsos = Path(tempfile.mkdtemp(prefix="compuerta_"))
         self.addCleanup(shutil.rmtree, falsos, True)
         (falsos / "ruff").write_text(f"#!/bin/sh\necho 'ruff falso'\nexit {ruff_sale}\n", newline="\n")
-        entorno = {**os.environ, "PASOS": "ruff", "PATH": f"{falsos}{os.pathsep}{os.environ['PATH']}"}
+        for doble in dobles:
+            (falsos / doble).write_text(f"#!/bin/sh\necho '{doble} falso'\nexit 0\n", newline="\n")
+        # Sin las banderas de la compuerta completa: este test corre dentro del hook.
+        heredado = {k: v for k, v in os.environ.items() if k not in ("CLIPPY", "AUDIT", "HUMO")}
+        entorno = {**heredado, "PASOS": "ruff", "PATH": f"{falsos}{os.pathsep}{os.environ['PATH']}"}
         ejecutable = bash()
         assert ejecutable is not None  # la clase se salta sin bash
         return subprocess.run([ejecutable, str(COMPUERTA)], cwd=RAIZ, env=entorno,
@@ -50,6 +55,18 @@ class TestCompuerta(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertIn("ruff FALLA (rc=3)", r.stdout)
         self.assertIn("COMPUERTA FALLA", r.stdout)
+
+    def test_las_banderas_del_hook_no_llegan_a_la_compuerta_de_prueba(self):
+        # El hook exporta CLIPPY=1 AUDIT=1 HUMO=1 y este test corre dentro de él:
+        # heredadas, la compuerta de prueba lanzaba otra compuerta con clippy,
+        # auditorías y el humo del exe real (PASOS solo limita los pasos por
+        # defecto). Dobles de python, cargo y pip-audit: el rojo no lanza nada real.
+        with mock.patch.dict(os.environ, {"CLIPPY": "1", "AUDIT": "1", "HUMO": "1"}):
+            r = self.correr(0, dobles=("python", "cargo", "pip-audit"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for paso in ("clippy", "pip-audit", "cargo-audit", "humo"):
+            with self.subTest(paso=paso):
+                self.assertNotIn(f"{paso} ", r.stdout)
 
     def test_con_todo_en_verde_sale_con_cero(self):
         r = self.correr(0)
