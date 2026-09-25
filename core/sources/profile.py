@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -35,6 +36,9 @@ DEFAULT_WINDOW_DAYS = 365
 class ScanProfile(BaseModel):
     name: str
     keywords: list[str] = Field(default_factory=list)
+    #: El idioma de cada palabra según el asistente (la fila donde la puso la
+    #: persona). Sin él, se adivina con `idioma_de`.
+    keyword_languages: dict[str, Literal["es", "en"]] = Field(default_factory=dict)
     intents: list[Intent] = Field(default_factory=lambda: list(INTENTS))
     languages: list[str] = Field(default_factory=lambda: ["en", "es"])
     targets: dict[str, list[str]] = Field(default_factory=dict)
@@ -55,12 +59,16 @@ class ScanProfile(BaseModel):
             raise ValueError("un perfil necesita tema o el modo descubrimiento")
         if not self.intents:
             raise ValueError("hace falta al menos una intención de dolor")
+        ajenas = set(self.keyword_languages) - set(self.keywords)
+        if ajenas:
+            raise ValueError(f"idioma de palabras que no están en el perfil: {sorted(ajenas)}")
         return self
 
     def to_query(self, now: datetime | None = None) -> SearchQuery:
         ahora = now or datetime.now(UTC)
         return SearchQuery(
             keywords=self.keywords,
+            keyword_languages=dict(self.keyword_languages),
             phrases=phrases_for(self.intents, self.languages),
             languages=self.languages,
             targets=self.targets,
@@ -133,8 +141,9 @@ def term_pairs(query: SearchQuery, limit: int, *,
     elif solo_tema or not query.phrases:
         pares = [(palabra, None) for palabra in query.keywords]
     else:
+        idioma = {p: query.keyword_languages.get(p) or idioma_de(p) for p in query.keywords}
         pares = [(palabra, frase) for frase in query.phrases for palabra in query.keywords
-                 if idioma_de_frase(frase) in (None, idioma_de(palabra))]
+                 if idioma_de_frase(frase) in (None, idioma[palabra])]
         emparejadas = {p for p, _ in pares}
         pares += [(p, None) for p in query.keywords if p not in emparejadas]
     return pares[:limit]

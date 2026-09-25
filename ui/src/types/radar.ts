@@ -200,6 +200,8 @@ export interface ProblemName {
 export interface ScanProfileInput {
   name: string;
   keywords: string[];
+  /** Idioma de cada palabra según la fila del asistente (Fase 3); sin él, el motor adivina. */
+  keywordLanguages?: Record<string, "es" | "en">;
   discovery: boolean;
   windowDays: number;
   languages: string[];

@@ -73,6 +73,24 @@ class TestFixtureAlDia(unittest.TestCase):
         self.assertEqual(resultado.returncode, 0, resultado.stderr)
 
 
+class TestPerfilDeEscaneo(unittest.TestCase):
+    """Lo que el asistente envía como perfil (ScanProfileInput) lo entiende el
+    motor (ScanProfile): cada campo, en snake_case. Fase 3: el idioma de cada
+    palabra (keywordLanguages) tiene que llegar."""
+
+    def test_cada_campo_del_perfil_de_la_interfaz_existe_en_el_motor(self):
+        import re
+
+        from core.sources.profile import ScanProfile
+
+        campos = interfaz("ScanProfileInput")
+        self.assertIn("keywordLanguages", campos)
+        for campo in campos:
+            with self.subTest(campo=campo):
+                self.assertIn(re.sub(r"([A-Z])", lambda m: "_" + m.group(1).lower(), campo),
+                              ScanProfile.model_fields)
+
+
 class TestEventosMultifuente(unittest.TestCase):
 
     def emitidos(self):

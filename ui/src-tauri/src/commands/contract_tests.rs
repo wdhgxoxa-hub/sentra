@@ -140,6 +140,23 @@ fn estimate_scan_recibe_el_perfil() {
 }
 
 #[test]
+fn el_idioma_de_cada_palabra_llega_al_motor() {
+    use crate::commands::sources::{cuerpo_de_la_estimacion, ScanProfileParams};
+
+    // Fase 3: el asistente sabe el idioma de cada palabra (su fila); sin él, el
+    // motor adivinaba y pegaba frases inglesas a palabras españolas.
+    let payload = json!({ "profile": { "name": "f", "keywords": ["pdf a word", "pdf to word"],
+                                        "keywordLanguages": { "pdf a word": "es", "pdf to word": "en" },
+                                        "discovery": false, "windowDays": 365, "languages": ["es", "en"] } });
+    let perfil: ScanProfileParams = argumento(&payload, "profile");
+    let cuerpo = serde_json::to_value(cuerpo_de_la_estimacion(&perfil)).unwrap();
+    assert_eq!(
+        cuerpo["profile"]["keyword_languages"],
+        json!({ "pdf a word": "es", "pdf to word": "en" })
+    );
+}
+
+#[test]
 fn save_source_credentials_recibe_los_valores_por_campo() {
     use std::collections::BTreeMap;
 

@@ -78,6 +78,9 @@ pub struct SourceProbeResult {
 pub struct ScanProfileParams {
     pub name: String,
     pub keywords: Vec<String>,
+    /// Idioma de cada palabra según el asistente (Fase 3); vacío en perfiles antiguos.
+    #[serde(default)]
+    pub keyword_languages: BTreeMap<String, String>,
     pub discovery: bool,
     pub window_days: u32,
     pub languages: Vec<String>,
@@ -88,6 +91,8 @@ pub struct ScanProfileParams {
 struct ScanProfileBody<'a> {
     name: &'a str,
     keywords: &'a [String],
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    keyword_languages: &'a BTreeMap<String, String>,
     discovery: bool,
     window_days: u32,
     languages: &'a [String],
@@ -305,6 +310,7 @@ fn perfil_del_cuerpo(profile: &ScanProfileParams) -> ScanProfileBody<'_> {
     ScanProfileBody {
         name: &profile.name,
         keywords: &profile.keywords,
+        keyword_languages: &profile.keyword_languages,
         discovery: profile.discovery,
         window_days: profile.window_days,
         languages: &profile.languages,
@@ -337,6 +343,7 @@ mod tests {
         let perfil = ScanProfileParams {
             name: "facturas".into(),
             keywords: vec!["invoice".into()],
+            keyword_languages: BTreeMap::new(),
             discovery: false,
             window_days: 180,
             languages: vec!["en".into()],

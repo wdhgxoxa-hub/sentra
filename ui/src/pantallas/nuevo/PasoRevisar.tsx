@@ -42,6 +42,10 @@ export function PasoRevisar() {
   const perfil: ScanProfileInput = {
     name: (a.nombre || a.tema || t.nuevoEscaneo.titulo).trim().slice(0, 60),
     keywords: a.sinTema ? [] : [...es, ...en],
+    // El idioma de cada palabra es el de su fila: el motor no tiene que adivinarlo.
+    keywordLanguages: a.sinTema
+      ? {}
+      : Object.fromEntries([...es.map((p) => [p, "es"] as const), ...en.map((p) => [p, "en"] as const)]),
     discovery: a.sinTema,
     windowDays: a.dias,
     languages: a.idiomas,

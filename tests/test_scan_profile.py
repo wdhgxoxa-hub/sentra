@@ -84,6 +84,25 @@ class TestCombinaciones(unittest.TestCase):
         self.assertTrue(all(p[0] is None for p in pares))
         self.assertEqual(len({p[1] for p in pares}), 3)
 
+    def test_el_idioma_que_dice_el_asistente_manda_sobre_la_heuristica(self):
+        """Fase 3, escaneo 1 (25-09): «pdf a word pierde formato» no tiene tildes ni
+        palabras de la lista y se tomó por inglés; HN recibió «pdf a word pierde
+        formato is there an app» (0 resultados, medido). El asistente sabe el
+        idioma de cada palabra (la fila donde está): viaja con el perfil."""
+        from core.sources.phrases import idioma_de_frase
+
+        consulta = ScanProfile(name="x", keywords=["pdf a word pierde formato", "pdf to word"],
+                               keyword_languages={"pdf a word pierde formato": "es", "pdf to word": "en"},
+                               languages=["en", "es"]).to_query()
+        self.assertEqual(consulta.keyword_languages["pdf a word pierde formato"], "es")
+        for palabra, frase in term_pairs(consulta, limit=200):
+            if palabra == "pdf a word pierde formato" and frase is not None:
+                self.assertEqual(idioma_de_frase(frase), "es", frase)
+
+    def test_un_idioma_que_no_es_de_una_palabra_del_perfil_se_rechaza(self):
+        with self.assertRaises(ValidationError):
+            ScanProfile(name="x", keywords=["a"], keyword_languages={"b": "es"})
+
     def test_una_palabra_solo_se_une_a_frases_de_su_idioma(self):
         # Medido en el escaneo de facturación: «facturación autónomos is there a tool»
         # no encuentra nada en ninguna fuente.

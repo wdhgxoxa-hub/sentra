@@ -99,6 +99,7 @@
     ],
     "ScanProfileInput": [
       "discovery",
+      "keywordLanguages",
       "keywords",
       "languages",
       "name",

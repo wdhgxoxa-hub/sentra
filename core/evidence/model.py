@@ -114,6 +114,8 @@ class SearchQuery(BaseModel):
     """
 
     keywords: list[str] = Field(default_factory=list)
+    #: Idioma de cada palabra si lo dijo quien escanea (asistente); si no, se adivina.
+    keyword_languages: dict[str, str] = Field(default_factory=dict)
     phrases: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=lambda: ["en", "es"])
     targets: dict[str, list[str]] = Field(default_factory=dict)
