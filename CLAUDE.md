@@ -65,6 +65,17 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   ítems por defecto; YouTube 2 000 unidades / 200 peticiones; Discourse 100
   peticiones. YouTube cobra los ítems después de quitar repetidos (Fase 1);
   el vídeo repetido se sigue releyendo (1 unidad por relectura).
+- Reparto (Fase 3, `fase3/reparto`): las fuentes de un escaneo comparten un
+  cupo de 500 piezas (`CupoDelEscaneo`, `CUPO_POR_ESCANEO`) y ninguna pasa de
+  250; lo que no usan las vacías queda para las demás. YouTube agrupa las
+  palabras de 4 en 4 con «|», hace TODAS las búsquedas antes de leer
+  comentarios, 25 vídeos × 10 comentarios por turnos, y no trae comentarios
+  que no nombran el tema (`menciona_el_tema`): con las 14 palabras del
+  escaneo 1, 430 unidades (antes 1 065). No verificado en la API real: el O
+  con términos de varias palabras entre comillas. El resultado avisa si una
+  fuente aporta más de la mitad (`RunOverview.sources`).
+- Palabras clave: términos de 1 a 3 palabras; el idioma de cada una viaja del
+  asistente (`keyword_languages`). Ventana por defecto: 1 año.
 - Cómo terminó cada fuente en cada ejecución (motivo de parada incluido):
   `run_source_outcomes` (migración 018).
 
