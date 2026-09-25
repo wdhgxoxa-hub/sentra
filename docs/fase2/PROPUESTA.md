@@ -1,7 +1,7 @@
 # SENTRA · Fase 2 · Interfaz — propuesta
 
-Estado: **propuesta, sin código de producto**. Rama `fase2/interfaz` (desde `main` 2688c3d).
-La construcción espera la aprobación de Walter.
+Estado: **aprobada por Walter el 25-09 (maquetas y decisiones D1-D3), en construcción** en la rama `fase2/interfaz` (desde `main` 2688c3d).
+Principios obligatorios en cada pantalla: P1 facilidad de uso y P2 preparada para el modo Videos (sección 6).
 
 - Maquetas: `docs/fase2/maquetas/index.html`. Se abre con doble clic, sin servidor. Tiene conmutador claro/oscuro.
 - Capturas del exe actual: `docs/fase2/capturas/`.
@@ -122,56 +122,96 @@ Un código desconocido nunca se oculta. Muestra «Error inesperado (código)».
 
 ## 4. Dirección visual
 
-Estilo «sala de control»: denso, oscuro por defecto y con un solo acento.
+Estilo «sala de control», con un solo acento. El tema sigue al de Windows (D2), y los dos temas están cuidados por igual.
 
 - **Tokens únicos** (`maquetas/maqueta.css`) para toda la app, en claro y en oscuro con los mismos nombres:
   - superficies en 3 niveles, borde y borde fuerte;
   - tinta en 3 niveles;
   - acento cian;
   - estados ok, aviso, mal e info, cada uno con su versión suave.
-- **Densidad:** controles de 34 px y filas de 40 px. La barra lateral mide 220 px y el contenido tiene un máximo de 1 080 px.
+- **Densidad legible (P1):** texto base de 15 px, botones de al menos 36 px y la acción principal de 44 px. La barra lateral mide 220 px y el contenido tiene un máximo de 1 080 px.
 - **Una acción primaria por pantalla**, siempre en cian y con el coste escrito si gasta Gemini.
 - **Colores de veredicto fijos en toda la app:** CONSTRUIR en verde, INVESTIGAR MÁS en ámbar y DESCARTAR en gris.
 - **Tipografía del sistema** (Segoe UI Variable): sin dependencias nuevas ni fuentes descargadas.
 - **Iconos:** se mantiene lucide-react, que ya es una dependencia. En las maquetas aparecen como cuadrados de sitio.
 
-## 5. Decisiones abiertas (las toma Walter)
+## 5. Decisiones de Walter (25-09)
 
-- **D1 · De dónde salen las palabras clave propuestas.**
-  - **A. Gemini flash, 1 llamada por propuesta.** El coste medido en la maqueta es ilustrativo (≈ 1 300 tokens); el real se mide en el primer test contra el SDK falso.
-    - Pasa por `ControlDeGemini`, con `purpose = palabras_clave`, y cuenta para los topes del día.
-    - Da buenas palabras en los dos idiomas, sinónimos incluidos.
-    - Cada «Proponer otra vez» gasta una llamada.
-  - **B. Local, sin coste.** Plantillas de dolor por idioma («problema con X», «X is a pain»…) más frases parecidas de la evidencia ya guardada (e5).
-    - No traduce: e5 no es un traductor. Las palabras en inglés las escribe la persona.
-  - **C. Sin propuesta.** Solo chips manuales y el aviso de cobertura.
-  - Recomiendo **A con B como respaldo**: si no hay clave o no queda presupuesto, se usa B y se dice.
-- **D2 · Tema por defecto.** Oscuro, como en las maquetas, o seguir el sistema, como hoy.
-- **D3 · Aviso al terminar si la persona cambió de pantalla durante el escaneo.** Hay dos opciones: notificación de Windows (el plugin de Tauri sería una dependencia nueva) o solo una insignia en «Nuevo escaneo» (sin dependencia). Recomiendo la insignia.
+- **D1 · Palabras clave: A, con B de respaldo.**
+  - **A.** Gemini propone las palabras clave en una llamada.
+    - La llamada queda registrada en `llm_usage` con `purpose = palabras_clave` y cuenta para los topes del día.
+    - Hace falta la migración 020: el CHECK de `llm_usage.purpose` solo admite los propósitos de la 017.
+  - **B.** Se usa si no hay clave, si no queda presupuesto o si Gemini falla. La pantalla lo dice.
+    - Son plantillas de queja por idioma construidas con el tema que escribe la persona. No tienen coste ni usan la red.
+    - B no traduce. Si la persona escribe el tema en español, las palabras en inglés las añade ella. El aviso de cobertura se lo pide.
+    - Cambio respecto de la propuesta: dejé fuera las frases parecidas de la evidencia guardada (e5). Obligaban a cargar el modelo de 2,1 GB solo para proponer palabras, y traían ruido. Queda en el registro de decisiones.
+  - **Aviso de cobertura:** sale cuando todas las palabras quedan en un solo idioma, además de los demás casos (menos de 6 palabras, o menos de 3 en algún idioma elegido).
+- **D2 · Tema.** Sigue el de Windows. Configuración tiene un conmutador manual con tres opciones: Claro, Oscuro y Como Windows. El mecanismo ya existe (`data-theme` y `settingsStore`); cambian los tokens.
+- **D3 · Aviso al terminar.** Una marca en «Nuevo escaneo» cuando el escaneo termina y la persona está en otra pantalla. Sin dependencias nuevas.
 
-## 6. Commits previstos (TDD: el test se escribe y falla antes que el código)
+## 6. Principios obligatorios en cada pantalla
 
-Cada commit pasa por la compuerta completa (`CLIPPY=1 AUDIT=1 HUMO=1`) antes de hacerse.
+### P1 · Facilidad de uso ante todo
+
+Cualquier persona, de un niño a alguien de cien años, entiende cada pantalla sin ayuda.
+
+| Regla | Cómo se cumple | Cómo se vigila |
+|---|---|---|
+| Frases cortas y palabras de todos los días; nada de jerga | Los textos visibles están en `i18n/es.ts` y `en.ts`, fuera del bloque `detalle`. La jerga solo puede ir en `detalle`, que únicamente se pinta dentro de `<VerDetalle>` (un desplegable «Ver detalle» cerrado) | **Guardia 1** (`tests/test_lenguaje_llano.py`): ningún literal fuera de `detalle` contiene una palabra prohibida. **Guardia 2**: `t.detalle` solo se usa en `components/detalle/`. **Guardia 3** (humo): el texto visible de cada pantalla del exe real, con los desplegables cerrados, no contiene ninguna palabra prohibida |
+| Palabras prohibidas en lo visible | `token(s)`, `G0`–`G9`, `cluster`, `pipeline`, `regla N` y `rule N`, `LLM`, `prompt`, `API`, `JSON`, `sidecar`, `uuid`, `embedding`, `e5`, `backoff`, `OAuth`, `endpoint`, `compuerta` y `gate`, `run`/`runId` | La lista vive en un solo sitio (`tests/_lenguaje_llano.py`), que usan las tres guardias |
+| Tokens → lenguaje llano | «unidades de texto» (Gemini cobra por ellas). Las cifras son las mismas; cambia el nombre | Guardia 1 |
+| Códigos → frases | Cada código de fuente o de parada tiene su frase (sección 3). Un código desconocido dice «Error inesperado» y deja el código en «Ver detalle» | Tests de `lib/progreso.ts` y `lib/siguientePaso.ts` |
+| Nombres de credenciales | `api_key`, `bearer_token`, `client_id`… se muestran como «Clave», «Código de acceso», «Identificador de la app»… | Test del mapa: todo campo del catálogo de fuentes tiene nombre llano en los dos idiomas |
+| Una sola acción principal, grande y evidente | El componente `AccionPrincipal`, de 44 px de alto y en color de acento, puede aparecer una sola vez por pantalla | El humo cuenta `[data-accion-principal]` = 1 en cada pantalla nueva |
+| Cada resultado dice qué significa y qué hacer ahora | `siguientePaso()` devuelve siempre `{titulo, significa, pasos[≥1]}` | Test: ningún caso devuelve 0 pasos |
+| Letra legible, buen contraste, botones grandes | Texto base de 15 px (hoy 14); nada por debajo de 13 px, salvo notas de 12 px. Botones de al menos 36 px. Contraste AA (4,5:1) de la tinta y de los estados sobre su superficie, en claro y en oscuro | Test de tokens: contraste calculado desde OKLCH; en los dos temas existen los mismos tokens |
+| Nada depende solo del color | Cada estado lleva icono y palabra («Listo», «Falló», «No se usa») además del color. Cada veredicto lleva su nombre | Tests de `progreso.ts`: cada estado tiene `palabra` e `icono` |
+
+### P2 · Pensar en el modo Videos (sin construirlo)
+
+La interfaz queda preparada para enchufar Videos sin rehacer nada.
+
+1. **Registro de modos** (`ui/src/modos/`):
+   - `tipos.ts` define `Modo`: `id`, textos del asistente, del resultado y de la ficha, las métricas que se enseñan de un nicho y los documentos que tiene.
+   - `software.ts` es el único modo registrado hoy.
+   - `index.ts` exporta `MODOS` y `modoActivo`. El modo activo vive en `uiStore.modo` y hoy siempre vale `"software"`.
+2. **Barra lateral:** tiene el hueco reservado `SelectorDeModo` (Software | Videos).
+   - Se pinta solo si hay 2 o más modos registrados, así que hoy no se ve. No miente: no promete nada que no exista.
+   - Test: con un modo, el selector no se pinta. Con dos modos de prueba, se pinta.
+3. **Componentes genéricos:** `Asistente`, `Resultado`, `TarjetaDeNicho` y `FichaDeNicho` reciben un `NichoEnPantalla` y un `Modo`. No importan `JudgeVerdict`.
+   - `NichoEnPantalla` = `{id, tipo, nombre, subnombre, veredicto, metricas: Metrica[], explicacion, documentos: DocumentoDelNicho[]}`. El `tipo` («software» / «videos») es un dato.
+   - El adaptador `modos/software.ts::nichoDeSoftware(v)` convierte un veredicto del juez en `NichoEnPantalla`.
+   - Test: los componentes genéricos se prueban con un nicho de tipo «videos» inventado y funcionan sin tocarlos.
+4. **Compartido:** Fuentes y Configuración no dependen del modo.
+5. **Cómo se enchufará Videos**, cuando Walter lo apruebe con su propio prompt:
+   - Escribir `modos/videos.ts` con sus textos, métricas y adaptador `nichoDeVideos`.
+   - Registrarlo en `MODOS`, con lo que aparece el selector.
+   - Dar al motor sus rutas propias. El contrato lo define Walter.
+   - Nada de lo construido en esta fase cambia.
+   - Queda descrito también en CLAUDE.md, sección «Modo Videos: cómo se enchufa».
+
+## 7. Commits de la construcción (TDD: el test se escribe y falla antes que el código)
+
+Cada commit pasa por la compuerta completa (`CLIPPY=1 AUDIT=1 HUMO=1`) antes de hacerse. Cuando el commit toca la UI o el motor, el exe de release se recompila antes (`npm run tauri build`), porque el humo prueba el exe.
 
 | # | Commit | Tests (RED antes de GREEN) |
 |---|---|---|
-| 0 | `docs(fase2): propuesta, maquetas y capturas` (este) | — (solo documentación) |
-| 1 | `fix(juez): el top sale de la última ejecución con nichos` | Base de prueba: ejecución A con INVESTIGAR MÁS y ejecución B posterior juzgada vacía. `/api/judge/top` devuelve los veredictos de A y `latestRun` = B. Con solo DESCARTAR, nada. Con `runId`, el comportamiento de hoy |
-| 2 | `feat(documentos): estado guardado de dossier y plan por veredicto` | `GET /api/documents/status?verdictId=` responde guardado sí/no por tipo e idioma, leyendo solo el almacén. Test: 0 llamadas al SDK y 0 filas nuevas en el registro de uso |
-| 3 | `feat(escaneo): proponer palabras clave` (según D1) | Con A: 1 fila en `llm_usage` con `purpose=palabras_clave`, 409 al superar un tope y respuesta validada con esquema. Con B: determinista y sin red (`prohibir_red_real`) |
-| 4 | `feat(ui): cobertura de palabras clave` (`lib/cobertura.ts`) | `node --test`: 0, 2 solo ES, 6 en un idioma, 3+3, idioma elegido sin palabras y duplicados que no cuentan |
-| 5 | `feat(ui): progreso por fuente en lenguaje llano` (`lib/progreso.ts`) | Un caso por fila de la tabla de la sección 3 y un código desconocido que no se oculta |
-| 6 | `feat(ui): resultado con siguiente paso` (`lib/siguientePaso.ts`) | Con CONSTRUIR, solo INVESTIGAR, 0 nichos por autores, 0 piezas, tope de Gemini (`stop_reason`), cancelado y sin `judge_summary` (anterior a 019) |
-| 7 | `feat(ui): tokens visuales únicos` (`styles.css`) | Test que exige que cada token del tema claro exista en el oscuro y viceversa; contraste AA de tinta sobre superficie y del acento |
-| 8 | `feat(ui): asistente Nuevo escaneo (3 pasos)` | i18n: mismas claves en `es` y `en`. Humo: la pantalla inicial es «Nuevo escaneo»; recorrer los pasos 1-2 no crea filas en `llm_usage` (D1-A usa su SDK falso) |
-| 9 | `feat(ui): escaneo en curso y resultado` | Humo con escaneo simulado (motor de prueba, sin fuentes reales): las filas por fuente y el resultado «0 nichos» con su siguiente paso |
-| 10 | `feat(ui): Radar con último nicho válido y acceso a dossier/plan` | Humo: con la base de prueba del commit 1, el Radar muestra A y el aviso de B. «Dossier guardado» no llama a Gemini |
-| 11 | `feat(ui): Fuentes compacta, Configuración en pestañas, Búsqueda con estado vacío` | Humo: las 5 vistas cargan sin excepciones; los botones de credenciales siguen enviando el valor una sola vez |
-| 12 | `docs: CLAUDE.md y capturas de verificación de la Fase 2` | `tests/test_claude_md.py` con las rutas nuevas; capturas CDP del exe de cada pantalla, comparadas con las maquetas |
+| 0 | `docs(fase2): propuesta, maquetas y capturas` | hecho: b78be5e |
+| 0b | `docs(fase2): principios P1 y P2 y decisiones D1-D3` (este) | — |
+| 1 | `fix(juez): el Radar muestra la última ejecución con nichos` | Base de prueba: A con INVESTIGAR MÁS y B posterior vacía → los veredictos de A y `latestRun` = B. Solo DESCARTAR → nada. Con `runId`, igual que hoy. El humo cuenta con la regla nueva |
+| 2 | `feat(documentos): saber si el dossier y el plan ya están guardados` | `GET /api/documents/status`: guardado sí/no por tipo e idioma, 0 llamadas al SDK. Exportar algo guardado no resuelve el modelo (0 llamadas, ni para listar modelos) |
+| 3 | `feat(escaneo): proponer palabras clave (Gemini y respaldo local)` | Migración 020 (`palabras_clave` en el CHECK). A: 1 fila en `llm_usage`, 409 al superar el tope y esquema validado. B sin clave, sin presupuesto o con error: plantillas, sin red y 0 filas. Contrato Rust ↔ TS |
+| 4 | `feat(ui): aviso de cobertura de palabras clave` | `node --test`: 0 palabras, 2 solo ES, todo en un idioma, 3+3, idioma elegido sin palabras y duplicados que no cuentan |
+| 5 | `feat(ui): progreso por fuente en palabras de todos los días` | Un caso por código, cada estado con palabra e icono, y un código desconocido que no se oculta |
+| 6 | `feat(ui): el resultado dice qué significa y qué hacer` | CONSTRUIR, solo INVESTIGAR MÁS, 0 nichos, 0 piezas, tope de Gemini, cancelado y sin resumen (anterior a la 019). Nunca 0 pasos |
+| 7 | `feat(ui): tokens visuales, letra legible y guardia de lenguaje llano` | Contraste AA y paridad de tokens. Guardias 1 y 2 sobre los bloques nuevos de i18n |
+| 8 | `feat(ui): modos y asistente «Nuevo escaneo» en 3 pasos` | Registro de modos, selector oculto con un modo y paridad de i18n. Humo: arranca en «Nuevo escaneo», 1 acción principal y guardia 3; los pasos 1-2 sin filas nuevas en `llm_usage` (solo se proponen palabras al pulsarlo) |
+| 9 | `feat(ui): escaneo en curso, resultado y marca al terminar` | Reductor de la marca (D3). Humo: el resultado con el último escaneo guardado dice qué hacer |
+| 10 | `feat(ui): Radar y ficha de nicho genéricos con dossier y plan a la vista` | Componentes con un nicho «videos» inventado. Humo: el Radar enseña el nicho de la última ejecución con nichos, su aviso y los botones de dossier y plan |
+| 11 | `feat(ui): Fuentes, Configuración y Búsqueda en lenguaje llano` | Mapa de credenciales. La guardia 1 cubre ya todo i18n. Humo: 5 pantallas, guardia 3 en todas |
+| 12 | `docs: CLAUDE.md, modo Videos y capturas de la Fase 2` | `tests/test_claude_md.py` con migración 020, `/api/documents/status`, `/api/scan/keywords` y «Modo Videos» |
 
-El humo navega hoy por las etiquetas «Radar en vivo», «Búsqueda semántica», «Fuentes» y «Configuración». Los commits 8 y 11 cambian esas etiquetas, así que actualizan el humo en el mismo commit.
-
-## 7. Fuera de alcance
+## 8. Fuera de alcance
 
 - La Fase 4 (modo Vídeos): Walter tiene su propio prompt.
 - Cambios en las compuertas del juez o en sus umbrales.
