@@ -2,6 +2,10 @@
 # su huella (scripts/migrate.py) debe ser la misma en cualquier equipo.
 sql/migrations/*.sql text eol=lf
 
+# `npm run tauri build` reescribe Cargo.toml con LF: el clon tiene que sacarlo
+# igual o cada release deja el árbol «modificado» sin cambios (Fase 1, B1).
+ui/src-tauri/Cargo.toml text eol=lf
+
 # Los scripts de shell y los hooks se ejecutan con bash: siempre LF (AUD2-022).
 *.sh text eol=lf
 .githooks/* text eol=lf
