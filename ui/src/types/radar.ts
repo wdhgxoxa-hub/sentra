@@ -259,6 +259,9 @@ export interface JudgeSummary {
   /** Ítems sin etiqueta del LLM, por motivo (no_provider, llm_budget_exhausted...). */
   undetermined: Record<string, number>;
   clusters: number;
+  /** Piezas con dolor verificado y personas distintas que pide un nicho (desde 019). */
+  pain?: number;
+  minAuthors?: number;
   verdicts: Record<string, number>;
   /** stopReason: el tope de Gemini que cortó el juez (tope_escaneo_llamadas...), o null. */
   llm: { model: string | null; unavailable: string | null; calls: number; stopReason: string | null };
@@ -382,6 +385,25 @@ export interface JudgeVersions {
  * Top 6 (AUD-007): CONSTRUIR primero; sin rellenar si no hay 6. `rest` es el
  * resto de veredictos de la misma ejecución en el mismo orden (C1).
  */
+/**
+ * Un escaneo contado a la interfaz (Fase 2): nombre, fecha, palabras e
+ * idiomas, cuánto trajo, cuántos veredictos y nichos (los que no son
+ * DESCARTAR), el resumen del juez (null antes de la migración 019) y por qué
+ * se paró.
+ */
+export interface RunOverview {
+  runId: string;
+  name: string;
+  startedAt: string;
+  keywords: string[];
+  languages: string[];
+  fetched: number;
+  verdicts: number;
+  niches: number;
+  summary: JudgeSummary | null;
+  stopReason: string | null;
+}
+
 export interface JudgeTop {
   runId: string | null;
   target: number;
@@ -390,6 +412,10 @@ export interface JudgeTop {
   verdicts: JudgeVerdict[];
   rest: JudgeVerdict[];
   currentVersions: JudgeVersions;
+  /** El escaneo que se enseña: el último con nichos (Fase 2) o el pedido. */
+  run: RunOverview | null;
+  /** El último escaneo juzgado, aunque saliera vacío: si no es `run`, se avisa. */
+  latestRun: RunOverview | null;
 }
 
 /** Una pieza de evidencia multifuente del feed del Radar; sin autor (R9). */

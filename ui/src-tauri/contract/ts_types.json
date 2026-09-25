@@ -122,6 +122,8 @@
       "kept",
       "labeled",
       "llm",
+      "minAuthors",
+      "pain",
       "undetermined",
       "verdicts"
     ],
@@ -199,11 +201,25 @@
       "labeler",
       "weights"
     ],
+    "RunOverview": [
+      "fetched",
+      "keywords",
+      "languages",
+      "name",
+      "niches",
+      "runId",
+      "startedAt",
+      "stopReason",
+      "summary",
+      "verdicts"
+    ],
     "JudgeTop": [
       "buildCount",
       "currentVersions",
+      "latestRun",
       "reason",
       "rest",
+      "run",
       "runId",
       "target",
       "verdicts"

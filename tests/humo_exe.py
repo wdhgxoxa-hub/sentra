@@ -218,10 +218,11 @@ def _dentro_del_repo(ruta: str) -> bool:
 
 async def veredictos_de_la_ultima_juzgada(store: Any) -> int:
     """Los veredictos de la ejecución que enseña el Radar, con la misma regla que
-    la app (`latest_judged_run`): una ejecución juzgada sin nichos cuenta, con 0."""
-    from core.judge.store import latest_judged_run
+    la app (`leer_radar`): la última con nichos y, si no hay, la última juzgada
+    (que puede no tener ninguno)."""
+    from core.judge.store import latest_judged_run, latest_run_with_niches
 
-    ejecucion = await latest_judged_run(store)
+    ejecucion = await latest_run_with_niches(store) or await latest_judged_run(store)
     if ejecucion is None:
         return 0
     fila = await store._fetchone(

@@ -39,7 +39,8 @@ export const en: Dictionary = {
 
   radar: {
     title: "Judge's top {target}",
-    subtitle: "Niches from the latest judged run: BUILD first, never padded",
+    subtitle: "Niches from the latest scan that found any: BUILD first, never padded",
+    lastScanEmpty: "Your latest scan («{name}», {date}) found no niches. We keep showing the ones from the scan before.",
     empty: "No scan has been judged yet.",
     emptyHint: "Start a scan from Sources: the judge groups the evidence and rules on each niche.",
     loading: "Loading…",

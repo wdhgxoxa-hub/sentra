@@ -157,6 +157,68 @@ async def latest_judged_run(store: PostgresStore) -> str | None:
     return fila["run_id"] if fila else None
 
 
+async def latest_run_with_niches(store: PostgresStore) -> str | None:
+    """La última ejecución con algún nicho (un veredicto que no sea DESCARTAR).
+
+    Fase 2 (Walter): es la que enseña el Radar. Un escaneo que después sale
+    vacío no la borra; el Radar avisa de él aparte (`leer_radar`)."""
+    fila = await store._fetchone(
+        """
+        SELECT r.id::text AS run_id FROM pipeline_runs r
+         WHERE r.tenant_id = %s
+           AND EXISTS (SELECT 1 FROM niche_verdicts v
+                        WHERE v.run_id = r.id AND v.verdict <> 'DESCARTAR')
+         ORDER BY r.started_at DESC LIMIT 1
+        """,
+        (store.tenant_id,),
+    )
+    return fila["run_id"] if fila else None
+
+
+async def run_overview(store: PostgresStore, run_id: str) -> dict[str, Any] | None:
+    """Lo que la interfaz cuenta de un escaneo: nombre, fecha, palabras e
+    idiomas, cuánto trajo, cuántos veredictos y nichos, el resumen del juez
+    (migración 019; None en los anteriores) y por qué se paró."""
+    if not _UUID.fullmatch(run_id):
+        return None
+    fila = await store._fetchone(
+        """
+        SELECT r.id::text AS run_id, r.subreddit_name AS name, r.started_at, r.parameters,
+               r.fetched, r.judge_summary AS summary, r.stop_reason,
+               (SELECT count(*) FROM niche_verdicts v WHERE v.run_id = r.id) AS verdicts,
+               (SELECT count(*) FROM niche_verdicts v
+                 WHERE v.run_id = r.id AND v.verdict <> 'DESCARTAR') AS niches
+          FROM pipeline_runs r
+         WHERE r.tenant_id = %s AND r.id = %s
+        """,
+        (store.tenant_id, run_id),
+    )
+    if fila is None:
+        return None
+    parametros = fila["parameters"] or {}
+    return {"run_id": fila["run_id"], "name": fila["name"], "started_at": fila["started_at"].isoformat(),
+            "keywords": list(parametros.get("keywords") or []),
+            "languages": list(parametros.get("languages") or []),
+            "fetched": fila["fetched"], "verdicts": fila["verdicts"], "niches": fila["niches"],
+            "summary": fila["summary"], "stop_reason": fila["stop_reason"]}
+
+
+async def leer_radar(store: PostgresStore, run_id: str | None) -> dict[str, Any]:
+    """El Top que enseña el Radar, con la ejecución mostrada (`run`) y la
+    última juzgada (`latest_run`). Sin `run_id`: la última con nichos o, si no
+    hay ninguna, la última juzgada. Con `run_id`: esa."""
+    ultima = await latest_judged_run(store)
+    mostrada = run_id or await latest_run_with_niches(store) or ultima
+    if mostrada is None:
+        return {"run_id": None, "target": TOP_TARGET, "build_count": 0,
+                "reason": "Todavía no hay ningún escaneo juzgado.", "verdicts": [],
+                "rest": [], "current_versions": current_versions(), "run": None, "latest_run": None}
+    top = await top_verdicts(store, mostrada)
+    top["run"] = await run_overview(store, mostrada)
+    top["latest_run"] = await run_overview(store, ultima) if ultima else None
+    return top
+
+
 async def previous_identities(store: PostgresStore) -> list[Previo]:
     """Última lectura de cada oportunidad juzgada (identidad estable D-G)."""
     filas = await store._fetchall(

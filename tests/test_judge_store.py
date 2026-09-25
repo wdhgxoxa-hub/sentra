@@ -164,10 +164,67 @@ class TestPersistenciaDelJuez(unittest.TestCase):
         top = self.run_store(lambda store: top_verdicts(store, nueva))
         self.assertEqual((top["verdicts"], top["reason"]), ([], SIN_NICHOS))
 
+    def test_el_radar_ensena_la_ultima_ejecucion_con_nichos_aunque_despues_haya_una_vacia(self):
+        """Fase 2 (Walter): un escaneo vacío no borra del Radar el último nicho
+        válido. Se enseña la última ejecución con algún veredicto que no sea
+        DESCARTAR y, aparte, la última juzgada, para avisar de que salió vacía
+        (así no se presentan como actuales, que era el temor de AUD2-001)."""
+        from core.judge.store import (
+            latest_judged_run,
+            latest_run_with_niches,
+            marcar_juzgada,
+            run_overview,
+        )
+
+        items = [pieza(n) for n in range(90, 96)]
+
+        async def guardar(store):
+            await store.upsert_evidence(items)
+            con_nicho = await store.start_run(
+                "Facturas impagadas", trigger_source="multifuente", data_source="real",
+                parameters={"keywords": ["facturas impagadas", "unpaid invoices"], "languages": ["es", "en"]})
+            await store.save_verdicts(con_nicho, [
+                veredicto("i", "INVESTIGAR MÁS", 16.5, [items[0].id, items[1].id]),
+                veredicto("d", "DESCARTAR", 3.0, [items[2].id]),
+            ])
+            await marcar_juzgada(store, con_nicho, construir=0)
+            solo_descartes = await store.start_run("Otro", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(solo_descartes, [veredicto("x", "DESCARTAR", 2.0, [items[3].id])])
+            await marcar_juzgada(store, solo_descartes, construir=0)
+            vacia = await store.start_run("Pagos", trigger_source="multifuente", data_source="real",
+                                          parameters={"keywords": ["pagos"], "languages": ["es"]})
+            await marcar_juzgada(store, vacia, construir=0)
+            return con_nicho, vacia
+
+        con_nicho, vacia = self.run_store(guardar)
+        self.assertEqual(self.run_store(latest_run_with_niches), con_nicho)
+        self.assertEqual(self.run_store(latest_judged_run), vacia, "la última juzgada no cambia")
+
+        ultima = self.run_store(lambda store: run_overview(store, vacia))
+        self.assertEqual((ultima["run_id"], ultima["name"], ultima["verdicts"], ultima["niches"]),
+                         (vacia, "Pagos", 0, 0))
+        self.assertEqual((ultima["keywords"], ultima["languages"]), (["pagos"], ["es"]))
+        self.assertIsNone(ultima["summary"])
+        self.assertIsNone(ultima["stop_reason"])
+        self.assertTrue(ultima["started_at"].startswith("20"))
+        mostrada = self.run_store(lambda store: run_overview(store, con_nicho))
+        self.assertEqual((mostrada["verdicts"], mostrada["niches"]), (2, 1))
+        self.assertIsNone(self.run_store(lambda store: run_overview(store, "no-es-un-uuid")))
+
+        # Lo que lee el Radar: la última con nichos y, aparte, la última juzgada.
+        from core.judge.store import leer_radar
+
+        radar = self.run_store(lambda store: leer_radar(store, None))
+        self.assertEqual([v["cluster_key"] for v in radar["verdicts"] + radar["rest"]], ["i", "d"])
+        self.assertEqual((radar["run"]["run_id"], radar["latest_run"]["run_id"]), (con_nicho, vacia))
+        # Con una ejecución pedida, esa y nada más (como hasta ahora).
+        pedida = self.run_store(lambda store: leer_radar(store, vacia))
+        self.assertEqual((pedida["verdicts"], pedida["run"]["run_id"]), ([], vacia))
+
     def test_la_prueba_de_humo_cuenta_los_veredictos_de_la_ultima_juzgada_como_la_app(self):
-        """El humo leía «la última ejecución con veredictos»: tras un escaneo real
-        sin nichos esperaba los 2 de la anterior y la app, bien, pintaba 0."""
-        from core.judge.store import marcar_juzgada
+        """El humo tiene que esperar lo mismo que pinta la app (`leer_radar`):
+        antes esperaba los de una ejecución y la app pintaba los de otra."""
+        from core.judge.store import leer_radar, marcar_juzgada
         from tests.humo_exe import veredictos_de_la_ultima_juzgada
 
         items = [pieza(n) for n in range(80, 82)]
@@ -179,9 +236,33 @@ class TestPersistenciaDelJuez(unittest.TestCase):
             await marcar_juzgada(store, antigua, construir=0)
             nueva = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
             await marcar_juzgada(store, nueva, construir=0)
+            radar = await leer_radar(store, None)
+            return await veredictos_de_la_ultima_juzgada(store), len(radar["verdicts"]) + len(radar["rest"])
+
+        humo, app = self.run_store(guardar_y_contar)
+        self.assertEqual(humo, app)
+
+    def test_la_prueba_de_humo_cuenta_la_ultima_ejecucion_con_nichos_como_el_radar(self):
+        """Fase 2: tras un escaneo vacío el Radar sigue enseñando el último con
+        nichos; el humo tiene que esperar esos veredictos, no 0."""
+        from core.judge.store import marcar_juzgada
+        from tests.humo_exe import veredictos_de_la_ultima_juzgada
+
+        items = [pieza(n) for n in range(100, 103)]
+
+        async def guardar_y_contar(store):
+            await store.upsert_evidence(items)
+            con_nicho = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await store.save_verdicts(con_nicho, [
+                veredicto("n1", "INVESTIGAR MÁS", 10.0, [items[0].id]),
+                veredicto("n2", "DESCARTAR", 1.0, [items[1].id, items[2].id]),
+            ])
+            await marcar_juzgada(store, con_nicho, construir=0)
+            vacia = await store.start_run("perfil", trigger_source="multifuente", data_source="real")
+            await marcar_juzgada(store, vacia, construir=0)
             return await veredictos_de_la_ultima_juzgada(store)
 
-        self.assertEqual(self.run_store(guardar_y_contar), 0)
+        self.assertEqual(self.run_store(guardar_y_contar), 2)
 
     def test_el_detalle_trae_el_autor_seudonimo_y_la_evidencia_de_las_compuertas_que_fallan(self):
         # E8: «2 fuentes» son 2 autores distintos, y G7 cita una pieza que no es miembro.

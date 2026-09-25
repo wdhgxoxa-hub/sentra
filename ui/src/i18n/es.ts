@@ -37,7 +37,8 @@ export const es = {
 
   radar: {
     title: "Top {target} del juez",
-    subtitle: "Los nichos de la última ejecución juzgada: CONSTRUIR primero, sin rellenar",
+    subtitle: "Los nichos del último escaneo que formó alguno: CONSTRUIR primero, sin rellenar",
+    lastScanEmpty: "Tu último escaneo («{name}», {date}) no formó nichos. Te seguimos mostrando los del escaneo anterior.",
     empty: "Todavía no hay ningún escaneo juzgado.",
     emptyHint: "Lanza un escaneo desde Fuentes: el juez agrupa la evidencia y decide cada nicho.",
     loading: "Cargando…",

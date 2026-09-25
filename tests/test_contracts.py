@@ -178,6 +178,8 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.assertEqual(set(cuerpo), interfaz("JudgeTop"))
         self.assertEqual(set(cuerpo["rest"][0]), interfaz("JudgeVerdict"))
         self.assertEqual(set(cuerpo["currentVersions"]), interfaz("JudgeVersions"))
+        self.assertEqual(set(cuerpo["run"]), interfaz("RunOverview"))
+        self.assertEqual(set(cuerpo["latestRun"]), interfaz("RunOverview"))
         veredicto = cuerpo["verdicts"][0]
         self.assertEqual(set(veredicto), interfaz("JudgeVerdict"))
         self.assertEqual(set(veredicto["gates"][0]), interfaz("JudgeGate"))

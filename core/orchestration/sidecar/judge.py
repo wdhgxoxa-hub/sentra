@@ -22,24 +22,14 @@ def _dsn(ctx: SidecarContext) -> str:
 
 
 def _leer_top(ctx: SidecarContext, run_id: str | None) -> dict[str, Any]:
-    """Top de `run_id` o de la última ejecución multifuente juzgada. En un hilo:
-    psycopg no funciona sobre el ProactorEventLoop de uvicorn en Windows."""
-    from core.judge.store import (
-        TOP_TARGET,
-        current_versions,
-        latest_judged_run,
-        top_verdicts,
-    )
+    """Top de `run_id` o el del Radar (core/judge/store.py, leer_radar). En un
+    hilo: psycopg no funciona sobre el ProactorEventLoop de uvicorn en Windows."""
+    from core.judge.store import leer_radar
     from core.storage.postgres_store import PostgresStore, run_async
 
     async def leer() -> dict[str, Any]:
         async with PostgresStore(dsn=_dsn(ctx)) as store:
-            ejecucion = run_id or await latest_judged_run(store)
-            if ejecucion is None:
-                return {"run_id": None, "target": TOP_TARGET, "build_count": 0,
-                        "reason": "Todavía no hay ningún escaneo juzgado.", "verdicts": [],
-                        "rest": [], "current_versions": current_versions()}
-            return await top_verdicts(store, ejecucion)
+            return await leer_radar(store, run_id)
 
     return run_async(leer())
 

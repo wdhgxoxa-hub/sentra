@@ -7,6 +7,7 @@ import { SourceBadge } from "@/components/SourceBadge";
 import { comoError } from "@/lib/errors";
 import { useEvidenceFeed, useJudgeTop, useSources } from "@/lib/queries";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
+import { avisoDelUltimoEscaneo } from "@/lib/radar";
 import { nombreDelGrupo, puntuacionDelGrupo } from "@/lib/veredicto";
 
 /** Piezas del feed: las más recientes, sin duplicados. */
@@ -27,6 +28,7 @@ export function RadarViewPage() {
   const top = useJudgeTop(null);
   const feed = useEvidenceFeed(FEED_LIMIT);
   const fuentes = useSources();
+  const aviso = top.data ? avisoDelUltimoEscaneo(top.data) : null;
   const nombre = (id: string) =>
     fuentes.data?.sources.find((c) => c.source === id)?.displayName ?? id;
 
@@ -41,6 +43,13 @@ export function RadarViewPage() {
           <p className="mt-0.5 text-xs text-ink-soft">{t.radar.subtitle}</p>
         </header>
 
+        {aviso && (
+          <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft p-3 text-sm">
+            {t.radar.lastScanEmpty
+              .replace("{name}", aviso.nombre)
+              .replace("{date}", new Date(aviso.fecha).toLocaleString(idioma, { dateStyle: "short", timeStyle: "short" }))}
+          </p>
+        )}
         {top.isPending && <p className="text-sm text-ink-faint">{t.radar.loading}</p>}
         {top.isError && <ErrorNotice {...comoError(top.error)} title={t.radar.error} />}
         {top.data && top.data.verdicts.length === 0 && (
