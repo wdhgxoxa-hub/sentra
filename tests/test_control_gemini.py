@@ -108,11 +108,16 @@ class TestUnaFilaPorIntento(ConEsperaFalsa):
         self.assertEqual((guion.llamadas, self.registro.filas), ([], []))
 
     def test_los_propositos_son_los_de_la_base(self):
+        """Los mismos que el CHECK vigente: el de la última migración que lo define
+        (017, y la 020 añade palabras_clave)."""
+        import re
         from pathlib import Path
 
-        sql = (Path(__file__).resolve().parents[1] / "sql" / "migrations" / "017_uso_y_topes_de_gemini.sql")
-        for proposito in PROPOSITOS:
-            self.assertIn(f"'{proposito}'", sql.read_text("utf-8"))
+        migraciones = sorted((Path(__file__).resolve().parents[1] / "sql" / "migrations").glob("*.sql"))
+        vigente = [m for m in migraciones if "CONSTRAINT llm_usage_purpose CHECK" in m.read_text("utf-8")][-1]
+        cuerpo = vigente.read_text("utf-8").split("CONSTRAINT llm_usage_purpose CHECK", 1)[1].split(")", 1)[0]
+        self.assertEqual(set(re.findall(r"'(\w+)'", cuerpo)), set(PROPOSITOS))
+        self.assertIn("palabras_clave", PROPOSITOS)
 
     def test_la_ejecucion_se_asigna_despues_tambien_a_lo_ya_anotado(self):
         # El re-juicio llama a Gemini antes de crear su ejecución.

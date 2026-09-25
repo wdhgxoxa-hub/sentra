@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
@@ -194,6 +195,16 @@ class TestRespuestasDelSidecar(unittest.TestCase):
                                  params={"verdictId": "11111111-1111-1111-1111-111111111111"}).json()
         self.assertEqual(set(cuerpo), interfaz("DocumentsStatus"))
         self.assertEqual(set(cuerpo["dossier"]), interfaz("SavedByLanguage"))
+
+    def test_las_palabras_clave_propuestas_entregan_keyword_proposal(self):
+        from core.llm.gemini import GeminiSinConfigurar
+        from core.orchestration.sidecar import palabras
+
+        with mock.patch.object(palabras, "_proveedor", side_effect=GeminiSinConfigurar("sin clave")):
+            cuerpo = self.client.post("/api/scan/keywords", headers=self.cabecera,
+                                      json={"topic": "facturas impagadas", "languages": ["es", "en"]}).json()
+        self.assertEqual(set(cuerpo), interfaz("KeywordProposal"))
+        self.assertEqual(set(cuerpo["keywords"]), interfaz("KeywordsByLanguage"))
 
     def test_el_feed_de_evidencia_entrega_evidence_feed(self):
         from unittest import mock

@@ -62,6 +62,7 @@ from .sidecar import (
     judge,
     migrations,
     multiscan,
+    palabras,
     search,
     sources,
 )
@@ -84,7 +85,7 @@ TOKEN_ENV_VAR = "RIR_SIDECAR_TOKEN"
 MIN_TOKEN_LENGTH = 32
 
 #: Routers montados, en este orden.
-ROUTERS = (health, config, gemini, search, sources, multiscan, judge, documents)
+ROUTERS = (health, config, gemini, search, sources, multiscan, palabras, judge, documents)
 
 
 class SidecarSinToken(RuntimeError):

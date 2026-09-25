@@ -196,6 +196,16 @@
       "llmCalls",
       "path"
     ],
+    "KeywordsByLanguage": [
+      "en",
+      "es"
+    ],
+    "KeywordProposal": [
+      "keywords",
+      "llmCalls",
+      "origin",
+      "reason"
+    ],
     "SavedByLanguage": [
       "en",
       "es"

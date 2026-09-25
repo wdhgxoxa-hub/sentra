@@ -40,7 +40,7 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Release | `ui/src-tauri/target/release/sentra.exe`; el acceso `Desktop\SENTRA.lnk` apunta ahí |
 | Motor de la release | se desempaqueta en `%LOCALAPPDATA%\com.sentra.desktop\motor\<huella>` (AUD2-003) |
 | Logs de la app | `%LOCALAPPDATA%\com.sentra.desktop\logs\` (`SENTRA.log` en UTC, `sidecar.log`) |
-| Migraciones | `sql/migrations/001…019`; `scripts/migrate.py up` o `status`, con `--dry-run` |
+| Migraciones | `sql/migrations/001…020`; `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
 | Respaldos | `F:\backups\reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump` |
 | Archivo | repos clonados y scripts antiguos en `F:\archivo_sentra\` |
@@ -94,7 +94,8 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   sin `ControlDeGemini`. Cada intento (reintentos y fallos incluidos) deja una
   fila en `llm_usage` (migración 017): `ok`, `error` o `cortada` (con el motivo en
   `error_code`). Propósitos: etiquetado, g0, abogado, dossier, plan,
-  prueba_clave, listado_modelos, otros. Guardia AST: el SDK solo vive en
+  prueba_clave, listado_modelos, otros y palabras_clave (migración 020: el asistente
+  de escaneo propone palabras clave, Fase 2). Guardia AST: el SDK solo vive en
   `core/llm/gemini.py` (`tests/test_punto_unico_gemini.py`).
 - **Topes** (`llm_budget_settings`, Configuración › Presupuesto de Gemini):
   por escaneo 20 llamadas y 500 000 tokens; por día 40 llamadas y 1 000 000

@@ -24,9 +24,9 @@ from typing import NamedTuple, Protocol
 
 from .base import LLMBudgetExhausted
 
-#: Los mismos que el CHECK de llm_usage (sql/migrations/017_uso_y_topes_de_gemini.sql).
+#: Los mismos que el CHECK de llm_usage (017; la 020 añade palabras_clave).
 PROPOSITOS = frozenset({"etiquetado", "g0", "abogado", "dossier", "plan", "prueba_clave",
-                        "listado_modelos", "otros"})
+                        "listado_modelos", "otros", "palabras_clave"})
 RESULTADOS = frozenset({"ok", "error", "cortada"})
 #: Registrado pero fuera de los topes (decisión de Walter).
 SIN_TOPE = "listado_modelos"

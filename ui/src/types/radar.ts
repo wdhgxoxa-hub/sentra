@@ -374,6 +374,24 @@ export interface ExportedDocument {
   llmCalls: number | null;
 }
 
+/** Búsquedas propuestas por idioma (asistente de escaneo, Fase 2). */
+export interface KeywordsByLanguage {
+  es: string[];
+  en: string[];
+}
+
+/**
+ * Palabras clave propuestas para un tema (D1). `origin` "gemini": una llamada
+ * que cuenta para los topes. "local": propuesta básica sin Gemini; `reason`
+ * dice por qué (gemini_not_configured, un tope, un error).
+ */
+export interface KeywordProposal {
+  keywords: KeywordsByLanguage;
+  origin: "gemini" | "local";
+  reason: string | null;
+  llmCalls: number;
+}
+
 /** Si un documento ya está guardado, por idioma: se abre sin gastar. */
 export interface SavedByLanguage {
   es: boolean;
