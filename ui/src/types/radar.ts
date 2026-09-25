@@ -374,6 +374,19 @@ export interface ExportedDocument {
   llmCalls: number | null;
 }
 
+/** Si un documento ya está guardado, por idioma: se abre sin gastar. */
+export interface SavedByLanguage {
+  es: boolean;
+  en: boolean;
+}
+
+/** Qué documentos de un veredicto ya están guardados (Fase 2). No llama a nadie. */
+export interface DocumentsStatus {
+  verdictId: string;
+  dossier: SavedByLanguage;
+  plan: SavedByLanguage;
+}
+
 /** Versiones con las que juzga el código actual: lo distinto es antiguo (B4). */
 export interface JudgeVersions {
   labeler: string;

@@ -172,6 +172,7 @@ export const es = {
     env_value_invalid: "El valor no se puede guardar tal cual: lleva saltos de línea u otros caracteres de control.",
     documents_unavailable: "Los documentos necesitan PostgreSQL y un escaneo juzgado; revisa la salud del motor.",
     verdict_not_found: "Ese veredicto ya no existe. Vuelve a cargar el juez.",
+    invalid_verdict_id: "No se reconoce ese nicho. Vuelve a abrir el Radar.",
     plan_not_recommended:
       "El juez no recomienda construir este nicho: el plan solo se genera si lo fuerzas, y lleva la advertencia en cada página.",
     search_unavailable: "La búsqueda necesita PostgreSQL y los vectores de la evidencia; revisa la salud del motor.",
@@ -400,6 +401,7 @@ export const es = {
 
   documents: {
     title: "Documentos",
+    alreadySaved: "ya guardado: se abre sin gastar",
     kind: {
       dossier: "Dossier",
       plan: "Plan de construcción",

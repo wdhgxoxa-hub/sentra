@@ -123,6 +123,7 @@ pub fn run() {
             commands::judge::get_evidence_feed,
             // Documentos de un veredicto (Fase E)
             commands::documents::export_document,
+            commands::documents::get_documents_status,
             // Clave y modelos de Gemini
             commands::gemini::save_gemini_key,
             commands::gemini::test_gemini_key,

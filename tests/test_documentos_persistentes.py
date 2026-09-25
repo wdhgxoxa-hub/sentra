@@ -54,7 +54,9 @@ class TestAlmacen(unittest.TestCase):
         self.assertIsNone(AlmacenDeDocumentos(carpeta).leer((VEREDICTO, "plan", "es", "m", False)))
 
 
-class TestNoSePierde(unittest.TestCase):
+class _AppConDisco(unittest.TestCase):
+    """Motor con una carpeta de documentos propia y un SDK de Gemini falso."""
+
     def setUp(self):
         prohibir_red_real(self)
         self.carpeta = Path(tempfile.mkdtemp(prefix="documentos_"))
@@ -86,6 +88,8 @@ class TestNoSePierde(unittest.TestCase):
         return cliente.post("/api/documents/dossier",
                             json={"verdictId": VEREDICTO, "format": "md", "language": "es"})
 
+
+class TestNoSePierde(_AppConDisco):
     def test_se_genera_se_cancela_se_cierra_y_se_vuelve_a_exportar_sin_llamar(self):
         primera = self.exportar(self.abrir_la_app())
         self.assertEqual((primera.status_code, primera.headers["x-sentra-llm-calls"]), (200, "1"))
@@ -98,6 +102,43 @@ class TestNoSePierde(unittest.TestCase):
         self.assertEqual(segunda.text, primera.text)
         self.assertEqual(len(self.registro.filas), 1, "llm_usage no suma filas")
         self.assertEqual(len(self.sdk.llamadas), 1)
+
+
+class TestEstadoYReutilizacion(_AppConDisco):
+    """Fase 2: la ficha del nicho dice si el dossier y el plan ya están
+    guardados (se abren sin gastar) sin llamar a nadie, y exportar lo guardado
+    no resuelve el modelo: listar modelos puede llamar a Google."""
+
+    def estado(self, cliente: TestClient):
+        return cliente.get("/api/documents/status", params={"verdictId": VEREDICTO})
+
+    def test_el_estado_dice_que_esta_guardado_sin_llamar_al_modelo(self):
+        cliente = self.abrir_la_app()
+        antes = self.estado(cliente)
+        self.assertEqual(antes.status_code, 200)
+        self.assertEqual(antes.json(), {"verdictId": VEREDICTO,
+                                        "dossier": {"es": False, "en": False},
+                                        "plan": {"es": False, "en": False}})
+        self.exportar(cliente)
+        despues = self.estado(self.abrir_la_app()).json()
+        self.assertEqual((despues["dossier"], despues["plan"]),
+                         ({"es": True, "en": False}, {"es": False, "en": False}))
+        self.assertEqual(len(self.sdk.llamadas), 1, "solo la exportación llamó")
+
+    def test_el_estado_de_un_id_que_no_es_uuid_es_un_400(self):
+        self.assertEqual(self.abrir_la_app().get("/api/documents/status",
+                                                 params={"verdictId": "../x"}).status_code, 400)
+
+    def test_exportar_lo_guardado_no_resuelve_el_modelo(self):
+        from core.orchestration.sidecar import documents
+
+        self.exportar(self.abrir_la_app())
+        cliente = self.abrir_la_app()
+        with mock.patch.object(documents, "_proveedor",
+                               side_effect=AssertionError("no debe resolver el modelo")):
+            otra = self.exportar(cliente)
+        self.assertEqual((otra.status_code, otra.headers["x-sentra-llm-calls"]), (200, "0"))
+        self.assertEqual(len(self.registro.filas), 1)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import { CheckCircle2, FileDown } from "lucide-react";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError } from "@/lib/errors";
-import { useExportDocument } from "@/lib/queries";
+import { useDocumentsStatus, useExportDocument } from "@/lib/queries";
 import { useSettingsStore, useT } from "@/stores/settingsStore";
 import type { DocumentFormat, DocumentKind, JudgeVerdict } from "@/types/radar";
 
@@ -21,6 +21,8 @@ export function DocumentActions({ v }: { v: JudgeVerdict }) {
   const t = useT();
   const language = useSettingsStore((s) => s.language);
   const exportar = useExportDocument();
+  const estado = useDocumentsStatus(v.id);
+  const guardado = (kind: DocumentKind) => estado.data?.[kind][language] === true;
   const [forzar, setForzar] = useState(false);
   const recomendado = v.verdict === "CONSTRUIR";
   const planPermitido = recomendado || forzar;
@@ -47,8 +49,10 @@ export function DocumentActions({ v }: { v: JudgeVerdict }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] text-ink-soft">{t.documents.kind.dossier}</span>
         {FORMATOS.map((f) => boton("dossier", f))}
+        {guardado("dossier") && <span className="text-[11px] text-ok">{t.documents.alreadySaved}</span>}
         <span className="ml-2 text-[11px] text-ink-soft">{t.documents.kind.plan}</span>
         {FORMATOS.map((f) => boton("plan", f, !planPermitido))}
+        {guardado("plan") && <span className="text-[11px] text-ok">{t.documents.alreadySaved}</span>}
       </div>
       {!recomendado && (
         <label className="mt-1 flex items-start gap-2 text-[11px] text-warn">

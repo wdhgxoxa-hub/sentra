@@ -59,6 +59,7 @@ export const queryKeys = {
   sources: ["radar", "sources"] as const,
   judgeTop: (runId: string | null) => ["radar", "judge", runId] as const,
   evidenceFeed: (limit: number) => ["radar", "evidence", limit] as const,
+  documentsStatus: (verdictId: string) => ["radar", "documents", verdictId] as const,
 } as const;
 
 // --- Lecturas ---------------------------------------------------------
@@ -138,8 +139,20 @@ export function useCancelScan() {
 
 /** Genera y guarda el dossier o el plan de un veredicto (Fase E). */
 export function useExportDocument() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: (params: ExportDocumentParams) => ipc.exportDocument(params),
+    // Generado o no, el motor lo guarda antes de abrir el diálogo: el estado cambia.
+    onSettled: (_data, _error, params) =>
+      client.invalidateQueries({ queryKey: queryKeys.documentsStatus(params.verdictId) }),
+  });
+}
+
+/** Qué documentos de un veredicto ya están guardados (Fase 2). */
+export function useDocumentsStatus(verdictId: string) {
+  return useQuery({
+    queryKey: queryKeys.documentsStatus(verdictId),
+    queryFn: () => ipc.getDocumentsStatus(verdictId),
   });
 }
 

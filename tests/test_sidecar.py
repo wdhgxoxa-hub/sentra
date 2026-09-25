@@ -148,6 +148,7 @@ class TestSurface(SidecarTestCase):
             {
                 "/api/health",
                 "/api/scan/cancel",
+                "/api/documents/status",
                 "/api/scan/estimate",
                 "/api/gemini/budget",
                 "/api/search",

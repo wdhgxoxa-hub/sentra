@@ -11,13 +11,16 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::commands::engine::{rechazo, sidecar_url, transport_error, with_token_pub};
+use crate::commands::engine::{como_json, rechazo, sidecar_url, transport_error, with_token_pub};
 use crate::db::{AppState, RadarError, RadarResult};
 
 /// Una llamada al modelo de documentos puede tardar hasta 240 s
 /// (DOC_TIMEOUT_MS) y, si la respuesta se corta, se parte en dos mitades:
 /// hasta tres llamadas seguidas, más la composición del PDF.
 const TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// El estado solo mira el disco del motor.
+const ESTADO_TIMEOUT: Duration = Duration::from_secs(30);
 
 const TIPOS: [&str; 2] = ["dossier", "plan"];
 const FORMATOS: [&str; 2] = ["pdf", "md"];
@@ -194,9 +197,46 @@ pub async fn export_document(
     }))
 }
 
+/// URL del estado de los documentos de un veredicto, con el id codificado.
+fn url_del_estado(base: &str, verdict_id: &str) -> String {
+    let ruta = format!("{base}/api/documents/status");
+    match reqwest::Url::parse(&ruta) {
+        Ok(mut url) => {
+            url.query_pairs_mut().append_pair("verdictId", verdict_id);
+            url.to_string()
+        }
+        Err(_) => ruta,
+    }
+}
+
+/// Qué documentos de un veredicto ya están guardados (Fase 2): se abren sin
+/// gastar. El motor no llama a nadie para contestarlo.
+#[tauri::command]
+pub async fn get_documents_status(
+    state: State<'_, AppState>,
+    verdict_id: String,
+) -> RadarResult<serde_json::Value> {
+    let response = with_token_pub(
+        state.http.get(url_del_estado(&sidecar_url(), &verdict_id)).timeout(ESTADO_TIMEOUT),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+    como_json(response, "No se pudo leer el estado de los documentos").await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el_estado_pide_el_veredicto_codificado() {
+        assert_eq!(
+            url_del_estado("http://x", "11111111-1111-1111-1111-111111111111"),
+            "http://x/api/documents/status?verdictId=11111111-1111-1111-1111-111111111111"
+        );
+        assert_eq!(url_del_estado("http://x", "a b&c"), "http://x/api/documents/status?verdictId=a+b%26c");
+    }
 
     fn params(kind: &str, format: &str) -> ExportDocumentParams {
         ExportDocumentParams {

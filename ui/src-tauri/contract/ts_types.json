@@ -196,6 +196,15 @@
       "llmCalls",
       "path"
     ],
+    "SavedByLanguage": [
+      "en",
+      "es"
+    ],
+    "DocumentsStatus": [
+      "dossier",
+      "plan",
+      "verdictId"
+    ],
     "JudgeVersions": [
       "clustering",
       "labeler",

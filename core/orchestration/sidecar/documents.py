@@ -31,6 +31,7 @@ from core.llm.base import JsonGenerator, LLMBudgetExhausted, LLMError
 from .context import SidecarContext
 
 Kind = Literal["dossier", "plan"]
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
 class DocumentRequest(BaseModel):
@@ -93,6 +94,16 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
         raise HTTPException(status_code=409, detail={
             "code": PlanNotRecommended.code,
             "detail": f"El juez dice {detalle['verdict']} ({detalle['rule']})."})
+    almacen = AlmacenDeDocumentos(ctx.carpeta_documentos) if ctx.carpeta_documentos else None
+    # Lo ya guardado se reutiliza ANTES de resolver el modelo (Fase 2): listar
+    # modelos puede llamar a Google y un documento guardado no lo necesita.
+    guardado = next((d for (v, k, idioma, _m, forzado), d in ctx.documentos.items()
+                     if (v, k, idioma, forzado) == (peticion.verdictId, kind, peticion.language, peticion.force)),
+                    None)
+    if guardado is None and almacen is not None:
+        guardado = almacen.buscar(peticion.verdictId, kind, peticion.language, peticion.force)
+    if guardado is not None:
+        return guardado, 0
     try:
         proveedor, modelo = _proveedor(ctx)
     except LLMError as exc:
@@ -100,11 +111,6 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
         raise HTTPException(status_code=estado, detail={"code": exc.code, "detail": str(exc)}) from None
 
     clave = (peticion.verdictId, kind, peticion.language, modelo, peticion.force)
-    almacen = AlmacenDeDocumentos(ctx.carpeta_documentos) if ctx.carpeta_documentos else None
-    guardado = ctx.documentos.get(clave) or (almacen.leer(clave) if almacen else None)
-    if guardado is not None:
-        ctx.documentos[clave] = guardado
-        return guardado, 0
     try:
         generado = generate_document(proveedor, modelo, kind, detalle, peticion.language)
     except LLMBudgetExhausted as exc:
@@ -129,6 +135,21 @@ def _documento(ctx: SidecarContext, kind: Kind, peticion: DocumentRequest
 
 def router(ctx: SidecarContext) -> APIRouter:
     rutas = APIRouter()
+
+    @rutas.get("/api/documents/status")
+    async def document_status(verdictId: str) -> dict[str, Any]:
+        """Si el dossier y el plan de un veredicto ya están guardados, por
+        idioma: se abren sin gastar. No llama a nadie."""
+        if not _UUID.fullmatch(verdictId):
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_verdict_id", "detail": "El identificador del veredicto no es válido."})
+        guardados: set[tuple[str, str]] = set()
+        if ctx.carpeta_documentos:
+            almacen = AlmacenDeDocumentos(ctx.carpeta_documentos)
+            guardados = await asyncio.to_thread(almacen.estado, verdictId)
+        guardados |= {(k, idioma) for (v, k, idioma, _m, _f) in ctx.documentos if v == verdictId}
+        return {"verdictId": verdictId,
+                **{k: {idioma: (k, idioma) in guardados for idioma in ("es", "en")} for k in ("dossier", "plan")}}
 
     @rutas.post("/api/documents/{kind}")
     async def document(kind: Kind, peticion: DocumentRequest) -> Response:

@@ -41,6 +41,7 @@ import {
   type JudgeTop,
   type ExportDocumentParams,
   type ExportedDocument,
+  type DocumentsStatus,
 } from "@/types/radar";
 
 export const ipc = {
@@ -126,6 +127,10 @@ export const ipc = {
    */
   exportDocument: (params: ExportDocumentParams) =>
     invoke<ExportedDocument | null>("export_document", { params }),
+
+  /** [sidecar] Qué documentos de un veredicto ya están guardados (sin gastar). */
+  getDocumentsStatus: (verdictId: string) =>
+    invoke<DocumentsStatus>("get_documents_status", { verdictId }),
 
   /** [sidecar] Evidencia multifuente más reciente, con atribución. */
   getEvidenceFeed: (limit: number | null = null) =>

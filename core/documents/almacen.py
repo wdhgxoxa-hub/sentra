@@ -68,3 +68,34 @@ class AlmacenDeDocumentos:
         except (OSError, ValueError, KeyError, TypeError) as exc:
             logger.error("Documento guardado ilegible en %s: %s", ruta, type(exc).__name__)
             return None
+
+    def _guardados(self) -> list[tuple[float, Clave, Path]]:
+        """(fecha, clave, ruta) de cada documento guardado; los ilegibles no cuentan."""
+        if not self._carpeta.is_dir():
+            return []
+        encontrados = []
+        for ruta in self._carpeta.glob("*.json"):
+            try:
+                clave = json.loads(ruta.read_text("utf-8"))["clave"]
+                encontrados.append((ruta.stat().st_mtime, (str(clave[0]), str(clave[1]), str(clave[2]),
+                                                           str(clave[3]), bool(clave[4])), ruta))
+            except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+                logger.error("Documento guardado ilegible en %s: %s", ruta, type(exc).__name__)
+        return encontrados
+
+    def buscar(self, verdict_id: str, kind: str, language: str, force: bool) -> DocumentModel | None:
+        """El último guardado de ese veredicto, documento, idioma y forzado, con
+        cualquier modelo (Fase 2): se reutiliza sin resolver el modelo, porque
+        listar modelos puede llamar a Google."""
+        candidatos = sorted((c for c in self._guardados()
+                             if c[1][:3] == (verdict_id, kind, language) and c[1][4] == force),
+                            key=lambda c: c[0], reverse=True)
+        for _, clave, _ruta in candidatos:
+            documento = self.leer(clave)
+            if documento is not None:
+                return documento
+        return None
+
+    def estado(self, verdict_id: str) -> set[tuple[str, str]]:
+        """(documento, idioma) ya guardados de un veredicto."""
+        return {(clave[1], clave[2]) for _, clave, _ in self._guardados() if clave[0] == verdict_id}

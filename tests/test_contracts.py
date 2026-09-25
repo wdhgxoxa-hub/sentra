@@ -189,6 +189,12 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.assertEqual(set(veredicto["evidence"][0]), interfaz("JudgeEvidence"))
         self.assertEqual(set(veredicto["evidence"][0]["attribution"]), interfaz("EvidenceAttribution"))
 
+    def test_el_estado_de_los_documentos_entrega_documents_status(self):
+        cuerpo = self.client.get("/api/documents/status", headers=self.cabecera,
+                                 params={"verdictId": "11111111-1111-1111-1111-111111111111"}).json()
+        self.assertEqual(set(cuerpo), interfaz("DocumentsStatus"))
+        self.assertEqual(set(cuerpo["dossier"]), interfaz("SavedByLanguage"))
+
     def test_el_feed_de_evidencia_entrega_evidence_feed(self):
         from unittest import mock
 
