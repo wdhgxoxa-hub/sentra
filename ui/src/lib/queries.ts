@@ -218,10 +218,18 @@ export function useEvidenceFeed(limit: number) {
 }
 
 /** Al terminar, el estado de cada fuente cambió (verificada o en error). */
+/** Estima el gasto de Gemini de un escaneo (mutación: cada estimación da un id nuevo). */
+export function useEstimateScan() {
+  return useMutation({
+    mutationFn: (profile: ScanProfileInput) => ipc.estimateScan(profile),
+  });
+}
+
 export function useTriggerMultiscan() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (profile: ScanProfileInput) => ipc.triggerMultiscan(profile),
+    mutationFn: ({ profile, confirmation }: { profile: ScanProfileInput; confirmation: string }) =>
+      ipc.triggerMultiscan(profile, confirmation),
     onSettled: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
   });
 }

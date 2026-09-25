@@ -30,6 +30,7 @@ import {
   type ProbeResult,
   SOURCES_EVENT_CHANNEL,
   type MultiScanEvent,
+  type ScanEstimate,
   type ScanProfileInput,
   type SourceCard,
   type SidecarStatus,
@@ -107,8 +108,14 @@ export const ipc = {
    * [sidecar] Escaneo multifuente. El progreso llega por `onSourcesEvent`;
    * la promesa devuelve el último evento (`scan:done` o `error`).
    */
-  triggerMultiscan: (profile: ScanProfileInput) =>
-    invoke<MultiScanEvent>("trigger_multiscan", { profile }),
+  triggerMultiscan: (profile: ScanProfileInput, confirmation: string) =>
+    invoke<MultiScanEvent>("trigger_multiscan", { profile, confirmation }),
+
+  /**
+   * [sidecar] Estimación del gasto de Gemini del escaneo y el identificador
+   * que el escaneo exige (un solo uso, caduca): sin confirmarla no se escanea.
+   */
+  estimateScan: (profile: ScanProfileInput) => invoke<ScanEstimate>("estimate_scan", { profile }),
 
   /** [sidecar] Top 6 del juez: de una ejecución o de la última juzgada. */
   getJudgeTop: (runId: string | null = null) => invoke<JudgeTop>("get_judge_top", { runId }),

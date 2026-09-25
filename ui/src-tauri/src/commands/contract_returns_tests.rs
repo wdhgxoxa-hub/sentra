@@ -110,6 +110,29 @@ fn la_configuracion_devuelve_app_settings_y_sus_resumenes() {
 }
 
 #[test]
+fn estimate_scan_devuelve_scan_estimate() {
+    use crate::commands::sources::{Rango, ScanEstimate, ScanEstimateDetail};
+
+    let estimacion = ScanEstimate {
+        confirmation_id: texto(),
+        expires_in_s: 600.0,
+        estimate: ScanEstimateDetail {
+            estimated: true,
+            calls: Rango { min: 0, max: 19 },
+            tokens: Rango { min: 0, max: 475_000 },
+            spent_today: gemini::GeminiSpent { calls: 0, tokens: 0 },
+            left_today: gemini::GeminiSpent { calls: 40, tokens: 1_000_000 },
+            with_history: false,
+            can_scan: true,
+        },
+    };
+    let json = cumple(&estimacion, "ScanEstimate");
+    assert_eq!(claves(&json["estimate"]), claves_ts("ScanEstimateDetail"));
+    assert_eq!(claves(&json["estimate"]["calls"]), claves_ts("EstimateRange"));
+    assert_eq!(claves(&json["estimate"]["leftToday"]), claves_ts("GeminiSpent"));
+}
+
+#[test]
 fn export_document_devuelve_exported_document() {
     cumple(
         &crate::commands::documents::ExportedDocument { path: texto(), llm_calls: Some(1) },

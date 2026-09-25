@@ -23,6 +23,8 @@ pub const SOURCES_EVENT_CHANNEL: &str = "sources:events";
 const TIMEOUT: Duration = Duration::from_secs(30);
 /// «Probar» puede esperar un Retry-After (30 s como mucho) entre reintentos.
 const PROBE_TIMEOUT: Duration = Duration::from_secs(120);
+/// Estimar solo lee llm_usage y los topes: si tarda, algo va mal.
+const ESTIMATE_TIMEOUT: Duration = TIMEOUT;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,9 +93,46 @@ struct ScanProfileBody<'a> {
     languages: &'a [String],
 }
 
+/// El escaneo lleva la confirmacion de su estimacion: sin ella el motor
+/// responde 409 (Fase 1, B4).
 #[derive(Debug, Serialize)]
-struct MultiScanBody<'a> {
+pub struct MultiScanBody<'a> {
     profile: ScanProfileBody<'a>,
+    confirmation: &'a str,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EstimateBody<'a> {
+    profile: ScanProfileBody<'a>,
+}
+
+/// Un rango estimado.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Rango {
+    pub min: u64,
+    pub max: u64,
+}
+
+/// Lo que el motor estima para un escaneo (llamadas y tokens de Gemini).
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanEstimateDetail {
+    pub estimated: bool,
+    pub calls: Rango,
+    pub tokens: Rango,
+    pub spent_today: crate::commands::gemini::GeminiSpent,
+    pub left_today: crate::commands::gemini::GeminiSpent,
+    pub with_history: bool,
+    pub can_scan: bool,
+}
+
+/// Estimacion con el identificador que el escaneo exige.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanEstimate {
+    pub confirmation_id: String,
+    pub expires_in_s: f64,
+    pub estimate: ScanEstimateDetail,
 }
 
 #[derive(Debug, Serialize)]
@@ -210,13 +249,36 @@ pub async fn set_commercial_mode(
     como_json(response, "No se pudo cambiar el modo comercial").await
 }
 
+/// Estimacion del gasto de Gemini del escaneo y su identificador de
+/// confirmacion (un solo uso, caduca). Sin confirmarla no se escanea.
+#[tauri::command]
+pub async fn estimate_scan(
+    state: State<'_, AppState>,
+    profile: ScanProfileParams,
+) -> RadarResult<ScanEstimate> {
+    let response = with_token_pub(
+        state
+            .http
+            .post(format!("{}/api/scan/estimate", sidecar_url()))
+            .timeout(ESTIMATE_TIMEOUT)
+            .json(&cuerpo_de_la_estimacion(&profile)),
+    )
+    .send()
+    .await
+    .map_err(transport_error)?;
+
+    como_json(response, "No se pudo estimar el escaneo").await
+}
+
 /// Escaneo multifuente: reenvía el progreso por `sources:events` y devuelve
-/// el último evento (`scan:done` o `error`).
+/// el último evento (`scan:done` o `error`). Lleva la confirmacion de su
+/// estimacion.
 #[tauri::command]
 pub async fn trigger_multiscan(
     app: AppHandle,
     state: State<'_, AppState>,
     profile: ScanProfileParams,
+    confirmation: String,
 ) -> RadarResult<serde_json::Value> {
     // Sin timeout total (AUD2-025): ni las cabeceras ni el flujo esperan mas
     // de SILENCIO_MAX sin noticias del motor.
@@ -225,7 +287,7 @@ pub async fn trigger_multiscan(
             state
                 .http
                 .post(format!("{}/api/sources/scan/stream", sidecar_url()))
-                .json(&cuerpo_del_escaneo(&profile)),
+                .json(&cuerpo_del_escaneo(&profile, &confirmation)),
         ),
         SILENCIO_MAX,
     )
@@ -239,16 +301,22 @@ pub async fn trigger_multiscan(
     relay_sse(&app, response, SOURCES_EVENT_CHANNEL).await
 }
 
-fn cuerpo_del_escaneo(profile: &ScanProfileParams) -> MultiScanBody<'_> {
-    MultiScanBody {
-        profile: ScanProfileBody {
-            name: &profile.name,
-            keywords: &profile.keywords,
-            discovery: profile.discovery,
-            window_days: profile.window_days,
-            languages: &profile.languages,
-        },
+fn perfil_del_cuerpo(profile: &ScanProfileParams) -> ScanProfileBody<'_> {
+    ScanProfileBody {
+        name: &profile.name,
+        keywords: &profile.keywords,
+        discovery: profile.discovery,
+        window_days: profile.window_days,
+        languages: &profile.languages,
     }
+}
+
+pub fn cuerpo_del_escaneo<'a>(profile: &'a ScanProfileParams, confirmation: &'a str) -> MultiScanBody<'a> {
+    MultiScanBody { profile: perfil_del_cuerpo(profile), confirmation }
+}
+
+pub fn cuerpo_de_la_estimacion(profile: &ScanProfileParams) -> EstimateBody<'_> {
+    EstimateBody { profile: perfil_del_cuerpo(profile) }
 }
 
 #[cfg(test)]
@@ -273,7 +341,7 @@ mod tests {
             window_days: 180,
             languages: vec!["en".into()],
         };
-        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil)).unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
         assert_eq!(cuerpo["profile"]["window_days"], 180);
         assert!(cuerpo["profile"].get("windowDays").is_none());
         assert_eq!(cuerpo["profile"]["keywords"][0], "invoice");

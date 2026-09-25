@@ -1,12 +1,13 @@
-import { Play, Square } from "lucide-react";
+import { Gauge, Play, Square } from "lucide-react";
 import { useState } from "react";
 
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { comoError } from "@/lib/errors";
-import { useCancelScan, useTriggerMultiscan } from "@/lib/queries";
+import { cifrasDeLaEstimacion, sePuedeConfirmar } from "@/lib/estimacion";
+import { useCancelScan, useEstimateScan, useTriggerMultiscan } from "@/lib/queries";
 import { useMultiscanStore } from "@/stores/multiscanStore";
-import { useT } from "@/stores/settingsStore";
-import type { ScanProfileInput, SourceCard, SourceScanSummary } from "@/types/radar";
+import { useSettingsStore, useT } from "@/stores/settingsStore";
+import type { ScanEstimate, ScanProfileInput, SourceCard, SourceScanSummary } from "@/types/radar";
 
 const IDIOMAS = ["en", "es"] as const;
 /** La compuerta G6 mira 180 días; por defecto se trae un año (core/sources/profile.py). */
@@ -28,6 +29,7 @@ function lineaDeFuente(t: ReturnType<typeof useT>, s: SourceScanSummary): string
  */
 export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
   const t = useT();
+  const estimar = useEstimateScan();
   const escanear = useTriggerMultiscan();
   const cancelar = useCancelScan();
   const scan = useMultiscanStore((s) => s.scan);
@@ -39,6 +41,9 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
   const [descubrimiento, setDescubrimiento] = useState(false);
   const [ventana, setVentana] = useState(VENTANA_POR_DEFECTO);
   const [idiomas, setIdiomas] = useState<string[]>([...IDIOMAS]);
+  // Fase 1, B4: el perfil estimado espera confirmación; se escanea ese, no lo
+  // que haya en el formulario al confirmar (la confirmación es de ese perfil).
+  const [pendiente, setPendiente] = useState<{ perfil: ScanProfileInput; estimacion: ScanEstimate } | null>(null);
 
   const palabras = tema.split(",").map((p) => p.trim()).filter(Boolean);
   // Las mismas reglas que valida el motor (ScanProfile): tema o descubrimiento.
@@ -47,7 +52,7 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
     idiomas.length > 0 &&
     ventana >= 1 &&
     descubrimiento !== palabras.length > 0;
-  const enCurso = escanear.isPending || scan.status === "running";
+  const enCurso = estimar.isPending || escanear.isPending || scan.status === "running";
 
   const lanzar = (event: React.FormEvent) => {
     event.preventDefault();
@@ -59,8 +64,20 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
       windowDays: ventana,
       languages: idiomas,
     };
+    // Primero la estimación: sin confirmarla, el motor no escanea.
+    setPendiente(null);
+    estimar.mutate(perfil, { onSuccess: (estimacion) => setPendiente({ perfil, estimacion }) });
+  };
+
+  const confirmar = () => {
+    if (!pendiente) return;
+    const { perfil, estimacion } = pendiente;
+    setPendiente(null);
     reset();
-    escanear.mutate(perfil, { onError: (error) => fail(comoError(error)) });
+    escanear.mutate(
+      { profile: perfil, confirmation: estimacion.confirmationId },
+      { onError: (error) => fail(comoError(error)) },
+    );
   };
 
   const nombreDe = (id: string) => cards.find((c) => c.source === id)?.displayName ?? id;
@@ -140,13 +157,27 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
             className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             <Play className="size-3.5" aria-hidden="true" />
-            {enCurso ? t.sources.scanning : t.sources.scan}
+            {estimar.isPending ? t.sources.estimating : enCurso ? t.sources.scanning : t.sources.scan}
           </button>
         </div>
         {!valido && (nombre !== "" || tema !== "") && (
           <p className="text-xs text-warn sm:col-span-2">{t.sources.profileInvalid}</p>
         )}
       </form>
+
+      {estimar.isError && (
+        <div className="mt-4">
+          <ErrorNotice {...comoError(estimar.error)} />
+        </div>
+      )}
+
+      {pendiente && (
+        <ConfirmacionDeEscaneo
+          estimacion={pendiente.estimacion}
+          onConfirmar={confirmar}
+          onCancelar={() => setPendiente(null)}
+        />
+      )}
 
       {cancelar.isError && (
         <div className="mt-4">
@@ -211,5 +242,66 @@ export function MultiscanPanel({ cards }: { cards: SourceCard[] }) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Antes de escanear (Fase 1, B4): llamadas y tokens estimados de Gemini, lo
+ * gastado hoy y lo que queda. Solo «Confirmar y escanear» escanea; sin
+ * presupuesto hoy no hay botón y el texto dice dónde subirlo.
+ */
+function ConfirmacionDeEscaneo({
+  estimacion,
+  onConfirmar,
+  onCancelar,
+}: {
+  estimacion: ScanEstimate;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  const t = useT();
+  const idioma = useSettingsStore((s) => s.language);
+  const e = estimacion.estimate;
+  const c = cifrasDeLaEstimacion(e, idioma);
+  const puede = sePuedeConfirmar(e);
+  return (
+    <div
+      role="dialog"
+      aria-labelledby="confirmar-escaneo"
+      className="mt-4 flex flex-col gap-2 rounded-lg border border-accent/40 bg-accent-soft/40 p-4 text-xs"
+    >
+      <h4 id="confirmar-escaneo" className="flex items-center gap-2 text-sm font-semibold">
+        <Gauge className="size-4" aria-hidden="true" />
+        {t.sources.confirmTitle}
+      </h4>
+      <p className="text-ink-soft">{t.sources.confirmEstimated}</p>
+      <ul className="flex flex-col gap-1">
+        <li>{t.sources.confirmCalls.replace("{calls}", c.llamadas)}</li>
+        <li>{t.sources.confirmTokens.replace("{tokens}", c.tokens)}</li>
+        <li>{t.sources.confirmSpent.replace("{calls}", c.gastadoLlamadas).replace("{tokens}", c.gastadoTokens)}</li>
+        <li>{t.sources.confirmLeft.replace("{calls}", c.quedaLlamadas).replace("{tokens}", c.quedaTokens)}</li>
+      </ul>
+      <p className="text-ink-soft">{e.withHistory ? t.sources.confirmWithHistory : t.sources.confirmNoHistory}</p>
+      {!puede && <p className="text-warn">{t.sources.confirmNoBudget}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancelar}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-2"
+        >
+          {t.sources.confirmCancel}
+        </button>
+        {puede && (
+          <button
+            type="button"
+            onClick={onConfirmar}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition-colors hover:bg-accent-hover"
+          >
+            <Play className="size-3.5" aria-hidden="true" />
+            {t.sources.confirmScan}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

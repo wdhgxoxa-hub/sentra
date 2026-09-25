@@ -87,6 +87,19 @@ class TestConfirmacionObligatoria(ConfigTestCase):
         self.assertEqual(estimacion["spentToday"], {"calls": 0, "tokens": 0})
         self.assertEqual(estimacion["leftToday"], {"calls": 40, "tokens": 1_000_000})
 
+    def test_la_estimacion_cumple_el_tipo_de_la_interfaz(self):
+        # Contrato Python → TS (ts_types.json lo genera el compilador de TypeScript).
+        import json
+        from pathlib import Path
+
+        tipos = json.loads((Path(__file__).resolve().parents[1] / "ui" / "src-tauri" / "contract"
+                            / "ts_types.json").read_text("utf-8"))["interfaces"]
+        cuerpo = self.estimar()
+        self.assertEqual(set(cuerpo), set(tipos["ScanEstimate"]))
+        self.assertEqual(set(cuerpo["estimate"]), set(tipos["ScanEstimateDetail"]))
+        self.assertEqual(set(cuerpo["estimate"]["calls"]), set(tipos["EstimateRange"]))
+        self.assertEqual(set(cuerpo["estimate"]["spentToday"]), set(tipos["GeminiSpent"]))
+
     def test_sin_confirmacion_no_se_escanea(self):
         respuesta = self.escanear(None)
         self.assertEqual((respuesta.status_code, respuesta.json()["detail"]["code"]),

@@ -228,6 +228,15 @@ export function JudgePanel() {
       {juez.status === "done" && juez.summary?.llm.unavailable && (
         <ErrorNotice code={juez.summary.llm.unavailable} detail={juez.summary.llm.unavailable} tone="warn" />
       )}
+      {/* Fase 1, B4: un tope de Gemini cortó el juez; el texto dice cuál y dónde subirlo. */}
+      {juez.status === "done" && juez.summary?.llm.stopReason && (
+        <ErrorNotice
+          code={juez.summary.llm.stopReason}
+          detail={juez.summary.llm.stopReason}
+          title={t.judge.stoppedByCap}
+          tone="warn"
+        />
+      )}
 
       {top.isPending && <p className="text-sm text-ink-faint">{t.judge.loading}</p>}
       {top.isError && <ErrorNotice {...comoError(top.error)} title={t.judge.unreachable} />}

@@ -116,6 +116,7 @@ pub fn run() {
             commands::sources::probe_source,
             commands::sources::set_source_enabled,
             commands::sources::set_commercial_mode,
+            commands::sources::estimate_scan,
             commands::sources::trigger_multiscan,
             // Juez de nichos (F3)
             commands::judge::get_judge_top,

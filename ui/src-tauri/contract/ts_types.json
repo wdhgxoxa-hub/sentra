@@ -253,6 +253,24 @@
       "scanMaxTokens",
       "spentToday"
     ],
+    "EstimateRange": [
+      "max",
+      "min"
+    ],
+    "ScanEstimateDetail": [
+      "calls",
+      "canScan",
+      "estimated",
+      "leftToday",
+      "spentToday",
+      "tokens",
+      "withHistory"
+    ],
+    "ScanEstimate": [
+      "confirmationId",
+      "estimate",
+      "expiresInS"
+    ],
     "DatabaseStatus": [
       "code",
       "connected",

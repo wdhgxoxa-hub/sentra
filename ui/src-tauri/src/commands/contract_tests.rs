@@ -110,6 +110,36 @@ fn trigger_multiscan_recibe_el_perfil_en_camel_case() {
 }
 
 #[test]
+fn trigger_multiscan_recibe_la_confirmacion_y_la_reenvia_al_motor() {
+    use crate::commands::sources::{cuerpo_del_escaneo, ScanProfileParams};
+
+    // ipc.ts -> invoke("trigger_multiscan", { profile, confirmation })
+    let payload = json!({
+        "profile": { "name": "f", "keywords": ["invoice"], "discovery": false,
+                     "windowDays": 365, "languages": ["en"] },
+        "confirmation": "abc123"
+    });
+    let perfil: ScanProfileParams = argumento(&payload, "profile");
+    let confirmacion: String = argumento(&payload, "confirmation");
+    let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, &confirmacion)).unwrap();
+    assert_eq!(cuerpo["confirmation"], "abc123");
+    assert_eq!(cuerpo["profile"]["window_days"], 365);
+}
+
+#[test]
+fn estimate_scan_recibe_el_perfil() {
+    use crate::commands::sources::{cuerpo_de_la_estimacion, ScanProfileParams};
+
+    // ipc.ts -> invoke("estimate_scan", { profile })
+    let payload = json!({ "profile": { "name": "f", "keywords": ["invoice"], "discovery": false,
+                                        "windowDays": 180, "languages": ["es"] } });
+    let perfil: ScanProfileParams = argumento(&payload, "profile");
+    let cuerpo = serde_json::to_value(cuerpo_de_la_estimacion(&perfil)).unwrap();
+    assert_eq!(cuerpo, json!({ "profile": { "name": "f", "keywords": ["invoice"], "discovery": false,
+                                             "window_days": 180, "languages": ["es"] } }));
+}
+
+#[test]
 fn save_source_credentials_recibe_los_valores_por_campo() {
     use std::collections::BTreeMap;
 

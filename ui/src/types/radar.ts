@@ -260,7 +260,8 @@ export interface JudgeSummary {
   undetermined: Record<string, number>;
   clusters: number;
   verdicts: Record<string, number>;
-  llm: { model: string | null; unavailable: string | null; calls: number };
+  /** stopReason: el tope de Gemini que cortó el juez (tope_escaneo_llamadas...), o null. */
+  llm: { model: string | null; unavailable: string | null; calls: number; stopReason: string | null };
 }
 
 export const SOURCES_EVENT_CHANNEL = "sources:events";
@@ -462,6 +463,33 @@ export interface GeminiBudget {
   dailyMaxCalls: number;
   dailyMaxTokens: number;
   spentToday: GeminiSpent;
+}
+
+/** Un rango estimado (antes de escanear no se sabe cuánto pasará el filtro). */
+export interface EstimateRange {
+  min: number;
+  max: number;
+}
+
+/** Lo que el motor estima para un escaneo (/api/scan/estimate). */
+export interface ScanEstimateDetail {
+  /** Siempre true: son estimaciones, no mediciones. */
+  estimated: boolean;
+  calls: EstimateRange;
+  tokens: EstimateRange;
+  spentToday: GeminiSpent;
+  leftToday: GeminiSpent;
+  /** Si los tokens salen de medias reales de llm_usage o del techo medido. */
+  withHistory: boolean;
+  /** False si hoy no queda presupuesto: no se puede confirmar. */
+  canScan: boolean;
+}
+
+/** Estimación con el identificador que el escaneo exige (un solo uso, caduca). */
+export interface ScanEstimate {
+  confirmationId: string;
+  expiresInS: number;
+  estimate: ScanEstimateDetail;
 }
 
 /** Conexión con PostgreSQL (D-F): sin ella la app arranca y lo dice. */
