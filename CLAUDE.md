@@ -131,11 +131,27 @@ prueba de humo del exe real (`python -m tests.humo_exe`).
   INVESTIGAR MÁS (regla 9), re-juicio `01a0d5a3-0dc2-7ec8-afbe-a94a28314550`.
 - Última ejecución `01a0d5d0-f8a1-736c-896d-3651c7b39afc` (perfil «Cobros
   freelance», tema solo «facturas impagadas», idiomas es/en): 470 piezas
-  (463 distintas por contenido): YouTube 419, Bluesky 44, Mastodon 6, GitHub 1;
-  HN, Stack Exchange, Discourse y Product Hunt 0. 434 sin idioma, 33 es, 1 en.
+  traídas: YouTube 419, Bluesky 44, Mastodon 6, GitHub 1; HN, Stack Exchange,
+  Discourse y Product Hunt 0. 434 sin idioma, 33 es, 1 en. Todas las consultas
+  salieron en español (`sidecar.log`).
   38 etiquetadas → 1 dolor → 0 grupos, 0 veredictos. `pipeline_runs.filtered_in`
   quedó en 0 aunque 38 se etiquetaron. Esa ejecución gastó 2 llamadas de
   Gemini (`gemini-3.8-flash`, en `sidecar.log`).
+  - **Únicos: 455.** Es lo que enseña la app («{canonical} únicos»,
+    `ui/src/i18n/es.ts:286`): 470 − 15 duplicados de `evidence_duplicates`
+    (7 por huella de texto, 8 por embedding ≥ 0,95, `core/sources/dedup.py:34`).
+    Contando solo `content_hash` distintos salen 463: es otro criterio.
+  - **YouTube se paró por su tope de 500 ítems**, no por unidades (usó 318
+    de 2 000 y 21 de 200 peticiones). 13 vídeos distintos = 419 comentarios
+    guardados; 2 vídeos se releyeron (50 + 31 ítems) y 419 + 50 + 31 = 500.
+    Causas: `SourceAdapter._item` (`core/sources/base.py:283`) cobra el ítem
+    antes de que YouTube descarte el repetido (`core/sources/youtube.py:128`),
+    así que los duplicados gastan presupuesto (81 de 500). El motivo de
+    parada solo viaja en el evento `scan:done` a la interfaz
+    (`core/orchestration/sidecar/multiscan.py:249`); no se guarda en la base.
+  - **El Radar enseña la última ejecución juzgada aunque no tenga nichos**
+    (`core/judge/store.py:123`): desde este escaneo el nicho de impagos no se
+    ve en el Radar (humo: «Top 0+0»).
 
 ## Presupuesto de Gemini: cómo funciona de verdad
 
