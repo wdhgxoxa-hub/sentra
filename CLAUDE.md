@@ -219,8 +219,12 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
   facturas impagadas», INVESTIGAR MÁS por la regla 9, 9 personas; 3 descartados)
   y avisa de que la del 24-09 18:47 («Cobros freelance») no formó nichos. Su
   dossier está guardado en `%LOCALAPPDATA%\SENTRA\documentos` (se abre sin gastar).
-- Hallazgo sin arreglar: el adaptador de Mastodon guarda como «URL del original»
-  la de la API (`/api/v1/statuses/{id}`), no la del mensaje público.
+- Mastodon: desde e6c5b95 el adaptador guarda la dirección pública del mensaje
+  (`https://<instancia>/statuses/<id>`, sin @usuario). Las 223 piezas anteriores
+  siguen con la de la API: su corrección está ensayada (respaldo
+  `pre_mastodon_url.dump`) y espera la aprobación de Walter.
+- Fase 3 preparada (rama `fase3/preparacion`): `docs/fase3/GUIA.md`,
+  `REGISTRO.md` y `TEMAS.md`. Los escaneos los lanza Walter.
 
 ## Pendiente (Walter aprueba cada fase)
 
