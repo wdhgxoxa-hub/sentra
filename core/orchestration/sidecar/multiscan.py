@@ -24,6 +24,7 @@ from core.llm.control import ControlDeGemini
 from core.llm.estimacion import Estimacion, estimar
 from core.sources import http as fuentes_http
 from core.sources.catalog import SOURCES
+from core.sources.encaje import fuentes_omitidas
 from core.sources.persist import persist_multiscan, record_source_outcomes
 from core.sources.profile import ScanProfile
 from core.sources.registry import active_sources, credentials_for
@@ -260,6 +261,8 @@ def router(ctx: SidecarContext) -> APIRouter:
                 "withHistory": e.con_historial,
                 "canScan": e.puede_escanear,
             },
+            # Medida B (Fase 3): qué fuentes no se consultarán y por qué.
+            "omittedSources": fuentes_omitidas(request.profile, [f.id for f in SOURCES]),
         }
 
     @rutas.post("/api/scan/cancel", response_model=CancelResponse)
@@ -297,6 +300,9 @@ def router(ctx: SidecarContext) -> APIRouter:
                 detalle = await asyncio.to_thread(pending_detail, ctx)
                 yield _sse({"type": "error", "code": "migrations_pending", "message": detalle})
                 return
+            # Medida B (Fase 3): lo que no encaja con el tema no se consulta y se dice.
+            omitidas = fuentes_omitidas(perfil, [f.id for f in activas])
+            activas = [f for f in activas if f.id not in omitidas]
             if not activas:
                 yield _sse({"type": "error", "code": "no_active_sources",
                             "message": "No hay ninguna fuente activa."})
@@ -328,7 +334,7 @@ def router(ctx: SidecarContext) -> APIRouter:
                         resultado = await run_multisource_scan(
                             adaptadores, perfil.to_query(), on_event=cola.put_nowait,
                             embed=vectores.embed if vectores else None,
-                            should_stop=lambda: scan_id in ctx.cancelled_runs)
+                            should_stop=lambda: scan_id in ctx.cancelled_runs, omitidas=omitidas)
                     await asyncio.to_thread(record_source_outcomes, ctx.sources_state,
                                             resultado.per_source)
                     error = error_persistencia
@@ -350,7 +356,7 @@ def router(ctx: SidecarContext) -> APIRouter:
                         try:
                             resumen = await asyncio.to_thread(
                                 functools.partial(_juzgar, ctx, run_id, resultado, tema=perfil.keywords,
-                                                  descripcion=perfil.name))
+                                                  descripcion=perfil.topic or perfil.name))
                             cola.put_nowait({"type": "judge:done", "runId": run_id,
                                              "summary": resumen})
                         # El escaneo ya está guardado: un fallo del juez se cuenta, no lo tumba.

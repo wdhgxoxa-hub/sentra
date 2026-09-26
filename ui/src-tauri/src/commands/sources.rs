@@ -77,6 +77,15 @@ pub struct SourceProbeResult {
 #[serde(rename_all = "camelCase")]
 pub struct ScanProfileParams {
     pub name: String,
+    /// El tema tal como lo escribio la persona (Fase 3): lo recibe el etiquetador.
+    #[serde(default)]
+    pub topic: String,
+    /// Tipo de tema de la propuesta de Gemini (Fase 3, medida B); sin el, no se omite ninguna fuente.
+    #[serde(default)]
+    pub topic_kind: Option<String>,
+    /// Sitios por fuente, p. ej. `{ "stackexchange": ["money"] }` (Fase 3, medida B).
+    #[serde(default)]
+    pub targets: BTreeMap<String, Vec<String>>,
     pub keywords: Vec<String>,
     /// Idioma de cada palabra según el asistente (Fase 3); vacío en perfiles antiguos.
     #[serde(default)]
@@ -90,6 +99,12 @@ pub struct ScanProfileParams {
 #[derive(Debug, Serialize)]
 struct ScanProfileBody<'a> {
     name: &'a str,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    topic: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    topic_kind: Option<&'a str>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    targets: &'a BTreeMap<String, Vec<String>>,
     keywords: &'a [String],
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     keyword_languages: &'a BTreeMap<String, String>,
@@ -138,6 +153,9 @@ pub struct ScanEstimate {
     pub confirmation_id: String,
     pub expires_in_s: f64,
     pub estimate: ScanEstimateDetail,
+    /// Fuentes que no se consultaran porque no encajan con el tema, con su motivo (Fase 3, medida B).
+    #[serde(default)]
+    pub omitted_sources: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -309,6 +327,9 @@ pub async fn trigger_multiscan(
 fn perfil_del_cuerpo(profile: &ScanProfileParams) -> ScanProfileBody<'_> {
     ScanProfileBody {
         name: &profile.name,
+        topic: &profile.topic,
+        topic_kind: profile.topic_kind.as_deref(),
+        targets: &profile.targets,
         keywords: &profile.keywords,
         keyword_languages: &profile.keyword_languages,
         discovery: profile.discovery,
@@ -342,6 +363,9 @@ mod tests {
     fn el_perfil_viaja_al_sidecar_en_snake_case() {
         let perfil = ScanProfileParams {
             name: "facturas".into(),
+            topic: String::new(),
+            topic_kind: None,
+            targets: BTreeMap::new(),
             keywords: vec!["invoice".into()],
             keyword_languages: BTreeMap::new(),
             discovery: false,
@@ -352,5 +376,33 @@ mod tests {
         assert_eq!(cuerpo["profile"]["window_days"], 180);
         assert!(cuerpo["profile"].get("windowDays").is_none());
         assert_eq!(cuerpo["profile"]["keywords"][0], "invoice");
+    }
+
+    #[test]
+    fn el_tema_su_tipo_y_los_sitios_viajan_al_sidecar() {
+        // Fase 3, medida B: sin ellos el motor no sabe qué fuentes encajan.
+        let perfil: ScanProfileParams = serde_json::from_value(serde_json::json!({
+            "name": "documentos", "keywords": ["documentos contabilidad"], "discovery": false,
+            "windowDays": 365, "languages": ["es"],
+            "topic": "Perseguir a los clientes para que manden sus documentos al contable",
+            "topicKind": "otro", "targets": {"stackexchange": ["money"]}
+        }))
+        .unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
+        assert_eq!(cuerpo["profile"]["topic"], "Perseguir a los clientes para que manden sus documentos al contable");
+        assert_eq!(cuerpo["profile"]["topic_kind"], "otro");
+        assert_eq!(cuerpo["profile"]["targets"]["stackexchange"][0], "money");
+    }
+
+    #[test]
+    fn sin_tema_ni_tipo_ni_sitios_no_se_envian() {
+        let perfil: ScanProfileParams = serde_json::from_value(serde_json::json!({
+            "name": "facturas", "keywords": ["invoice"], "discovery": false, "windowDays": 180, "languages": ["en"]
+        }))
+        .unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
+        for campo in ["topic", "topic_kind", "targets"] {
+            assert!(cuerpo["profile"].get(campo).is_none(), "{campo}");
+        }
     }
 }

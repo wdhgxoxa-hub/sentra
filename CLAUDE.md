@@ -78,6 +78,15 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   asistente (`keyword_languages`). Ventana por defecto: 1 año.
 - Cómo terminó cada fuente en cada ejecución (motivo de parada incluido):
   `run_source_outcomes` (migración 018).
+- **Fuentes según el tipo de tema (Fase 3, medida B de Walter).** El perfil
+  lleva el tema completo (`topic`), su tipo (`topic_kind`: software | otro)
+  y los sitios de Stack Exchange (`targets.stackexchange`, del catálogo
+  cerrado `core/sources/sitios_stackexchange.py`). `core/sources/encaje.py`:
+  GitHub solo en temas de software; Stack Exchange solo con un sitio
+  adecuado. Lo omitido no se consulta y queda en `run_source_outcomes` con
+  `stop_reason = omitida:<motivo>` (sin migración); lo dicen la estimación
+  (`omittedSources`) y el resultado (`skippedSources`). Sin tipo (sin Gemini,
+  descubrimiento) no se omite nada.
 - **D-M12 · Dirección del original con el DID (Walter, 2026-09-25).** Sigue a
   D-M1…D-M11 de `tasks/SPEC-multifuente.md`. R5 gana solo para el enlace: la
   dirección se guarda completa (la de Bluesky lleva el DID; sin ella no se

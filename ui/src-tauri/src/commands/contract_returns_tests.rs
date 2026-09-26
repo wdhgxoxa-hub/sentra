@@ -125,6 +125,7 @@ fn estimate_scan_devuelve_scan_estimate() {
             with_history: false,
             can_scan: true,
         },
+        omitted_sources: [("github".to_string(), "omitida:no_es_software".to_string())].into(),
     };
     let json = cumple(&estimacion, "ScanEstimate");
     assert_eq!(claves(&json["estimate"]), claves_ts("ScanEstimateDetail"));

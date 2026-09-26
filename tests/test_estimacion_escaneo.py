@@ -100,6 +100,12 @@ class TestConfirmacionObligatoria(ConfigTestCase):
         self.assertEqual(set(cuerpo["estimate"]["calls"]), set(tipos["EstimateRange"]))
         self.assertEqual(set(cuerpo["estimate"]["spentToday"]), set(tipos["GeminiSpent"]))
 
+    def test_la_estimacion_dice_que_fuentes_no_encajan_con_el_tema(self):
+        """Medida B (Fase 3): antes de escanear, qué no se consultará y por qué."""
+        self.assertEqual(self.estimar()["omittedSources"], {})
+        otro = self.estimar({**PERFIL, "topic_kind": "otro", "targets": {"stackexchange": ["money"]}})
+        self.assertEqual(otro["omittedSources"], {"github": "omitida:no_es_software"})
+
     def test_sin_confirmacion_no_se_escanea(self):
         respuesta = self.escanear(None)
         self.assertEqual((respuesta.status_code, respuesta.json()["detail"]["code"]),

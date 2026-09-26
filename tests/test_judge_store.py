@@ -243,6 +243,26 @@ class TestPersistenciaDelJuez(unittest.TestCase):
                          {"youtube": 500, "mastodon": 11, "hackernews": 0})
         self.assertEqual(self.run_store(lambda store: run_overview(store, sin_filas))["sources"], {})
 
+    def test_el_resumen_separa_las_fuentes_omitidas_con_su_motivo(self):
+        """Medida B (Fase 3): una fuente que no encajaba con el tema no aportó 0
+        piezas: no se consultó, y el resultado lo dice con su motivo."""
+        from core.judge.store import run_overview
+
+        async def guardar(store):
+            run = await store.start_run("omitidas", trigger_source="multifuente", data_source="real")
+            for fuente, piezas, motivo in (("mastodon", 11, None), ("github", 0, "omitida:no_es_software")):
+                await store._fetchone_returning(
+                    "INSERT INTO run_source_outcomes (tenant_id, run_id, source, status, stop_reason, items,"
+                    " requests, units, usd) VALUES (%s, %s, %s, 'done', %s, %s, 0, 0, 0) RETURNING run_id",
+                    (store.tenant_id, run, fuente, motivo, piezas))
+            await store.connection.commit()
+            return run
+
+        run = self.run_store(guardar)
+        resumen = self.run_store(lambda store: run_overview(store, run))
+        self.assertEqual(resumen["sources"], {"mastodon": 11})
+        self.assertEqual(resumen["skipped_sources"], {"github": "no_es_software"})
+
     def test_la_prueba_de_humo_cuenta_los_veredictos_de_la_ultima_juzgada_como_la_app(self):
         """El humo tiene que esperar lo mismo que pinta la app (`leer_radar`):
         antes esperaba los de una ejecución y la app pintaba los de otra."""

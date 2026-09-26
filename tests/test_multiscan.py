@@ -92,6 +92,15 @@ class TestParalelo(unittest.IsolatedAsyncioTestCase):
         self.assertIn(("source:error", "rota"), tipos)
         self.assertIn(("source:done", "buena"), tipos)
 
+    async def test_una_fuente_omitida_consta_con_su_motivo_y_sin_peticiones(self):
+        """Medida B (Fase 3): lo que no encaja con el tema no se consulta y se dice."""
+        resultado = await run_multisource_scan([fuente(Buena)], QUERY,
+                                               omitidas={"github": "omitida:no_es_software"})
+        github = resultado.per_source["github"]
+        self.assertEqual((github.status, github.stop_reason, github.items, github.requests),
+                         ("done", "omitida:no_es_software", 0, 0))
+        self.assertEqual(resultado.per_source["buena"].status, "done")
+
     async def test_un_presupuesto_agotado_termina_la_fuente_sin_fallarla(self):
         resultado = await run_multisource_scan([fuente(Buena, max_items=1)], QUERY)
         estado = resultado.per_source["buena"]

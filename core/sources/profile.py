@@ -28,6 +28,7 @@ from .phrases import (
     idioma_de_frase,
     phrases_for,
 )
+from .sitios_stackexchange import SITIOS, sitio_de
 
 #: Ventana por defecto: la compuerta G6 mira los últimos 180 días.
 DEFAULT_WINDOW_DAYS = 365
@@ -35,6 +36,11 @@ DEFAULT_WINDOW_DAYS = 365
 
 class ScanProfile(BaseModel):
     name: str
+    #: El tema tal como lo escribió la persona (Fase 3): lo recibe el etiquetador.
+    topic: str = Field(default="", max_length=200)
+    #: Tipo de tema (Fase 3, medida B), de la propuesta de Gemini; None = no se sabe
+    #: (sin Gemini o antiguo) y entonces no se omite ninguna fuente.
+    topic_kind: Literal["software", "otro"] | None = None
     keywords: list[str] = Field(default_factory=list)
     #: El idioma de cada palabra según el asistente (la fila donde la puso la
     #: persona). Sin él, se adivina con `idioma_de`.
@@ -62,6 +68,9 @@ class ScanProfile(BaseModel):
         ajenas = set(self.keyword_languages) - set(self.keywords)
         if ajenas:
             raise ValueError(f"idioma de palabras que no están en el perfil: {sorted(ajenas)}")
+        desconocidos = {sitio_de(o) for o in self.targets.get("stackexchange", [])} - set(SITIOS)
+        if desconocidos:
+            raise ValueError(f"sitios de Stack Exchange fuera del catálogo: {sorted(desconocidos)}")
         return self
 
     def to_query(self, now: datetime | None = None) -> SearchQuery:

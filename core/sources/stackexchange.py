@@ -44,6 +44,7 @@ from .errors import (
     SourceUnavailable,
 )
 from .profile import term_pairs
+from .sitios_stackexchange import SITIOS
 from .text import html_to_text
 
 API = "https://api.stackexchange.com/2.3"
@@ -59,16 +60,8 @@ IDENTICAL_REQUEST_WINDOW_S = 60.0
 #: Un throttle_violation banea de 30 s a unos minutos: no se reintenta dentro del escaneo.
 THROTTLE_BAN_S = 60.0
 
-#: Nombre visible de los sitios más habituales; el resto, por el dominio del enlace.
-SITE_NAMES: dict[str, str] = {
-    "stackoverflow": "Stack Overflow",
-    "superuser": "Super User",
-    "serverfault": "Server Fault",
-    "askubuntu": "Ask Ubuntu",
-    "softwareengineering": "Software Engineering",
-    "webapps": "Web Applications",
-    "es.stackoverflow": "Stack Overflow en español",
-}
+#: Nombre visible de cada sitio del catálogo; el resto, por el dominio del enlace.
+SITE_NAMES: dict[str, str] = SITIOS
 
 #: Respuestas recientes por petición (sin la clave): compartidas entre escaneos.
 _RECIENTES: dict[str, tuple[float, Any]] = {}

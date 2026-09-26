@@ -19,7 +19,7 @@ const escaneo = (cambios: Partial<ResultadoDeEscaneo["escaneo"]> = {}): Resultad
   runId: "r", name: "Facturas", startedAt: "2026-09-25T10:00:00-05:00",
   keywords: ["facturas impagadas", "cliente no paga", "reclamar pago", "unpaid invoices", "chasing payments",
     "late payment"],
-  languages: ["es", "en"], fetched: 96, verdicts: 0, niches: 0, summary: resumen, stopReason: null, sources: {},
+  languages: ["es", "en"], fetched: 96, verdicts: 0, niches: 0, summary: resumen, stopReason: null, sources: {}, skippedSources: {},
   ...cambios,
 });
 

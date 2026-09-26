@@ -10,7 +10,7 @@ import { avisoDelUltimoEscaneo } from "./radar.ts";
 
 const escaneo = (runId: string, name: string, startedAt: string) => ({
   runId, name, startedAt, keywords: [], languages: [], fetched: 0, verdicts: 0, niches: 0,
-  summary: null, stopReason: null, sources: {},
+  summary: null, stopReason: null, sources: {}, skippedSources: {},
 });
 
 const conNicho = escaneo("a", "Facturas", "2026-09-24T17:56:00-05:00");

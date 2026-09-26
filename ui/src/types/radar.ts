@@ -199,6 +199,12 @@ export interface ProblemName {
 /** Perfil de escaneo (core/sources/profile.py). Sin tema = descubrimiento. */
 export interface ScanProfileInput {
   name: string;
+  /** El tema tal como lo escribió la persona: lo recibe el etiquetador (Fase 3). */
+  topic?: string;
+  /** Tipo de tema según la propuesta de Gemini; sin él no se omite ninguna fuente (Fase 3). */
+  topicKind?: "software" | "otro" | null;
+  /** Sitios de Stack Exchange adecuados al tema: { stackexchange: ["money"] } (Fase 3). */
+  targets?: Record<string, string[]>;
   keywords: string[];
   /** Idioma de cada palabra según la fila del asistente (Fase 3); sin él, el motor adivina. */
   keywordLanguages?: Record<string, "es" | "en">;
@@ -436,6 +442,8 @@ export interface RunOverview {
   stopReason: string | null;
   /** Piezas que trajo cada fuente (vacío antes de la migración 018). */
   sources: Record<string, number>;
+  /** Fuentes que no se consultaron porque no encajaban con el tema, con su motivo (Fase 3). */
+  skippedSources: Record<string, string>;
 }
 
 export interface JudgeTop {
@@ -550,6 +558,8 @@ export interface ScanEstimate {
   confirmationId: string;
   expiresInS: number;
   estimate: ScanEstimateDetail;
+  /** Fuentes que no se consultarán porque no encajan con el tema, con su motivo (Fase 3, medida B). */
+  omittedSources: Record<string, string>;
 }
 
 /** Conexión con PostgreSQL (D-F): sin ella la app arranca y lo dice. */

@@ -132,12 +132,17 @@ async def run_multisource_scan(
     embed: Embedder | None = None,
     should_stop: StopCheck | None = None,
     cupo: int = CUPO_POR_ESCANEO,
+    omitidas: Mapping[str, str] | None = None,
 ) -> MultiScanResult:
     """Escanea todas las fuentes a la vez y deduplica lo que traen.
 
     `should_stop` se consulta tras cada ítem: cancelar es cooperativo, para
     que lo ya traído llegue a guardarse. Las fuentes comparten el `cupo` de
     piezas del escaneo y ninguna pasa de su mitad (CupoDelEscaneo).
+
+    `omitidas` ({fuente: motivo}, medida B de la Fase 3): las que no encajan con el
+    tema. No se consultan (no están en `fuentes`) y constan con su motivo y 0
+    peticiones.
     """
     compartido = CupoDelEscaneo(total=cupo)
     for fuente in fuentes:
@@ -149,6 +154,8 @@ async def run_multisource_scan(
     for progreso, items in resultados:
         resultado.per_source[progreso.source] = progreso
         todos.extend(items)
+    for omitida, motivo in (omitidas or {}).items():
+        resultado.per_source[omitida] = SourceProgress(omitida, status="done", stop_reason=motivo)
     # En un hilo: e5-large tarda segundos y bloquearía el bucle del sidecar.
     vectores = await asyncio.to_thread(embed, todos) if embed is not None and todos else {}
     limpio = deduplicate(todos, vectores)

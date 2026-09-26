@@ -28,6 +28,7 @@ from psycopg.rows import dict_row
 
 from core.privacidad import ocultar_identificadores
 from core.sources.attribution import attribution_fields
+from core.sources.encaje import PREFIJO as PREFIJO_OMITIDA
 from core.storage.identity import Previo
 from core.storage.postgres_store import DEFAULT_TENANT_ID, SCHEMA_OPTIONS
 
@@ -200,15 +201,19 @@ async def run_overview(store: PostgresStore, run_id: str) -> dict[str, Any] | No
     # Piezas que trajo cada fuente (migración 018): el resultado avisa si una
     # sola aporta más de la mitad (Fase 3). Escaneos anteriores: sin filas.
     por_fuente = await store._fetchall(
-        "SELECT source, items FROM run_source_outcomes WHERE tenant_id = %s AND run_id = %s ORDER BY source",
-        (store.tenant_id, run_id))
+        "SELECT source, items, stop_reason FROM run_source_outcomes WHERE tenant_id = %s AND run_id = %s"
+        " ORDER BY source", (store.tenant_id, run_id))
+    # Medida B (Fase 3): una fuente omitida no aportó 0 piezas; no se consultó.
+    omitidas = {f["source"]: f["stop_reason"].removeprefix(PREFIJO_OMITIDA) for f in por_fuente
+                if (f["stop_reason"] or "").startswith(PREFIJO_OMITIDA)}
     parametros = fila["parameters"] or {}
     return {"run_id": fila["run_id"], "name": fila["name"], "started_at": fila["started_at"].isoformat(),
             "keywords": list(parametros.get("keywords") or []),
             "languages": list(parametros.get("languages") or []),
             "fetched": fila["fetched"], "verdicts": fila["verdicts"], "niches": fila["niches"],
             "summary": fila["summary"], "stop_reason": fila["stop_reason"],
-            "sources": {f["source"]: f["items"] for f in por_fuente}}
+            "sources": {f["source"]: f["items"] for f in por_fuente if f["source"] not in omitidas},
+            "skipped_sources": omitidas}
 
 
 async def leer_radar(store: PostgresStore, run_id: str | None) -> dict[str, Any]:

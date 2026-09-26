@@ -103,6 +103,9 @@
       "keywords",
       "languages",
       "name",
+      "targets",
+      "topic",
+      "topicKind",
       "windowDays"
     ],
     "SourceScanSummary": [
@@ -227,6 +230,7 @@
       "name",
       "niches",
       "runId",
+      "skippedSources",
       "sources",
       "startedAt",
       "stopReason",
@@ -305,7 +309,8 @@
     "ScanEstimate": [
       "confirmationId",
       "estimate",
-      "expiresInS"
+      "expiresInS",
+      "omittedSources"
     ],
     "DatabaseStatus": [
       "code",
