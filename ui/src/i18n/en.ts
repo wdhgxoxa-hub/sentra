@@ -410,6 +410,8 @@ export const en: Dictionary = {
     unidades: "{n} text units",
     queSonUnidades: "Gemini charges for the text units it reads and writes.",
     algoFallo: "Something went wrong. You can try again.",
+    copiarDireccion: "Copy address",
+    direccionCopiada: "Copied",
   },
 
   modos: {

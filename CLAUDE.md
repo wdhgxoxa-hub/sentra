@@ -78,6 +78,19 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   asistente (`keyword_languages`). Ventana por defecto: 1 año.
 - Cómo terminó cada fuente en cada ejecución (motivo de parada incluido):
   `run_source_outcomes` (migración 018).
+- **D-M12 · Dirección del original con el DID (Walter, 2026-09-25).** Sigue a
+  D-M1…D-M11 de `tasks/SPEC-multifuente.md`. R5 gana solo para el enlace: la
+  dirección se guarda completa (la de Bluesky lleva el DID; sin ella no se
+  verifica la evidencia), pero el DID nunca se ve como texto en ninguna
+  pantalla ni documento (R9).
+  - Pantalla: se ve `direccionVisible` (`bsky.app/profile/…/post/<id>`) y
+    «Copiar dirección» lleva la completa en `data-destino`.
+  - Documentos: Markdown `[visible](completa)` y PDF `<a href>`. Todo texto
+    pintado oculta DID y at:// (`core/privacidad.py`), también lo guardado antes
+    de los alias, que no se reescribe (decisión de Walter).
+  - Guardia: el humo busca identificadores en el texto visible de cada pantalla
+    («Ver detalle» abiertos, texto ajeno incluido) sin excepción para las
+    direcciones; el destino de un botón no es texto.
 
 ## Reglas del juez ya decididas (no se cambian sin aprobación)
 

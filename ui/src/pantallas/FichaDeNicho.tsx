@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { BotonSecundario, VerDetalle } from "@/components/comunes/Comunes";
+import { DireccionDelOriginal } from "@/components/DireccionDelOriginal";
 import { DocumentosDelNicho } from "@/components/nicho/DocumentosDelNicho";
 import { porQueDelNicho, Veredicto } from "@/components/nicho/TarjetaDeNicho";
 import type { Modo, NichoEnPantalla } from "@/modos/tipos";
@@ -57,12 +58,8 @@ export function FichaDeNicho({
               {nicho.quejas.map((q, i) => (
                 <li key={i} className="border-l-4 border-border-strong pl-3 text-sm text-ink-soft">
                   <span data-ajeno="">«{q.texto}»</span> · {q.fuente}
-                  {/* La ventana no abre enlaces externos: la dirección, seleccionable. */}
-                  {q.url && (
-                    <span className="mt-1 block select-all break-all text-[13px] text-ink-faint" data-ajeno="">
-                      {q.url}
-                    </span>
-                  )}
+                  {/* D-M12: sin la cuenta del autor a la vista; se copia completa. */}
+                  {q.url && <DireccionDelOriginal url={q.url} className="mt-1 flex text-[13px] text-ink-faint" />}
                 </li>
               ))}
             </ul>

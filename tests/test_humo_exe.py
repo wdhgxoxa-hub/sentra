@@ -92,13 +92,14 @@ class TestEvaluar(unittest.TestCase):
         fallos = evaluar(observado(identificadores={"radar": ["did:plc:fxxq6d7qa7vggtoc7gsn6m2w"]}), verdad(), ahora=AHORA)
         self.assertTrue(any("did:plc:" in f and "radar" in f and "R9" in f for f in fallos), fallos)
 
-    def test_identificadores_visibles_fuera_de_la_direccion_del_original(self):
-        """La dirección de Bluesky lleva el DID (R5 frente a R9, decisión de Walter
-        pendiente): no cuenta; el mismo DID en un nombre o una cita, sí."""
+    def test_un_did_visible_cuenta_tambien_dentro_de_una_direccion(self):
+        """D-M12 (Walter): la dirección completa, con el DID, solo va en el destino
+        de «Copiar dirección», que no es texto; como texto visible, cuenta."""
         from tests.humo_exe import identificadores_visibles
 
         url = "Original: https://bsky.app/profile/did:plc:z2gdgxz2um3eq47a2ebsz3wz/post/3mwc"
-        self.assertEqual(identificadores_visibles(url), [])
+        self.assertEqual(len(identificadores_visibles(url)), 1)
+        self.assertEqual(identificadores_visibles("bsky.app/profile/…/post/3mwc Copiar dirección"), [])
         self.assertEqual(len(identificadores_visibles("Grupo bluesky:did:plc:abc12 · gracias @ana")), 2)
 
     def test_un_texto_largo_que_desborda_la_pantalla_es_un_fallo(self):

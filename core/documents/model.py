@@ -21,6 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from core.privacidad import ocultar_cuentas, visible_en_markdown
+
 BlockKind = Literal["paragraph", "note", "subheading", "bullets", "quote", "table", "code"]
 DocumentKind = Literal["dossier", "plan"]
 
@@ -90,27 +92,32 @@ class DocumentModel:
         de demostración si procede) y el título; la franja se repite al
         empezar cada sección, igual que en cada página del PDF.
         """
-        franja = f"> **{self.stripe}**" if self.stripe else ""
+        v = visible_en_markdown
+        franja = f"> **{v(self.stripe)}**" if self.stripe else ""
         aviso = " ".join(t for t in (self.watermark, self.source_notice) if t)
-        partes = [franja, f"> {aviso}" if aviso else "", f"# {self.title}"]
+        partes = [franja, f"> {v(aviso)}" if aviso else "", f"# {v(self.title)}"]
         for seccion in self.sections:
-            partes += [f"## {seccion.title}", franja]
+            partes += [f"## {v(seccion.title)}", franja]
             partes += [_markdown_de(bloque) for bloque in seccion.blocks]
         return "\n\n".join(p for p in partes if p) + "\n"
 
 
 def _markdown_de(bloque: Block) -> str:
+    # D-M12: todo lo que se pinta pasa por `visible_en_markdown`: las direcciones se
+    # ven sin la cuenta del autor (la completa, en el destino) y ningún DID queda a
+    # la vista, tampoco en lo guardado antes de los alias (no se reescribe).
+    v = visible_en_markdown
     if bloque.kind == "paragraph":
-        return bloque.text
+        return v(bloque.text)
     if bloque.kind == "note":
-        return f"> {bloque.text}"
+        return f"> {v(bloque.text)}"
     if bloque.kind == "subheading":
-        return f"### {bloque.text}"
+        return f"### {v(bloque.text)}"
     if bloque.kind == "bullets":
-        return "\n".join(f"- {item}" for item in bloque.items)
+        return "\n".join(f"- {v(item)}" for item in bloque.items)
     if bloque.kind == "quote":
-        return f"> {bloque.text}\n>\n> — {bloque.signature}"
+        return f"> {v(bloque.text)}\n>\n> — {v(bloque.signature)}"
     if bloque.kind == "code":
-        return f"```\n{bloque.text}\n```"
-    filas = ["| | |", "|---|---|", *(f"| {k} | {v} |" for k, v in bloque.rows)]
+        return f"```\n{ocultar_cuentas(bloque.text)}\n```"
+    filas = ["| | |", "|---|---|", *(f"| {v(k)} | {v(val)} |" for k, val in bloque.rows)]
     return "\n".join(filas)

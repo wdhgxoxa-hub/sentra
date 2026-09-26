@@ -139,8 +139,8 @@ class Observado:
     acciones_principales: dict[str, int] = field(default_factory=dict)
     jerga: dict[str, list[str]] = field(default_factory=dict)
     #: R9 (Fase 3): identificadores de autor visibles en cada pantalla (DID,
-    #: at://, @usuario), con los «Ver detalle» abiertos y el texto ajeno incluido;
-    #: la dirección del original no cuenta (identificadores_visibles).
+    #: at://, @usuario), con los «Ver detalle» abiertos y el texto ajeno incluido,
+    #: también dentro de una dirección (D-M12).
     identificadores: dict[str, list[str]] = field(default_factory=dict)
     #: Fase 3: cuántos px se sale la pantalla por la derecha con cada texto ajeno
     #: sustituido por uno largo sin espacios (0: todo se parte).
@@ -584,14 +584,12 @@ DESBORDE_CON_TEXTO_LARGO = """(() => {
 
 
 def identificadores_visibles(texto: str) -> list[str]:
-    """Los identificadores de autor (R9) de un texto visible, sin contar las
-    direcciones del original: la de Bluesky lleva el DID y enlazar sin él no es
-    posible (R5 frente a R9, decisión pendiente de Walter, Fase 3)."""
-    import re
-
+    """Los identificadores de autor (R9) de un texto visible, también dentro de una
+    dirección. D-M12: la dirección completa, con el DID de Bluesky, solo va en el
+    destino de «Copiar dirección» (un atributo, no texto)."""
     from core.privacidad import IDENTIFICADOR_DE_AUTOR
 
-    return IDENTIFICADOR_DE_AUTOR.findall(re.sub(r"https?://\S+", "", texto))
+    return IDENTIFICADOR_DE_AUTOR.findall(texto)
 
 
 def _pantalla_llana(app: _Cdp, obs: Observado, nombre: str, *, accion_principal: bool = True) -> None:

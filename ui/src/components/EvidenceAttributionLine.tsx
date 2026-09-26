@@ -1,10 +1,11 @@
+import { DireccionDelOriginal } from "@/components/DireccionDelOriginal";
 import type { EvidenceAttribution } from "@/types/radar";
 
 /**
  * Atribución de una pieza de evidencia: insignia de la plataforma, sitio y
- * URL del original en texto plano (R5; los términos de Stack Exchange la
- * exigen visible). Toda vista que enseñe evidencia multifuente la usa; la
- * URL es seleccionable porque la ventana no abre enlaces externos. Con
+ * dirección del original (R5; los términos de Stack Exchange la exigen
+ * visible). Toda vista que enseñe evidencia multifuente la usa. D-M12: la
+ * dirección se ve sin la cuenta del autor y se copia completa. Con
  * licencia (Stack Exchange, CC BY-SA 4.0) se dice cuál y dónde leerla; el
  * autor se ve siguiendo la URL del original, nunca aquí (R9).
  */
@@ -16,7 +17,7 @@ export function EvidenceAttributionLine({ attribution }: { attribution: Evidence
       </span>
       <span>{attribution.site}</span>
       <span aria-hidden="true">·</span>
-      <span className="select-all break-all" data-ajeno="">{attribution.url}</span>
+      <DireccionDelOriginal url={attribution.url} />
       {attribution.license && (
         <>
           <span aria-hidden="true">·</span>

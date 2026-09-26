@@ -417,6 +417,8 @@ export const es = {
     unidades: "{n} unidades de texto",
     queSonUnidades: "Gemini cobra por las unidades de texto que lee y escribe.",
     algoFallo: "Algo falló. Puedes volver a intentarlo.",
+    copiarDireccion: "Copiar dirección",
+    direccionCopiada: "Copiada",
   },
 
   modos: {

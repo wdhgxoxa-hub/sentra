@@ -51,6 +51,7 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from core.documents.model import Block, DocumentModel, textos
+from core.privacidad import ocultar_cuentas, trozos_visibles
 
 FUENTES = Path(__file__).resolve().parent / "fonts"
 SANS = "SentraSans"
@@ -118,9 +119,16 @@ def _estilos() -> dict[str, ParagraphStyle]:
     return estilos
 
 
+def _marcado(texto: str) -> str:
+    """Marcado de un texto que se pinta, escapado: los datos no pueden romper el
+    marcado. D-M12: cada dirección es un enlace que se ve sin la cuenta del autor
+    (la completa, con el DID, solo va en el destino) y ningún DID queda a la vista."""
+    return "".join(f'<a href="{escape(destino, {chr(34): "&quot;"})}">{escape(visto)}</a>' if destino
+                   else escape(visto) for visto, destino in trozos_visibles(texto))
+
+
 def _p(texto: str, estilo: ParagraphStyle) -> Paragraph:
-    """Párrafo con el texto escapado: los datos no pueden romper el marcado."""
-    return Paragraph(escape(texto), estilo)
+    return Paragraph(_marcado(texto), estilo)
 
 
 # --- Plantilla -----------------------------------------------------------------
@@ -207,13 +215,13 @@ def _flowables(bloque: Block, estilos: Mapping[str, ParagraphStyle]) -> list[Flo
     if bloque.kind == "subheading":
         return [_p(bloque.text, estilos["sub"])]
     if bloque.kind == "bullets":
-        return [Paragraph(escape(item), estilos["vineta"], bulletText="•")
+        return [Paragraph(_marcado(item), estilos["vineta"], bulletText="•")
                 for item in bloque.items]
     if bloque.kind == "quote":
         return [_p(bloque.text, estilos["cita"]), _p(bloque.signature, estilos["firma"])]
     if bloque.kind == "table":
         return [_tabla(bloque.rows, estilos)]
-    return [Preformatted(bloque.text, estilos["codigo"])]
+    return [Preformatted(ocultar_cuentas(bloque.text), estilos["codigo"])]
 
 
 def _tabla(filas: Sequence[tuple[str, str]], estilos: Mapping[str, ParagraphStyle]) -> Table:
