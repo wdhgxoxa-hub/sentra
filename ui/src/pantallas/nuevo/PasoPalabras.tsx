@@ -95,6 +95,10 @@ export function PasoPalabras() {
         onSuccess: (r) =>
           a.set({
             propuesta: { origin: r.origin, reason: r.reason },
+            // Medida B (Fase 3): qué fuentes encajan con este tema.
+            tipoDeTema: r.topicKind,
+            sitiosStackExchange: r.stackexchangeSites,
+            temaDeLaPropuesta: a.tema.trim(),
             palabras: {
               es: palabrasDistintas([...a.palabras.es, ...r.keywords.es]),
               en: palabrasDistintas([...a.palabras.en, ...r.keywords.en]),

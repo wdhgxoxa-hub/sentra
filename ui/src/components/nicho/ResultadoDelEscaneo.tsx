@@ -1,4 +1,5 @@
 import { AccionPrincipal, Aviso, BotonSecundario } from "@/components/comunes/Comunes";
+import type { MotivoDeOmision } from "@/lib/encaje";
 import { tonoDelCaso } from "@/lib/resultado";
 import { rellenar } from "@/lib/texto";
 import type { AccionDePaso, SiguientePaso } from "@/lib/siguientePaso";
@@ -20,6 +21,7 @@ export function ResultadoDelEscaneo({
   onAccion,
   incrustado = false,
   dominante = null,
+  omitidas = [],
 }: {
   siguiente: SiguientePaso;
   nichos: NichoEnPantalla[];
@@ -30,6 +32,8 @@ export function ResultadoDelEscaneo({
   incrustado?: boolean;
   /** Una fuente aportó más de la mitad de las piezas (Fase 3): se avisa. */
   dominante?: { nombre: string; piezas: number; total: number } | null;
+  /** Fuentes que no se consultaron porque no encajaban con el tema (Fase 3, medida B). */
+  omitidas?: { nombre: string; motivo: MotivoDeOmision }[];
 }) {
   const t = useT();
   const { caso, pasos, cifras } = siguiente;
@@ -49,6 +53,21 @@ export function ResultadoDelEscaneo({
           {rellenar(t.resultado.dominanteExplica, {
             fuente: dominante.nombre, piezas: dominante.piezas, total: dominante.total,
           })}
+        </Aviso>
+      )}
+
+      {omitidas.length > 0 && (
+        <Aviso tono="info" titulo={t.resultado.omitidas}>
+          <p>{t.resultado.omitidasExplica}</p>
+          <ul className="mt-1 flex flex-col gap-1">
+            {omitidas.map((o) => (
+              <li key={o.nombre}>
+                <span className="font-medium">{o.nombre}</span>
+                {" · "}
+                {t.progreso.frase[`omitida_${o.motivo}`]}
+              </li>
+            ))}
+          </ul>
         </Aviso>
       )}
 

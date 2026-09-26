@@ -30,6 +30,8 @@ from pydantic import BaseModel, Field
 
 from core.llm.base import JsonGenerator
 
+from .sitios_stackexchange import SITIOS
+
 Idioma = Literal["es", "en"]
 
 #: Cuántas propone por idioma, el largo máximo de cada una y sus palabras.
@@ -53,6 +55,10 @@ class PalabrasPropuestas(BaseModel):
 
     es: list[str] = Field(default_factory=list)
     en: list[str] = Field(default_factory=list)
+    #: Medida B (Fase 3), en la misma llamada: ¿el tema es de software? None = no se sabe.
+    tipo: Literal["software", "otro"] | None = None
+    #: Sitios de Stack Exchange adecuados al tema, del catálogo cerrado (sitios_stackexchange.py).
+    sitios_stackexchange: list[str] = Field(default_factory=list)
 
 
 def idioma_del_tema(tema: str) -> Idioma:
@@ -89,7 +95,8 @@ def proponer_sin_gemini(tema: str, idiomas: Sequence[str]) -> PalabrasPropuestas
     contenido = [p for p in re.findall(r"[\wáéíóúñ]+", tema.lower()) if p not in _COMUNES[idioma]]
     terminos = [" ".join(contenido[:3]), " ".join(contenido[:2])]
     terminos += [" ".join(contenido[i:i + 2]) for i in range(len(contenido) - 1)]
-    return PalabrasPropuestas(**{idioma: _limpias(terminos)})
+    limpias = _limpias(terminos)
+    return PalabrasPropuestas(es=limpias) if idioma == "es" else PalabrasPropuestas(en=limpias)
 
 
 def _prompt(tema: str, idiomas: Sequence[str]) -> str:
@@ -104,7 +111,13 @@ def _prompt(tema: str, idiomas: Sequence[str]) -> str:
         "«convertir pdf»), no frases de queja: las frases de queja las añade SENTRA aparte, y los "
         "buscadores exigen todas las palabras. Nada de nombres de productos. "
         "Cada idioma con sus propias expresiones naturales, no traducciones literales. "
-        "Deja vacía la lista de un idioma no pedido."
+        "Deja vacía la lista de un idioma no pedido.\n"
+        # Medida B (Fase 3): en la misma llamada, qué fuentes encajan con el tema.
+        "Di también si el tema es de software (tipo «software»: programar, usar o construir "
+        "herramientas informáticas) o de otra cosa (tipo «otro»: un negocio, un trabajo, la vida "
+        "diaria). Y elige, SOLO de esta lista, los sitios de Stack Exchange donde la gente "
+        "hablaría de este problema (sitios_stackexchange; vacía si ninguno encaja): "
+        + "; ".join(f"{clave} ({nombre})" for clave, nombre in SITIOS.items()) + "."
     )
 
 
@@ -116,4 +129,7 @@ def proponer_con_gemini(proveedor: JsonGenerator, modelo: str, tema: str,
         _prompt(tema, idiomas), PalabrasPropuestas, model=modelo, max_output_tokens=MAX_OUTPUT_TOKENS,
         timeout_ms=TIMEOUT_MS, purpose="palabras_clave", thinking_budget=THINKING_BUDGET)
     return PalabrasPropuestas(es=_limpias(propuesta.es) if "es" in idiomas else [],
-                              en=_limpias(propuesta.en) if "en" in idiomas else [])
+                              en=_limpias(propuesta.en) if "en" in idiomas else [],
+                              tipo=propuesta.tipo,
+                              sitios_stackexchange=list(dict.fromkeys(
+                                  s for s in propuesta.sitios_stackexchange if s in SITIOS)))

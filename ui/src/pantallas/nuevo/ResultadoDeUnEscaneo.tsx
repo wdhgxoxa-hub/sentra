@@ -1,6 +1,7 @@
 import { ResultadoDelEscaneo } from "@/components/nicho/ResultadoDelEscaneo";
 import { useNichos } from "@/lib/nichos";
 import { useSources } from "@/lib/queries";
+import { omisiones } from "@/lib/encaje";
 import { fuenteDominante } from "@/lib/resultado";
 import type { AccionDePaso } from "@/lib/siguientePaso";
 import { siguientePaso } from "@/lib/siguientePaso";
@@ -49,6 +50,7 @@ export function ResultadoDeUnEscaneo({
       onAccion={onAccion}
       incrustado={incrustado}
       dominante={dominante && { nombre: nombreDe(dominante.fuente), piezas: dominante.piezas, total: dominante.total }}
+      omitidas={omisiones(deEste.escaneo.skippedSources).map((o) => ({ nombre: nombreDe(o.fuente), motivo: o.motivo }))}
     />
   );
 }

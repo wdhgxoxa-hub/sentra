@@ -107,6 +107,32 @@ class TestConGemini(unittest.TestCase):
         self.assertEqual((len(propuesta.es), propuesta.en), (8, []))
 
 
+class TestTipoDeTemaYSitios(unittest.TestCase):
+    """Medida B (Fase 3): en la misma llamada, Gemini dice si el tema es de software
+    y elige, del catálogo cerrado, los sitios de Stack Exchange adecuados."""
+
+    def test_trae_el_tipo_y_los_sitios_del_catalogo(self):
+        modelo = PalabrasPropuestas(es=["documentos contabilidad"], tipo="otro",
+                                    sitios_stackexchange=["money", "sitio-inventado", "freelancing", "money"])
+        generador = Generador(modelo)
+        propuesta = proponer_con_gemini(generador, "m", "Perseguir documentos del contable", ["es"])
+        self.assertEqual(propuesta.tipo, "otro")
+        self.assertEqual(propuesta.sitios_stackexchange, ["money", "freelancing"], "solo del catálogo, sin repetir")
+        self.assertEqual(len(generador.pedidos), 1, "misma llamada")
+
+    def test_el_prompt_pide_el_tipo_y_nombra_el_catalogo(self):
+        generador = Generador(PalabrasPropuestas())
+        proponer_con_gemini(generador, "m", "tema", ["es"])
+        prompt = generador.pedidos[0]["prompt"]
+        for clave in ("software", "money", "freelancing", "stackoverflow"):
+            self.assertIn(clave, prompt)
+
+    def test_sin_gemini_no_se_sabe_el_tipo(self):
+        propuesta = proponer_sin_gemini("Perseguir documentos del contable", ["es"])
+        self.assertIsNone(propuesta.tipo)
+        self.assertEqual(propuesta.sitios_stackexchange, [])
+
+
 class TestRutaDelMotor(unittest.TestCase):
     """POST /api/scan/keywords: con Gemini, una fila en llm_usage; sin clave, sin
     presupuesto o con error, el respaldo, sin red y sin gastar."""
@@ -138,9 +164,12 @@ class TestRutaDelMotor(unittest.TestCase):
         return lambda ctx: (GeminiProvider("clave", control=ctx.control(), client_factory=sdk), "flash")
 
     def test_con_gemini_propone_en_los_dos_idiomas_y_registra_una_llamada(self):
-        sdk = Cliente(respuesta('{"es": ["facturas impagadas"], "en": ["unpaid invoices"]}', 300, 40, 0))
+        sdk = Cliente(respuesta('{"es": ["facturas impagadas"], "en": ["unpaid invoices"], "tipo": "otro",'
+                                ' "sitios_stackexchange": ["money"]}', 300, 40, 0))
         cuerpo = self.pedir(self.cliente(self.con_sdk(sdk))).json()
+        # Medida B (Fase 3): el tipo de tema y los sitios viajan aparte de las palabras.
         self.assertEqual(cuerpo, {"keywords": {"es": ["facturas impagadas"], "en": ["unpaid invoices"]},
+                                  "topicKind": "otro", "stackexchangeSites": ["money"],
                                   "origin": "gemini", "reason": None, "llmCalls": 1})
         self.assertEqual([(i.purpose, i.outcome) for _, i in self.registro.filas], [("palabras_clave", "ok")])
 
@@ -153,6 +182,7 @@ class TestRutaDelMotor(unittest.TestCase):
         cuerpo = self.pedir(self.cliente(sin_clave)).json()
         self.assertEqual((cuerpo["origin"], cuerpo["reason"], cuerpo["llmCalls"]),
                          ("local", "gemini_not_configured", 0))
+        self.assertEqual((cuerpo["topicKind"], cuerpo["stackexchangeSites"]), (None, []))
         self.assertTrue(cuerpo["keywords"]["es"])
         self.assertEqual(self.registro.filas, [])
 

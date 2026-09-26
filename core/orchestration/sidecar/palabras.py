@@ -64,6 +64,9 @@ def router(ctx: SidecarContext) -> APIRouter:
     @rutas.post("/api/scan/keywords")
     async def scan_keywords(peticion: KeywordsRequest) -> dict[str, Any]:
         propuesta, origen, motivo, llamadas = await asyncio.to_thread(_proponer, ctx, peticion)
-        return {"keywords": propuesta.model_dump(), "origin": origen, "reason": motivo, "llmCalls": llamadas}
+        return {"keywords": {"es": propuesta.es, "en": propuesta.en},
+                # Medida B (Fase 3): qué fuentes encajan con el tema (None/[] sin Gemini).
+                "topicKind": propuesta.tipo, "stackexchangeSites": propuesta.sitios_stackexchange,
+                "origin": origen, "reason": motivo, "llmCalls": llamadas}
 
     return rutas

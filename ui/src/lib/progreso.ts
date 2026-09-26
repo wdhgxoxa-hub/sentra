@@ -12,6 +12,8 @@
 import type { MultiScanState } from "@/stores/multiscanStore";
 import type { SourceScanSummary } from "@/types/radar";
 
+import { motivoDeOmision } from "./encaje.ts";
+
 export type TonoDeFuente = "en_curso" | "bien" | "aviso" | "mal" | "neutro";
 export type IconoDeFuente = "reloj" | "hecho" | "alerta" | "cruz" | "pausa";
 export type PalabraDeFuente = "buscando" | "lista" | "parcial" | "fallo" | "cancelada" | "no_se_usa";
@@ -27,6 +29,9 @@ export type FraseDeFuente =
   | "rechazo"
   | "no_respondio"
   | "pendiente_aprobacion"
+  | "omitida_no_es_software"
+  | "omitida_sin_sitio"
+  | "omitida_otro"
   | "inesperado";
 
 export interface EstadoDeFuente {
@@ -75,6 +80,10 @@ export function estadoDeFuente(s: SourceScanSummary): EstadoDeFuente {
     return estado(FALLOS[codigo] ?? ["mal", "fallo", "inesperado"], s.items, codigo);
   }
   if (s.stopReason === null) return estado(["bien", "lista", "lista"], s.items, null);
+  // Medida B (Fase 3): no encajaba con el tema; no se buscó (no es un fallo ni un corte).
+  if (s.stopReason.startsWith("omitida:")) {
+    return estado(["neutro", "no_se_usa", `omitida_${motivoDeOmision(s.stopReason)}`], s.items, s.stopReason);
+  }
   if (s.stopReason === "cancelled") return estado(["neutro", "cancelada", "cancelada"], s.items, s.stopReason);
   if (s.stopReason === "source_budget_exhausted") {
     return estado(["aviso", "parcial", "tope_propio"], s.items, s.stopReason);

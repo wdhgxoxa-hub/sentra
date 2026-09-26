@@ -394,6 +394,10 @@ export interface KeywordsByLanguage {
  */
 export interface KeywordProposal {
   keywords: KeywordsByLanguage;
+  /** Medida B (Fase 3): tipo de tema según Gemini; null sin Gemini. */
+  topicKind: "software" | "otro" | null;
+  /** Sitios de Stack Exchange adecuados al tema (catálogo cerrado); vacío sin Gemini. */
+  stackexchangeSites: string[];
   origin: "gemini" | "local";
   reason: string | null;
   llmCalls: number;

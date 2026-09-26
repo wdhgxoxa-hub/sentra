@@ -67,6 +67,13 @@ test("una parada desconocida tampoco: parcial, con el código aparte", () => {
   assert.deepEqual([e.tono, e.frase, e.codigo], ["aviso", "parada_antes", "otra_cosa"]);
 });
 
+test("una fuente omitida porque no encaja con el tema no se buscó (Fase 3, medida B)", () => {
+  const software = estadoDeFuente(parada("omitida:no_es_software"));
+  assert.deepEqual([software.tono, software.palabra, software.frase], ["neutro", "no_se_usa", "omitida_no_es_software"]);
+  assert.equal(estadoDeFuente(parada("omitida:sin_sitio")).frase, "omitida_sin_sitio");
+  assert.equal(estadoDeFuente(parada("omitida:algo_nuevo")).frase, "omitida_otro");
+});
+
 test("nada depende solo del color: todo estado tiene palabra e icono", () => {
   const todos = [enCurso, lista, parada("cancelled"), parada("x"), ...FALLOS.map(([c]) => fallo(c)), fallo("y")];
   for (const s of todos) {

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { AccionPrincipal, Aviso, BotonSecundario } from "@/components/comunes/Comunes";
 import { palabrasDistintas } from "@/lib/cobertura";
+import { omisiones, perfilDelAsistente } from "@/lib/encaje";
 import { comoError } from "@/lib/errors";
 import { cifrasDeLaEstimacion, sePuedeConfirmar } from "@/lib/estimacion";
 import { useEstimateScan, useSources, useTriggerMultiscan } from "@/lib/queries";
@@ -39,17 +40,8 @@ export function PasoRevisar() {
 
   const es = a.idiomas.includes("es") ? palabrasDistintas(a.palabras.es) : [];
   const en = a.idiomas.includes("en") ? palabrasDistintas(a.palabras.en) : [];
-  const perfil: ScanProfileInput = {
-    name: (a.nombre || a.tema || t.nuevoEscaneo.titulo).trim().slice(0, 60),
-    keywords: a.sinTema ? [] : [...es, ...en],
-    // El idioma de cada palabra es el de su fila: el motor no tiene que adivinarlo.
-    keywordLanguages: a.sinTema
-      ? {}
-      : Object.fromEntries([...es.map((p) => [p, "es"] as const), ...en.map((p) => [p, "en"] as const)]),
-    discovery: a.sinTema,
-    windowDays: a.dias,
-    languages: a.idiomas,
-  };
+  // Medida B (Fase 3): el tema completo, su tipo y los sitios de Stack Exchange.
+  const perfil: ScanProfileInput = perfilDelAsistente(a, t.nuevoEscaneo.titulo);
   // Una estimación por perfil distinto (cada una da un identificador nuevo).
   const clave = JSON.stringify(perfil);
   const { mutate: pedirEstimacion } = estimar;
@@ -60,7 +52,10 @@ export function PasoRevisar() {
   const e = estimar.data?.estimate;
   const c = e ? cifrasDeLaEstimacion(e, idioma) : null;
   const puede = e ? sePuedeConfirmar(e) : false;
-  const activas = fuentes.data?.sources.filter((s) => s.active).length;
+  const omitidas = omisiones(estimar.data?.omittedSources);
+  const nombreDe = (id: string) => fuentes.data?.sources.find((c) => c.source === id)?.displayName ?? id;
+  // Las que se omiten no cuentan como fuentes del escaneo.
+  const activas = fuentes.data?.sources.filter((s) => s.active && !estimar.data?.omittedSources?.[s.source]).length;
 
   const lanzar = () => {
     if (!estimar.data || !puede) return;
@@ -120,6 +115,20 @@ export function PasoRevisar() {
               <p className="text-[13px] text-ink-faint">{t.nuevoEscaneo.estimacionAyuda}</p>
             </>
           )}
+          {omitidas.length > 0 && (
+            <Aviso tono="info" titulo={t.nuevoEscaneo.noSeBuscara}>
+              <ul className="flex flex-col gap-1">
+                {omitidas.map((o) => (
+                  <li key={o.fuente}>
+                    <span className="font-medium">{nombreDe(o.fuente)}</span>
+                    {" · "}
+                    {t.progreso.frase[`omitida_${o.motivo}`]}
+                  </li>
+                ))}
+              </ul>
+            </Aviso>
+          )}
+          {!a.sinTema && perfil.topicKind === null && <p className="text-sm text-ink-soft">{t.nuevoEscaneo.tipoDesconocido}</p>}
           {e && !puede && (
             <Aviso tono="mal" titulo={t.nuevoEscaneo.sinPresupuesto}>
               {t.nuevoEscaneo.sinPresupuestoAyuda}

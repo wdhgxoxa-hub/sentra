@@ -207,7 +207,9 @@
       "keywords",
       "llmCalls",
       "origin",
-      "reason"
+      "reason",
+      "stackexchangeSites",
+      "topicKind"
     ],
     "SavedByLanguage": [
       "en",
