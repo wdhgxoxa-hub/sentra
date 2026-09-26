@@ -145,6 +145,8 @@ aprobar. No cambio el umbral sin su decisión:
 - **C. Dejar 0,82** y medir tras el primer escaneo con labels-v5. Si las quejas
   ya son del tema, el umbral tiene menos ruido que separar.
 
+**Decisión de Walter (25-09): C.** Se queda 0,82 y se mide de nuevo tras el primer escaneo con labels-v5.
+
 **Corrección mía:** dije que el comentario de `clustering.py` estaba desfasado
 (pureza 0,735). No lo estaba: eran las cifras de v1. Era incompleto. Ahora da v1
 y v2.

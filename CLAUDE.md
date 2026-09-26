@@ -125,6 +125,9 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   cuenta las ajenas (`pain_off_topic`). Caché por pieza + tema
   (`labels-v5/<modelo>/tema-<huella>`): nunca se reutiliza entre temas. Mismas
   llamadas a Gemini (mismos lotes). Escaneo 2: 0 de 53 quejas eran del tema.
+- **Umbral de agrupación 0,82 (Walter, 25-09, opción C).** Se mantiene y se
+  mide de nuevo tras el primer escaneo con labels-v5. A 0,85, el dorado v1
+  bajaba de ARI 0,487 a 0,152 (docs/fase3/DIAGNOSTICO-ESCANEO2.md).
 - Versiones vigentes: labels-v5, clustering-v10, coherence-v3, judge-weights-v6.
 - El resumen del juez queda con la ejecución (`pipeline_runs.judge_summary`,
   migración 019). `stored` = piezas guardadas por la ejecución (0 en un re-juicio).
