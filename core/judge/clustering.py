@@ -32,6 +32,12 @@ from core.storage.identity import Candidato, Previo, asignar_identidades
 #: (tests/fixtures/golden_clusters.json; barrido en scripts/calibrar_agrupacion.py):
 #: enlace promedio con 0,82 dio pureza 0,735 y ARI 0,487 (6 grupos), frente a
 #: ARI 0,206 del líder con 0,86 de clustering-v1, que mezclaba subproblemas.
+#: Esas cifras son del dorado v1 (68 ítems de «notificaciones»). Con el dorado
+#: v2 (suma 4 subproblemas vecinos de «dinero del freelance»), 0,82 da pureza
+#: 0,556 y ARI 0,268 (10 grupos). Medido de nuevo el 25-09 (Fase 3), con la
+#: partición del juez: a 0,85, v1 pureza 0,897 y ARI 0,152 (5 grupos); v2 pureza
+#: 0,824 y ARI 0,183 (11 grupos). Walter aprobó 0,85 a condición de volver a
+#: medir; la caída del ARI en v1 se le enseña antes de cambiarlo.
 #: v3 (AUD2-001): solo agrupa evidencia con dolor pertinente y el tema del
 #: escaneo no nombra nichos. El método y el umbral son los de v2.
 #: v8: con tema, los comentarios que no lo nombran no entran (pipeline); el

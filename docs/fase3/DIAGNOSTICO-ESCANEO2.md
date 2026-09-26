@@ -112,3 +112,64 @@ Recomiendo decidir el punto 3 primero: con menos ruido de entrada, el umbral pes
   - enseñar la dirección tal cual (hoy);
   - no enseñar la dirección de Bluesky, solo «Bluesky · fecha»;
   - cambiar el id del adaptador y migrar las 824 filas.
+
+---
+
+# Tras las decisiones de Walter (25-09): medidas A y B, cupo y umbral
+
+Rama `fase3/tema`, sin fusionar. Cero Gemini y cero escaneos.
+
+## Umbral 0,85: no aplicado, vuelve a Walter
+
+Walter aprobó 0,85 «solo después de A + B, volviendo a medir». Resultado:
+
+- **Escaneo 2 relabelado sin Gemini: no se puede.** labels-v5 decide «del tema»
+  con el modelo; sin Gemini no hay etiqueta nueva. Solo se mide con el dorado.
+- **El dorado tiene dos versiones**, y mi informe anterior solo enseñó v2:
+
+| Umbral | v1 (6 subproblemas, 68 ítems): grupos · pureza · ARI | v2 (+4 vecinos): grupos · pureza · ARI |
+|---|---|---|
+| 0,82 (hoy) | 6 · 0,735 · **0,487** | 10 · 0,556 · 0,268 |
+| 0,83 | 8 · 0,824 · 0,351 | 12 · 0,667 · 0,225 |
+| 0,84 | 7 · 0,868 · 0,276 | 11 · 0,750 · 0,193 |
+| 0,85 (aprobado) | 5 · 0,897 · **0,152** | 11 · 0,824 · 0,183 |
+| 0,86 | 5 · 0,956 · 0,132 | 9 · 0,870 · 0,164 |
+
+A 0,85 la pureza sube en los dos, pero en v1 el ARI cae un 69 %: los seis
+subproblemas se rompen en trozos sueltos. Es un coste que Walter no vio al
+aprobar. No cambio el umbral sin su decisión:
+
+- **A. 0,85 igualmente**, aceptando ARI 0,152 en v1. Los suelos de
+  `test_judge_cluster_calibration` bajan a lo medido.
+- **B. 0,83:** pureza +0,089 en v1 y +0,111 en v2; ARI −0,136 y −0,043.
+- **C. Dejar 0,82** y medir tras el primer escaneo con labels-v5. Si las quejas
+  ya son del tema, el umbral tiene menos ruido que separar.
+
+**Corrección mía:** dije que el comentario de `clustering.py` estaba desfasado
+(pureza 0,735). No lo estaba: eran las cifras de v1. Era incompleto. Ahora da v1
+y v2.
+
+## Comunidades para temas de negocio y contabilidad (propuesta, sin construir)
+
+**No verificado:** no he llamado a ningún foro ni instancia (cero escaneos).
+Antes de añadir nada hay que comprobar que existen, que tienen API pública y
+que tienen actividad.
+
+**Discourse** (`RIR_DISCOURSE_FORUMS`; hoy manager.io, invoiceninja y
+quickfile, todos de facturación):
+
+- `discuss.frappe.io`: ERPNext, contabilidad de pymes; en inglés.
+- `community.tillerhq.com`: hojas de cálculo de finanzas y contabilidad
+  personal y de autónomos.
+- Mismo criterio para cualquier otro: foros de programas de contabilidad o
+  facturación donde la gente cuenta cómo trabaja, no foros de desarrollo.
+
+**Mastodon** (hoy una sola instancia con búsqueda de texto completo, que solo
+indexa lo que la instancia permite):
+
+- Añadir la línea de tiempo por etiqueta (`/api/v1/timelines/tag/<etiqueta>`,
+  pública) con etiquetas por tipo de tema. Negocio: #accounting,
+  #bookkeeping, #smallbusiness, #freelance, #contabilidad, #autonomos,
+  #pymes.
+- Encaja con la medida B: el tipo de tema elegiría las etiquetas, como hoy
+  elige los sitios de Stack Exchange.
