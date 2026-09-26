@@ -84,13 +84,18 @@ async def _emitir(sink: EventSink | None, evento: dict[str, Any]) -> None:
 
 async def _escanear(
     fuente: SourceAdapter, query: SearchQuery, sink: EventSink | None,
-    should_stop: StopCheck | None = None,
+    should_stop: StopCheck | None = None, cupo: CupoDelEscaneo | None = None,
 ) -> tuple[SourceProgress, list[EvidenceItem]]:
     progreso = SourceProgress(fuente.id)
     items: list[EvidenceItem] = []
     await _emitir(sink, {"type": "source:started", "source": fuente.id})
     try:
         async for item in fuente.search(query):
+            # Topes de todo el escaneo, antes de aceptar la pieza: con varias fuentes a
+            # la vez, comprobarlo después dejaba pasar una de más por fuente.
+            if cupo is not None and (motivo := cupo.motivo_global()):
+                progreso.stop_reason, progreso.detail = SourceBudgetExhausted.code, f"presupuesto agotado: {motivo}"
+                break
             items.append(item)
             progreso.items = len(items)
             if progreso.items % PROGRESS_EVERY == 0:
@@ -99,6 +104,12 @@ async def _escanear(
             if should_stop is not None and should_stop():
                 progreso.stop_reason = CANCELLED
                 break
+            # Fase 3: el cupo cuenta piezas útiles; la que no lo es se guarda sin gastarlo.
+            if cupo is not None:
+                cupo.registrar(item, query)
+                if motivo := cupo.motivo_para_parar(fuente.id):
+                    progreso.stop_reason, progreso.detail = SourceBudgetExhausted.code, f"presupuesto agotado: {motivo}"
+                    break
         progreso.status = "done"
     except SourceBudgetExhausted as exc:
         progreso.status, progreso.stop_reason, progreso.detail = "done", exc.code, exc.detail
@@ -145,10 +156,8 @@ async def run_multisource_scan(
     peticiones.
     """
     compartido = CupoDelEscaneo(total=cupo)
-    for fuente in fuentes:
-        fuente.budget.cupo = compartido
     resultados = await asyncio.gather(
-        *(_escanear(f, query, on_event, should_stop) for f in fuentes))
+        *(_escanear(f, query, on_event, should_stop, compartido) for f in fuentes))
     resultado = MultiScanResult(cancelled=should_stop is not None and should_stop())
     todos: list[EvidenceItem] = []
     for progreso, items in resultados:

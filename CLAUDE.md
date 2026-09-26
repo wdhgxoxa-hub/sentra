@@ -66,8 +66,11 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   peticiones. YouTube cobra los ítems después de quitar repetidos (Fase 1);
   el vídeo repetido se sigue releyendo (1 unidad por relectura).
 - Reparto (Fase 3, `fase3/reparto`): las fuentes de un escaneo comparten un
-  cupo de 500 piezas (`CupoDelEscaneo`, `CUPO_POR_ESCANEO`) y ninguna pasa de
-  250; lo que no usan las vacías queda para las demás. YouTube agrupa las
+  cupo de 500 piezas ÚTILES (`CupoDelEscaneo`, `CUPO_POR_ESCANEO`) y ninguna
+  pasa de 250; lo que no usan las vacías queda para las demás. Útil (Walter,
+  escaneo 2) = no repite id ni texto (huella sin enlaces, cifras ni signos),
+  tiene el largo mínimo y nombra el tema; lo demás se guarda sin gastar cupo.
+  Traer tiene tope aparte: 1 000 piezas por escaneo. YouTube agrupa las
   palabras de 4 en 4 con «|», hace TODAS las búsquedas antes de leer
   comentarios, 25 vídeos × 10 comentarios por turnos, y no trae comentarios
   que no nombran el tema (`menciona_el_tema`): con las 14 palabras del

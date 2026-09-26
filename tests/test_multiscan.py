@@ -190,22 +190,36 @@ if __name__ == "__main__":
     unittest.main()
 
 
+NUMEROS = ("cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve")
+
+
+def en_letras(n: int) -> str:
+    """El número en palabras: dos piezas no se parecen solo por sus cifras (la huella
+    del cupo las quita, como en el spam «EFTA00102302.jpg» de Bluesky)."""
+    return " ".join(NUMEROS[int(c)] for c in str(n))
+
+
 class Abundante(Base):
-    """Trae `cuantas` piezas distintas (fecha fija: la hora no da para 600)."""
+    """Trae `cuantas` piezas distintas y útiles: nombran el tema («invoice»).
+    Fecha fija: la hora no da para 600."""
 
     cuantas = 0
+    #: {n}: el número en cifras; {letras}: en palabras.
+    plantilla = "invoice queja distinta {letras} de la fuente {fuente} con bastante texto"
 
     async def search(self, query):
         for n in range(self.cuantas):
             yield self._item(nativo=str(n), community="c", kind="post",
-                             text=f"queja distinta número {n} de la fuente {self.id} con bastante texto",
+                             text=self.plantilla.format(n=n, letras=en_letras(n), fuente=self.id),
                              url=f"https://example.com/{self.id}/{n}", author=f"u{n}",
                              created_at=datetime(2026, 9, 1, tzinfo=UTC))
 
 
-def abundante(nombre: str, cuantas: int):
-    clase = type(nombre, (Abundante,), {"id": nombre, "display_name": nombre, "cuantas": cuantas})
-    return fuente(clase)
+def abundante(nombre: str, cuantas: int, plantilla: str | None = None):
+    atributos: dict[str, Any] = {"id": nombre, "display_name": nombre, "cuantas": cuantas}
+    if plantilla is not None:
+        atributos["plantilla"] = plantilla
+    return fuente(type(nombre, (Abundante,), atributos))
 
 
 class TestRepartoEntreFuentes(unittest.IsolatedAsyncioTestCase):
@@ -224,11 +238,43 @@ class TestRepartoEntreFuentes(unittest.IsolatedAsyncioTestCase):
     async def test_el_total_no_pasa_del_cupo_y_nadie_pasa_de_la_mitad(self):
         from core.sources.scan import CUPO_POR_ESCANEO
 
-        r = await run_multisource_scan([abundante(f"f{n}", 400) for n in range(3)], QUERY)
+        # Nombres sin cifras: la huella del cupo las quita y «f0»/«f1» serían la misma pieza.
+        r = await run_multisource_scan([abundante(f"f{letra}", 400) for letra in "abc"], QUERY)
         cuentas = [p.items for p in r.per_source.values()]
         self.assertLessEqual(sum(cuentas), CUPO_POR_ESCANEO)
         self.assertTrue(all(c <= CUPO_POR_ESCANEO // 2 for c in cuentas), cuentas)
         self.assertEqual(sum(cuentas), CUPO_POR_ESCANEO, "el cupo libre se reparte hasta llenarse")
+
+    async def test_las_repetidas_no_gastan_cupo(self):
+        """Walter (Fase 3): Bluesky no puede meter duplicados en el cupo. En el escaneo 2
+        trajo 250 piezas y 83 eran repetidas (sobre todo spam «Parts 1-3/3 — EFTA….jpg»,
+        que solo cambia en las cifras)."""
+        spam = abundante("spam", 400, "Parts 1-3/3 — EFTA00{n}.jpg #epsteinweb invoice https://x.org/{n}")
+        spam_cifras = type("spam2", (Abundante,), {"id": "spam2", "display_name": "spam2", "cuantas": 400,
+                                                   "plantilla": "Parts 1-3/3 — EFTA00{n}.jpg #epsteinweb invoice"})
+        r = await run_multisource_scan([spam, abundante("buena", 300)], QUERY)
+        self.assertIsNone(r.per_source["spam"].stop_reason, "las repetidas no la paran: no gastan cupo")
+        self.assertEqual(r.per_source["buena"].items, 250, "la otra sigue teniendo su mitad entera")
+        # Las cifras no cuentan: «EFTA001.jpg» y «EFTA002.jpg» son la misma pieza para el cupo.
+        r2 = await run_multisource_scan([fuente(spam_cifras)], QUERY)
+        self.assertEqual(r2.per_source["spam2"].stop_reason, None)
+
+    async def test_lo_que_no_nombra_el_tema_no_gasta_cupo(self):
+        ajena = abundante("ajena", 300, "noticias del día número {letras} de la fuente {fuente} sin nada que ver")
+        r = await run_multisource_scan([ajena, abundante("buena", 300)], QUERY)
+        self.assertIsNone(r.per_source["ajena"].stop_reason)
+        self.assertEqual(r.per_source["buena"].items, 250)
+
+    async def test_lo_bruto_tambien_tiene_tope_para_no_traer_sin_fin(self):
+        """Lo que no es útil no gasta cupo, pero traer tiene un tope: el doble del cupo
+        entre todas las fuentes (vectorizar y guardar cuesta tiempo)."""
+        from core.sources.scan import CUPO_POR_ESCANEO
+
+        ajenas = [abundante(f"a{letra}", 600, "ruido {letras} de {fuente} sin el tema de la búsqueda")
+                  for letra in "abc"]
+        r = await run_multisource_scan(ajenas, QUERY)
+        self.assertLessEqual(sum(p.items for p in r.per_source.values()), 2 * CUPO_POR_ESCANEO)
+        self.assertTrue(all(p.stop_reason == "source_budget_exhausted" for p in r.per_source.values()))
 
     async def test_el_cupo_es_por_escaneo_y_no_se_arrastra_al_siguiente(self):
         fuentes = [abundante("sola", 300)]
