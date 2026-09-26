@@ -106,7 +106,14 @@ facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
   «Anécdota (1 autor)».
 - **Nombre del grupo.** Lo produce G0 en es/en y se guarda con el veredicto
   (`niche_verdicts.problem_name`, migración 016).
-- Versiones vigentes: labels-v4, clustering-v10, coherence-v3, judge-weights-v6.
+- **Solo cuentan las quejas del tema (labels-v5, Walter, Fase 3).** Con tema,
+  el etiquetador lo recibe (la frase del asistente y las palabras) y cada
+  etiqueta dice si es del tema (`del_tema`, con su fragmento literal). Solo
+  `is_pain = yes` y `del_tema = yes` forman grupos (`pain_items`); el resumen
+  cuenta las ajenas (`pain_off_topic`). Caché por pieza + tema
+  (`labels-v5/<modelo>/tema-<huella>`): nunca se reutiliza entre temas. Mismas
+  llamadas a Gemini (mismos lotes). Escaneo 2: 0 de 53 quejas eran del tema.
+- Versiones vigentes: labels-v5, clustering-v10, coherence-v3, judge-weights-v6.
 - El resumen del juez queda con la ejecución (`pipeline_runs.judge_summary`,
   migración 019). `stored` = piezas guardadas por la ejecución (0 en un re-juicio).
   `filtered_in`, `filtered_out`, `analyzed`, `qualified`, `rejected`, `cycles`,

@@ -84,9 +84,10 @@ def es_anuncio(item: EvidenceItem) -> bool:
 
 
 def pain_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:
-    """La evidencia que cuenta: miembros con dolor verificado que no son un lanzamiento."""
-    return [i for i in items if labels.get(i.id) is not None and labels[i.id].is_pain == "yes"
-            and not es_anuncio(i)]
+    """La evidencia que cuenta: dolor verificado que no es un lanzamiento y, si el
+    escaneo tenía tema, del tema (labels-v5; `del_tema` None = etiquetada sin tema)."""
+    return [i for i in items if (e := labels.get(i.id)) is not None and e.is_pain == "yes"
+            and e.del_tema in (None, "yes") and not es_anuncio(i)]
 
 
 def payment_items(items: Sequence[EvidenceItem], labels: Mapping[str, VerifiedLabel]) -> list[EvidenceItem]:

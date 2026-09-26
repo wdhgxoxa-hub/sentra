@@ -63,7 +63,10 @@ class LLMDoble:
                 item_id=e["id"], is_pain=True, pain_confidence=0.9,
                 intent="parche_casero" if n == 0 else "dispuesto_a_pagar" if n == 1 else "queja",
                 workaround_described=n == 0, wtp_signal=n == 1, affected="author",
+                # labels-v5: con tema, estas quejas son del tema (sin tema no cuenta).
+                del_tema=True,
                 evidence_spans={"is_pain": "I export every invoice by hand",
+                                "del_tema": "I export every invoice by hand",
                                 "affected": "I export every invoice by hand",
                                 "intent": "I export every invoice by hand",
                                 "workaround_described": "into a spreadsheet",

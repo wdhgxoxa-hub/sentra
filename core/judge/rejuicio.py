@@ -90,7 +90,9 @@ def rejuzgar(
             juicio = run_judge(items, vectores([i.id for i in items]), provider=provider, model=model,
                                cache=cache, now=now, vectores_frase=vectores_frase,
                                previous=await previous_identities(store),
-                               tema=list(parametros.get("keywords") or []), label_max_items=label_max_items,
+                               tema=list(parametros.get("keywords") or []),
+                               descripcion=str(parametros.get("name") or ""),
+                               label_max_items=label_max_items,
                                coherence_cache=PostgresCoherenceCache(dsn))
             nueva = await store.start_run(origen["subreddit_name"], trigger_source=TRIGGER_REJUICIO,
                                           parameters={**parametros, "rejuicio_de": run_origen},

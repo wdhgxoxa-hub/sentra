@@ -170,7 +170,7 @@ def _proveedor_del_juez(ctx: SidecarContext, control: ControlDeGemini) -> tuple[
 
 
 def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
-            tema: Sequence[str] = ()) -> dict[str, Any]:
+            tema: Sequence[str] = (), descripcion: str = "") -> dict[str, Any]:
     """Juez completo sobre lo guardado; devuelve su resumen. En un hilo aparte.
     `tema`: palabras clave del perfil; no nombran nichos (AUD2-001)."""
     from datetime import UTC, datetime
@@ -201,7 +201,8 @@ def _juzgar(ctx: SidecarContext, run_id: str, resultado: MultiScanResult, *,
             juicio = run_judge(resultado.items, resultado.vectors, provider=proveedor, model=modelo,
                                cache=PostgresLabelCache(dsn), now=datetime.now(UTC),
                                vectores_frase=almacen.embed_frases if almacen else (lambda _f: {}),
-                               previous=previos, tema=tema, label_max_items=_tope_de_etiquetas(),
+                               previous=previos, tema=tema, descripcion=descripcion,
+                               label_max_items=_tope_de_etiquetas(),
                                coherence_cache=PostgresCoherenceCache(dsn))
             await store.save_verdicts(run_id, juicio.verdicts)
             await marcar_juzgada(store, run_id, construir=sum(
@@ -348,7 +349,8 @@ def router(ctx: SidecarContext) -> APIRouter:
                         cola.put_nowait({"type": "judge:started", "runId": run_id})
                         try:
                             resumen = await asyncio.to_thread(
-                                functools.partial(_juzgar, ctx, run_id, resultado, tema=perfil.keywords))
+                                functools.partial(_juzgar, ctx, run_id, resultado, tema=perfil.keywords,
+                                                  descripcion=perfil.name))
                             cola.put_nowait({"type": "judge:done", "runId": run_id,
                                              "summary": resumen})
                         # El escaneo ya está guardado: un fallo del juez se cuenta, no lo tumba.

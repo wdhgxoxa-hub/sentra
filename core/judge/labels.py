@@ -14,10 +14,12 @@ diferencias de espacios, mayúsculas y forma Unicode; nunca otras palabras.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import unicodedata
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
@@ -30,9 +32,33 @@ logger = logging.getLogger(__name__)
 #: Versión del etiquetador (prompt + esquema). Cambiarla invalida la caché.
 #: v2: el prompt y el esquema nombran las claves de evidence_spans (en v1 el
 #: modelo omitía la de intent y la verificación la anulaba).
-LABELER_VERSION = "labels-v4"
+#: v5 (Fase 3, medida A de Walter): con tema, cada etiqueta dice si es del tema
+#: (`del_tema`) y la caché va por pieza + tema. Escaneo 2: 0 de 53 quejas eran
+#: del tema; el etiquetador no lo conocía.
+LABELER_VERSION = "labels-v5"
 #: Claves exactas de evidence_spans.
-SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal", "affected")
+SPAN_KEYS: tuple[str, ...] = ("is_pain", "intent", "workaround_described", "wtp_signal", "affected", "del_tema")
+
+
+@dataclass(frozen=True)
+class TemaDelEscaneo:
+    """El tema del escaneo como lo escribió la persona y sus palabras clave."""
+
+    descripcion: str
+    palabras: tuple[str, ...] = ()
+
+    def huella(self) -> str:
+        """La misma para el mismo tema: sin espacios de más, sin mayúsculas, palabras en cualquier orden."""
+        normal = [" ".join(self.descripcion.casefold().split()),
+                  sorted(" ".join(p.casefold().split()) for p in self.palabras)]
+        return hashlib.sha256(json.dumps(normal, ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
+
+
+def etiquetador(model: str | None, tema: TemaDelEscaneo | None) -> str:
+    """Clave de caché de una etiqueta: versión, modelo y, con tema, su huella.
+    Nunca se reutiliza una etiqueta entre temas: «del tema» depende del tema."""
+    base = f"{LABELER_VERSION}/{model}" if model else LABELER_VERSION
+    return f"{base}/tema-{tema.huella()}" if tema is not None else base
 #: D-M4: ítems etiquetados por escaneo.
 MAX_ITEMS_PER_SCAN = 300
 #: Ítems por llamada al LLM.
@@ -95,13 +121,17 @@ class LLMItemLabel(BaseModel):
         "problema de otros o en general; none si no hay problema (opinión, recomendación, "
         "anuncio, idea de negocio)."))
     competitors_mentioned: list[CompetitorMention] = Field(default_factory=list)
+    #: labels-v5: solo con tema; None sin tema.
+    del_tema: bool | None = Field(default=None, description=(
+        "Solo si el mensaje da un tema del escaneo: true si el problema de quien escribe es ESE "
+        "tema (no otro problema que comparte palabras); false si no. Sin tema, null."))
     #: Fragmento literal por etiqueta positiva.
     evidence_spans: dict[str, str] = Field(
         default_factory=dict,
         description=("Fragmento LITERAL del texto por cada etiqueta positiva, con estas claves "
                      "exactas: is_pain, intent (salvo pregunta_neutra), workaround_described, "
-                     "wtp_signal y affected (cuando es author: la frase en la que el autor dice "
-                     "que lo sufre)."))
+                     "wtp_signal, affected (cuando es author: la frase en la que el autor dice "
+                     "que lo sufre) y del_tema (cuando es true: la frase que lo muestra)."))
 
 
 class LLMLabelBatch(BaseModel):
@@ -131,6 +161,8 @@ class VerifiedLabel(BaseModel):
     #: labels-v4; las etiquetas guardadas antes no lo tienen.
     affected: Affected | Literal["undetermined"] = "undetermined"
     competitors: list[VerifiedCompetitor] = Field(default_factory=list)
+    #: labels-v5: ¿es del tema del escaneo? None si se etiquetó sin tema.
+    del_tema: Tri | None = None
     evidence_spans: dict[str, str] = Field(default_factory=dict)
     #: Por qué no hay etiqueta del LLM (sin proveedor, presupuesto...); None si la hay.
     undetermined_reason: str | None = None
@@ -143,9 +175,14 @@ def _booleana(valor: bool, clave: str, spans: Mapping[str, str], texto: str) -> 
 
 
 def verify_label(etiqueta: LLMItemLabel, texto: str, *, content_hash: str = "",
-                 labeler: str = LABELER_VERSION) -> VerifiedLabel:
-    """Anula (undetermined) cada etiqueta positiva sin fragmento literal en el texto."""
+                 labeler: str = LABELER_VERSION, con_tema: bool = False) -> VerifiedLabel:
+    """Anula (undetermined) cada etiqueta positiva sin fragmento literal en el texto.
+    Con tema, `del_tema` también: sin respuesta o sin su fragmento, no se sabe."""
     spans = etiqueta.evidence_spans
+    del_tema: Tri | None = None
+    if con_tema:
+        del_tema = ("undetermined" if etiqueta.del_tema is None
+                    else _booleana(etiqueta.del_tema, "del_tema", spans, texto))
     intencion: Intent | Literal["undetermined"] = etiqueta.intent
     if etiqueta.intent != "pregunta_neutra" and not span_in_text(spans.get("intent"), texto):
         intencion = "undetermined"
@@ -171,6 +208,7 @@ def verify_label(etiqueta: LLMItemLabel, texto: str, *, content_hash: str = "",
                                        spans, texto),
         wtp_signal=_booleana(etiqueta.wtp_signal, "wtp_signal", spans, texto),
         competitors=competidores,
+        del_tema=del_tema,
         evidence_spans={k: v for k, v in spans.items() if span_in_text(v, texto)},
     )
 
@@ -229,9 +267,24 @@ SYSTEM_PROMPT = (
 )
 
 
-def _prompt(lote: Sequence[EvidenceItem]) -> str:
+#: labels-v5: reglas de `del_tema`; solo van en el sistema cuando hay tema.
+SYSTEM_PROMPT_TEMA = (
+    "El mensaje da el TEMA del escaneo. del_tema dice si el problema de quien escribe es ese "
+    "tema: true solo si habla de ese mismo problema, y entonces evidence_spans.del_tema es la "
+    "frase que lo muestra; false si es otro problema aunque comparta palabras (un fallo de "
+    "programación con «documentos» o «clientes» no es del tema «perseguir a los clientes para "
+    "que manden sus documentos al contable»). del_tema no cambia is_pain: una queja de otra "
+    "cosa sigue siendo una queja, solo que no del tema."
+)
+
+
+def _prompt(lote: Sequence[EvidenceItem], tema: TemaDelEscaneo | None = None) -> str:
     entrada = [{"id": i.id, "text": i.text} for i in lote]
-    return ("Etiqueta estos ítems. Devuelve una etiqueta por id, con el mismo id.\n"
+    cabecera = ""
+    if tema is not None:
+        cabecera = (f"Tema del escaneo: «{tema.descripcion}». Palabras con las que se buscó: "
+                    f"{', '.join(tema.palabras)}.\n")
+    return (cabecera + "Etiqueta estos ítems. Devuelve una etiqueta por id, con el mismo id.\n"
             + json.dumps(entrada, ensure_ascii=False))
 
 
@@ -243,9 +296,12 @@ def label_items(
     cache: LabelCache,
     batch_size: int = BATCH_SIZE,
     max_items: int = MAX_ITEMS_PER_SCAN,
+    tema: TemaDelEscaneo | None = None,
 ) -> dict[str, VerifiedLabel]:
-    """Etiqueta y verifica. Lo que no puede etiquetarse queda `undetermined` con motivo."""
-    labeler = f"{LABELER_VERSION}/{model}" if model else LABELER_VERSION
+    """Etiqueta y verifica. Lo que no puede etiquetarse queda `undetermined` con motivo.
+    Con `tema`, cada etiqueta dice si es del tema; los lotes (las llamadas) no cambian."""
+    labeler = etiquetador(model, tema)
+    sistema = f"{SYSTEM_PROMPT} {SYSTEM_PROMPT_TEMA}" if tema is not None else SYSTEM_PROMPT
     resultado: dict[str, VerifiedLabel] = {}
     if provider is None or not model:
         return {i.id: undetermined(i, "no_provider", labeler) for i in items}
@@ -265,8 +321,8 @@ def label_items(
         assert provider is not None and model
         try:
             respuesta = provider.generate_json(
-                _prompt(lote), LLMLabelBatch, model=model, max_output_tokens=MAX_OUTPUT_TOKENS,
-                timeout_ms=TIMEOUT_MS, purpose="etiquetado", system=SYSTEM_PROMPT,
+                _prompt(lote, tema), LLMLabelBatch, model=model, max_output_tokens=MAX_OUTPUT_TOKENS,
+                timeout_ms=TIMEOUT_MS, purpose="etiquetado", system=sistema,
                 thinking_budget=LABEL_THINKING_BUDGET)
         except LLMTruncated:
             if len(lote) > 1 and divisiones < TRUNCATION_MAX_SPLITS:
@@ -291,8 +347,8 @@ def label_items(
             if etiqueta is None:
                 resultado[item.id] = undetermined(item, "missing_in_response", labeler)
                 continue
-            verificada = verify_label(etiqueta, item.text,
-                                      content_hash=content_fingerprint(item.text), labeler=labeler)
+            verificada = verify_label(etiqueta, item.text, content_hash=content_fingerprint(item.text),
+                                      labeler=labeler, con_tema=tema is not None)
             cache.put(verificada)
             resultado[item.id] = verificada
 

@@ -55,9 +55,9 @@ class DobleQueSeEquivoca:
             span = e["text"][:20]
             etiquetas.append(LLMItemLabel(
                 item_id=e["id"], is_pain=True, pain_confidence=0.9, intent="parche_casero",
-                workaround_described=True, wtp_signal=False, affected="author",
+                workaround_described=True, wtp_signal=False, affected="author", del_tema=True,
                 evidence_spans={"is_pain": span, "intent": span, "workaround_described": span,
-                                "affected": span}))
+                                "affected": span, "del_tema": span}))
         return LLMLabelBatch(labels=etiquetas)
 
 

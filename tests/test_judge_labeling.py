@@ -149,18 +149,20 @@ class TestInstrucciones(unittest.TestCase):
     no decía con qué claves rellenar evidence_spans."""
 
     def test_el_prompt_y_el_esquema_nombran_las_claves_de_los_fragmentos(self):
-        from core.judge.labels import SPAN_KEYS, SYSTEM_PROMPT
+        from core.judge.labels import SPAN_KEYS, SYSTEM_PROMPT, SYSTEM_PROMPT_TEMA
 
         self.assertEqual(SPAN_KEYS, ("is_pain", "intent", "workaround_described", "wtp_signal",
-                                     "affected"))
+                                     "affected", "del_tema"))
         descripcion = LLMItemLabel.model_json_schema()["properties"]["evidence_spans"]["description"]
         for clave in SPAN_KEYS:
-            self.assertIn(clave, SYSTEM_PROMPT)
+            # labels-v5: del_tema solo se pide con tema; sus reglas van en SYSTEM_PROMPT_TEMA.
+            self.assertIn(clave, SYSTEM_PROMPT_TEMA if clave == "del_tema" else SYSTEM_PROMPT)
             self.assertIn(clave, descripcion)
 
     def test_la_version_cambia_con_el_prompt(self):
-        # v3: ejemplos negativos de AUD2-001; v4: quién sufre el problema (affected).
-        self.assertEqual(LABELER_VERSION, "labels-v4")
+        # v3: ejemplos negativos de AUD2-001; v4: quién sufre el problema (affected);
+        # v5: con tema, si la queja es del tema (Fase 3, medida A).
+        self.assertEqual(LABELER_VERSION, "labels-v5")
 
     def test_el_prompt_dice_que_no_es_dolor_ni_parche(self):
         """AUD2-001: el etiquetador tomaba «Show HN: I built X» por un parche casero."""

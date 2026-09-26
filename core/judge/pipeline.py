@@ -33,14 +33,15 @@ from .clustering import (
     subgrupo,
 )
 from .coherencia import CoherenceCache, comprobar_coherencia, compuerta_coherencia
-from .dimensions import es_lanzamiento, pain_items
+from .dimensions import es_anuncio, es_lanzamiento, pain_items
 from .gates import judge_cluster, umbral_autores
 from .labels import (
     BATCH_SIZE,
-    LABELER_VERSION,
     MAX_ITEMS_PER_SCAN,
     LabelCache,
+    TemaDelEscaneo,
     VerifiedLabel,
+    etiquetador,
     label_items,
 )
 from .quality import QualityResult, QualityVerdict, filter_quality
@@ -141,15 +142,21 @@ def run_judge(
     label_max_items: int = MAX_ITEMS_PER_SCAN,
     tema: Sequence[str] = (),
     coherence_cache: CoherenceCache | None = None,
+    descripcion: str = "",
 ) -> JudgeResult:
     """`tema`: términos del perfil del escaneo; no nombran nichos.
 
     `vectores_frase` vectoriza {id: frase del problema verificada}: se agrupa por
     el problema que cada autor cuenta, no por el post entero (clustering-v5/v6).
-    `vectors` (texto entero) solo sirve para el contexto de G7."""
+    `vectors` (texto entero) solo sirve para el contexto de G7.
+
+    `descripcion`: el tema como lo escribió la persona. Con tema, el etiquetador
+    lo conoce (labels-v5) y solo las quejas del tema forman grupos."""
     calidad = sin_comentarios_fuera_de_tema(filter_quality(items), tema)
+    tema_etiquetado = (TemaDelEscaneo(descripcion=descripcion or ", ".join(tema), palabras=tuple(tema))
+                       if tema else None)
     etiquetas = label_items(orden_de_etiquetado(calidad.kept, tema), provider=provider, model=model, cache=cache,
-                            batch_size=label_batch_size, max_items=label_max_items)
+                            batch_size=label_batch_size, max_items=label_max_items, tema=tema_etiquetado)
     # AUD2-001: solo la evidencia con dolor pertinente forma nichos. Antes se
     # agrupaba todo lo que pasaba la calidad y los grupos salían por tema.
     dolor = pain_items(calidad.kept, etiquetas)
@@ -194,7 +201,7 @@ def run_judge(
             # Una mezcla (G0 fallida) no tiene problema común que puntuar (decisión del usuario).
             "score": None if juicio.rule.startswith("0:") else juicio.score.score,
             "weights_version": juicio.score.weights_version,
-            "labeler_version": f"{LABELER_VERSION}/{model}" if model else LABELER_VERSION,
+            "labeler_version": etiquetador(model, tema_etiquetado),
             "clustering_version": CLUSTERING_VERSION,
             "missing": juicio.missing,
             "gates": [asdict(g) for g in juicio.gates],
@@ -220,6 +227,10 @@ def run_judge(
         "labeled": sum(1 for e in etiquetas.values() if e.undetermined_reason is None),
         "undetermined": dict(sin_etiqueta),
         "pain": len(dolor),
+        # labels-v5: quejas que no son del tema del escaneo (no forman grupos).
+        "pain_off_topic": sum(1 for i in calidad.kept if (e := etiquetas.get(i.id)) is not None
+                             and e.is_pain == "yes" and e.del_tema in ("no", "undetermined")
+                             and not es_anuncio(i)),
         "launches_excluded": sum(1 for i in calidad.kept if es_lanzamiento(i)),
         "min_authors": min_autores,
         "clusters": len(grupos),
