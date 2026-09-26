@@ -119,6 +119,25 @@ class TestEvaluar(unittest.TestCase):
         self.assertEqual(entorno(None, cdp=True)["SENTRA_VENTANA_DISCRETA"], "1")
         conf = json.loads((RAIZ / "ui" / "src-tauri" / "tauri.conf.json").read_text("utf-8"))
         self.assertIs(conf["app"]["windows"][0]["visible"], False)
+        # tao activaba la ventana oculta al crearla (focus true por defecto): el
+        # vigía de la compuerta la vio en primer plano 154 y 23 muestras.
+        self.assertIs(conf["app"]["windows"][0]["focus"], False)
+
+    def test_el_vigia_reconoce_a_sentra_por_su_ejecutable(self):
+        from unittest import mock
+
+        from tests.humo_exe import VigiaDePrimerPlano as V
+
+        for ruta, esperado_ in ((r"F:\repo\ui\src-tauri\target\release\sentra.exe", True),
+                                (r"C:\Windows\explorer.exe", False), ("", False),
+                                (r"C:\x\nosentra.exe", False)):
+            with mock.patch.object(V, "imagen_del_primer_plano", return_value=ruta):
+                self.assertIs(V.es_de_sentra(), esperado_, ruta)
+
+    def test_una_ventana_de_sentra_en_primer_plano_es_un_fallo(self):
+        fallos = evaluar(observado(primer_plano=23), verdad(), ahora=AHORA)
+        self.assertTrue(any("primer plano" in f and "23" in f for f in fallos), fallos)
+        self.assertFalse(evaluar(observado(primer_plano=0), verdad(), ahora=AHORA))
 
     def test_el_humo_mira_la_app_con_su_ancho_minimo(self):
         """Oculta, la ventana mide lo de la configuración (1440); visible, lo que

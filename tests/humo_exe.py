@@ -38,7 +38,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 RAIZ = Path(__file__).resolve().parents[1]
 EXE_POR_DEFECTO = RAIZ / "ui" / "src-tauri" / "target" / "release" / "sentra.exe"
@@ -109,6 +109,9 @@ class Observado:
     cierre_normal: bool = False
     huerfanos_tras_cierre: int = 0
     huerfanos_tras_matar: int = 0
+    #: Walter (Fase 3): muestras (cada 100 ms, las tres aperturas) en las que una
+    #: ventana de SENTRA, visible u oculta, tenía el primer plano: 0.
+    primer_plano: int = 0
     puerto_libre_tras_matar: bool = False
     #: Huella del Local Storage del perfil real antes y después, y si la app
     #: escribió en el perfil aislado (si no, habría vuelto al real).
@@ -193,6 +196,9 @@ def evaluar(obs: Observado, verdad: Verdad, *, ahora: datetime) -> list[str]:
         fallos.append(f"cierre normal: {obs.huerfanos_tras_cierre} motores vivos")
     if obs.huerfanos_tras_matar:
         fallos.append(f"cierre forzado: {obs.huerfanos_tras_matar} motores huérfanos")
+    if obs.primer_plano:
+        fallos.append(f"foco: una ventana de SENTRA tuvo el primer plano en {obs.primer_plano} muestras; "
+                      "el humo no puede quitarle el foco a quien usa el ordenador")
     if not obs.puerto_libre_tras_matar:
         fallos.append(f"cierre forzado: el puerto {PUERTO_MOTOR} sigue ocupado")
     if not obs.cierre_ventana_interna:
@@ -468,6 +474,54 @@ def _cerrar_ventana(pid: int, clase: str) -> bool:
     return bool(hwnd) and bool(ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0))
 
 
+class VigiaDePrimerPlano:
+    """Cuenta, cada 100 ms, las muestras en que el primer plano es de sentra.exe."""
+
+    def __init__(self) -> None:
+        self.muestras = 0
+        self._parar = threading.Event()
+        self._hilo = threading.Thread(target=self._vigilar, daemon=True)
+
+    def __enter__(self) -> Self:
+        self._hilo.start()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self._parar.set()
+        self._hilo.join(timeout=5)
+
+    @staticmethod
+    def es_de_sentra() -> bool:
+        return VigiaDePrimerPlano.imagen_del_primer_plano().lower().endswith(r"\sentra.exe")
+
+    @staticmethod
+    def imagen_del_primer_plano() -> str:
+        """Ruta del ejecutable dueño de la ventana en primer plano ('' si no se sabe)."""
+        import ctypes
+        from ctypes import wintypes
+
+        u32, k32 = ctypes.windll.user32, ctypes.windll.kernel32
+        ventana = u32.GetForegroundWindow()
+        if not ventana:
+            return ""
+        pid = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(ventana, ctypes.byref(pid))
+        proceso = k32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not proceso:
+            return ""
+        try:
+            ruta = ctypes.create_unicode_buffer(1024)
+            largo = wintypes.DWORD(1024)
+            ok = k32.QueryFullProcessImageNameW(proceso, 0, ruta, ctypes.byref(largo))
+            return ruta.value if ok else ""
+        finally:
+            k32.CloseHandle(proceso)
+
+    def _vigilar(self) -> None:
+        while not self._parar.wait(0.1):
+            self.muestras += self.es_de_sentra()
+
+
 def url_de_la_interfaz(
     leer: Callable[[], str | None], *, limite: float = URL_MAX_S,
     reloj: Callable[[], float] = time.monotonic, dormir: Callable[[float], None] = time.sleep,
@@ -713,9 +767,11 @@ def main(argv: list[str] | None = None) -> int:
     uso_antes = contar_uso_gemini()
     antes = huella_perfil()
     try:
-        obs = recorrer(args.exe, perfil)
-        cerrar_por_ventana_interna(args.exe, obs, perfil)
-        matar_de_golpe(args.exe, obs, perfil)
+        with VigiaDePrimerPlano() as vigia:
+            obs = recorrer(args.exe, perfil)
+            cerrar_por_ventana_interna(args.exe, obs, perfil)
+            matar_de_golpe(args.exe, obs, perfil)
+        obs.primer_plano = vigia.muestras
         obs.perfil_real_antes, obs.perfil_real_despues = antes, huella_perfil()
         obs.perfil_aislado_usado = (perfil / "EBWebView").is_dir() or any(perfil.iterdir())
         obs.uso_gemini_nuevo = contar_uso_gemini() - uso_antes
