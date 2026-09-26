@@ -240,8 +240,10 @@ def huella_perfil(carpeta: Path = PERFIL_REAL) -> str:
 
 
 def entorno(perfil: Path | None, *, cdp: bool = False) -> dict[str, str]:
-    """El entorno de la app: perfil de WebView aislado y, si se pide, depuración remota."""
+    """El entorno de la app: perfil de WebView aislado, modo discreto (la ventana no
+    se ve ni roba el foco: ui/src-tauri/src/ventana.rs) y, si se pide, depuración remota."""
     valores = dict(os.environ)
+    valores["SENTRA_VENTANA_DISCRETA"] = "1"
     if perfil is not None:
         valores["WEBVIEW2_USER_DATA_FOLDER"] = str(perfil)
     if cdp:
@@ -378,6 +380,8 @@ class _Cdp:
         threading.Thread(target=self._leer, daemon=True).start()
         for dominio in ("Runtime.enable", "Log.enable"):
             self.enviar(dominio)
+        ancho, alto = VISTA_DEL_HUMO
+        self.enviar("Emulation.setDeviceMetricsOverride", width=ancho, height=alto, deviceScaleFactor=0, mobile=False)
 
     def _leer(self) -> None:
         import websocket
@@ -425,6 +429,10 @@ class _Cdp:
                 f"{json.dumps(list(etiquetas))}.some(e => x.innerText.trim().startsWith(e))); if (b) b.click(); }})()")
 
 
+#: Vista con la que el humo mira la app: el mínimo de la ventana (tauri.conf.json).
+#: Oculta mide 1440 y visible lo que decida el gestor de ventanas; fijada, el
+#: resultado no depende de eso y el desborde se mide en el caso más estrecho.
+VISTA_DEL_HUMO = (960, 600)
 VENTANA_APP = "Tauri Window"
 VENTANA_INTERNA = "Tao Thread Event Target"
 

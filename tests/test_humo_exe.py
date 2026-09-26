@@ -108,6 +108,29 @@ class TestEvaluar(unittest.TestCase):
         self.assertTrue(any("741" in f and "resultado" in f and "derecha" in f for f in fallos), fallos)
         self.assertFalse(evaluar(observado(desborde={"radar": 0}), verdad(), ahora=AHORA))
 
+    def test_el_humo_lanza_la_app_en_modo_discreto(self):
+        """Walter (Fase 3): el humo no puede robar el foco ni verse. La ventana nace
+        oculta y solo se muestra fuera del modo discreto."""
+        import json
+
+        from tests.humo_exe import entorno
+
+        self.assertEqual(entorno(None)["SENTRA_VENTANA_DISCRETA"], "1")
+        self.assertEqual(entorno(None, cdp=True)["SENTRA_VENTANA_DISCRETA"], "1")
+        conf = json.loads((RAIZ / "ui" / "src-tauri" / "tauri.conf.json").read_text("utf-8"))
+        self.assertIs(conf["app"]["windows"][0]["visible"], False)
+
+    def test_el_humo_mira_la_app_con_su_ancho_minimo(self):
+        """Oculta, la ventana mide lo de la configuración (1440); visible, lo que
+        decida el gestor de ventanas (822 con GlazeWM). El humo fija la vista al
+        mínimo que permite la app: mismo resultado siempre y lo más estricto."""
+        import json
+
+        from tests.humo_exe import VISTA_DEL_HUMO
+
+        ventana = json.loads((RAIZ / "ui" / "src-tauri" / "tauri.conf.json").read_text("utf-8"))["app"]["windows"][0]
+        self.assertEqual(VISTA_DEL_HUMO, (ventana["minWidth"], ventana["minHeight"]))
+
     def test_el_asistente_que_no_pasa_al_paso_2_es_un_fallo(self):
         fallos = evaluar(observado(asistente_paso2=False), verdad(), ahora=AHORA)
         self.assertTrue(any("asistente" in f for f in fallos), fallos)

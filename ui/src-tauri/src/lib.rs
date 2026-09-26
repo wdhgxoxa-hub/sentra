@@ -19,6 +19,7 @@ pub mod sidecar_log;
 pub mod empaquetado;
 pub mod motor;
 pub mod registro;
+pub mod ventana;
 pub mod ventana_interna;
 
 #[cfg(test)]
@@ -86,6 +87,14 @@ pub fn run() {
                     },
                     Err(err) => sidecar::Motor::Fallo(err.to_string()),
                 });
+                // La ventana nace oculta (tauri.conf.json): se muestra y se enfoca
+                // salvo en modo discreto, el de la prueba de humo (ventana.rs).
+                if !ventana::es_discreta(std::env::var(ventana::DISCRETA_ENV_VAR).ok().as_deref()) {
+                    if let Some(principal) = app.get_webview_window("main") {
+                        principal.show()?;
+                        principal.set_focus()?;
+                    }
+                }
                 // AUD2-027: un WM_CLOSE a la ventana interna de tao cierra la app
                 // en orden en lugar de dejar el proceso colgado.
                 if !ventana_interna::proteger(app.handle()) {
