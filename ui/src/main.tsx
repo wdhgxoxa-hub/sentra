@@ -1,3 +1,5 @@
+// Primero: el vigía de errores ve también lo que falle al cargar (lib/vigia.ts).
+import "@/vigiaGlobal";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
