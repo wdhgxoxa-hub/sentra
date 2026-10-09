@@ -37,6 +37,19 @@ class TestClaudeMd(unittest.TestCase):
             with self.subTest(clave=clave):
                 self.assertIn(clave, self.texto)
 
+    def test_describe_la_maquina_linux(self):
+        """Desde la migración a Linux (2026-10-09) las rutas y órdenes de
+        Windows ya no son las de trabajo: una sesión nueva no debe buscarlas."""
+        for clave in ("~/SENTRA/reddit_intelligence_radar", "~/.local/share/SENTRA/pgpass.conf",
+                      "--admin-sudo", "scripts/acceso_linux.py", ".venv/bin/python",
+                      "~/SENTRA/backups", "fase-linux/migracion"):
+            with self.subTest(clave=clave):
+                self.assertIn(clave, self.texto)
+        for viejo in ("C:\\PostgreSQL\\18\\bin\\psql.exe", "Get-Process", "GlazeWM",
+                      "La compuerta usa el `python` del sistema"):
+            with self.subTest(viejo=viejo):
+                self.assertNotIn(viejo, self.texto)
+
     def test_ya_no_dice_que_el_radar_pierde_el_nicho(self):
         self.assertNotIn("el nicho de impagos no se ve en el Radar", self.texto)
 

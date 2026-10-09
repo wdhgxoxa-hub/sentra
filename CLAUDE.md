@@ -1,7 +1,8 @@
 # CLAUDE.md — SENTRA
 
-Léelo entero antes de tocar nada. Estado verificado el 2026-09-25 (construcción
-de la Fase 2, rama `fase2/interfaz`) contra git, la base y la release. Si el repo contradice este archivo,
+Léelo entero antes de tocar nada. Estado verificado el 2026-10-09 (migración
+de Windows a Linux, CachyOS, rama `fase-linux/migracion`) contra git y la base;
+la release de Linux aún no existe. Si el repo contradice este archivo,
 manda el repo: corrígelo aquí en un commit aparte (`tests/test_claude_md.py`
 vigila lo que más cambia).
 
@@ -29,22 +30,24 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 
 | Pieza | Dónde |
 |---|---|
-| Repo | `F:\reddit_intelligence_radar` · GitHub `wdhgxoxa-hub/sentra` (público) |
+| Repo | `~/SENTRA/reddit_intelligence_radar` (Linux, CachyOS; en Windows era `F:\reddit_intelligence_radar`) · GitHub `wdhgxoxa-hub/sentra` (público) |
 | Interfaz | `ui/src` — React 19 + TypeScript. Pantallas: **Nuevo escaneo** (la principal, asistente de 3 pasos), Radar (con la ficha de cada nicho), Búsqueda, Fuentes, Configuración. `pantallas/` y `components/nicho/` son genéricas (P2); `views/` son las páginas del modo Software y las compartidas |
 | Escritorio | `ui/src-tauri` — Tauri 2 (Rust): IPC, arranque del motor, salud |
 | Motor | `core/` — FastAPI en loopback con token. `core/sources` (adaptadores), `core/judge` (juez), `core/llm` (Gemini, control, estimación), `core/documents` (dossier y plan), `core/evidence` (búsqueda) |
 | Base | PostgreSQL 18 local, base `reddit_intelligence_radar`, esquema `radar`. Rol `sentra_owner` (dueño, sin superusuario, no crea bases); los tests usan `sentra_pruebas` (solo CREATEDB, bases `rir_*_test`). DSN: `RIR_PG_URL` o, por defecto, `postgresql://sentra_owner@localhost:5432/reddit_intelligence_radar` con el pgpass de SENTRA |
-| pgpass de SENTRA | `%LOCALAPPDATA%\SENTRA\pgpass.conf` (icacls: solo el usuario). El compartido `%APPDATA%\postgresql\pgpass.conf` **nunca se escribe**. Roles y pgpass: `python -m scripts.rol_sentra` (`--en-seco`, `--deshacer`); las contraseñas las teclea Walter |
+| Carpeta local | `core/rutas.py::carpeta_local()` y `db.rs` (la misma regla): `%LOCALAPPDATA%\SENTRA` en Windows; en Linux `$XDG_DATA_HOME/SENTRA` o `~/.local/share/SENTRA` (nunca `~/.cache`: un limpiador se llevaría el modelo) |
+| pgpass de SENTRA | `~/.local/share/SENTRA/pgpass.conf` (chmod 600; en Windows `%LOCALAPPDATA%\SENTRA\pgpass.conf` con icacls). El de D&S Factory (`~/.config/DS-Factory/pgpass.conf`) **nunca se escribe**. Roles y pgpass: `python -m scripts.rol_sentra --admin-sudo` (`--en-seco`, `--deshacer`; en Linux `postgres` solo entra con `sudo -u postgres`); las contraseñas las teclea Walter |
 | Vectores | LanceDB en `data/lancedb` (tabla `evidence_e5`) |
-| Modelo e5 | `%LOCALAPPDATA%\SENTRA\models` (2,1 GB) |
-| Release | `ui/src-tauri/target/release/sentra.exe`; el acceso `Desktop\SENTRA.lnk` apunta ahí |
-| Motor de la release | se desempaqueta en `%LOCALAPPDATA%\com.sentra.desktop\motor\<huella>` (AUD2-003) |
-| Logs de la app | `%LOCALAPPDATA%\com.sentra.desktop\logs\` (`SENTRA.log` en UTC, `sidecar.log`) |
+| Modelo e5 | `~/.local/share/SENTRA/models` (2,1 GB) |
+| Python | `.venv` con Python 3.12.14 (de `uv`, en `~/.local/share/uv`); el del sistema es 3.14 y no se usa |
+| Release | Linux: `ui/src-tauri/target/release/sentra` (aún no compilada). Acceso del lanzador: `scripts/acceso_linux.py` (`--en-seco`) escribe `~/.local/share/applications/sentra.desktop`; se instala cuando pase el humo de Linux |
+| Motor de la release | se desempaqueta en la carpeta de datos de la app (`com.sentra.desktop`) `\motor\<huella>` (AUD2-003); en Linux, ruta sin verificar hasta la primera release |
+| Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `\logs\` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, sin verificar |
 | Migraciones | `sql/migrations/001…020`; `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
-| Respaldos | `F:\backups\reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump` |
-| Archivo | repos clonados y scripts antiguos en `F:\archivo_sentra\` |
-| psql | `C:\PostgreSQL\18\bin\psql.exe` (no está en el PATH) |
+| Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump`; el volcado final de Windows y `roles_y_globales.sql` en `~/SENTRA/backups/volcado-2026-09-26/` |
+| Archivo | repos clonados y scripts antiguos en `archivo_sentra/` del disco NTFS «Almacenamiento» (no se copió; se monta en solo lectura en `/mnt/almacenamiento`) |
+| psql | `/usr/bin/psql` (en el PATH) |
 
 Documentos: `README.md` (puesta en marcha, compuerta, humo),
 `docs/proceso.md` (reglas de proceso), `docs/auditoria-2026-09-24.md`
@@ -213,14 +216,21 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 **completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
 7 minutos. Nunca `--no-verify`.
 
+- **Linux (2026-10-09):** el humo depende de WebView2 y de ventanas de Windows;
+  fuera de Windows corta con `OSError`. Se rehace en una tarea aparte. Hasta
+  entonces vale la reducida (ruff, mypy, Python, tsc, node, cargo, más clippy)
+  y el hook **no está activado** en el clon de Linux: se activa cuando la
+  completa pase aquí.
 - **Nunca `compuerta | tail && git commit`**: el `&&` mira a `tail`. La salida
   del commit va entera a un log; se lee el log después.
-- La compuerta usa el `python` del sistema (3.12), no `.venv`.
+- El intérprete: `$PYTHON` si está definida; si no, `.venv/bin/python` (3.12)
+  si existe; si no, `python` (Windows). ruff, mypy, pip-audit, los tests y el
+  humo corren con él (`"$PY" -m ...`).
 - Si el commit cambia la interfaz o el motor, se recompila antes la release
   (`cd ui && npm run tauri build`): el humo prueba el exe compilado. Un `cargo
   build --release` suelto deja un exe sin interfaz en la ruta del acceso.
-- Antes de compilar o del humo: comprobar con `Get-Process` que SENTRA está
-  cerrada (puede estar abierta en otro workspace de GlazeWM).
+- Antes de compilar o del humo: comprobar con `pgrep -x sentra` que SENTRA
+  está cerrada (puede estar abierta en otro espacio de trabajo de Hyprland).
 - El humo usa un perfil de WebView aislado, no pulsa botones, sirve al exe una
   caché de modelos fresca (`RIR_CACHE_MODELOS`: no llama a Google) y falla si
   aparece una fila nueva en `llm_usage`.
@@ -240,31 +250,45 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 - **D&S Factory comparte PostgreSQL**: antes de tocar la base o de un commit
   (sus tests crean bases), comprobar que no tiene tests, compuertas ni
   migraciones en marcha ni sesiones activas (no idle). Su app abierta en reposo
-  no cuenta. Se hace uno y luego el otro.
+  no cuenta. Se hace uno y luego el otro. En Linux: sin procesos `pytest` suyos,
+  0 sesiones no idle en `pg_stat_activity` y 0 bloqueos `advisory` en
+  `pg_locks` (su suite los toma), en solo lectura.
 - Nada de borrar ni cambiar datos reales, ni migraciones destructivas, sin
   respaldo `pg_dump -Fc` y aprobación. Migración que el código necesite (R12):
   respaldo + ensayo sobre copia restaurada + `--dry-run` + `migrate.py up` (como
   `sentra_owner`) + verificación en solo lectura, ANTES de abrir la app.
 - Consultas a la base para verificar: siempre en solo lectura
-  (`PGOPTIONS="-c default_transaction_read_only=on"`). En Git Bash no poner
-  «·» ni tildes en las consultas en línea (codificación).
+  (`PGOPTIONS="-c default_transaction_read_only=on"`).
 - Ediciones con Edit/Write o scripts escritos con Write; heredoc y `sed`
-  corrompen barras invertidas y CRLF.
+  corrompen barras invertidas. El repo de Linux usa LF; el clon de Windows del
+  disco NTFS tenía CRLF en la copia de trabajo (no en git).
 - «Verificado» solo con datos: antes y después sobre la app real y contrastado
   con SQL. Un DOM no vacío o un test verde no bastan.
 
-## Estado verificado (2026-09-25, construcción de la Fase 2)
+## Estado verificado en Linux (2026-10-09, migración)
 
-- `main` = `origin/main` = `2688c3d` (Fases 0 y 1). La Fase 2 está en la rama
-  `fase2/interfaz`, sin fusionar ni empujar, a la espera de Walter
-  (`docs/fase2/PROPUESTA.md`, sección 7, y `docs/fase2/capturas-exe/`).
+- `main` = `origin/main` = `6c993b0` (contiene `fase2/interfaz`, `fase3/reparto`
+  y `fase3/tema`). La migración está en `fase-linux/migracion`, sin fusionar ni
+  empujar, a la espera de Walter.
+- Repo clonado del bundle con todas las ramas; `.env` y `data/lancedb` copiados
+  del disco NTFS con sha256 idéntico.
+- Base restaurada del volcado del 26-09 23:01 (último de Windows) como
+  `sentra_owner`, en el PostgreSQL 18.6 que comparte D&S Factory: 20 de 20
+  migraciones, 30 ejecuciones (última 25-09 18:08), 80 veredictos (24 INVESTIGAR
+  MÁS, 56 DESCARTAR, 0 CONSTRUIR), 3 703 piezas, `llm_usage` 39 filas; filas de
+  las 13 tablas idénticas al volcado. Roles con contraseñas nuevas.
+- Las 11 políticas `tenant_isolation` existen pero RLS no está activado en
+  ninguna tabla, igual que en Windows (el volcado no lo activa).
+
+## Estado verificado en Windows (2026-09-25, construcción de la Fase 2)
+
 - Base: 20 de 20 migraciones (la 020 con respaldo `pre020.dump` y ensayo). 27
   ejecuciones, 67 veredictos (24 INVESTIGAR MÁS, 43 DESCARTAR, 0 CONSTRUIR),
   2 221 piezas. `llm_usage`: 2 filas (los dos dossiers de impagos, 25-09).
 - El Radar enseña la ejecución del 24-09 17:56 (1 nicho: «Tener que reclamar
   facturas impagadas», INVESTIGAR MÁS por la regla 9, 9 personas; 3 descartados)
   y avisa de que la del 24-09 18:47 («Cobros freelance») no formó nichos. Su
-  dossier está guardado en `%LOCALAPPDATA%\SENTRA\documentos` (se abre sin gastar).
+  dossier está guardado en la carpeta local, `documentos/` (se abre sin gastar).
 - Mastodon: desde e6c5b95 el adaptador guarda la dirección pública del mensaje
   (`https://<instancia>/statuses/<id>`, sin @usuario). Las 223 piezas anteriores
   se corrigieron el 25-09 con aprobación de Walter (respaldo
@@ -276,6 +300,10 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 
 ## Pendiente (Walter aprueba cada fase)
 
+0. **Migración a Linux:** revisar y fusionar `fase-linux/migracion` (decide
+   Walter); rehacer la prueba de humo para Linux (WebKitGTK, sin WebView2);
+   compilar la release; activar el hook cuando pase la compuerta completa;
+   instalar el acceso con `scripts/acceso_linux.py`.
 1. **Fase 2 — interfaz:** construida en `fase2/interfaz`; revisión y fusión
    (decide Walter). Lo que decía la propuesta original: El escaneo está al fondo de Fuentes, el campo Tema no
    guía ni avisa de palabras clave insuficientes, «0 grupos» no dice qué hacer,
