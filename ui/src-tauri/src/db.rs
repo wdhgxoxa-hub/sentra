@@ -142,11 +142,45 @@ pub fn connect_options() -> PgConnectOptions {
     }
 }
 
-/// El pgpass propio de SENTRA: `%LOCALAPPDATA%\SENTRA\pgpass.conf`, la misma
+/// El pgpass propio de SENTRA: `pgpass.conf` en su carpeta local, la misma
 /// ruta que `core/rutas.py` (`ruta_pgpass`). El motor la recibe en `PGPASSFILE`.
 pub fn ruta_pgpass() -> Option<std::path::PathBuf> {
-    let local = std::env::var_os("LOCALAPPDATA")?;
-    Some(std::path::Path::new(&local).join("SENTRA").join("pgpass.conf"))
+    Some(carpeta_local()?.join("pgpass.conf"))
+}
+
+/// Carpeta local de SENTRA, la misma que `core/rutas.py` (`carpeta_local`):
+/// `%LOCALAPPDATA%\SENTRA` en Windows; en Linux `$XDG_DATA_HOME/SENTRA` o
+/// `~/.local/share/SENTRA`. Nunca `~/.cache`: un limpiador de caché se
+/// llevaría el modelo e5 y el pgpass (como %TEMP% en AUD2-010).
+pub fn carpeta_local() -> Option<std::path::PathBuf> {
+    carpeta_local_desde(
+        std::env::var_os("LOCALAPPDATA"),
+        std::env::var_os("XDG_DATA_HOME"),
+        std::env::var_os("HOME"),
+    )
+}
+
+/// La regla de `carpeta_local` sin leer el entorno. Una variable vacía (o
+/// solo espacios, como el `strip()` de Python) cuenta como ausente; una
+/// `XDG_DATA_HOME` relativa se ignora, como pide la especificación XDG.
+fn carpeta_local_desde(
+    local: Option<std::ffi::OsString>,
+    xdg: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+) -> Option<std::path::PathBuf> {
+    use std::path::PathBuf;
+    let con_valor = |v: Option<std::ffi::OsString>| match v?.into_string() {
+        Ok(t) if t.trim().is_empty() => None,
+        Ok(t) => Some(PathBuf::from(t.trim())),
+        Err(crudo) => Some(PathBuf::from(crudo)),
+    };
+    if let Some(local) = con_valor(local) {
+        return Some(local.join("SENTRA"));
+    }
+    if let Some(xdg) = con_valor(xdg).filter(|x| x.is_absolute()) {
+        return Some(xdg.join("SENTRA"));
+    }
+    Some(PathBuf::from(home?).join(".local").join("share").join("SENTRA"))
 }
 
 /// La contrasena de `usuario` en un pgpass, con las reglas de libpq: campos
@@ -284,6 +318,8 @@ async fn create_pool_with(opciones: PgConnectOptions) -> Result<PgPool, sqlx::Er
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
 
     const ES: &str = include_str!("../../src/i18n/es.ts");
     const EN: &str = include_str!("../../src/i18n/en.ts");
@@ -365,11 +401,28 @@ mod tests {
 
     #[test]
     fn el_pgpass_de_sentra_vive_en_su_carpeta_local() {
-        let local = std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA en Windows");
-        assert_eq!(
-            ruta_pgpass(),
-            Some(std::path::Path::new(&local).join("SENTRA").join("pgpass.conf"))
-        );
+        // Sin tocar el entorno: los tests corren en paralelo.
+        let carpeta = carpeta_local().expect("la carpeta local sale en Windows y en Linux");
+        assert_eq!(ruta_pgpass(), Some(carpeta.join("pgpass.conf")));
+    }
+
+    fn os(valor: &str) -> Option<OsString> {
+        Some(OsString::from(valor))
+    }
+
+    #[test]
+    fn la_carpeta_local_es_la_misma_que_en_python() {
+        // Mismos casos que tests/test_ruta_modelos.py (core.rutas.carpeta_local).
+        let ruta = |local, xdg, home| carpeta_local_desde(local, xdg, home);
+        let p = PathBuf::from;
+        // Windows: %LOCALAPPDATA%\SENTRA, gane a lo que haya de XDG.
+        assert_eq!(ruta(os("C:/x"), os("/datos/xdg"), os("/home/u")), Some(p("C:/x").join("SENTRA")));
+        // Linux: $XDG_DATA_HOME/SENTRA si es absoluta.
+        assert_eq!(ruta(None, os("/datos/xdg"), os("/home/u")), Some(p("/datos/xdg/SENTRA")));
+        // Relativa o vacía no vale: ~/.local/share/SENTRA. Nunca ~/.cache.
+        assert_eq!(ruta(None, os("relativa/xdg"), os("/home/u")), Some(p("/home/u/.local/share/SENTRA")));
+        assert_eq!(ruta(os(""), os(""), os("/home/u")), Some(p("/home/u/.local/share/SENTRA")));
+        assert_eq!(ruta(None, None, None), None);
     }
 
     #[test]

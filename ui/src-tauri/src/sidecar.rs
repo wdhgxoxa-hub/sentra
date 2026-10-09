@@ -649,7 +649,7 @@ mod tests {
     fn el_motor_recibe_el_pgpass_de_sentra() {
         // Sin esto, libpq en el motor leería el pgpass.conf compartido.
         let entorno = SidecarManager::with_config(config(None, None, TEST_PORT)).entorno();
-        let ruta = crate::db::ruta_pgpass().expect("LOCALAPPDATA en Windows");
+        let ruta = crate::db::ruta_pgpass().expect("la carpeta local sale en Windows y en Linux");
         assert!(entorno.contains(&("PGPASSFILE", ruta.display().to_string())));
     }
 

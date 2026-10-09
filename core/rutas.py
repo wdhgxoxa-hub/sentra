@@ -39,12 +39,19 @@ def raiz_datos() -> Path:
 
 
 def carpeta_local() -> Path:
-    """Carpeta local de SENTRA fuera del repositorio: %LOCALAPPDATA%/SENTRA,
-    o ~/.cache/sentra sin esa variable."""
+    """Carpeta local de SENTRA fuera del repositorio (modelos, documentos,
+    caché de Gemini, pgpass). Windows: %LOCALAPPDATA%/SENTRA. Linux:
+    $XDG_DATA_HOME/SENTRA si es absoluta (la especificación XDG manda ignorar
+    una relativa), o ~/.local/share/SENTRA. Nunca ~/.cache: un limpiador de
+    caché se llevaría los 2,1 GB de e5 y el pgpass, como %TEMP% (AUD2-010).
+    Rust calcula la misma (ui/src-tauri/src/db.rs, carpeta_local)."""
     local = os.environ.get("LOCALAPPDATA", "").strip()
     if local:
         return Path(local) / "SENTRA"
-    return Path.home() / ".cache" / "sentra"
+    xdg = os.environ.get("XDG_DATA_HOME", "").strip()
+    if xdg and Path(xdg).is_absolute():
+        return Path(xdg) / "SENTRA"
+    return Path.home() / ".local" / "share" / "SENTRA"
 
 
 def ruta_modelos() -> Path:

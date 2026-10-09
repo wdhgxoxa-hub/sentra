@@ -5,7 +5,9 @@ El modelo e5 vive en una carpeta de la aplicación, no en %TEMP% (AUD2-010, DP9 
 fastembed descargaba los 2,1 GB de multilingual-e5-large a su caché por
 defecto, dentro de %TEMP%: una limpieza de temporales dejaba sin búsqueda
 ni juez hasta volver a descargarlo. La ruta sale de core.rutas.ruta_modelos:
-RIR_MODELS_DIR, o %LOCALAPPDATA%/SENTRA/models, o ~/.cache/sentra/models.
+RIR_MODELS_DIR, o %LOCALAPPDATA%/SENTRA/models, o en Linux
+$XDG_DATA_HOME/SENTRA/models (~/.local/share/SENTRA/models sin ella). Nunca
+~/.cache: un limpiador de caché se lo llevaría igual que %TEMP%.
 """
 
 import os
@@ -19,7 +21,7 @@ from core import rutas
 
 class TestRutaModelos(unittest.TestCase):
     def entorno(self, **valores):
-        base = {k: v for k, v in os.environ.items() if k not in ("RIR_MODELS_DIR", "LOCALAPPDATA")}
+        base = {k: v for k, v in os.environ.items() if k not in ("RIR_MODELS_DIR", "LOCALAPPDATA", "XDG_DATA_HOME")}
         return mock.patch.dict(os.environ, {**base, **valores}, clear=True)
 
     def test_la_variable_manda(self):
@@ -29,6 +31,27 @@ class TestRutaModelos(unittest.TestCase):
     def test_en_windows_la_carpeta_local_de_la_aplicacion(self):
         with self.entorno(LOCALAPPDATA="C:/Users/u/AppData/Local"):
             self.assertEqual(rutas.ruta_modelos(), Path("C:/Users/u/AppData/Local/SENTRA/models"))
+
+    def test_en_linux_la_carpeta_de_datos_del_usuario(self):
+        with self.entorno(HOME="/home/u"):
+            self.assertEqual(rutas.carpeta_local(), Path("/home/u/.local/share/SENTRA"))
+            self.assertEqual(rutas.ruta_modelos(), Path("/home/u/.local/share/SENTRA/models"))
+
+    def test_xdg_data_home_manda_si_es_absoluta(self):
+        with self.entorno(HOME="/home/u", XDG_DATA_HOME="/datos/xdg"):
+            self.assertEqual(rutas.carpeta_local(), Path("/datos/xdg/SENTRA"))
+        # La especificación XDG manda ignorar una ruta relativa.
+        with self.entorno(HOME="/home/u", XDG_DATA_HOME="relativa/xdg"):
+            self.assertEqual(rutas.carpeta_local(), Path("/home/u/.local/share/SENTRA"))
+
+    def test_localappdata_gana_a_xdg(self):
+        with self.entorno(LOCALAPPDATA="C:/x", XDG_DATA_HOME="/datos/xdg"):
+            self.assertEqual(rutas.carpeta_local(), Path("C:/x/SENTRA"))
+
+    def test_nunca_en_una_cache(self):
+        # Un limpiador de ~/.cache se llevaría los 2,1 GB de e5 y el pgpass.
+        with self.entorno(HOME="/home/u"):
+            self.assertFalse(rutas.carpeta_local().is_relative_to(Path("/home/u/.cache")))
 
     def test_nunca_en_temporales(self):
         with self.entorno():

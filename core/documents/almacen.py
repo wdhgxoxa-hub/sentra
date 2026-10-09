@@ -8,7 +8,8 @@ y el texto, que solo vivía en memoria, se perdió. El motor guarda cada
 documento compuesto aquí (un JSON por veredicto, documento, idioma, modelo y
 forzado) antes de responder, y lo vuelve a exportar desde aquí sin llamar al
 modelo, aunque la app se haya cerrado. La carpeta es
-%LOCALAPPDATA%\\SENTRA\\documentos (core.rutas.ruta_documentos).
+%LOCALAPPDATA%\\SENTRA\\documentos en Windows, ~/.local/share/SENTRA/documentos
+en Linux (core.rutas.ruta_documentos).
 """
 
 from __future__ import annotations
