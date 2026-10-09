@@ -12,8 +12,16 @@
 # consultan sus bases de vulnerabilidades en la red). HUMO=1: la prueba de humo
 # del ejecutable real (AUD2-004; con SENTRA cerrada). PASOS="ruff mypy"
 # limita los pasos por defecto (lo usan los tests de la compuerta).
+#
+# Intérprete: $PYTHON si está definida; si no, .venv/bin/python si existe
+# (Linux y macOS: el `python` del sistema no es el 3.12 del proyecto); si no,
+# `python` (Windows). ruff, mypy, los tests, pip-audit y el humo corren con él.
 set -u
 cd "$(dirname "$0")/.." || exit 1
+PY=${PYTHON:-}
+if [ -z "$PY" ]; then
+  if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python; fi
+fi
 LOGS=$(mktemp -d)
 fallo=0
 
@@ -33,16 +41,16 @@ paso() {
 quiere() { [ -z "${PASOS:-}" ] || [[ " $PASOS " == *" $1 "* ]]; }
 opcional() { [ "${!1:-0}" = "1" ]; }
 
-quiere ruff && paso ruff ruff check --no-cache -q
-quiere mypy && paso mypy mypy
-quiere python && paso python env PYTHONIOENCODING=utf-8 python -m unittest discover -s tests
+quiere ruff && paso ruff "$PY" -m ruff check --no-cache -q
+quiere mypy && paso mypy "$PY" -m mypy
+quiere python && paso python env PYTHONIOENCODING=utf-8 "$PY" -m unittest discover -s tests
 quiere tsc && paso tsc bash -c 'cd ui && npx --no-install tsc --noEmit -p .'
 quiere node && paso node bash -c 'cd ui && npm test --silent'
 quiere cargo && paso cargo bash -c 'cd ui/src-tauri && cargo test'
 opcional CLIPPY && paso clippy bash -c 'cd ui/src-tauri && cargo clippy --all-targets -q -- -D warnings'
-opcional AUDIT && paso pip-audit pip-audit -r requirements.txt -r requirements-dev.txt
+opcional AUDIT && paso pip-audit "$PY" -m pip_audit -r requirements.txt -r requirements-dev.txt
 opcional AUDIT && paso cargo-audit bash -c 'cd ui/src-tauri && cargo audit'
-opcional HUMO && paso humo env PYTHONIOENCODING=utf-8 python -m tests.humo_exe
+opcional HUMO && paso humo env PYTHONIOENCODING=utf-8 "$PY" -m tests.humo_exe
 
 rm -rf "$LOGS"
 if [ "$fallo" = "0" ]; then echo "COMPUERTA OK"; else echo "COMPUERTA FALLA"; fi

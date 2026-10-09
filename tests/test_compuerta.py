@@ -9,6 +9,11 @@ falla CUALQUIER paso, con el código de salida real de cada herramienta (sin
 tuberías que lo oculten). PASOS limita los pasos (lo usan estos tests);
 CLIPPY=1, AUDIT=1 y HUMO=1 añaden clippy, las auditorías de dependencias y
 la prueba de humo.
+
+Migración a Linux: el `python` del sistema es 3.14 y el proyecto fija 3.12.
+La compuerta usa el intérprete del proyecto ($PYTHON, si no .venv/bin/python,
+si no `python`) para ruff, mypy, los tests, pip-audit y el humo. Estos tests
+le pasan un intérprete falso en PYTHON que apunta cada llamada.
 """
 
 import os
@@ -36,19 +41,33 @@ def bash() -> str | None:
 
 @unittest.skipUnless(bash(), "sin bash")
 class TestCompuerta(unittest.TestCase):
-    def correr(self, ruff_sale: int, dobles: tuple[str, ...] = ()) -> subprocess.CompletedProcess[str]:
+    def correr(self, ruff_sale: int, dobles: tuple[str, ...] = (), pasos: str = "ruff",
+               banderas: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         falsos = Path(tempfile.mkdtemp(prefix="compuerta_"))
         self.addCleanup(shutil.rmtree, falsos, True)
-        (falsos / "ruff").write_text(f"#!/bin/sh\necho 'ruff falso'\nexit {ruff_sale}\n", newline="\n")
+        self.registro = falsos / "registro.txt"
+        # Intérprete falso: apunta su argv y solo falla `-m ruff` (con ruff_sale).
+        (falsos / "python_falso").write_text(
+            f'#!/bin/sh\necho "$*" >> "{self.registro.as_posix()}"\n'
+            f'[ "$2" = ruff ] && echo "ruff falso" && exit {ruff_sale}\nexit 0\n', newline="\n")
+        (falsos / "python_falso").chmod(0o755)
         for doble in dobles:
             (falsos / doble).write_text(f"#!/bin/sh\necho '{doble} falso'\nexit 0\n", newline="\n")
+            (falsos / doble).chmod(0o755)
         # Sin las banderas de la compuerta completa: este test corre dentro del hook.
         heredado = {k: v for k, v in os.environ.items() if k not in ("CLIPPY", "AUDIT", "HUMO")}
-        entorno = {**heredado, "PASOS": "ruff", "PATH": f"{falsos}{os.pathsep}{os.environ['PATH']}"}
+        entorno = {**heredado, **(banderas or {}), "PASOS": pasos,
+                   "PYTHON": str(falsos / "python_falso"),
+                   "PATH": f"{falsos}{os.pathsep}{os.environ['PATH']}"}
         ejecutable = bash()
         assert ejecutable is not None  # la clase se salta sin bash
         return subprocess.run([ejecutable, str(COMPUERTA)], cwd=RAIZ, env=entorno,
                               capture_output=True, text=True, encoding="utf-8", check=False)
+
+    def llamadas(self) -> list[str]:
+        if not self.registro.exists():
+            return []
+        return self.registro.read_text("utf-8").splitlines()
 
     def test_un_paso_que_falla_hace_fallar_la_compuerta(self):
         r = self.correr(3)
@@ -60,9 +79,9 @@ class TestCompuerta(unittest.TestCase):
         # El hook exporta CLIPPY=1 AUDIT=1 HUMO=1 y este test corre dentro de él:
         # heredadas, la compuerta de prueba lanzaba otra compuerta con clippy,
         # auditorías y el humo del exe real (PASOS solo limita los pasos por
-        # defecto). Dobles de python, cargo y pip-audit: el rojo no lanza nada real.
+        # defecto). Intérprete falso y doble de cargo: el rojo no lanza nada real.
         with mock.patch.dict(os.environ, {"CLIPPY": "1", "AUDIT": "1", "HUMO": "1"}):
-            r = self.correr(0, dobles=("python", "cargo", "pip-audit"))
+            r = self.correr(0, dobles=("cargo",))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         for paso in ("clippy", "pip-audit", "cargo-audit", "humo"):
             with self.subTest(paso=paso):
@@ -73,6 +92,26 @@ class TestCompuerta(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("ruff OK", r.stdout)
         self.assertIn("COMPUERTA OK", r.stdout)
+
+    def test_todos_los_pasos_de_python_usan_el_interprete_del_proyecto(self):
+        # En Linux el `python` del PATH es 3.14 y no tiene mypy ni pip-audit:
+        # ruff, mypy, los tests, pip-audit y el humo van por $PYTHON. Los
+        # dobles del PATH no apuntan nada: una llamada desnuda no cuenta y,
+        # en rojo, no lanza la suite real (que relanzaría esta compuerta).
+        r = self.correr(0, dobles=("cargo", "python", "ruff", "mypy", "pip-audit"),
+                        pasos="ruff mypy python", banderas={"AUDIT": "1", "HUMO": "1"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        llamadas = self.llamadas()
+        for modulo in ("-m ruff check", "-m mypy", "-m unittest discover",
+                       "-m pip_audit", "-m tests.humo_exe"):
+            with self.subTest(modulo=modulo):
+                self.assertTrue([c for c in llamadas if c.startswith(modulo)], llamadas)
+        self.assertEqual(len(llamadas), 5, llamadas)
+
+    def test_sin_python_definida_usa_el_venv_si_existe(self):
+        texto = COMPUERTA.read_text("utf-8")
+        self.assertIn('PY=${PYTHON:-}', texto)
+        self.assertIn('.venv/bin/python', texto)
 
 
 @unittest.skipUnless(bash() and shutil.which("git"), "sin bash o sin git")
