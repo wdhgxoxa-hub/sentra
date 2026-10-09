@@ -9,14 +9,21 @@ qué fallos hay en lo observado. Un fallo de esta lógica haría que el humo
 pasara en verde con la app rota, que es justo lo que no puede volver a pasar.
 """
 
+import tempfile
 import unittest
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from tests.humo_exe import RAIZ, Observado, Verdad, esperado, evaluar
 
 AHORA = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
+
+#: Copia versionada del motor fuera del repo. Absoluta en cualquier sistema:
+#: `C:/Users/...` en Linux es una ruta relativa y, resuelta desde el repo,
+#: caía dentro de él.
+MOTOR_FUERA = str(Path(tempfile.gettempdir()) / "com.sentra.desktop" / "motor" / "0123456789abcdef")
 
 
 def verdad(**cambios: Any) -> Verdad:
@@ -33,7 +40,7 @@ def observado(**cambios: Any) -> Observado:
         config_carga=True, cierre_normal=True, puerto_libre_tras_matar=True,
         url_interfaz="http://tauri.localhost/", cierre_ventana_interna=True,
         huella_compilada="0123456789abcdef", huella_motor="0123456789abcdef",
-        raiz_motor="C:/Users/x/AppData/Local/com.sentra.desktop/motor/0123456789abcdef",
+        raiz_motor=MOTOR_FUERA,
         perfil_real_antes="0123abcd", perfil_real_despues="0123abcd", perfil_aislado_usado=True,
         pantalla_inicial="nuevo", acciones_principales={"nuevo": 1}, jerga={"nuevo": []},
         asistente_paso2=True),
