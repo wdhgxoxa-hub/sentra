@@ -160,5 +160,24 @@ class TestHookYPasos(unittest.TestCase):
         self.assertFalse([linea for linea in lineas if " | " in linea], lineas)
 
 
+@unittest.skipUnless(shutil.which("git"), "sin git")
+class TestScriptsEjecutables(unittest.TestCase):
+    """ruff EXE001 (shebang sin bit ejecutable) solo mira el bit fuera de
+    Windows: en Windows entraron scripts con shebang y modo 100644, y en Linux
+    la compuerta caía. Se mira el modo que guarda git, igual en los dos."""
+
+    def test_los_scripts_de_python_con_shebang_son_ejecutables_en_git(self):
+        salida = subprocess.run(["git", "ls-files", "-s", "--", "*.py"], cwd=RAIZ, capture_output=True,
+                                text=True, encoding="utf-8", check=True).stdout
+        sin_bit = []
+        for linea in salida.splitlines():
+            datos, ruta = linea.split("\t", 1)
+            modo = datos.split()[0]
+            with (RAIZ / ruta).open("rb") as f:
+                if f.read(2) == b"#!" and modo != "100755":
+                    sin_bit.append(ruta)
+        self.assertEqual(sin_bit, [])
+
+
 if __name__ == "__main__":
     unittest.main()
