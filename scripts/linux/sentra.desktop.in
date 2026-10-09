@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=SENTRA
+GenericName=Radar de nichos
+Comment=Escucha el mercado antes de construir
+Exec=@RAIZ@/ui/src-tauri/target/release/sentra
+Path=@RAIZ@
+Icon=@RAIZ@/ui/src-tauri/icons/128x128.png
+Terminal=false
+Categories=Office;
+Keywords=nichos;mercado;radar;
+StartupWMClass=sentra
