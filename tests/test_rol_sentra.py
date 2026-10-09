@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import os
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -113,7 +114,7 @@ class TestPermisosPosix(unittest.TestCase):
         with (mock.patch.object(rol_sentra, "_roles_existentes", return_value=[]),
               mock.patch.object(rol_sentra, "sentencias_de_propiedad", return_value=([], [])),
               mock.patch("builtins.print") as imprimir):
-            rol_sentra.en_seco("dsn")
+            rol_sentra.en_seco(rol_sentra.AdminPorDsn("dsn"))
         texto = "\n".join(" ".join(map(str, c.args)) for c in imprimir.call_args_list)
         self.assertIn(f"chmod 600 {self.destino}", texto)
         self.assertNotIn("icacls", texto)
@@ -133,6 +134,86 @@ class TestSentencias(unittest.TestCase):
         texto = "\n".join(rol_sentra.para_mostrar(rol_sentra.sentencias_de_roles("SCRAM-SHA-256$secreto", "SCRAM-SHA-256$otro")))
         self.assertNotIn("secreto", texto)
         self.assertNotIn("otro", texto)
+
+
+ORDEN_SUDO = ["sudo", "-u", "postgres", "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1"]
+
+
+def hecho(stdout: str = "") -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout)
+
+
+class TestAdminPorSudo(unittest.TestCase):
+    """En Linux postgres solo entra por el socket con peer: sudo -u postgres psql."""
+
+    def test_consulta_con_la_orden_exacta_y_el_sql_por_stdin(self):
+        with mock.patch("subprocess.run", return_value=hecho("sentra_owner\nsentra_pruebas\n")) as run:
+            filas = rol_sentra.AdminPorSudo().consultar(
+                None, "SELECT rolname FROM pg_roles WHERE rolname IN (%s, %s)", ("sentra_owner", "o'x"))
+        self.assertEqual(filas, ["sentra_owner", "sentra_pruebas"])
+        orden = run.call_args.args[0]
+        self.assertEqual(orden, [*ORDEN_SUDO, "-d", "postgres"])
+        sql = run.call_args.kwargs["input"]
+        self.assertIn("IN ('sentra_owner', 'o''x')", sql)
+        self.assertTrue(run.call_args.kwargs["check"])
+
+    def test_el_patron_like_va_como_literal(self):
+        with mock.patch("subprocess.run", return_value=hecho("")) as run:
+            self.assertEqual(rol_sentra.AdminPorSudo().consultar(
+                "reddit_intelligence_radar", "SELECT 1 WHERE 'x' LIKE %s", (rol_sentra.PATRON_PRUEBAS,)), [])
+        self.assertEqual(run.call_args.args[0][-2:], ["-d", "reddit_intelligence_radar"])
+        self.assertIn("LIKE 'rir\\_%\\_test'", run.call_args.kwargs["input"])
+
+    def test_parametros_que_no_cuadran_no_se_ejecutan(self):
+        with mock.patch("subprocess.run") as run, self.assertRaises(ValueError):
+            rol_sentra.AdminPorSudo().consultar(None, "SELECT %s, %s", ("a",))
+        run.assert_not_called()
+
+    def test_ejecutar_va_en_una_transaccion_y_para_al_primer_error(self):
+        with mock.patch("subprocess.run", return_value=hecho()) as run:
+            rol_sentra.AdminPorSudo().ejecutar("reddit_intelligence_radar", ["ALTER A", "ALTER B"])
+        self.assertEqual(run.call_count, 1)
+        orden = run.call_args.args[0]
+        self.assertEqual(orden, [*ORDEN_SUDO, "-d", "reddit_intelligence_radar"])
+        self.assertEqual(run.call_args.kwargs["input"], "BEGIN;\nALTER A;\nALTER B;\nCOMMIT;\n")
+
+    def test_crear_por_sudo_no_saca_la_clave_ni_usa_psycopg_como_postgres(self):
+        clave = "clave-en-claro-123"
+        consultas_psycopg: list[str] = []
+
+        def consultar(dsn, sql, params=None):
+            consultas_psycopg.append(dsn)
+            return ["ok"]
+
+        with (mock.patch("subprocess.run", return_value=hecho("")) as run,
+              mock.patch.object(rol_sentra, "_pedir_clave", return_value=clave),
+              mock.patch.object(rol_sentra, "escribir_pgpass", return_value=Path("/x/pgpass.conf")),
+              mock.patch.object(rol_sentra, "_consultar", side_effect=consultar),
+              mock.patch.object(rol_sentra, "_ejecutar", side_effect=AssertionError("psycopg como postgres")),
+              mock.patch("builtins.print")):
+            self.assertEqual(rol_sentra.crear(rol_sentra.AdminPorSudo()), 0)
+        entradas = [c.kwargs.get("input", "") for c in run.call_args_list]
+        ordenes = [" ".join(c.args[0]) for c in run.call_args_list]
+        for texto in entradas + ordenes:
+            self.assertNotIn(clave, texto)
+        self.assertTrue(any("CREATE ROLE sentra_owner" in e and "PASSWORD 'SCRAM-SHA-256$" in e for e in entradas))
+        for orden in ordenes:
+            self.assertIn("ON_ERROR_STOP=1", orden)
+        # psycopg solo comprueba que los roles nuevos entran con el pgpass de SENTRA.
+        self.assertEqual(len(consultas_psycopg), 2)
+        self.assertTrue(all("user=sentra_" in dsn for dsn in consultas_psycopg))
+
+
+class TestMain(unittest.TestCase):
+    def test_admin_sudo_elige_sudo(self):
+        with mock.patch.object(rol_sentra, "en_seco", return_value=0) as seco:
+            rol_sentra.main(["--admin-sudo", "--en-seco"])
+        self.assertIsInstance(seco.call_args.args[0], rol_sentra.AdminPorSudo)
+
+    def test_por_defecto_sigue_el_dsn_de_postgres(self):
+        with mock.patch.object(rol_sentra, "en_seco", return_value=0) as seco:
+            rol_sentra.main(["--en-seco"])
+        self.assertEqual(seco.call_args.args[0], rol_sentra.AdminPorDsn(rol_sentra.ADMIN_DSN))
 
 
 if __name__ == "__main__":

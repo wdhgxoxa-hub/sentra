@@ -12,8 +12,15 @@ compuerta. Desde entonces SENTRA tiene sus roles y su propio pgpass:
   Sin superusuario y sin crear bases.
 - `sentra_pruebas`: solo CREATEDB, para las bases desechables de los tests.
 
-Lo ejecuta Walter una vez, conectado como `postgres` (libpq lee el pgpass
-compartido; este script nunca lo escribe). Las contraseñas se teclean aquí
+Lo ejecuta Walter una vez, con su usuario, como administrador `postgres`:
+- Windows (por defecto): por TCP con `--admin-dsn` (libpq lee el pgpass
+  compartido; este script nunca lo escribe).
+- Linux (`--admin-sudo`): `postgres` no tiene contraseña y solo entra por el
+  socket (peer). Las sentencias de administrador van por
+  `sudo -u postgres psql`, con el SQL por stdin; sudo pide tu contraseña la
+  primera vez. El script NO se lanza entero con sudo: el pgpass es el de tu
+  usuario.
+ Las contraseñas se teclean aquí
 (getpass) y no llegan en claro al servidor: se envía el verificador
 SCRAM-SHA-256 calculado en local, así no quedan en el log de PostgreSQL. Se
 escriben solo en el pgpass de SENTRA (`core.rutas.ruta_pgpass()`), con
@@ -27,6 +34,9 @@ Uso
     python -m scripts.rol_sentra --en-seco     # enseña las sentencias, no cambia nada
     python -m scripts.rol_sentra               # crea los roles, traspasa y escribe el pgpass
     python -m scripts.rol_sentra --deshacer    # devuelve todo a postgres y borra los roles
+
+En Linux, lo mismo con `--admin-sudo`:
+    python -m scripts.rol_sentra --admin-sudo --en-seco
 """
 
 from __future__ import annotations
@@ -44,8 +54,9 @@ import subprocess
 import sys
 import unicodedata
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from core.rutas import ruta_pgpass
 
@@ -55,6 +66,9 @@ PRUEBAS = "sentra_pruebas"
 #: Bases desechables de los tests (tests/test_*.py las llaman rir_*_test).
 PATRON_PRUEBAS = r"rir\_%\_test"
 ADMIN_DSN = "host=localhost port=5432 user=postgres dbname=postgres"
+#: Linux: postgres entra por el socket con peer. -X sin psqlrc, -At una fila
+#: por línea sin adornos, ON_ERROR_STOP para no seguir tras un error.
+ORDEN_SUDO = ("sudo", "-u", "postgres", "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1")
 ITERACIONES = 4096
 
 _ATRIBUTOS = "LOGIN NOSUPERUSER NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT"
@@ -211,17 +225,6 @@ def _en_base(dsn: str, base: str) -> str:
     return re.sub(r"dbname=\S+", f"dbname={base}", dsn)
 
 
-def sentencias_de_propiedad(admin_dsn: str) -> tuple[list[str], list[str]]:
-    """(Dentro de la base de SENTRA, a nivel de servidor): todo con ALTER ... OWNER."""
-    dentro = _consultar(_en_base(admin_dsn, BASE), _OBJETOS)
-    bases = [f"ALTER DATABASE {BASE} OWNER TO {OWNER}"] + [
-        f'ALTER DATABASE "{nombre}" OWNER TO {PRUEBAS}'
-        for nombre in _consultar(admin_dsn, "SELECT datname FROM pg_database WHERE datname LIKE %s "
-                                 "AND datdba = 'postgres'::regrole ORDER BY 1", (PATRON_PRUEBAS,))
-    ]
-    return dentro, bases
-
-
 def _ejecutar(dsn: str, sentencias: Sequence[str]) -> None:
     """Todas en una transacción: o entran todas o ninguna."""
     import psycopg
@@ -231,17 +234,85 @@ def _ejecutar(dsn: str, sentencias: Sequence[str]) -> None:
             conn.execute(sentencia.encode("utf-8"))
 
 
-def _roles_existentes(admin_dsn: str) -> list[str]:
-    return _consultar(admin_dsn, "SELECT rolname FROM pg_roles WHERE rolname IN (%s, %s) ORDER BY 1",
-                      (OWNER, PRUEBAS))
+class Administrador(Protocol):
+    """Cómo se habla con PostgreSQL como `postgres`. `base` None = la de
+    administración (la del DSN, o `postgres`)."""
+
+    def consultar(self, base: str | None, sql: str, params: Sequence[str] = ()) -> list[str]: ...
+
+    def ejecutar(self, base: str | None, sentencias: Sequence[str]) -> None:
+        """Todas en una transacción: o entran todas o ninguna."""
+        ...
+
+
+@dataclass(frozen=True)
+class AdminPorDsn:
+    """Por TCP con psycopg (Windows, y lo de siempre)."""
+
+    dsn: str
+
+    def _dsn(self, base: str | None) -> str:
+        return self.dsn if base is None else _en_base(self.dsn, base)
+
+    def consultar(self, base: str | None, sql: str, params: Sequence[str] = ()) -> list[str]:
+        return _consultar(self._dsn(base), sql, params or None)
+
+    def ejecutar(self, base: str | None, sentencias: Sequence[str]) -> None:
+        _ejecutar(self._dsn(base), sentencias)
+
+
+def _con_literales(sql: str, params: Sequence[str]) -> str:
+    """Pone cada parámetro como literal SQL escapado (_literal) en su %s."""
+    if not params:
+        return sql
+    trozos = sql.split("%s")
+    if len(trozos) != len(params) + 1 or "%%" in sql:
+        raise ValueError(f"{len(params)} parámetros para {len(trozos) - 1} %s: {sql!r}")
+    return "".join(t + _literal(str(p)) for t, p in zip(trozos, params, strict=False)) + trozos[-1]
+
+
+@dataclass(frozen=True)
+class AdminPorSudo:
+    """Linux: `sudo -u postgres psql` por el socket. El SQL va por stdin, nunca
+    en argv; las claves ya llegan solo como verificador SCRAM."""
+
+    def _psql(self, base: str | None, sql: str) -> str:
+        orden = [*ORDEN_SUDO, "-d", base or "postgres"]
+        # cwd="/": postgres no puede entrar en tu carpeta y psql avisaría.
+        return subprocess.run(orden, input=sql, text=True, encoding="utf-8", stdout=subprocess.PIPE,
+                              check=True, cwd="/").stdout
+
+    def consultar(self, base: str | None, sql: str, params: Sequence[str] = ()) -> list[str]:
+        salida = self._psql(base, _con_literales(sql, params).rstrip().rstrip(";") + ";\n")
+        return salida.splitlines()
+
+    def ejecutar(self, base: str | None, sentencias: Sequence[str]) -> None:
+        # ON_ERROR_STOP corta antes del COMMIT: psql sale y la transacción se deshace.
+        self._psql(base, "BEGIN;\n" + "".join(f"{s};\n" for s in sentencias) + "COMMIT;\n")
+
+
+def sentencias_de_propiedad(admin: Administrador) -> tuple[list[str], list[str]]:
+    """(Dentro de la base de SENTRA, a nivel de servidor): todo con ALTER ... OWNER."""
+    dentro = admin.consultar(BASE, _OBJETOS)
+    bases = [f"ALTER DATABASE {BASE} OWNER TO {OWNER}"] + [
+        f'ALTER DATABASE "{nombre}" OWNER TO {PRUEBAS}'
+        for nombre in admin.consultar(None, "SELECT datname FROM pg_database WHERE datname LIKE %s "
+                                      "AND datdba = 'postgres'::regrole ORDER BY 1", (PATRON_PRUEBAS,))
+    ]
+    return dentro, bases
+
+
+def _roles_existentes(admin: Administrador) -> list[str]:
+    return admin.consultar(None, "SELECT rolname FROM pg_roles WHERE rolname IN (%s, %s) ORDER BY 1",
+                           (OWNER, PRUEBAS))
 
 
 # --- Órdenes ---------------------------------------------------------------
 
 
-def en_seco(admin_dsn: str) -> int:
-    existentes = _roles_existentes(admin_dsn)
-    dentro, bases = sentencias_de_propiedad(admin_dsn)
+def en_seco(admin: Administrador) -> int:
+    existentes = _roles_existentes(admin)
+    dentro, bases = sentencias_de_propiedad(admin)
     print(f"Roles ya existentes: {existentes or 'ninguno'}")
     print("\n1) Roles (servidor, una transacción):")
     for s in para_mostrar(sentencias_de_roles("x", "x")):
@@ -267,19 +338,19 @@ def _orden_de_permisos() -> list[str]:
     return ["chmod", "600", str(ruta_pgpass()), "(nace así, antes de escribir la contraseña)"]
 
 
-def crear(admin_dsn: str) -> int:
-    existentes = _roles_existentes(admin_dsn)
+def crear(admin: Administrador) -> int:
+    existentes = _roles_existentes(admin)
     if existentes:
         print(f"Ya existen {existentes}: nada que crear (--deshacer para empezar de cero).", file=sys.stderr)
         return 1
     clave_owner = _pedir_clave(OWNER)
     clave_pruebas = _pedir_clave(PRUEBAS)
-    _ejecutar(admin_dsn, sentencias_de_roles(verificador_scram(clave_owner), verificador_scram(clave_pruebas)))
+    admin.ejecutar(None, sentencias_de_roles(verificador_scram(clave_owner), verificador_scram(clave_pruebas)))
     print("1) Roles creados.")
-    dentro, bases = sentencias_de_propiedad(admin_dsn)
-    _ejecutar(_en_base(admin_dsn, BASE), dentro)
+    dentro, bases = sentencias_de_propiedad(admin)
+    admin.ejecutar(BASE, dentro)
     print(f"2) {len(dentro)} objetos de {BASE} traspasados a {OWNER}.")
-    _ejecutar(admin_dsn, bases)
+    admin.ejecutar(None, bases)
     print(f"3) {len(bases)} bases traspasadas.")
     ruta = escribir_pgpass([linea_pgpass(BASE, OWNER, clave_owner), linea_pgpass("*", PRUEBAS, clave_pruebas)])
     print(f"4) {ruta} escrito, solo para tu usuario.")
@@ -294,15 +365,15 @@ def _escapar_valor(ruta: Path) -> str:
     return str(ruta).replace("\\", "\\\\").replace("'", "\\'")
 
 
-def deshacer(admin_dsn: str) -> int:
+def deshacer(admin: Administrador) -> int:
     """Devuelve a postgres todo lo de los roles de SENTRA y los borra."""
-    existentes = _roles_existentes(admin_dsn)
-    bases = [BASE, "postgres"] + _consultar(admin_dsn, "SELECT datname FROM pg_database WHERE datname LIKE %s",
-                                            (PATRON_PRUEBAS,))
+    existentes = _roles_existentes(admin)
+    bases = [BASE, "postgres"] + admin.consultar(None, "SELECT datname FROM pg_database WHERE datname LIKE %s",
+                                                 (PATRON_PRUEBAS,))
     for base in dict.fromkeys(bases):
-        _ejecutar(_en_base(admin_dsn, base), [f"REASSIGN OWNED BY {r} TO postgres" for r in existentes]
-                  + [f"DROP OWNED BY {r}" for r in existentes])
-    _ejecutar(admin_dsn, [f"DROP ROLE {r}" for r in existentes])
+        admin.ejecutar(base, [f"REASSIGN OWNED BY {r} TO postgres" for r in existentes]
+                       + [f"DROP OWNED BY {r}" for r in existentes])
+    admin.ejecutar(None, [f"DROP ROLE {r}" for r in existentes])
     ruta_pgpass().unlink(missing_ok=True)
     print(f"Deshecho: roles {existentes or 'ninguno'} borrados y {ruta_pgpass()} retirado.")
     return 0
@@ -313,13 +384,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     modo = parser.add_mutually_exclusive_group()
     modo.add_argument("--en-seco", action="store_true", help="enseña las sentencias sin cambiar nada")
     modo.add_argument("--deshacer", action="store_true", help="devuelve todo a postgres y borra los roles")
-    parser.add_argument("--admin-dsn", default=ADMIN_DSN, help="conexión de superusuario (libpq lee su pgpass)")
+    acceso = parser.add_mutually_exclusive_group()
+    acceso.add_argument("--admin-dsn", default=ADMIN_DSN, help="conexión de superusuario (libpq lee su pgpass)")
+    acceso.add_argument("--admin-sudo", action="store_true",
+                        help="Linux: las sentencias de administrador van por sudo -u postgres psql (socket, peer)")
     args = parser.parse_args(argv)
+    if args.admin_sudo and sys.platform == "win32":
+        parser.error("--admin-sudo es para Linux; en Windows usa --admin-dsn")
+    admin: Administrador = AdminPorSudo() if args.admin_sudo else AdminPorDsn(args.admin_dsn)
     if args.en_seco:
-        return en_seco(args.admin_dsn)
+        return en_seco(admin)
     if args.deshacer:
-        return deshacer(args.admin_dsn)
-    return crear(args.admin_dsn)
+        return deshacer(admin)
+    return crear(admin)
 
 
 if __name__ == "__main__":
