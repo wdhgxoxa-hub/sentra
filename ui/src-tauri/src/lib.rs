@@ -73,6 +73,14 @@ pub fn run() {
         .setup({
             let manager = manager.clone();
             move |app| {
+                // La ventana principal se construye aquí y no en tauri.conf.json
+                // para poder darle el perfil aislado del humo (ventana.rs).
+                let config = app.config().app.windows.first().cloned().ok_or("tauri.conf.json sin ventana")?;
+                let mut principal = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+                if let Some(perfil) = ventana::perfil_webview(std::env::var(ventana::PERFIL_ENV_VAR).ok().as_deref()) {
+                    principal = principal.data_directory(perfil);
+                }
+                principal.build()?;
                 // La salida del sidecar va al directorio de logs de la app (D-E).
                 let log_dir = app.path().app_log_dir().ok();
                 // El motor corre desde la copia de su código que lleva esta
