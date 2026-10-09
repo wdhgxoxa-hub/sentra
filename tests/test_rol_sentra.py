@@ -6,14 +6,18 @@ Lo ejecuta Walter una vez, como `postgres`. Las contraseñas las teclea él
 (getpass) y nunca llegan en claro al servidor: se envía el verificador
 SCRAM-SHA-256 calculado en local, así no quedan en el log de PostgreSQL.
 El pgpass.conf compartido solo se lee (lo lee libpq); el de SENTRA queda
-solo para el usuario de Windows (icacls sin herencia).
+solo para tu usuario (Windows: icacls sin herencia; Linux: 0600).
 """
 
 import base64
 import hashlib
 import hmac
+import os
+import stat
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from scripts import rol_sentra
 
@@ -71,6 +75,48 @@ class TestPgpass(unittest.TestCase):
     def test_icacls_quita_la_herencia_y_deja_solo_al_usuario(self):
         self.assertEqual(rol_sentra.orden_icacls(Path("C:/x/pgpass.conf"), "PC\\walter"),
                          ["icacls", str(Path("C:/x/pgpass.conf")), "/inheritance:r", "/grant:r", "PC\\walter:(F)"])
+
+
+@unittest.skipIf(os.name == "nt", "en Windows los permisos van con icacls")
+class TestPermisosPosix(unittest.TestCase):
+    """libpq ignora un pgpass legible por grupo u otros: debe nacer con 0600."""
+
+    def setUp(self):
+        carpeta = tempfile.TemporaryDirectory()
+        self.addCleanup(carpeta.cleanup)
+        self.destino = Path(carpeta.name) / "SENTRA" / "pgpass.conf"
+        parche = mock.patch.object(rol_sentra, "ruta_pgpass", return_value=self.destino)
+        parche.start()
+        self.addCleanup(parche.stop)
+        anterior = os.umask(0o022)
+        self.addCleanup(os.umask, anterior)
+
+    def modo(self, ruta: Path) -> int:
+        return stat.S_IMODE(ruta.stat().st_mode)
+
+    def test_el_pgpass_nace_solo_para_el_usuario(self):
+        ruta = rol_sentra.escribir_pgpass(["localhost:5432:*:u:secreto"])
+        self.assertEqual(ruta, self.destino)
+        self.assertEqual(self.modo(ruta), 0o600)
+        self.assertEqual(ruta.read_text(encoding="utf-8"), "localhost:5432:*:u:secreto\n")
+
+    def test_un_temporal_viejo_y_abierto_no_deja_el_pgpass_abierto(self):
+        self.destino.parent.mkdir(parents=True)
+        temporal = self.destino.with_suffix(".tmp")
+        temporal.write_text("viejo", encoding="utf-8")
+        temporal.chmod(0o644)
+        rol_sentra.escribir_pgpass(["x"])
+        self.assertEqual(self.modo(self.destino), 0o600)
+        self.assertFalse(temporal.exists())
+
+    def test_en_seco_en_linux_dice_chmod_600(self):
+        with (mock.patch.object(rol_sentra, "_roles_existentes", return_value=[]),
+              mock.patch.object(rol_sentra, "sentencias_de_propiedad", return_value=([], [])),
+              mock.patch("builtins.print") as imprimir):
+            rol_sentra.en_seco("dsn")
+        texto = "\n".join(" ".join(map(str, c.args)) for c in imprimir.call_args_list)
+        self.assertIn(f"chmod 600 {self.destino}", texto)
+        self.assertNotIn("icacls", texto)
 
 
 class TestSentencias(unittest.TestCase):

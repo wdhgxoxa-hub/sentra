@@ -16,8 +16,9 @@ Lo ejecuta Walter una vez, conectado como `postgres` (libpq lee el pgpass
 compartido; este script nunca lo escribe). Las contraseñas se teclean aquí
 (getpass) y no llegan en claro al servidor: se envía el verificador
 SCRAM-SHA-256 calculado en local, así no quedan en el log de PostgreSQL. Se
-escriben solo en `%LOCALAPPDATA%\\SENTRA\\pgpass.conf`, con permisos solo para
-el usuario de Windows (icacls sin herencia).
+escriben solo en el pgpass de SENTRA (`core.rutas.ruta_pgpass()`), con
+permisos solo para tu usuario: en Windows con icacls sin herencia; en Linux
+el archivo nace ya con chmod 600 (libpq ignora un pgpass que otros pueden leer).
 
 La propiedad se traspasa con ALTER ... OWNER: no se toca ningún dato.
 
@@ -104,15 +105,32 @@ def orden_icacls(ruta: Path, usuario: str) -> list[str]:
     return ["icacls", str(ruta), "/inheritance:r", "/grant:r", f"{usuario}:(F)"]
 
 
+def _abrir_privado(ruta: Path) -> Any:
+    """Abre `ruta` para escribir. En POSIX nace con 0600 y, si ya existía,
+    se deja en 0600 antes de escribir nada: la clave nunca queda legible.
+    (sys.platform y no os.name: así mypy sabe que fchmod no corre en Windows.)"""
+    if sys.platform == "win32":
+        return ruta.open("w", encoding="utf-8", newline="\n")
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    try:
+        os.fchmod(descriptor, 0o600)
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return os.fdopen(descriptor, "w", encoding="utf-8", newline="\n")
+
+
 def escribir_pgpass(lineas: Sequence[str], *, ruta: Path | None = None) -> Path:
-    """Escribe el pgpass de SENTRA y le quita la herencia de permisos. Se niega
-    a escribir en cualquier otro sitio (el compartido solo se lee)."""
+    """Escribe el pgpass de SENTRA solo para tu usuario (Windows: icacls sin
+    herencia; POSIX: 0600). Se niega a escribir en cualquier otro sitio (el
+    compartido solo se lee)."""
     destino = ruta if ruta is not None else ruta_pgpass()
     if destino.resolve() != ruta_pgpass().resolve():
         raise ValueError(f"solo se escribe el pgpass de SENTRA ({ruta_pgpass()}), no {destino}")
     destino.parent.mkdir(parents=True, exist_ok=True)
     temporal = destino.with_suffix(".tmp")
-    temporal.write_text("".join(f"{linea}\n" for linea in lineas), encoding="utf-8", newline="\n")
+    with _abrir_privado(temporal) as archivo:
+        archivo.write("".join(f"{linea}\n" for linea in lineas))
     if os.name == "nt":
         usuario = subprocess.run(["whoami"], capture_output=True, text=True, check=True).stdout.strip()
         subprocess.run(orden_icacls(temporal, usuario), check=True, capture_output=True, text=True)
@@ -237,9 +255,16 @@ def en_seco(admin_dsn: str) -> int:
     print(f"\n4) Se escribe {ruta_pgpass()} con 2 líneas:")
     print(f"   localhost:5432:{BASE}:{OWNER}:<contraseña>")
     print(f"   localhost:5432:*:{PRUEBAS}:<contraseña>")
-    print(f"   y permisos: {' '.join(orden_icacls(ruta_pgpass(), '<tu usuario de Windows>'))}")
+    print(f"   y permisos: {' '.join(_orden_de_permisos())}")
     print("\nEn seco: no se ha cambiado nada.")
     return 0
+
+
+def _orden_de_permisos() -> list[str]:
+    """Cómo queda el pgpass solo para tu usuario, para enseñarlo en seco."""
+    if os.name == "nt":
+        return orden_icacls(ruta_pgpass(), "<tu usuario de Windows>")
+    return ["chmod", "600", str(ruta_pgpass()), "(nace así, antes de escribir la contraseña)"]
 
 
 def crear(admin_dsn: str) -> int:
