@@ -121,7 +121,7 @@ class TestEvaluar(unittest.TestCase):
         oculta y solo se muestra fuera del modo discreto."""
         import json
 
-        from tests.humo_exe import entorno
+        from tests.humo_windows import entorno
 
         self.assertEqual(entorno(None)["SENTRA_VENTANA_DISCRETA"], "1")
         self.assertEqual(entorno(None, cdp=True)["SENTRA_VENTANA_DISCRETA"], "1")
@@ -134,7 +134,7 @@ class TestEvaluar(unittest.TestCase):
     def test_el_vigia_reconoce_a_sentra_por_su_ejecutable(self):
         from unittest import mock
 
-        from tests.humo_exe import VigiaDePrimerPlano as V
+        from tests.humo_windows import VigiaDePrimerPlano as V
 
         for ruta, esperado_ in ((r"F:\repo\ui\src-tauri\target\release\sentra.exe", True),
                                 (r"C:\Windows\explorer.exe", False), ("", False),
@@ -305,6 +305,25 @@ class TestUrlDeLaInterfaz(unittest.TestCase):
         self.assertEqual((url, reloj()), ("http://localhost:5173/", 0.0))
 
 
+class TestPlataformas(unittest.TestCase):
+    """Lo común (qué se mira y cómo se evalúa) no sabe de ningún sistema; lo
+    que depende de él va en una Plataforma (humo en Linux)."""
+
+    def test_cada_sistema_tiene_su_plataforma(self):
+        from tests.humo_exe import plataforma_actual
+        from tests.humo_windows import Windows
+
+        self.assertIsInstance(plataforma_actual("win32"), Windows)
+        with self.assertRaises(OSError):
+            plataforma_actual("darwin")
+
+    def test_lo_comun_no_llama_a_windows(self):
+        fuente = (RAIZ / "tests" / "humo_exe.py").read_text("utf-8")
+        for llamada in ("taskkill", "tasklist", "powershell", "ctypes", "WEBVIEW2_", "EnumWindows"):
+            with self.subTest(llamada=llamada):
+                self.assertNotIn(llamada, fuente)
+
+
 class TestLectorCdp(unittest.TestCase):
     def test_un_minuto_sin_mensajes_no_mata_al_lector(self):
         # AUD2-026: con la app en reposo pasaba más de un minuto sin mensajes
@@ -312,7 +331,7 @@ class TestLectorCdp(unittest.TestCase):
         # posterior se perdía (heap y nodos a 0 en la medida larga).
         import websocket
 
-        from tests.humo_exe import _Cdp
+        from tests.humo_windows import _Cdp
 
         class WsFalso:
             def __init__(self):
