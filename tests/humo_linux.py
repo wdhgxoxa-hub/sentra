@@ -24,6 +24,7 @@ import ctypes
 import hashlib
 import json
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -54,6 +55,9 @@ DEL_ESCRITORIO = ("WAYLAND_DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE")
 #: usuario (Local Storage y compañía; no el motor ni los logs, que la app escribe
 #: también durante el humo).
 BASES_DEL_PERFIL_REAL = (NOMBRE, "com.sentra.desktop")
+#: Lo que el humo necesita del sistema y de dónde sale.
+HERRAMIENTAS = {"Xvfb": "paquete xorg-server-xvfb", "WebKitWebDriver": "paquete webkitgtk-6.0",
+                "hyprctl": "Hyprland: el vigía del escritorio"}
 PARTES_DEL_PERFIL = ("localstorage", "storage", "databases", "indexeddb", "cookies")
 
 
@@ -449,6 +453,9 @@ class Linux:
                 yield display
 
         return en_marcha()
+
+    def faltan(self) -> list[str]:
+        return [f"{h} ({donde})" for h, donde in HERRAMIENTAS.items() if not shutil.which(h)]
 
     def sentra_abierta(self) -> bool:
         return any(es_sentra_en(PROC, p) and vivo_en(PROC, p) for p in _pids(PROC))

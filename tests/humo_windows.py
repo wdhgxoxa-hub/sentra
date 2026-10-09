@@ -233,6 +233,9 @@ class Windows:
     def sesion(self) -> AbstractContextManager[object]:
         return nullcontext()
 
+    def faltan(self) -> list[str]:
+        return []
+
     def sentra_abierta(self) -> bool:
         abierta = subprocess.run(["tasklist", "/FI", "IMAGENAME eq sentra.exe"], capture_output=True, text=True, check=False)
         return "sentra.exe" in abierta.stdout.lower()

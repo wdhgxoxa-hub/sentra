@@ -317,6 +317,23 @@ class TestPlataformas(unittest.TestCase):
         with self.assertRaises(OSError):
             plataforma_actual("darwin")
 
+    def test_sin_sus_herramientas_el_humo_falla_antes_de_abrir_nada(self):
+        import io
+        from contextlib import redirect_stdout
+        from tempfile import NamedTemporaryFile
+        from unittest import mock
+
+        from tests import humo_exe
+
+        plataforma = mock.Mock(exe_por_defecto=Path("/no"))
+        plataforma.faltan.return_value = ["Xvfb (paquete xorg-server-xvfb)"]
+        with (NamedTemporaryFile() as exe, mock.patch.object(humo_exe, "plataforma_actual", return_value=plataforma),
+              mock.patch("tests._base_real.liberar_para_el_humo"), redirect_stdout(io.StringIO()) as salida):
+            self.assertEqual(humo_exe.main(["--exe", exe.name]), 2)
+        self.assertIn("Xvfb (paquete xorg-server-xvfb)", salida.getvalue())
+        plataforma.abrir.assert_not_called()
+        plataforma.sentra_abierta.assert_not_called()
+
     def test_lo_comun_no_llama_a_windows(self):
         fuente = (RAIZ / "tests" / "humo_exe.py").read_text("utf-8")
         for llamada in ("taskkill", "tasklist", "powershell", "ctypes", "WEBVIEW2_", "EnumWindows"):

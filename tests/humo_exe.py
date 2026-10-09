@@ -389,6 +389,10 @@ class Plataforma(Protocol):
         pantalla virtual)."""
         ...
 
+    def faltan(self) -> list[str]:
+        """Herramientas del sistema que el humo necesita y no están."""
+        ...
+
     def sentra_abierta(self) -> bool: ...
 
     def abrir(self, exe: Path, perfil: Path) -> AppControlada: ...
@@ -665,6 +669,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.exe.is_file():
         print(f"HUMO FALLA: no existe {args.exe}")
+        return 2
+    if faltan := plat.faltan():
+        print(f"HUMO FALLA: faltan herramientas: {', '.join(faltan)}")
         return 2
     if plat.sentra_abierta() or _puerto_ocupado():
         print("HUMO FALLA: SENTRA está abierta o el puerto 8765 está ocupado; ciérrala y repite")

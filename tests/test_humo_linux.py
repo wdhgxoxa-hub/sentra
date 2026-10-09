@@ -216,6 +216,21 @@ class TestPantallaVirtual(unittest.TestCase):
 
 
 class TestPlataformaLinux(unittest.TestCase):
+    def test_dice_que_herramienta_falta_antes_de_empezar(self):
+        from unittest import mock
+
+        from tests.humo_linux import Linux
+
+        with mock.patch("shutil.which", side_effect=lambda h: None if h == "WebKitWebDriver" else f"/usr/bin/{h}"):
+            self.assertEqual(Linux().faltan(), ["WebKitWebDriver (paquete webkitgtk-6.0)"])
+        with mock.patch("shutil.which", return_value="/usr/bin/x"):
+            self.assertEqual(Linux().faltan(), [])
+
+    def test_windows_no_pide_nada(self):
+        from tests.humo_windows import Windows
+
+        self.assertEqual(Windows().faltan(), [])
+
     def test_linux_es_la_plataforma_de_linux(self):
         from tests.humo_exe import plataforma_actual
         from tests.humo_linux import Linux

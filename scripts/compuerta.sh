@@ -10,7 +10,8 @@
 #
 # CLIPPY=1: clippy sin avisos. AUDIT=1: pip-audit y cargo audit (AUD2-021;
 # consultan sus bases de vulnerabilidades en la red). HUMO=1: la prueba de humo
-# del ejecutable real (AUD2-004; con SENTRA cerrada). PASOS="ruff mypy"
+# del ejecutable real (AUD2-004; con SENTRA cerrada; en Windows con WebView2,
+# en Linux con Xvfb, WebKitWebDriver y hyprctl: tests/humo_linux.py). PASOS="ruff mypy"
 # limita los pasos por defecto (lo usan los tests de la compuerta).
 #
 # Intérprete: $PYTHON si está definida; si no, .venv/bin/python si existe
