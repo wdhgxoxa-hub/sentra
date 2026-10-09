@@ -1,6 +1,7 @@
-# Tauri en Windows necesita la cadena MSVC: el enlazador GNU no produce un
-# binario compatible con WebView2. El toolchain por defecto de esta maquina
-# es gnu, asi que se fija aqui, por proyecto, sin tocar la configuracion
-# global de rustup.
+# Canal estable sin triple de sistema: cada máquina usa su cadena por defecto.
+# En Windows es MSVC (la que pide WebView2; el enlazador GNU no sirve allí) y
+# en Linux, GNU. Fijar `stable-x86_64-pc-windows-msvc` hacía que rustup
+# intentara instalar la cadena de Windows en Linux
+# (tests/test_rust_toolchain.py).
 [toolchain]
-channel = "stable-x86_64-pc-windows-msvc"
+channel = "stable"
