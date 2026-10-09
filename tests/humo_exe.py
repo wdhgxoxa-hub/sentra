@@ -448,6 +448,8 @@ def _ventana(pid: int, clase: str) -> int | None:
     import ctypes
     import ctypes.wintypes as w
 
+    if sys.platform != "win32":  # EnumWindows: solo Windows (y mypy lo sabe)
+        raise OSError("EnumWindows solo existe en Windows")
     user32 = ctypes.windll.user32
     halladas: list[int] = []
 
@@ -470,6 +472,8 @@ def _cerrar_ventana(pid: int, clase: str) -> bool:
     elige la ventana interna. taskkill sin /F no sirve: su destino cambia."""
     import ctypes
 
+    if sys.platform != "win32":  # user32: solo Windows (y mypy lo sabe)
+        raise OSError("user32 solo existe en Windows")
     hwnd = _ventana(pid, clase)
     return bool(hwnd) and bool(ctypes.windll.user32.PostMessageW(hwnd, 0x0010, 0, 0))
 
@@ -500,6 +504,8 @@ class VigiaDePrimerPlano:
         import ctypes
         from ctypes import wintypes
 
+        if sys.platform != "win32":  # user32 y kernel32: solo Windows (y mypy lo sabe)
+            raise OSError("user32 y kernel32 solo existen en Windows")
         u32, k32 = ctypes.windll.user32, ctypes.windll.kernel32
         ventana = u32.GetForegroundWindow()
         if not ventana:
