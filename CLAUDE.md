@@ -40,9 +40,9 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Vectores | LanceDB en `data/lancedb` (tabla `evidence_e5`) |
 | Modelo e5 | `~/.local/share/SENTRA/models` (2,1 GB) |
 | Python | `.venv` con Python 3.12.14 (de `uv`, en `~/.local/share/uv`); el del sistema es 3.14 y no se usa |
-| Release | Linux: `ui/src-tauri/target/release/sentra` (aún no compilada). Acceso del lanzador: `scripts/acceso_linux.py` (`--en-seco`) escribe `~/.local/share/applications/sentra.desktop`; se instala cuando pase el humo de Linux |
-| Motor de la release | se desempaqueta en la carpeta de datos de la app (`com.sentra.desktop`) `\motor\<huella>` (AUD2-003); en Linux, ruta sin verificar hasta la primera release |
-| Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `\logs\` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, sin verificar |
+| Release | Linux: `ui/src-tauri/target/release/sentra` (`cd ui && npm run tauri build -- --no-bundle`). Acceso del lanzador: `~/.local/share/applications/sentra.desktop` (instalado el 2026-10-09 con `scripts/acceso_linux.py`; `StartupWMClass=sentra`, medido) |
+| Motor de la release | se desempaqueta en la carpeta de datos de la app (`com.sentra.desktop`) `/motor/<huella>` (AUD2-003); en Linux, `~/.local/share/com.sentra.desktop/motor/<huella>` |
+| Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `/logs/` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, `~/.local/share/com.sentra.desktop/logs/` |
 | Migraciones | `sql/migrations/001…020`; `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
 | Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump`; el volcado final de Windows y `roles_y_globales.sql` en `~/SENTRA/backups/volcado-2026-09-26/` |
@@ -216,11 +216,15 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 **completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
 7 minutos. Nunca `--no-verify`.
 
-- **Linux (2026-10-09):** el humo depende de WebView2 y de ventanas de Windows;
-  fuera de Windows corta con `OSError`. Se rehace en una tarea aparte. Hasta
-  entonces vale la reducida (ruff, mypy, Python, tsc, node, cargo, más clippy)
-  y el hook **no está activado** en el clon de Linux: se activa cuando la
-  completa pase aquí.
+- **Humo en Linux (2026-10-09):** `tests/humo_exe.py` tiene lo común y cada
+  sistema su capa (`humo_windows.py`: WebView2 por CDP; `humo_linux.py`:
+  WebKitGTK por WebKitWebDriver). En Linux la app se abre en una pantalla
+  virtual Xvfb propia (`:90` o más, nunca `:0`), a la vista dentro de ella (una
+  ventana nunca mostrada mide 0×0 en WebKitGTK), y un vigía con `hyprctl`
+  falla si aparece una ventana de SENTRA en el escritorio real. Perfil aislado
+  con `SENTRA_PERFIL_WEBVIEW`. Necesita `xorg-server-xvfb` y `webkitgtk-6.0`
+  (WebKitWebDriver); si falta algo, la compuerta lo dice antes de abrir nada.
+  El hook está activado en este clon desde el 2026-10-09.
 - **Nunca `compuerta | tail && git commit`**: el `&&` mira a `tail`. La salida
   del commit va entera a un log; se lee el log después.
 - El intérprete: `$PYTHON` si está definida; si no, `.venv/bin/python` (3.12)
@@ -300,10 +304,8 @@ real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 
 ## Pendiente (Walter aprueba cada fase)
 
-0. **Migración a Linux:** revisar y fusionar `fase-linux/migracion` (decide
-   Walter); rehacer la prueba de humo para Linux (WebKitGTK, sin WebView2);
-   compilar la release; activar el hook cuando pase la compuerta completa;
-   instalar el acceso con `scripts/acceso_linux.py`.
+0. **Migración a Linux:** hecha el 2026-10-09 (base, código, humo en Linux,
+   hook y acceso del lanzador). Queda abrir SENTRA desde el menú y usarla.
 1. **Fase 2 — interfaz:** construida en `fase2/interfaz`; revisión y fusión
    (decide Walter). Lo que decía la propuesta original: El escaneo está al fondo de Fuentes, el campo Tema no
    guía ni avisa de palabras clave insuficientes, «0 grupos» no dice qué hacer,

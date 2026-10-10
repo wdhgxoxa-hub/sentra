@@ -69,6 +69,24 @@ en `docs/pipeline-antigua.md`.
    npm run tauri build    # release
    ```
 
+## Puesta en marcha (Linux)
+
+Los mismos pasos, con estas diferencias:
+
+- Python 3.12 en `.venv` (el del sistema puede ser otro):
+  `uv venv --python 3.12.14 .venv` y
+  `uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt`.
+- Migraciones: `.venv/bin/python scripts/migrate.py up --dry-run` y luego sin
+  `--dry-run`.
+- Roles y pgpass: `python -m scripts.rol_sentra --admin-sudo` (`postgres` solo
+  entra con `sudo -u postgres`); el pgpass queda en
+  `~/.local/share/SENTRA/pgpass.conf`.
+- Release: `cd ui && npm run tauri build -- --no-bundle` deja
+  `ui/src-tauri/target/release/sentra`.
+- Acceso en el menú de aplicaciones: `.venv/bin/python -m scripts.acceso_linux`
+  (`--en-seco` para verlo antes); escribe
+  `~/.local/share/applications/sentra.desktop`.
+
 ## Calidad: la compuerta
 
 El proyecto no tiene CI remota (D-C8). La compuerta local cumple ese papel:
@@ -77,11 +95,14 @@ real de cada herramienta (AUD2-022). El hook de pre-commit la ejecuta
 **completa** (clippy, auditorías y prueba de humo incluidas; con SENTRA
 cerrada) en cada commit; se activa una vez por clon:
 
-```powershell
+```bash
 git config core.hooksPath .githooks
-$env:CLIPPY=1; $env:AUDIT=1; $env:HUMO=1; bash scripts/compuerta.sh   # la completa: la del hook
-bash scripts/compuerta.sh                               # la reducida, para iterar a mano
+CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh   # la completa: la del hook
+bash scripts/compuerta.sh                           # la reducida, para iterar a mano
 ```
+
+En Windows (PowerShell) las variables se ponen con
+`$env:CLIPPY=1; $env:AUDIT=1; $env:HUMO=1`.
 
 | Paso | Herramienta |
 |---|---|
@@ -95,9 +116,9 @@ bash scripts/compuerta.sh                               # la reducida, para iter
 | pip-audit, cargo-audit (`AUDIT=1`) | vulnerabilidades conocidas en las dependencias (AUD2-021); consultan sus bases en la red |
 | humo (`HUMO=1`) | la prueba de humo del ejecutable real (abajo) |
 
-`pip-audit` está en `requirements-dev.txt`; `cargo-audit` se instala con la
-cadena MSVC (la GNU de esta máquina no lo compila):
-`cargo +stable-x86_64-pc-windows-msvc install cargo-audit --locked`. Lo que
+`pip-audit` está en `requirements-dev.txt`; `cargo-audit` se instala con
+`cargo install cargo-audit --locked` (en Windows, con la cadena MSVC:
+`cargo +stable-x86_64-pc-windows-msvc install cargo-audit --locked`). Lo que
 `cargo audit` ignora está en `ui/src-tauri/.cargo/audit.toml`, con su motivo,
 y un test comprueba que siga sin llegar al binario.
 
@@ -117,11 +138,11 @@ release compilada con `npm run tauri build` (un `cargo build --release` suelto
 deja en el mismo sitio un exe sin la interfaz embebida, que abre el servidor
 de desarrollo y queda en blanco; la prueba lo detecta) y SENTRA cerrada:
 
-```powershell
-python -m tests.humo_exe          # --exe RUTA para otro ejecutable
+```bash
+.venv/bin/python -m tests.humo_exe   # --exe RUTA para otro ejecutable (en Windows: python -m ...)
 ```
 
-Lanza `sentra.exe`, espera al motor, comprueba que Radar, Búsqueda, Fuentes y
+Lanza la release (`sentra` en Linux, `sentra.exe` en Windows), espera al motor, comprueba que Radar, Búsqueda, Fuentes y
 Configuración pintan lo que dice la base (leída en solo lectura), que no hay
 excepciones ni errores de CSP, que el cierre normal (y el que llega a la ventana
 interna de tao, AUD2-027) no deja motores y que, matando la aplicación de
@@ -129,9 +150,14 @@ golpe, el motor termina solo y libera el puerto. No
 genera texto con Gemini ni consulta fuentes, y no pulsa ningún botón (uno
 genera documentos). Al abrir Configuración, el motor pide a Google la lista de
 modelos solo si la guardada tiene más de un día (AUD2-019). La app corre con
-un perfil de WebView aislado y temporal (`WEBVIEW2_USER_DATA_FOLDER`): falla
-si el perfil real del usuario cambia un solo byte o si la app no usa el
-aislado. Tarda ~40 s; la compuerta la ejecuta con
+un perfil de WebView aislado y temporal (`WEBVIEW2_USER_DATA_FOLDER` en
+Windows, `SENTRA_PERFIL_WEBVIEW` en Linux): falla si el perfil real del
+usuario cambia un solo byte o si la app no usa el aislado. Tampoco puede
+robar el foco: en Windows la ventana se abre en modo discreto; en Linux se
+abre en una pantalla virtual propia (Xvfb, `:90` o más) y se controla con
+WebKitWebDriver, y un vigía falla si aparece una ventana de SENTRA en el
+escritorio. En Linux necesita los paquetes `xorg-server-xvfb` y
+`webkitgtk-6.0`. Tarda ~40 s; la compuerta la ejecuta con
 `HUMO=1`. Una release no se da por buena sin `humo OK` en la compuerta de
 release.
 
