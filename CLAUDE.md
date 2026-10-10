@@ -43,7 +43,7 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Release | Linux: `ui/src-tauri/target/release/sentra` (`cd ui && npm run tauri build -- --no-bundle`). Acceso del lanzador: `~/.local/share/applications/sentra.desktop` (instalado el 2026-10-09 con `scripts/acceso_linux.py`; `StartupWMClass=sentra`, medido) |
 | Motor de la release | se desempaqueta en la carpeta de datos de la app (`com.sentra.desktop`) `/motor/<huella>` (AUD2-003); en Linux, `~/.local/share/com.sentra.desktop/motor/<huella>` |
 | Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `/logs/` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, `~/.local/share/com.sentra.desktop/logs/` |
-| Migraciones | `sql/migrations/001…020`; `scripts/migrate.py up` o `status`, con `--dry-run` |
+| Migraciones | `sql/migrations/001…021` (021: `scan_requests`, propuestas de escaneo del MCP); `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
 | Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump`; el volcado final de Windows y `roles_y_globales.sql` en `~/SENTRA/backups/volcado-2026-09-26/` |
 | Archivo | repos clonados y scripts antiguos en `archivo_sentra/` del disco NTFS «Almacenamiento» (no se copió; se monta en solo lectura en `/mnt/almacenamiento`) |
