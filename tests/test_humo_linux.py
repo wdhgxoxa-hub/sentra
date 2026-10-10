@@ -156,11 +156,9 @@ class TestClienteWebDriver(unittest.TestCase):
         _ServidorFalso.peticiones = []
         self.servidor = ThreadingHTTPServer(("127.0.0.1", 0), _ServidorFalso)
         threading.Thread(target=self.servidor.serve_forever, daemon=True).start()
+        self.addCleanup(self.servidor.server_close)
+        self.addCleanup(self.servidor.shutdown)
         self.url = f"http://127.0.0.1:{self.servidor.server_address[1]}"
-
-    def tearDown(self):
-        self.servidor.shutdown()
-        self.servidor.server_close()
 
     def test_abre_sesion_con_el_ejecutable_y_ejecuta_expresiones(self):
         from tests.humo_linux import WebDriver, capacidades
