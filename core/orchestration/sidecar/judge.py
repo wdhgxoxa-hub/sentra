@@ -61,16 +61,21 @@ def _veredictos_en_camel(originales: list[dict[str, Any]]) -> list[dict[str, Any
     return convertidos
 
 
+def radar_para_mostrar(leido: dict[str, Any]) -> dict[str, Any]:
+    """El Radar tal como sale del motor (en camelCase y sin identificadores de
+    autor, R9). Lo comparten la interfaz y el servidor MCP (core/mcp)."""
+    respuesta: dict[str, Any] = _en_camel(leido)
+    respuesta["verdicts"] = _veredictos_en_camel(leido.get("verdicts", []))
+    respuesta["rest"] = _veredictos_en_camel(leido.get("rest", []))
+    return respuesta
+
+
 def router(ctx: SidecarContext) -> APIRouter:
     rutas = APIRouter()
 
     @rutas.get("/api/judge/top")
     async def judge_top(runId: str | None = None) -> dict[str, Any]:
-        leido = await asyncio.to_thread(_leer_top, ctx, runId)
-        respuesta: dict[str, Any] = _en_camel(leido)
-        respuesta["verdicts"] = _veredictos_en_camel(leido.get("verdicts", []))
-        respuesta["rest"] = _veredictos_en_camel(leido.get("rest", []))
-        return respuesta
+        return radar_para_mostrar(await asyncio.to_thread(_leer_top, ctx, runId))
 
     @rutas.get("/api/evidence/recent")
     async def evidence_recent(limit: int = FEED_DEFAULT) -> dict[str, Any]:

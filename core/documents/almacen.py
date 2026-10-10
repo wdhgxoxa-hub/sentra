@@ -18,7 +18,9 @@ import hashlib
 import json
 import logging
 import os
+import re
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,8 @@ from .model import Block, DocumentModel, Section
 logger = logging.getLogger(__name__)
 
 Clave = tuple[str, str, str, str, bool]
+#: Id de un documento guardado: el nombre de su fichero (sha256 de la clave).
+_ID = re.compile(r"[0-9a-f]{64}")
 
 
 def _a_documento(datos: dict[str, Any]) -> DocumentModel:
@@ -95,6 +99,29 @@ class AlmacenDeDocumentos:
             documento = self.leer(clave)
             if documento is not None:
                 return documento
+        return None
+
+    def listado(self) -> list[dict[str, Any]]:
+        """Los documentos guardados, del más reciente al más antiguo: su id (el
+        nombre del fichero), de qué veredicto, qué documento, idioma, modelo,
+        si fue forzado, cuándo se guardó y su título."""
+        filas = []
+        for fecha, clave, ruta in sorted(self._guardados(), key=lambda c: c[0], reverse=True):
+            documento = self.leer(clave)
+            if documento is None:
+                continue
+            filas.append({"id": ruta.stem, "verdict_id": clave[0], "kind": clave[1], "language": clave[2],
+                          "model": clave[3], "forced": clave[4],
+                          "saved_at": datetime.fromtimestamp(fecha, UTC).isoformat(), "title": documento.title})
+        return filas
+
+    def por_id(self, id_: str) -> DocumentModel | None:
+        """El documento guardado con ese id (64 hex); None si no es un id o no está."""
+        if not _ID.fullmatch(id_):
+            return None
+        for _, clave, ruta in self._guardados():
+            if ruta.stem == id_:
+                return self.leer(clave)
         return None
 
     def estado(self, verdict_id: str) -> set[tuple[str, str]]:
