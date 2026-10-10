@@ -125,6 +125,11 @@ class TestAuthentication(SidecarTestCase):
         response = self.client.post("/api/sources/scan/stream", json={"topic": "x"})
         self.assertEqual(response.status_code, 401)
 
+    def test_las_propuestas_de_claude_tambien_piden_el_token(self):
+        """D-B: el servidor MCP no habla con el motor; solo la ventana, con su token."""
+        self.assertEqual(self.client.get("/api/scan-requests").status_code, 401)
+        self.assertEqual(self.client.post("/api/scan-requests/x/discard").status_code, 401)
+
 
 class TestWithoutToken(SidecarTestCase):
     """Con --insecure-dev explícito, el sidecar sirve sin token (desarrollo)."""
@@ -151,6 +156,8 @@ class TestSurface(SidecarTestCase):
                 "/api/documents/status",
                 "/api/scan/keywords",
                 "/api/scan/estimate",
+                "/api/scan-requests",
+                "/api/scan-requests/{request_id}/discard",
                 "/api/gemini/budget",
                 "/api/search",
                 "/api/config",

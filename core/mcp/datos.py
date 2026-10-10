@@ -131,11 +131,12 @@ class DatosSentra:
         return documento.to_markdown()
 
     def propuestas(self) -> list[dict[str, Any]]:
-        """Las propuestas que esperan a Walter en la ventana de SENTRA."""
-        filas = self._consultar(
-            "SELECT id::text, profile, reason, created_at FROM scan_requests"
-            " WHERE tenant_id = %s AND status = 'pendiente' ORDER BY created_at", (self._tenant,))
-        return [{"id": f[0], "perfil": f[1], "motivo": f[2], "creada": f[3].isoformat()} for f in filas]
+        """Las propuestas que esperan a Walter en la ventana de SENTRA (la misma
+        lectura que hace el motor para enseñárselas)."""
+        from core.propuestas import pendientes
+
+        return [{"id": f["id"], "perfil": f["profile"], "motivo": f["reason"], "creada": f["created_at"]}
+                for f in pendientes(self._dsn, self._tenant)]
 
     # ── la única escritura ──
     def proponer(self, perfil: dict[str, Any], motivo: str) -> dict[str, Any]:

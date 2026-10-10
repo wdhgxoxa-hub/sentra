@@ -164,6 +164,7 @@ export const en: Dictionary = {
   },
 
   errors: {
+    scan_request_not_pending: "That proposal from Claude is no longer pending: it was launched or discarded.",
     env_value_invalid: "The value cannot be saved as is: it contains line breaks or other control characters.",
     documents_unavailable: "Documents need PostgreSQL and a judged scan; check the engine health.",
     verdict_not_found: "That verdict no longer exists. Reload the judge.",

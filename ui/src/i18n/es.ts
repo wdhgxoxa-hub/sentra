@@ -170,6 +170,7 @@ export const es = {
    * tests/test_gemini_robustness.py.
    */
   errors: {
+    scan_request_not_pending: "Esa propuesta de Claude ya no está pendiente: se lanzó o se descartó.",
     env_value_invalid: "El valor no se puede guardar tal cual: lleva saltos de línea u otros caracteres de control.",
     documents_unavailable: "Los documentos necesitan PostgreSQL y un escaneo juzgado; revisa la salud del motor.",
     verdict_not_found: "Ese veredicto ya no existe. Vuelve a cargar el juez.",

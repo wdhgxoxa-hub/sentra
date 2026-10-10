@@ -71,6 +71,8 @@ class MultiScanRequest(BaseModel):
     persist: bool | None = None
     #: El identificador de /api/scan/estimate: sin él no se escanea (Fase 1, B4).
     confirmation: str | None = None
+    #: La propuesta de Claude Desktop de la que sale este escaneo (core/propuestas.py).
+    requestId: str | None = None
 
 
 class EstimateRequest(BaseModel):
@@ -113,6 +115,19 @@ def _estimacion(ctx: SidecarContext) -> Estimacion:
     registro = ctx.registro_de_uso
     return estimar(registro.topes(), uso_hoy=registro.uso_de_hoy(datetime.now(UTC)),
                    medias=registro.medias_de_tokens(), tope_etiquetas=_tope_de_etiquetas())
+
+
+def _marcar_propuesta(ctx: SidecarContext, request_id: str, run_id: str | None) -> None:
+    """La propuesta queda lanzada. Un fallo aquí no para el escaneo, que ya
+    está confirmado: la propuesta seguiría pendiente y Walter la descarta."""
+    from core.propuestas import marcar_lanzada
+    from core.storage.postgres_store import resolver_dsn
+
+    try:
+        if not marcar_lanzada(resolver_dsn(ctx.postgres_dsn), request_id, run_id):
+            logger.warning("La propuesta %s no estaba pendiente", request_id)
+    except Exception:
+        logger.exception("No se pudo marcar la propuesta %s como lanzada", request_id)
 
 
 def _abrir_ejecucion(ctx: SidecarContext, perfil: ScanProfile) -> tuple[str | None, str | None]:
@@ -316,6 +331,8 @@ def router(ctx: SidecarContext) -> APIRouter:
             # además la marca en PostgreSQL) sirven igual que en la pipeline.
             scan_id = run_id or _nuevo_id()
             ctx.active_runs.add(scan_id)
+            if request.requestId and persistir:
+                await asyncio.to_thread(_marcar_propuesta, ctx, request.requestId, run_id)
             cola: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
             async def trabajo() -> None:
