@@ -32,7 +32,9 @@ def proceso(proc: Path, pid: int, *, cmdline: list[str], comm: str = "python",
 
 
 class TestEntorno(unittest.TestCase):
-    def test_la_app_va_a_la_pantalla_virtual_discreta_y_con_su_perfil(self):
+    def test_la_app_va_a_la_pantalla_virtual_a_la_vista_y_con_su_perfil(self):
+        """En Xvfb la ventana se muestra: oculta, WebKitGTK no le da tamaño (0×0) y
+        todo parece desbordar. Ahí no roba el foco: es otra pantalla, sin gestor."""
         from unittest import mock
 
         from tests.humo_linux import entorno
@@ -44,7 +46,7 @@ class TestEntorno(unittest.TestCase):
         self.assertEqual(valores["GDK_BACKEND"], "x11")
         self.assertNotIn("WAYLAND_DISPLAY", valores)
         self.assertNotIn("HYPRLAND_INSTANCE_SIGNATURE", valores)
-        self.assertEqual(valores["SENTRA_VENTANA_DISCRETA"], "1")
+        self.assertNotIn("SENTRA_VENTANA_DISCRETA", valores)
         self.assertEqual(valores["SENTRA_PERFIL_WEBVIEW"], "/tmp/perfil")
         self.assertNotIn("TAURI_WEBVIEW_AUTOMATION", valores)
 

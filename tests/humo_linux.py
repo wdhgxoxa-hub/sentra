@@ -62,9 +62,14 @@ PARTES_DEL_PERFIL = ("localstorage", "storage", "databases", "indexeddb", "cooki
 
 
 def entorno(perfil: Path, display: str, *, automatizada: bool = False) -> dict[str, str]:
-    """La app en la pantalla virtual, discreta y con su perfil aislado de WebKit."""
+    """La app en la pantalla virtual, a la vista y con su perfil aislado de WebKit.
+
+    Sin modo discreto: una ventana que nunca se muestra no recibe tamaño en
+    WebKitGTK (0×0) y todo parece desbordar. En Xvfb mostrarla no roba el foco:
+    es otra pantalla, sin gestor de ventanas, que no llega a tu escritorio.
+    """
     valores = entorno_discreto()
-    for variable in (*DEL_ESCRITORIO, "TAURI_WEBVIEW_AUTOMATION"):
+    for variable in (*DEL_ESCRITORIO, "TAURI_WEBVIEW_AUTOMATION", "SENTRA_VENTANA_DISCRETA"):
         valores.pop(variable, None)
     valores.update({"DISPLAY": display, "GDK_BACKEND": "x11", "SENTRA_PERFIL_WEBVIEW": str(perfil)})
     if automatizada:
