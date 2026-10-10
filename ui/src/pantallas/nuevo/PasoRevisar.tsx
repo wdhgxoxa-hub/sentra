@@ -62,13 +62,26 @@ export function PasoRevisar() {
     reset();
     a.set({ resultadoSinVer: false });
     escanear.mutate(
-      { profile: perfil, confirmation: estimar.data.confirmationId },
+      { profile: perfil, confirmation: estimar.data.confirmationId, requestId: a.propuestaId },
       { onError: (error) => fail(comoError(error)) },
     );
+    // La propuesta queda lanzada: otro escaneo desde aquí ya no sale de ella.
+    a.set({ propuestaId: null, motivoDeClaude: "" });
   };
 
   return (
     <div className="flex flex-col gap-5">
+      {a.propuestaId && (
+        <Aviso tono="info" titulo={t.nuevoEscaneo.propuestas.revisando}>
+          {a.motivoDeClaude && (
+            <p>
+              <span className="font-medium text-ink">{t.nuevoEscaneo.propuestas.motivo}: </span>
+              <span data-ajeno>{a.motivoDeClaude}</span>
+            </p>
+          )}
+          <p>{t.nuevoEscaneo.propuestas.revisandoAyuda}</p>
+        </Aviso>
+      )}
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-card border border-border bg-surface p-6 shadow-card">
           <h2 className="mb-2 text-base font-semibold">{t.nuevoEscaneo.queSeBusca}</h2>

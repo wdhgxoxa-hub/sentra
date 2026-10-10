@@ -214,6 +214,26 @@ class TestRespuestasDelSidecar(unittest.TestCase):
         self.assertEqual(set(cuerpo), interfaz("DocumentsStatus"))
         self.assertEqual(set(cuerpo["dossier"]), interfaz("SavedByLanguage"))
 
+    def test_las_propuestas_de_claude_entregan_scan_request(self):
+        from core.orchestration.sidecar import propuestas
+        from core.sources.profile import ScanProfile
+
+        perfil = ScanProfile(name="café", topic="café", keywords=["café"],
+                             keyword_languages={"café": "es"}).model_dump(mode="json")
+        fila = {"id": "01a0dad3-844c-7e42-863d-a912d331064d", "profile": perfil, "reason": "motivo",
+                "created_at": "2026-10-09T21:00:00+00:00"}
+        with mock.patch.object(propuestas, "_hay_base", return_value=True), \
+                mock.patch("core.propuestas.pendientes", return_value=[fila]), \
+                mock.patch("core.propuestas.descartar", return_value=True):
+            cuerpo = self.client.get("/api/scan-requests", headers=self.cabecera).json()
+            descartada = self.client.post(f"/api/scan-requests/{fila['id']}/discard", headers=self.cabecera).json()
+        self.assertEqual(set(cuerpo), interfaz("ScanRequestsList"))
+        self.assertEqual(set(cuerpo["requests"][0]), interfaz("ScanRequest"))
+        self.assertEqual(set(cuerpo["requests"][0]["profile"]), interfaz("ScanRequestProfile"))
+        # Las palabras del tema no se tocan al pasar a camelCase.
+        self.assertEqual(cuerpo["requests"][0]["profile"]["keywordLanguages"], {"café": "es"})
+        self.assertEqual(set(descartada), interfaz("ScanRequestDiscarded"))
+
     def test_las_palabras_clave_propuestas_entregan_keyword_proposal(self):
         from core.llm.gemini import GeminiSinConfigurar
         from core.orchestration.sidecar import palabras

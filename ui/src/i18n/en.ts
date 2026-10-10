@@ -488,6 +488,15 @@ export const en: Dictionary = {
     irAEscanear: "Next: review and scan",
     revisarTitulo: "Review and scan",
     revisarExplica: "Nothing is spent until you press «Scan».",
+    propuestas: {
+      titulo: "Claude suggests a scan",
+      motivo: "Why",
+      sinTema: "Complaints about any topic",
+      revisar: "Review",
+      descartar: "Discard",
+      revisando: "Scan suggested by Claude",
+      revisandoAyuda: "Nothing is searched or spent until you press «Scan». You can change anything before that.",
+    },
     queSeBusca: "What will be searched",
     resumen: {
       tema: "Topic",

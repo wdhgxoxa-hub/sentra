@@ -136,6 +136,9 @@ pub fn run() {
             commands::sources::estimate_scan,
             commands::sources::trigger_multiscan,
             commands::palabras::propose_keywords,
+            // Propuestas de escaneo de Claude Desktop (MCP)
+            commands::propuestas::get_scan_requests,
+            commands::propuestas::discard_scan_request,
             // Juez de nichos (F3)
             commands::judge::get_judge_top,
             commands::judge::get_evidence_feed,

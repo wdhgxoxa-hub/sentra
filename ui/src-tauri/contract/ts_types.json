@@ -108,6 +108,31 @@
       "topicKind",
       "windowDays"
     ],
+    "ScanRequestProfile": [
+      "discovery",
+      "intents",
+      "keywordLanguages",
+      "keywords",
+      "languages",
+      "name",
+      "phraseLibraryVersion",
+      "targets",
+      "topic",
+      "topicKind",
+      "windowDays"
+    ],
+    "ScanRequest": [
+      "createdAt",
+      "id",
+      "profile",
+      "reason"
+    ],
+    "ScanRequestsList": [
+      "requests"
+    ],
+    "ScanRequestDiscarded": [
+      "discarded"
+    ],
     "SourceScanSummary": [
       "detail",
       "errorCode",

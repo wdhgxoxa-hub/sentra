@@ -95,9 +95,11 @@ HERRAMIENTAS: list[dict[str, Any]] = [
         "description": (
             "Propone un escaneo. NO lo lanza ni gasta nada: deja la propuesta pendiente y SENTRA se la "
             "enseña a Walter con la estimación de gasto; solo se lanza si él pulsa «Lanzar» en la ventana "
-            "de SENTRA. `perfil` es el de un escaneo de SENTRA: `name`, `topic`, `keywords` (o "
-            "`discovery: true` sin palabras), y opcionales `languages`, `intents`, `targets`, `window_days`. "
-            "Dile a Walter que abra SENTRA para revisarla."
+            "de SENTRA. `perfil` es el de un escaneo de SENTRA: `name`, `topic` (la frase del tema), "
+            "`keywords` (términos de 1 a 3 palabras; o `discovery: true` sin palabras) y, opcionales, "
+            "`keyword_languages` ({palabra: \"es\"|\"en\"}), `languages` ([\"es\", \"en\"]), "
+            "`window_days` (90, 180 o 365) y `targets.stackexchange` (sitios). Walter puede cambiarla "
+            "antes de lanzarla. Dile que abra SENTRA para revisarla."
         ),
         "inputSchema": {"type": "object", "properties": {
             "perfil": {"type": "object", "description": "Perfil del escaneo (como lo arma el asistente)."},

@@ -213,6 +213,40 @@ export interface ScanProfileInput {
   languages: string[];
 }
 
+/**
+ * Perfil de una propuesta de Claude Desktop (/api/scan-requests): el de
+ * core/sources/profile.py validado y guardado entero, con las claves en camelCase.
+ */
+export interface ScanRequestProfile {
+  name: string;
+  topic: string;
+  topicKind: "software" | "otro" | null;
+  keywords: string[];
+  keywordLanguages: Record<string, "es" | "en">;
+  intents: string[];
+  languages: string[];
+  targets: Record<string, string[]>;
+  windowDays: number;
+  discovery: boolean;
+  phraseLibraryVersion: string;
+}
+
+/** Un escaneo que propone Claude Desktop: solo se lanza desde la ventana (decisión de Walter). */
+export interface ScanRequest {
+  id: string;
+  profile: ScanRequestProfile;
+  reason: string;
+  createdAt: string;
+}
+
+export interface ScanRequestsList {
+  requests: ScanRequest[];
+}
+
+export interface ScanRequestDiscarded {
+  discarded: boolean;
+}
+
 export interface SourceScanSummary {
   status: "running" | "done" | "failed";
   items: number;

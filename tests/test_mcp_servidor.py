@@ -187,6 +187,8 @@ class TestDatosContraUnaBase(unittest.TestCase):
         [pendiente] = self.datos.propuestas()
         self.assertEqual(pendiente["id"], hecho["id"])
         self.assertEqual(pendiente["perfil"]["keywords"], ["café", "tostador"])
+        # Sin idioma marcado, se deduce como en el motor (tildes o palabras frecuentes).
+        self.assertEqual(pendiente["perfil"]["keyword_languages"], {"café": "es", "tostador": "en"})
         self.assertEqual(pendiente["motivo"], "el café sale en muchas quejas")
         self.assertEqual(self.datos.estado()["propuestas_pendientes"], 1)
 

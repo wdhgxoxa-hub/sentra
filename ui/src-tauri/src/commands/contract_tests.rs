@@ -121,9 +121,31 @@ fn trigger_multiscan_recibe_la_confirmacion_y_la_reenvia_al_motor() {
     });
     let perfil: ScanProfileParams = argumento(&payload, "profile");
     let confirmacion: String = argumento(&payload, "confirmation");
-    let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, &confirmacion)).unwrap();
+    let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, &confirmacion, None)).unwrap();
     assert_eq!(cuerpo["confirmation"], "abc123");
     assert_eq!(cuerpo["profile"]["window_days"], 365);
+    // Sin propuesta de Claude, el motor no recibe requestId.
+    assert!(cuerpo.get("requestId").is_none());
+}
+
+#[test]
+fn trigger_multiscan_reenvia_la_propuesta_de_claude_de_la_que_sale() {
+    use crate::commands::sources::{cuerpo_del_escaneo, ScanProfileParams};
+
+    // ipc.ts -> invoke("trigger_multiscan", { profile, confirmation, requestId })
+    let payload = json!({
+        "profile": { "name": "f", "keywords": ["invoice"], "discovery": false,
+                     "windowDays": 365, "languages": ["en"] },
+        "confirmation": "abc123",
+        "requestId": "01a0dad3-844c-7e42-863d-a912d331064d"
+    });
+    let perfil: ScanProfileParams = argumento(&payload, "profile");
+    let confirmacion: String = argumento(&payload, "confirmation");
+    let propuesta: Option<String> = argumento(&payload, "requestId");
+    let cuerpo =
+        serde_json::to_value(cuerpo_del_escaneo(&perfil, &confirmacion, propuesta.as_deref())).unwrap();
+    assert_eq!(cuerpo["requestId"], "01a0dad3-844c-7e42-863d-a912d331064d");
+    assert_eq!(cuerpo["confirmation"], "abc123");
 }
 
 #[test]

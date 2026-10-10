@@ -119,6 +119,9 @@ struct ScanProfileBody<'a> {
 pub struct MultiScanBody<'a> {
     profile: ScanProfileBody<'a>,
     confirmation: &'a str,
+    /// La propuesta de Claude Desktop de la que sale el escaneo (si sale de una).
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    request_id: Option<&'a str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -302,6 +305,7 @@ pub async fn trigger_multiscan(
     state: State<'_, AppState>,
     profile: ScanProfileParams,
     confirmation: String,
+    request_id: Option<String>,
 ) -> RadarResult<serde_json::Value> {
     // Sin timeout total (AUD2-025): ni las cabeceras ni el flujo esperan mas
     // de SILENCIO_MAX sin noticias del motor.
@@ -310,7 +314,7 @@ pub async fn trigger_multiscan(
             state
                 .http
                 .post(format!("{}/api/sources/scan/stream", sidecar_url()))
-                .json(&cuerpo_del_escaneo(&profile, &confirmation)),
+                .json(&cuerpo_del_escaneo(&profile, &confirmation, request_id.as_deref())),
         ),
         SILENCIO_MAX,
     )
@@ -338,8 +342,12 @@ fn perfil_del_cuerpo(profile: &ScanProfileParams) -> ScanProfileBody<'_> {
     }
 }
 
-pub fn cuerpo_del_escaneo<'a>(profile: &'a ScanProfileParams, confirmation: &'a str) -> MultiScanBody<'a> {
-    MultiScanBody { profile: perfil_del_cuerpo(profile), confirmation }
+pub fn cuerpo_del_escaneo<'a>(
+    profile: &'a ScanProfileParams,
+    confirmation: &'a str,
+    request_id: Option<&'a str>,
+) -> MultiScanBody<'a> {
+    MultiScanBody { profile: perfil_del_cuerpo(profile), confirmation, request_id }
 }
 
 pub fn cuerpo_de_la_estimacion(profile: &ScanProfileParams) -> EstimateBody<'_> {
@@ -372,7 +380,7 @@ mod tests {
             window_days: 180,
             languages: vec!["en".into()],
         };
-        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado", None)).unwrap();
         assert_eq!(cuerpo["profile"]["window_days"], 180);
         assert!(cuerpo["profile"].get("windowDays").is_none());
         assert_eq!(cuerpo["profile"]["keywords"][0], "invoice");
@@ -388,7 +396,7 @@ mod tests {
             "topicKind": "otro", "targets": {"stackexchange": ["money"]}
         }))
         .unwrap();
-        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado", None)).unwrap();
         assert_eq!(cuerpo["profile"]["topic"], "Perseguir a los clientes para que manden sus documentos al contable");
         assert_eq!(cuerpo["profile"]["topic_kind"], "otro");
         assert_eq!(cuerpo["profile"]["targets"]["stackexchange"][0], "money");
@@ -400,7 +408,7 @@ mod tests {
             "name": "facturas", "keywords": ["invoice"], "discovery": false, "windowDays": 180, "languages": ["en"]
         }))
         .unwrap();
-        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado")).unwrap();
+        let cuerpo = serde_json::to_value(cuerpo_del_escaneo(&perfil, "confirmado", None)).unwrap();
         for campo in ["topic", "topic_kind", "targets"] {
             assert!(cuerpo["profile"].get(campo).is_none(), "{campo}");
         }

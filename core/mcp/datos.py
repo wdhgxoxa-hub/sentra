@@ -26,7 +26,7 @@ from pydantic import ValidationError
 
 from core.documents.almacen import AlmacenDeDocumentos
 from core.rutas import ruta_documentos
-from core.sources.profile import ScanProfile
+from core.sources.profile import ScanProfile, idioma_de
 from core.storage.postgres_store import (
     DEFAULT_TENANT_ID,
     PostgresStore,
@@ -149,6 +149,10 @@ class DatosSentra:
         except ValidationError as exc:
             errores = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'perfil'}: {e['msg']}" for e in exc.errors())
             raise DatoInvalido(f"perfil no válido: {errores}") from None
+        # El asistente reparte las palabras por idioma (una fila por idioma): las
+        # que Claude no marcó se deducen con la misma regla que el motor.
+        valido = valido.model_copy(update={"keyword_languages": {
+            p: valido.keyword_languages.get(p) or idioma_de(p) for p in valido.keywords}})
         with psycopg.connect(self._dsn, connect_timeout=5, options="-c search_path=radar,public") as conn:
             fila = conn.execute(
                 "INSERT INTO scan_requests (tenant_id, profile, reason) VALUES (%s, %s::jsonb, %s)"

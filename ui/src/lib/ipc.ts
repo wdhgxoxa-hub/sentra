@@ -32,6 +32,8 @@ import {
   type MultiScanEvent,
   type ScanEstimate,
   type ScanProfileInput,
+  type ScanRequestDiscarded,
+  type ScanRequestsList,
   type SourceCard,
   type SidecarStatus,
   SIDECAR_EVENT_CHANNEL,
@@ -110,8 +112,14 @@ export const ipc = {
    * [sidecar] Escaneo multifuente. El progreso llega por `onSourcesEvent`;
    * la promesa devuelve el último evento (`scan:done` o `error`).
    */
-  triggerMultiscan: (profile: ScanProfileInput, confirmation: string) =>
-    invoke<MultiScanEvent>("trigger_multiscan", { profile, confirmation }),
+  triggerMultiscan: (profile: ScanProfileInput, confirmation: string, requestId: string | null = null) =>
+    invoke<MultiScanEvent>("trigger_multiscan", { profile, confirmation, requestId }),
+
+  /** [sidecar] Escaneos que propone Claude Desktop, pendientes de Walter. No gasta nada. */
+  getScanRequests: () => invoke<ScanRequestsList>("get_scan_requests"),
+
+  /** [sidecar] Descarta una propuesta de Claude Desktop (no escanea). */
+  discardScanRequest: (requestId: string) => invoke<ScanRequestDiscarded>("discard_scan_request", { requestId }),
 
   /**
    * [sidecar] Estimación del gasto de Gemini del escaneo y el identificador

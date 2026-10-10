@@ -495,6 +495,15 @@ export const es = {
     irAEscanear: "Siguiente: revisar y escanear",
     revisarTitulo: "Revisa y escanea",
     revisarExplica: "No se gasta nada hasta que pulses «Escanear».",
+    propuestas: {
+      titulo: "Claude te propone un escaneo",
+      motivo: "Por qué",
+      sinTema: "Quejas de cualquier tema",
+      revisar: "Revisar",
+      descartar: "Descartar",
+      revisando: "Escaneo propuesto por Claude",
+      revisandoAyuda: "Nada se busca ni se gasta hasta que pulses «Escanear». Antes puedes cambiar lo que quieras.",
+    },
     queSeBusca: "Qué se va a buscar",
     resumen: {
       tema: "Tema",

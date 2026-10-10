@@ -13,6 +13,7 @@ import { EscaneoEnCurso } from "./nuevo/EscaneoEnCurso";
 import { PasoPalabras } from "./nuevo/PasoPalabras";
 import { PasoRevisar } from "./nuevo/PasoRevisar";
 import { PasoTema } from "./nuevo/PasoTema";
+import { PropuestasDeClaude } from "./nuevo/PropuestasDeClaude";
 import { ResultadoDeUnEscaneo } from "./nuevo/ResultadoDeUnEscaneo";
 
 /**
@@ -83,6 +84,7 @@ export function NuevoEscaneo() {
 
   return (
     <div className="mx-auto flex max-w-[1080px] flex-col gap-6" data-pantalla="nuevo" data-paso={a.paso}>
+      <PropuestasDeClaude />
       <header>
         <h1 className="text-[22px] font-semibold">{titulo}</h1>
         {explica && <p className="mt-1 max-w-[70ch] text-[15px] text-ink-soft">{explica}</p>}

@@ -60,6 +60,7 @@ export const queryKeys = {
   judgeTop: (runId: string | null) => ["radar", "judge", runId] as const,
   evidenceFeed: (limit: number) => ["radar", "evidence", limit] as const,
   documentsStatus: (verdictId: string) => ["radar", "documents", verdictId] as const,
+  scanRequests: ["radar", "scan-requests"] as const,
 } as const;
 
 // --- Lecturas ---------------------------------------------------------
@@ -251,9 +252,39 @@ export function useProposeKeywords() {
 export function useTriggerMultiscan() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ profile, confirmation }: { profile: ScanProfileInput; confirmation: string }) =>
-      ipc.triggerMultiscan(profile, confirmation),
-    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.sources }),
+    mutationFn: ({
+      profile,
+      confirmation,
+      requestId = null,
+    }: {
+      profile: ScanProfileInput;
+      confirmation: string;
+      requestId?: string | null;
+    }) => ipc.triggerMultiscan(profile, confirmation, requestId),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: queryKeys.sources });
+      client.invalidateQueries({ queryKey: queryKeys.scanRequests });
+    },
+  });
+}
+
+/**
+ * Escaneos que propone Claude Desktop. Se mira cada 30 s: Claude puede
+ * proponer con la ventana abierta. Leerlas no gasta nada.
+ */
+export function useScanRequests() {
+  return useQuery({
+    queryKey: queryKeys.scanRequests,
+    queryFn: () => ipc.getScanRequests(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useDiscardScanRequest() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (requestId: string) => ipc.discardScanRequest(requestId),
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.scanRequests }),
   });
 }
 

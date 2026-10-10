@@ -10,10 +10,11 @@ import { create } from "zustand";
 
 import type { IdiomaDeBusqueda } from "@/lib/cobertura";
 import type { TipoDeTema } from "@/lib/encaje";
+import { DIAS_DEL_ASISTENTE } from "@/lib/propuestas";
 import type { KeywordProposal } from "@/types/radar";
 
 export type PasoDelAsistente = 1 | 2 | 3;
-export const DIAS = [90, 180, 365] as const;
+export const DIAS = DIAS_DEL_ASISTENTE;
 export type Dias = (typeof DIAS)[number];
 
 interface AsistenteState {
@@ -33,6 +34,9 @@ interface AsistenteState {
   nombre: string;
   /** Hay un resultado que la persona aún no ha visto (D3: la marca). */
   resultadoSinVer: boolean;
+  /** La propuesta de Claude Desktop que se está revisando y su motivo (null si no viene de una). */
+  propuestaId: string | null;
+  motivoDeClaude: string;
   set: (cambios: Partial<Omit<AsistenteState, "set" | "reiniciar">>) => void;
   reiniciar: () => void;
 }
@@ -50,6 +54,8 @@ const INICIAL = {
   temaDeLaPropuesta: "",
   nombre: "",
   resultadoSinVer: false,
+  propuestaId: null,
+  motivoDeClaude: "",
 };
 
 export const useAsistenteStore = create<AsistenteState>((set) => ({
