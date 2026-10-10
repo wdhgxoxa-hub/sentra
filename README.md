@@ -161,11 +161,19 @@ escritorio. En Linux necesita los paquetes `xorg-server-xvfb` y
 `HUMO=1`. Una release no se da por buena sin `humo OK` en la compuerta de
 release.
 
+## Claude Desktop (servidor MCP)
+
+`core/mcp/servidor.py` deja a Claude Desktop leer nichos, escaneos y dossiers
+y **proponer** escaneos. Nunca los lanza: la propuesta aparece en «Nuevo
+escaneo» y solo se escanea si pulsas «Escanear» tras ver lo que costará.
+Registro y herramientas: `docs/mcp.md`.
+
 ## Documentación
 
 - `tasks/SPEC-cierre-y-documentos.md` y `tasks/SPEC-multifuente.md`:
   especificación y decisiones (D-M*, D-C*).
 - `docs/pipeline-antigua.md`: qué se retiró de la pipeline antigua y qué queda.
 - `docs/proceso.md`: reglas de proceso (compuerta, humo, verificación con datos).
+- `docs/mcp.md`: SENTRA en Claude Desktop (herramientas, propuestas, registro).
 - `docs/historico/`: documentos de etapas anteriores (la biblioteca de
   repositorios clonados, el esquema de la fase 6), con una nota (AUD2-017).

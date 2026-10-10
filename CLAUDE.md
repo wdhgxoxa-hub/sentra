@@ -45,11 +45,13 @@ CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
 | Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `/logs/` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, `~/.local/share/com.sentra.desktop/logs/` |
 | Migraciones | `sql/migrations/001…021` (021: `scan_requests`, propuestas de escaneo del MCP); `scripts/migrate.py up` o `status`, con `--dry-run` |
 | Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
+| Claude Desktop (MCP) | `core/mcp/servidor.py`, registrado como `sentra` en `~/.config/Claude/claude_desktop_config.json`. Lee nichos, escaneos y dossiers (con SENTRA cerrada, sin Gemini) y solo PROPONE escaneos (`scan_requests`); los lanza Walter desde «Nuevo escaneo». Guía: `docs/mcp.md` |
 | Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump`; el volcado final de Windows y `roles_y_globales.sql` en `~/SENTRA/backups/volcado-2026-09-26/` |
 | Archivo | repos clonados y scripts antiguos en `archivo_sentra/` del disco NTFS «Almacenamiento» (no se copió; se monta en solo lectura en `/mnt/almacenamiento`) |
 | psql | `/usr/bin/psql` (en el PATH) |
 
-Documentos: `README.md` (puesta en marcha, compuerta, humo),
+Documentos: `README.md` (puesta en marcha, compuerta, humo), `docs/mcp.md`
+(Claude Desktop),
 `docs/proceso.md` (reglas de proceso), `docs/auditoria-2026-09-24.md`
 (auditoría AUD2 y su cierre), `docs/triaje-auditoria.md`,
 `tasks/plan-fuentes-y-e8.md` (último plan de E8; su contador de Gemini es
