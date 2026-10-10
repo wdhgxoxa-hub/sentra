@@ -178,6 +178,13 @@ class TestScriptsEjecutables(unittest.TestCase):
                     sin_bit.append(ruta)
         self.assertEqual(sin_bit, [])
 
+    def test_el_hook_es_ejecutable_en_git(self):
+        """Sin el bit, git en Linux salta el hook con un simple aviso y el commit
+        entra sin compuerta (en Windows el bit no cuenta)."""
+        salida = subprocess.run(["git", "ls-files", "-s", "--", ".githooks/pre-commit"], cwd=RAIZ,
+                                capture_output=True, text=True, encoding="utf-8", check=True).stdout
+        self.assertTrue(salida.startswith("100755 "), salida)
+
 
 if __name__ == "__main__":
     unittest.main()
