@@ -44,8 +44,9 @@ def _prohibida() -> AssertionError:
 
 def dsn_de_los_tests() -> str:
     from core.rutas import ruta_pgpass
+    from core.storage.postgres_store import puerto_pg
 
-    return (f"postgresql://sentra_pruebas@localhost:5432/{BASE_DE_LOS_TESTS}"
+    return (f"postgresql://sentra_pruebas@localhost:{puerto_pg()}/{BASE_DE_LOS_TESTS}"
             f"?passfile={quote(str(ruta_pgpass()), safe='')}")
 
 

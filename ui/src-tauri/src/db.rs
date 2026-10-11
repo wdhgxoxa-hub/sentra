@@ -17,6 +17,36 @@ const DEFAULT_DSN: &str =
 
 const DSN_ENV_VAR: &str = "RIR_PG_URL";
 
+/// Puerto del DSN por defecto (fase 2, contenedores), el mismo nombre que en
+/// Python (`core/storage/postgres_store.py`). Solo cambia el puerto: la
+/// contrasena sigue saliendo del pgpass de SENTRA, de la linea de ese puerto.
+const PORT_ENV_VAR: &str = "RIR_PG_PORT";
+const PUERTO_POR_DEFECTO: u16 = 5432;
+
+/// El puerto pedido: un numero de 1 a 65535; vacio o invalido, 5432 (con aviso
+/// si habia algo).
+fn puerto_desde(valor: Option<&str>) -> u16 {
+    let valor = valor.unwrap_or_default().trim();
+    if valor.is_empty() {
+        return PUERTO_POR_DEFECTO;
+    }
+    match valor.parse::<u16>() {
+        Ok(puerto) if puerto > 0 && valor.bytes().all(|b| b.is_ascii_digit()) => puerto,
+        _ => {
+            log::warn!("{PORT_ENV_VAR}={valor:?} no es un puerto valido; se usa {PUERTO_POR_DEFECTO}");
+            PUERTO_POR_DEFECTO
+        }
+    }
+}
+
+/// El DSN por defecto con el puerto indicado.
+fn opciones_por_defecto(puerto: u16) -> PgConnectOptions {
+    DEFAULT_DSN
+        .parse::<PgConnectOptions>()
+        .expect("el DSN por defecto debe ser valido")
+        .port(puerto)
+}
+
 /// Estado compartido de la aplicacion, accesible desde cualquier comando.
 ///
 /// El cliente HTTP se crea una vez y se reutiliza: reqwest mantiene su
@@ -105,7 +135,8 @@ pub type RadarResult<T> = Result<T, RadarError>;
 /// Credenciales de conexion, en cascada.
 ///
 /// 1. `RIR_PG_URL`, si esta definida.
-/// 2. El DSN por defecto (rol `sentra_owner`) con la contrasena del pgpass
+/// 2. El DSN por defecto (rol `sentra_owner`; puerto de `RIR_PG_PORT`, 5432
+///    sin ella) con la contrasena del pgpass
 ///    propio de SENTRA. sqlx, a diferencia de libpq, no lee pgpass solo. El
 ///    pgpass.conf que comparten los proyectos no se lee: el 2026-09-24 otro
 ///    proyecto lo reescribio y SENTRA se quedo sin base (y antes se tomaba
@@ -119,9 +150,8 @@ pub fn connect_options() -> PgConnectOptions {
         log::warn!("{DSN_ENV_VAR} no es una URL valida; se ignora");
     }
 
-    let options = DEFAULT_DSN
-        .parse::<PgConnectOptions>()
-        .expect("el DSN por defecto debe ser valido");
+    let puerto = puerto_desde(std::env::var(PORT_ENV_VAR).ok().as_deref());
+    let options = opciones_por_defecto(puerto);
     let clave = ruta_pgpass()
         .and_then(|ruta| std::fs::read_to_string(ruta).ok())
         .and_then(|contenido| {
@@ -429,6 +459,29 @@ mod tests {
     fn el_dsn_por_defecto_usa_el_rol_de_sentra() {
         let opciones: PgConnectOptions = DEFAULT_DSN.parse().unwrap();
         assert_eq!(opciones.get_username(), "sentra_owner");
+    }
+
+    #[test]
+    fn el_puerto_sale_de_rir_pg_port_como_en_python() {
+        // Mismos casos que tests/test_puerto_pg.py (core.storage.postgres_store.puerto_pg).
+        assert_eq!(PORT_ENV_VAR, "RIR_PG_PORT");
+        assert_eq!(puerto_desde(None), 5432);
+        assert_eq!(puerto_desde(Some("")), 5432);
+        assert_eq!(puerto_desde(Some("5438")), 5438);
+        assert_eq!(puerto_desde(Some(" 5438 ")), 5438);
+        for malo in ["abc", "0", "70000", "-5", "54 38"] {
+            assert_eq!(puerto_desde(Some(malo)), 5432, "{malo}");
+        }
+    }
+
+    #[test]
+    fn el_puerto_solo_cambia_el_puerto_del_dsn_por_defecto() {
+        let opciones = opciones_por_defecto(5438);
+        assert_eq!(opciones.get_port(), 5438);
+        assert_eq!(opciones.get_host(), "localhost");
+        assert_eq!(opciones.get_username(), "sentra_owner");
+        assert_eq!(opciones.get_database(), Some("reddit_intelligence_radar"));
+        assert_eq!(opciones_por_defecto(5432).get_port(), 5432);
     }
 
     /// Nada escucha en el puerto 1: la conexion se rechaza al momento.

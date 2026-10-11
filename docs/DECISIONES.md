@@ -28,3 +28,13 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
   `main`.
 - **Vuelta atrás.** La base nativa queda intacta 7 días. Mientras la configuración no
   apunte al 5438, todo va al 5432 como antes; `systemctl --user stop sentra-pg` para el contenedor sin perder datos.
+
+## 2026-10-11 · `RIR_PG_PORT`: el puerto se elige sin tocar el código
+
+- `RIR_PG_URL` no basta para mover la app a otro puerto: sqlx (Rust) no lee el pgpass,
+  así que una URL sin contraseña deja la ventana sin base. `RIR_PG_PORT` cambia solo
+  el puerto del DSN por defecto en Python (`core/storage/postgres_store.py::puerto_pg`)
+  y en Rust (`ui/src-tauri/src/db.rs::puerto_desde`), y en los tests
+  (`tests/_postgres.py`, `tests/_base_real.py`). La contraseña sigue saliendo del
+  pgpass de SENTRA, de la línea de ese puerto. Sin la variable o con un valor que no es
+  puerto: 5432 (con aviso). Pruebas: `tests/test_puerto_pg.py` y las de `db.rs`.

@@ -24,7 +24,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 
 class TestResolverDsn(unittest.TestCase):
     def entorno(self, **valores):
-        limpio = {k: v for k, v in os.environ.items() if k not in ("RIR_PG_URL", "RIR_PG_DSN")}
+        limpio = {k: v for k, v in os.environ.items() if k not in ("RIR_PG_URL", "RIR_PG_DSN", "RIR_PG_PORT")}
         return mock.patch.dict(os.environ, {**limpio, **valores}, clear=True)
 
     def test_precedencia(self):

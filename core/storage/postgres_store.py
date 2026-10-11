@@ -64,12 +64,30 @@ DEFAULT_DSN = "postgresql://sentra_owner@localhost:5432/reddit_intelligence_rada
 DSN_ENV_VAR = "RIR_PG_URL"
 #: Nombre antiguo de Python: se acepta un tiempo, con aviso.
 DSN_ENV_VAR_ANTIGUA = "RIR_PG_DSN"
+#: Fase 2 (contenedores): puerto del DSN por defecto, el mismo nombre en Rust
+#: (ui/src-tauri/src/db.rs). Solo cambia el puerto: la contraseña sigue saliendo
+#: del pgpass de SENTRA (sqlx no lee pgpass, así que RIR_PG_URL no le basta a Rust).
+PORT_ENV_VAR = "RIR_PG_PORT"
+PUERTO_POR_DEFECTO = 5432
+
+
+def puerto_pg() -> int:
+    """El puerto de PostgreSQL: RIR_PG_PORT si es un puerto válido; si no, 5432
+    (un valor que no es puerto se ignora con aviso, igual que en Rust)."""
+    valor = os.environ.get(PORT_ENV_VAR, "").strip()
+    if not valor:
+        return PUERTO_POR_DEFECTO
+    if valor.isascii() and valor.isdigit() and 0 < int(valor) < 65536:
+        return int(valor)
+    logger.warning("%s=%r no es un puerto válido; se usa %d", PORT_ENV_VAR, valor, PUERTO_POR_DEFECTO)
+    return PUERTO_POR_DEFECTO
 
 
 def resolver_dsn(explicito: str | None = None) -> str:
     """La base a la que conectar: la indicada, RIR_PG_URL, RIR_PG_DSN (antigua,
-    con aviso) o la de por defecto con el pgpass de SENTRA (sin él, libpq leería
-    el pgpass.conf que comparten los proyectos). El único sitio que la resuelve."""
+    con aviso) o la de por defecto (puerto de RIR_PG_PORT, 5432 sin ella) con el
+    pgpass de SENTRA (sin él, libpq leería el pgpass.conf que comparten los
+    proyectos). El único sitio que la resuelve."""
     if explicito:
         return explicito
     valor = os.environ.get(DSN_ENV_VAR, "").strip()
@@ -84,7 +102,8 @@ def resolver_dsn(explicito: str | None = None) -> str:
 
     from core.rutas import ruta_pgpass
 
-    return f"{DEFAULT_DSN}?passfile={quote(str(ruta_pgpass()), safe='')}"
+    dsn = DEFAULT_DSN.replace(f":{PUERTO_POR_DEFECTO}/", f":{puerto_pg()}/", 1)
+    return f"{dsn}?passfile={quote(str(ruta_pgpass()), safe='')}"
 
 # El adaptador fija el search_path en la conexión, no por sentencia: así
 # sobrevive a los rollbacks, que revierten cualquier SET hecho dentro de
