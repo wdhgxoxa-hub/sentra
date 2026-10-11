@@ -14,6 +14,9 @@ memoria; `main()` solo lo conecta a stdin/stdout.
   solo arranca si Walter pulsa «Lanzar» en la ventana (decisión del
   2026-10-09). Ninguna herramienta puede lanzar, confirmar ni descartar.
 
+Cada `tools/call` queda además en el registro común del escritorio 9 de Claude
+(`core/mcp/eventos.py`; sin la librería, nada cambia).
+
 Registro en Claude Desktop (`~/.config/Claude/claude_desktop_config.json`):
 ``.venv/bin/python -m core.mcp.servidor`` con `PYTHONPATH` en la raíz del repo.
 """
@@ -27,6 +30,7 @@ from typing import Any, Protocol
 
 import psycopg
 
+from core.mcp import eventos
 from core.mcp.datos import ESCANEOS_MAX, MOTIVO_MAX, DatoInvalido
 
 PROTOCOLO = "2025-06-18"
@@ -199,6 +203,8 @@ def main() -> int:
     from core.mcp.datos import DatosSentra
 
     servidor = ServidorMCP(DatosSentra())
+    # Cada llamada queda en el registro común del escritorio 9 (si la librería está).
+    manejar = eventos.registrar(servidor.manejar)
     for linea in sys.stdin:
         linea = linea.strip()
         if not linea:
@@ -209,7 +215,7 @@ def main() -> int:
             respuesta: dict[str, Any] | None = _error(None, -32700, "JSON no válido")
         else:
             try:
-                respuesta = servidor.manejar(peticion) if isinstance(peticion, dict) else \
+                respuesta = manejar(peticion) if isinstance(peticion, dict) else \
                     _error(None, -32600, "La petición tiene que ser un objeto")
             # Una petición no puede tumbar el servidor: el fallo inesperado es un
             # error JSON-RPC de esa petición y el bucle sigue.
