@@ -1,0 +1,8 @@
+# Volumen con nombre donde vive la base. Copia este archivo como <nombre>-datos.volume.
+# Los datos quedan en ~/.local/share/containers/storage/volumes/sentra-pg-datos/_data
+# y NO se borran al parar, reiniciar ni quitar el contenedor.
+[Unit]
+Description=Datos de sentra-pg
+
+[Volume]
+VolumeName=sentra-pg-datos

@@ -1,0 +1,10 @@
+# Red propia de SENTRA (copiada de la plantilla del agente A). Hoy solo está sentra-pg.
+# El puerto hacia fuera lo abre cada contenedor con PublishPort=127.0.0.1:… (nunca 0.0.0.0).
+[Unit]
+Description=Red interna de SENTRA
+
+[Network]
+NetworkName=sentra
+# Interna: los contenedores de esta red NO salen a internet, pero PublishPort=127.0.0.1:… sí funciona
+# (probado con podman 6.1.3 el 11-10-2026). Si un programa necesita internet, ver docs/CONTENEDORES.md.
+Internal=true

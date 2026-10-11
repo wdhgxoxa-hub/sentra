@@ -1,0 +1,58 @@
+# Postgres 18.6 de SENTRA: base reddit_intelligence_radar (antes en el Postgres nativo, puerto 5432).
+# Copiado de la plantilla ~/Proyectos/contenedores/plantilla/postgres (agente A, fase 2).
+# Puerto 127.0.0.1:5438 (tabla de docs/CONTENEDORES.md). Socket: /run/user/1000/contenedores/sentra-pg/.
+#
+# Antes de arrancarlo, crea el secreto con la clave del superusuario «postgres»:
+#   ~/Proyectos/contenedores/scripts/secreto-nuevo sentra-pg-postgres
+[Unit]
+Description=Postgres de SENTRA (contenedor, base reddit_intelligence_radar)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=sentra-pg
+# Imagen oficial por digest (postgres:18.6-trixie = 18.6 a 11-10-2026). Nunca una etiqueta sola.
+Image=docker.io/library/postgres@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+# AutoUpdate no se pone: actualizar es cambiar el digest aquí, a mano y con commit.
+Pull=missing
+
+Network=sentra.network
+PublishPort=127.0.0.1:5438:5432
+Volume=sentra-pg-datos.volume:/var/lib/postgresql
+# Socket Unix visible desde fuera en /run/user/1000/contenedores/sentra-pg/.s.PGSQL.5432
+Volume=%t/contenedores/sentra-pg:/var/run/postgresql
+
+# El usuario «postgres» de dentro (uid 999) es david fuera: datos y socket quedan a nombre de david.
+UserNS=keep-id:uid=999,gid=999
+
+# Clave del superusuario: secreto de podman, montado en /run/secrets/postgres-clave (solo lo lee postgres).
+Secret=sentra-pg-postgres,type=mount,target=postgres-clave,uid=999,gid=999,mode=0400
+Environment=POSTGRES_PASSWORD_FILE=/run/secrets/postgres-clave
+Environment="POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=scram-sha-256 --encoding=UTF8 --locale-provider=libc --locale=C.UTF-8"
+Environment=POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+Environment=TZ=America/Lima
+
+# Ajustes: claves solo con scram, ningún registro de sentencias (así nunca queda escrito un ALTER ROLE … PASSWORD),
+# escucha en todas las interfaces DEL CONTENEDOR (solo su red interna; fuera solo llega por 127.0.0.1:5438).
+Exec=postgres -c password_encryption=scram-sha-256 -c log_statement=none -c listen_addresses=* -c shared_buffers=256MB -c log_timezone=America/Lima -c timezone=America/Lima
+
+# Memoria compartida para consultas en paralelo (el valor por defecto, 64 MB, se queda corto).
+ShmSize=512m
+StopTimeout=60
+
+HealthCmd=pg_isready -q -h /var/run/postgresql -U postgres -d postgres
+HealthInterval=10s
+HealthStartPeriod=60s
+HealthRetries=3
+HealthOnFailure=kill
+# systemctl --user start espera hasta que la base responde.
+Notify=healthy
+
+[Service]
+ExecStartPre=/usr/bin/mkdir -p %t/contenedores/sentra-pg
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
