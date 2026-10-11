@@ -53,6 +53,9 @@ ExecStartPre=/usr/bin/mkdir -p %t/contenedores/sentra-pg
 Restart=on-failure
 RestartSec=10
 TimeoutStartSec=900
+# Podman da 60 s a Postgres para pararse (StopTimeout=60); systemd, por defecto, solo 10 s.
+# Con 70 s systemd no lo mata a medias al apagar el portátil (lección del apagón del 11-10).
+TimeoutStopSec=70
 
 [Install]
 WantedBy=default.target

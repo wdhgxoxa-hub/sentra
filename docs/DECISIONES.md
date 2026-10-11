@@ -38,3 +38,10 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
   (`tests/_postgres.py`, `tests/_base_real.py`). La contraseña sigue saliendo del
   pgpass de SENTRA, de la línea de ese puerto. Sin la variable o con un valor que no es
   puerto: 5432 (con aviso). Pruebas: `tests/test_puerto_pg.py` y las de `db.rs`.
+
+## 2026-10-11 · `TimeoutStopSec=70` en `sentra-pg`
+
+- Tras el apagón del 11-10: podman da 60 s a Postgres para pararse (`StopTimeout=60`),
+  pero systemd de usuario solo esperaba 10 s (`TimeoutStopUSec=10s`, medido) y con carga
+  podía matarlo a medias al apagar. Ahora `[Service] TimeoutStopSec=70` (60 s + margen).
+  Se aplica con `systemctl --user daemon-reload`, sin reiniciar el contenedor.
