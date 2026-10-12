@@ -64,3 +64,23 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
   `tests/test_requirements.py` exige que todo tenga hash, que coincida con los dos
   requirements y con lo instalado, y que `fastapi.testclient` se importe sin avisos
   (`python -W error`). Es de Linux x86_64 y Python 3.12.
+
+## 2026-10-12 · Caché de modelos de fastembed traída de Windows
+
+- **Aviso.** Cada carga del modelo decía `fastembed … Local file sizes do not match the
+  metadata` (loguru, no `warnings`). **Causa:** fastembed 0.8.0 guarda junto a cada modelo
+  `files_metadata.json` con la ruta y el tamaño de cada archivo, y en Windows las
+  escribió con «\» (`snapshots\<revisión>\config.json`). En Linux esa ruta es un solo
+  nombre que no existe y su comprobación sin red da «no cuadra» aunque los archivos
+  estén bien. No era descarga a medias ni otra ruta ni otra versión: los 11 archivos de
+  los dos modelos (bge-small y e5, 2,2 GB) cuadran en tamaño y en sha256 / id de git con
+  el árbol que guardó huggingface_hub (`trees/<revisión>.json`).
+- **Arreglo reproducible.** `python -m scripts.reparar_cache_modelos` (`--en-seco` para
+  verlo): comprueba cada archivo contra ese árbol y, solo si todo cuadra, reescribe las
+  rutas con «/». No descarga ni toca los modelos. El metadato viejo va a la papelera
+  (`gio trash`; sin gio, se queda al lado como `.windows`). Si algo no cuadra, no toca
+  nada y sale con 1: ese modelo hay que volver a descargarlo. Aplicado en esta máquina
+  el 12-10 (los dos modelos).
+- **Guardia.** `tests/test_storage.py` escucha el registro de fastembed mientras carga el
+  modelo de la caché real y falla si avisa. Pruebas del script en
+  `tests/test_reparar_cache_modelos.py`.

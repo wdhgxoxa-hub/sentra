@@ -126,9 +126,27 @@ class TestRealEmbeddings(unittest.TestCase):
 
     """Prueba de que el espacio vectorial ya no es un placebo."""
 
+    avisos: ClassVar[list[str]]
+
     @classmethod
     def setUpClass(cls):
-        cls.embedder = FastEmbedEmbedder()
+        # fastembed avisa por loguru, no por `warnings`: `-W error` no lo ve. Se
+        # escucha su registro mientras carga el modelo de la caché local.
+        from fastembed.common.model_management import logger as registro_fastembed
+
+        cls.avisos = []
+        oyente = registro_fastembed.add(lambda m: cls.avisos.append(str(m)), level="WARNING")
+        try:
+            cls.embedder = FastEmbedEmbedder()
+        finally:
+            registro_fastembed.remove(oyente)
+
+    def test_cargar_el_modelo_de_la_cache_no_avisa(self):
+        """La caché venía de Windows: files_metadata.json con rutas «\\» que en
+        Linux no existen, y fastembed avisaba «Local file sizes do not match the
+        metadata» en cada carga (2026-10-12). Se repara con
+        `python -m scripts.reparar_cache_modelos`."""
+        self.assertEqual(self.avisos, [])
 
     @staticmethod
     def _cosine(a, b):
