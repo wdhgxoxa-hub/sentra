@@ -44,7 +44,7 @@ Documentos: `README.md` (puesta en marcha, compuerta, humo), `docs/DECISIONES.md
 | Cuándo | Orden (desde el repo) |
 |---|---|
 | Rápida | `PYTHONIOENCODING=utf-8 .venv/bin/python -W error -m unittest tests.test_claude_md tests.test_lenguaje_llano` (13 pruebas, 0,35–0,39 s, medido el 12-10) y `PASOS="ruff mypy" bash scripts/compuerta.sh` (0,5 s) |
-| A mano, al iterar | `bash scripts/compuerta.sh` (ruff, mypy, unittest con `-W error`, tsc, node, cargo) |
+| A mano, al iterar | `bash scripts/compuerta.sh > .calidad/compuerta.log 2>&1` (ruff, mypy, unittest con `-W error`, tsc, node, cargo; `.calidad/` está ignorada por git) |
 | Cada commit (hook `.githooks/pre-commit`) | `CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh` (+ clippy, pip-audit, cargo-audit y humo del exe real; unos 7 min) |
 
 - El humo abre la release en un Xvfb propio (`:90` o más, nunca `:0`) con perfil aislado; falla si aparece una fila
