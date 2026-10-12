@@ -97,5 +97,9 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
   líneas `WARNING:` de `logging` que salen en la suite son de pruebas que las provocan
   a propósito (token, variables mal puestas), salvo la de asyncio «Executing … took
   0.1xx seconds»: `IsolatedAsyncioTestCase` activa el modo depuración de asyncio y
-  avisa si un paso tarda más de 0,1 s; salió con la máquina cargada (la suite
-  lenta de D&S Factory en marcha). No es un aviso de Python ni de una biblioteca; no se ha tocado.
+  avisa si un paso tarda más de 0,1 s. Sale en
+  `test_source_youtube::test_no_gasta_mas_unidades_que_el_escaneo_1` (0,11–0,12 s medidos
+  el 12-10 con la máquina cargada, carga ~9): probablemente porque con `httpx.MockTransport`
+  no hay red que esperar y el escaneo entero corre de un tirón (sin comprobar a fondo). No es un aviso de Python ni de
+  una biblioteca y no se ha tocado: queda para decidir (aligerar esa prueba o subir el
+  umbral solo en ella, con su motivo).
