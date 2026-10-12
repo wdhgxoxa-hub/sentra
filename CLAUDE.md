@@ -1,328 +1,97 @@
 # CLAUDE.md — SENTRA
 
-Léelo entero antes de tocar nada. Estado verificado el 2026-10-09 (migración
-de Windows a Linux, CachyOS, rama `fase-linux/migracion`) contra git y la base;
-la release de Linux aún no existe. Si el repo contradice este archivo,
-manda el repo: corrígelo aquí en un commit aparte (`tests/test_claude_md.py`
-vigila lo que más cambia).
+Radar personal de nichos de Walter (David). Lema: «Escucha el mercado antes de construir».
+Las reglas generales de David están en `~/.claude/CLAUDE.md`; aquí solo lo propio de SENTRA. Si el repo contradice
+este archivo, manda el repo: corrígelo aquí en un commit aparte (`tests/test_claude_md.py` vigila lo que más cambia).
 
-## Qué es
+Flujo: escanear fuentes → filtrar → etiquetar con LLM (Gemini, vía `LLMProvider`) → agrupar con e5 por la frase del
+problema verificada (`is_pain`, umbral 0,82) → juez con compuertas G0–G8 → veredicto CONSTRUIR / INVESTIGAR MÁS /
+DESCARTAR → dossier y plan (PDF y Markdown).
 
-SENTRA es el radar personal de nichos de Walter (uso personal).
-Lema: «Escucha el mercado antes de construir».
-
-Flujo: escanear fuentes → filtrar → etiquetar con LLM (Gemini, vía
-`LLMProvider`) → agrupar con e5 por la frase del problema verificada
-(`is_pain`, umbral 0,82) → juez con compuertas G0–G8 → veredicto
-CONSTRUIR / INVESTIGAR MÁS / DESCARTAR → dossier y plan (PDF y Markdown).
-
-## Roles y forma de trabajar
-
-- Walter es el arquitecto y decide. El agente ejecuta, verifica y reporta.
-- Español, frases cortas. Arreglos de causa raíz, nunca parches.
-- Nada de progreso inventado. Nada de «debería funcionar».
-- Nada está terminado sin probarlo en la release real, no solo en tests.
-- Reporte = qué se hizo + evidencia (comando y resultado, o captura) + qué falta.
-- Walter aprueba cada fase antes de empezarla. Si algo no está especificado
-  y es de negocio o diseño: se proponen opciones medidas y él elige.
+## Forma de trabajar
+- Walter decide y aprueba cada fase antes de empezarla; lo no especificado de negocio o diseño se le propone con
+  opciones medidas. Reporte = qué se hizo + evidencia (orden y resultado, o captura) + qué falta.
+- Nada está terminado sin probarlo en la release real; «verificado» = antes y después sobre la app real,
+  contrastado con SQL de solo lectura (`PGOPTIONS="-c default_transaction_read_only=on"`).
+- Una rama por fase; a `main` solo por fast-forward con la compuerta completa en verde. La migración a Linux
+  (antes rama `fase-linux/migracion`, ya no existe) está en `main`, que es la rama activa (DECISIONES 2026-10-11).
+- El mensaje de cada commit dice qué test falló primero (RED) y cómo quedó (GREEN).
+- **Gemini y escaneos reales: solo con aprobación de Walter en el chat** (cuántas llamadas y para qué).
+- Ediciones con Edit/Write o scripts escritos con Write: heredoc y `sed` corrompen barras invertidas.
 
 ## Dónde está cada cosa
-
 | Pieza | Dónde |
 |---|---|
-| Repo | `~/SENTRA/reddit_intelligence_radar` (Linux, CachyOS; en Windows era `F:\reddit_intelligence_radar`) · GitHub `wdhgxoxa-hub/sentra` (público) |
-| Interfaz | `ui/src` — React 19 + TypeScript. Pantallas: **Nuevo escaneo** (la principal, asistente de 3 pasos), Radar (con la ficha de cada nicho), Búsqueda, Fuentes, Configuración. `pantallas/` y `components/nicho/` son genéricas (P2); `views/` son las páginas del modo Software y las compartidas |
-| Escritorio | `ui/src-tauri` — Tauri 2 (Rust): IPC, arranque del motor, salud |
-| Motor | `core/` — FastAPI en loopback con token. `core/sources` (adaptadores), `core/judge` (juez), `core/llm` (Gemini, control, estimación), `core/documents` (dossier y plan), `core/evidence` (búsqueda) |
-| Base | PostgreSQL 18 local, base `reddit_intelligence_radar`, esquema `radar`. Rol `sentra_owner` (dueño, sin superusuario, no crea bases); los tests usan `sentra_pruebas` (solo CREATEDB, bases `rir_*_test`). DSN: `RIR_PG_URL` o, por defecto, `postgresql://sentra_owner@localhost:5432/reddit_intelligence_radar` con el pgpass de SENTRA; el puerto se cambia con `RIR_PG_PORT` (Python, Rust y tests). Contenedor `sentra-pg` en `127.0.0.1:5438` (Quadlets en `deploy/contenedores/`, `docs/DECISIONES.md`) |
-| Carpeta local | `core/rutas.py::carpeta_local()` y `db.rs` (la misma regla): `%LOCALAPPDATA%\SENTRA` en Windows; en Linux `$XDG_DATA_HOME/SENTRA` o `~/.local/share/SENTRA` (nunca `~/.cache`: un limpiador se llevaría el modelo) |
-| pgpass de SENTRA | `~/.local/share/SENTRA/pgpass.conf` (chmod 600; en Windows `%LOCALAPPDATA%\SENTRA\pgpass.conf` con icacls). El de D&S Factory (`~/.config/DS-Factory/pgpass.conf`) **nunca se escribe**. Roles y pgpass: `python -m scripts.rol_sentra --admin-sudo` (`--en-seco`, `--deshacer`; en Linux `postgres` solo entra con `sudo -u postgres`); las contraseñas las teclea Walter |
-| Vectores | LanceDB en `data/lancedb` (tabla `evidence_e5`) |
-| Modelo e5 | `~/.local/share/SENTRA/models` (2,1 GB) |
-| Python | `.venv` con Python 3.12.14 (de `uv`, en `~/.local/share/uv`); el del sistema es 3.14 y no se usa |
-| Release | Linux: `ui/src-tauri/target/release/sentra` (`cd ui && npm run tauri build -- --no-bundle`). Acceso del lanzador: `~/.local/share/applications/sentra.desktop` (instalado el 2026-10-09 con `scripts/acceso_linux.py`; `StartupWMClass=sentra`, medido) |
-| Motor de la release | se desempaqueta en la carpeta de datos de la app (`com.sentra.desktop`) `/motor/<huella>` (AUD2-003); en Linux, `~/.local/share/com.sentra.desktop/motor/<huella>` |
-| Logs de la app | carpeta de datos de la app (`com.sentra.desktop`) `/logs/` (`SENTRA.log` en UTC, `sidecar.log`); en Linux, `~/.local/share/com.sentra.desktop/logs/` |
-| Migraciones | `sql/migrations/001…021` (021: `scan_requests`, propuestas de escaneo del MCP); `scripts/migrate.py up` o `status`, con `--dry-run` |
-| Re-juicio sin escanear | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
-| Claude Desktop (MCP) | `core/mcp/servidor.py`, registrado como `sentra` en `~/.config/Claude/claude_desktop_config.json`. Lee nichos, escaneos y dossiers (con SENTRA cerrada, sin Gemini) y solo PROPONE escaneos (`scan_requests`); los lanza Walter desde «Nuevo escaneo». Guía: `docs/mcp.md` |
-| Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump`; el volcado final de Windows y `roles_y_globales.sql` en `~/SENTRA/backups/volcado-2026-09-26/` |
-| Archivo | repos clonados y scripts antiguos en `archivo_sentra/` del disco NTFS «Almacenamiento» (no se copió; se monta en solo lectura en `/mnt/almacenamiento`) |
-| psql | `/usr/bin/psql` (en el PATH) |
+| Repo | `~/SENTRA/reddit_intelligence_radar` · GitHub `wdhgxoxa-hub/sentra` (público) |
+| Interfaz | `ui/src` (React 19 + TS). Pantallas: **Nuevo escaneo** (principal, asistente de 3 pasos), Radar, Búsqueda, Fuentes, Configuración. `pantallas/` y `components/nicho/` son genéricas; `views/` son del modo Software y compartidas |
+| Escritorio | `ui/src-tauri` (Tauri 2, Rust): IPC, arranque del motor, salud. Release: `ui/src-tauri/target/release/sentra` (`cd ui && npm run tauri build -- --no-bundle`); acceso del menú instalado con `scripts/acceso_linux.py` |
+| Motor | `core/` (FastAPI en loopback con token): `sources` (adaptadores), `judge`, `llm`, `documents`, `evidence` |
+| Base | PostgreSQL 18 nativo, puerto 5432 (compartido con D&S Factory), base `reddit_intelligence_radar`, esquema `radar`. Roles: `sentra_owner` (dueño) y, en tests, `sentra_pruebas` (bases `rir_*_test`). DSN: `RIR_PG_URL` o el de por omisión con el pgpass de SENTRA; puerto con `RIR_PG_PORT`. Contenedor `sentra-pg` (127.0.0.1:5438, `deploy/contenedores/`) listo; el corte espera a David |
+| pgpass | `~/.local/share/SENTRA/pgpass.conf` (600). El de D&S Factory nunca se escribe. Roles: `python -m scripts.rol_sentra --admin-sudo` (`--en-seco`; usa sudo: lo corre David) |
+| Datos locales | `~/.local/share/SENTRA` (`core/rutas.py::carpeta_local()` y `db.rs`; nunca `~/.cache`); modelo e5 en `models/`; vectores LanceDB en `data/lancedb` |
+| Python | `.venv/bin/python` (3.12.14, de `uv`); el del sistema no se usa |
+| Logs de la app | `~/.local/share/com.sentra.desktop/logs/` (`SENTRA.log` en UTC, `sidecar.log`); motor en `…/motor/<huella>` |
+| Migraciones | `sql/migrations/001…021`; `scripts/migrate.py up` o `status`, con `--dry-run` |
+| Re-juicio | `scripts/rejuzgar.py --run <id> --max-llamadas N --max-etiquetas N` |
+| MCP (Claude Desktop) | `core/mcp/servidor.py`, registrado como `sentra`; lee y solo PROPONE escaneos (`scan_requests`). Guía `docs/mcp.md` |
+| Respaldos | `~/SENTRA/backups/reddit_intelligence_radar_<fecha>_<hora>_<motivo>.dump` |
 
-Documentos: `README.md` (puesta en marcha, compuerta, humo), `docs/mcp.md`
-(Claude Desktop),
-`docs/proceso.md` (reglas de proceso), `docs/auditoria-2026-09-24.md`
-(auditoría AUD2 y su cierre), `docs/triaje-auditoria.md`,
-`tasks/plan-fuentes-y-e8.md` (último plan de E8; su contador de Gemini es
-obsoleto), `tasks/SPEC-*.md` (decisiones D-M* y D-C*).
+Documentos: `README.md` (puesta en marcha, compuerta, humo), `docs/DECISIONES.md` (infraestructura), `docs/proceso.md`
+(reglas de proceso), `tasks/SPEC-*.md` (decisiones D-M* y D-C*), `docs/fase3/` (GUIA, REGISTRO, TEMAS),
+`docs/auditoria-2026-09-24.md`, `docs/triaje-auditoria.md`.
 
-## Fuentes (10 adaptadores en `core/sources`)
+## Pruebas y compuerta (0 errores, 0 avisos)
+| Cuándo | Orden (desde el repo) |
+|---|---|
+| Rápida | `PYTHONIOENCODING=utf-8 .venv/bin/python -W error -m unittest tests.test_claude_md tests.test_lenguaje_llano` (13 pruebas, 0,35–0,39 s, medido el 12-10) y `PASOS="ruff mypy" bash scripts/compuerta.sh` (0,5 s) |
+| A mano, al iterar | `bash scripts/compuerta.sh` (ruff, mypy, unittest con `-W error`, tsc, node, cargo) |
+| Cada commit (hook `.githooks/pre-commit`) | `CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh` (+ clippy, pip-audit, cargo-audit y humo del exe real; unos 7 min) |
 
-Hacker News, Stack Exchange (CC BY-SA 4.0, se muestra), GitHub, Bluesky,
-YouTube (solo comentarios, no títulos), Mastodon, Discourse (foros de
-facturación en `RIR_DISCOURSE_FORUMS`), Product Hunt (token verificado).
+- El humo abre la release en un Xvfb propio (`:90` o más, nunca `:0`) con perfil aislado; falla si aparece una fila
+  nueva en `llm_usage` o una ventana en el escritorio real. Si el commit cambia interfaz o motor, recompila antes
+  con `npm run tauri build` (un `cargo build --release` suelto deja un exe sin interfaz). SENTRA cerrada antes
+  (`pgrep -x sentra`).
+- Los tests no tocan la base real: `tests/_base_real.py` la bloquea; solo el humo la libera.
+- **D&S Factory comparte PostgreSQL**: antes de tocar la base o de un commit (sus tests crean bases), comprobar en
+  solo lectura que no tiene `pytest` en marcha, 0 sesiones no idle en `pg_stat_activity` y 0 bloqueos `advisory`.
+- Nada de borrar ni cambiar datos reales sin respaldo `pg_dump -Fc` y aprobación. Migración que el código necesite:
+  respaldo + ensayo sobre copia + `--dry-run` + `migrate.py up` (como `sentra_owner`) + verificación, ANTES de abrir la app.
 
-- **Reddit NO funciona**: espera la aprobación de su API. No darlo por operativo.
-- **X apagada**: sin credencial, es de pago.
-- Una fuente en error no entra en el escaneo hasta probarla con éxito (AUD2-012).
-- Topes por fuente y escaneo (`core/sources/budget.py`): 25 peticiones y 500
-  ítems por defecto; YouTube 2 000 unidades / 200 peticiones; Discourse 100
-  peticiones. YouTube cobra los ítems después de quitar repetidos (Fase 1);
-  el vídeo repetido se sigue releyendo (1 unidad por relectura).
-- Reparto (Fase 3, `fase3/reparto`): las fuentes de un escaneo comparten un
-  cupo de 500 piezas ÚTILES (`CupoDelEscaneo`, `CUPO_POR_ESCANEO`) y ninguna
-  pasa de 250; lo que no usan las vacías queda para las demás. Útil (Walter,
-  escaneo 2) = no repite id ni texto (huella sin enlaces, cifras ni signos),
-  tiene el largo mínimo y nombra el tema; lo demás se guarda sin gastar cupo.
-  Traer tiene tope aparte: 1 000 piezas por escaneo. YouTube agrupa las
-  palabras de 4 en 4 con «|», hace TODAS las búsquedas antes de leer
-  comentarios, 25 vídeos × 10 comentarios por turnos, y no trae comentarios
-  que no nombran el tema (`menciona_el_tema`): con las 14 palabras del
-  escaneo 1, 430 unidades (antes 1 065). No verificado en la API real: el O
-  con términos de varias palabras entre comillas. El resultado avisa si una
-  fuente aporta más de la mitad (`RunOverview.sources`).
-- Palabras clave: términos de 1 a 3 palabras; el idioma de cada una viaja del
-  asistente (`keyword_languages`). Ventana por defecto: 1 año.
-- Cómo terminó cada fuente en cada ejecución (motivo de parada incluido):
-  `run_source_outcomes` (migración 018).
-- **Fuentes según el tipo de tema (Fase 3, medida B de Walter).** El perfil
-  lleva el tema completo (`topic`), su tipo (`topic_kind`: software | otro)
-  y los sitios de Stack Exchange (`targets.stackexchange`, del catálogo
-  cerrado `core/sources/sitios_stackexchange.py`). `core/sources/encaje.py`:
-  GitHub solo en temas de software; Stack Exchange solo con un sitio
-  adecuado. Lo omitido no se consulta y queda en `run_source_outcomes` con
-  `stop_reason = omitida:<motivo>` (sin migración); lo dicen la estimación
-  (`omittedSources`) y el resultado (`skippedSources`). Sin tipo (sin Gemini,
-  descubrimiento) no se omite nada.
-- **D-M12 · Dirección del original con el DID (Walter, 2026-09-25).** Sigue a
-  D-M1…D-M11 de `tasks/SPEC-multifuente.md`. R5 gana solo para el enlace: la
-  dirección se guarda completa (la de Bluesky lleva el DID; sin ella no se
-  verifica la evidencia), pero el DID nunca se ve como texto en ninguna
-  pantalla ni documento (R9).
-  - Pantalla: se ve `direccionVisible` (`bsky.app/profile/…/post/<id>`) y
-    «Copiar dirección» lleva la completa en `data-destino`.
-  - Documentos: Markdown `[visible](completa)` y PDF `<a href>`. Todo texto
-    pintado oculta DID y at:// (`core/privacidad.py`), también lo guardado antes
-    de los alias, que no se reescribe (decisión de Walter).
-  - Guardia: el humo busca identificadores en el texto visible de cada pantalla
-    («Ver detalle» abiertos, texto ajeno incluido) sin excepción para las
-    direcciones; el destino de un botón no es texto.
+## Fuentes (`core/sources`)
+Hacker News, Stack Exchange, GitHub, Bluesky, YouTube (solo comentarios), Mastodon, Discourse, Product Hunt.
+**Reddit NO funciona** (espera la aprobación de su API) y **X está apagada** (de pago). Una fuente en error no entra
+hasta probarla con éxito. Topes en `core/sources/budget.py`; cupo de 500 piezas útiles por escaneo y 250 por fuente
+(`CupoDelEscaneo`); GitHub y Stack Exchange solo si encajan con el tipo de tema (`core/sources/encaje.py`).
+Cómo terminó cada fuente: `run_source_outcomes`. DID de Bluesky: se guarda la dirección completa pero nunca se ve
+como texto (`core/privacidad.py`, D-M12).
 
 ## Reglas del juez ya decididas (no se cambian sin aprobación)
+- **G0** coherencia por LLM: grupo mezclado = «sin problema común», nunca CONSTRUIR; caché por grupo.
+- Anuncios de herramientas («construí X», «Show HN») = competencia, nunca dolor.
+- **G7, regla de 3 autores**: con 1–2, «sin datos suficientes» y como mucho INVESTIGAR MÁS. Dossier: afirmación
+  general con ≥ 2 autores o «Anécdota (1 autor)».
+- Solo cuentan las quejas del tema (labels-v5: `is_pain = yes` y `del_tema = yes`). Umbral de agrupación 0,82.
+- Versiones: labels-v5, clustering-v10, coherence-v3, judge-weights-v6. Resumen del juez en `pipeline_runs.judge_summary`.
 
-- **G0 coherencia por LLM.** Grupo mezclado = «sin problema común», sin
-  puntuación, nunca CONSTRUIR. Si hay un problema dominante, se separa en
-  subgrupo confirmado. Caché de G0 por grupo (`coherence_checks`).
-  Temperatura por defecto (no 0: Google lo desaconseja en Gemini 3).
-- **Anuncios de herramientas** («construí X», «Show HN») = competencia, nunca dolor.
-- **Regla de 3 autores (G7).** Un competidor gratuito solo cuenta si lo
-  nombran ≥ 3 autores distintos. Con 1–2: G7 «sin datos suficientes» y el
-  veredicto no pasa de INVESTIGAR MÁS (regla 9).
-- **Dossier.** Una afirmación general exige ≥ 2 autores; si no, se marca
-  «Anécdota (1 autor)».
-- **Nombre del grupo.** Lo produce G0 en es/en y se guarda con el veredicto
-  (`niche_verdicts.problem_name`, migración 016).
-- **Solo cuentan las quejas del tema (labels-v5, Walter, Fase 3).** Con tema,
-  el etiquetador lo recibe (la frase del asistente y las palabras) y cada
-  etiqueta dice si es del tema (`del_tema`, con su fragmento literal). Solo
-  `is_pain = yes` y `del_tema = yes` forman grupos (`pain_items`); el resumen
-  cuenta las ajenas (`pain_off_topic`). Caché por pieza + tema
-  (`labels-v5/<modelo>/tema-<huella>`): nunca se reutiliza entre temas. Mismas
-  llamadas a Gemini (mismos lotes). Escaneo 2: 0 de 53 quejas eran del tema.
-- **Umbral de agrupación 0,82 (Walter, 25-09, opción C).** Se mantiene y se
-  mide de nuevo tras el primer escaneo con labels-v5. A 0,85, el dorado v1
-  bajaba de ARI 0,487 a 0,152 (docs/fase3/DIAGNOSTICO-ESCANEO2.md).
-- Versiones vigentes: labels-v5, clustering-v10, coherence-v3, judge-weights-v6.
-- El resumen del juez queda con la ejecución (`pipeline_runs.judge_summary`,
-  migración 019). `stored` = piezas guardadas por la ejecución (0 en un re-juicio).
-  `filtered_in`, `filtered_out`, `analyzed`, `qualified`, `rejected`, `cycles`,
-  `last_cursor` y `graph_version` son de la pipeline antigua, sin uso.
+## Interfaz: principios que se vigilan
+- Nada de jerga en lo que se ve: lista única en `tests/_lenguaje_llano.py`; `t.detalle` solo dentro de «Ver detalle»;
+  citas, nombres de nichos y URL con `data-ajeno`. Una sola `AccionPrincipal` por pantalla; letra ≥ 12 px; cada estado
+  con palabra e icono; ningún `<a href>` externo.
+- El Radar enseña la última ejecución con nichos (`latest_run_with_niches`). `GET /api/documents/status` mira si dossier
+  y plan están guardados (reutilizar = 0 llamadas). `POST /api/scan/keywords`: 1 llamada `palabras_clave` o plantillas.
 
-## Interfaz (Fase 2): principios que se vigilan
+## Modo Videos: cómo se enchufa (no está construido)
+Walter tiene su propio prompt de arquitectura: no se diseña por cuenta propia. Preparado: `ui/src/modos/tipos.ts`;
+se añade `ui/src/modos/videos.ts` y se registra en `ui/src/modos/registro.ts` (con dos modos aparece el
+`SelectorDeModo`); `ui/src/lib/nichos.ts` leerá sus nichos. `tests/test_modo_videos_preparado.py` impide que lo
+genérico dependa del modo Software.
 
-- **P1, facilidad de uso.** Nada de jerga en lo que se ve: la lista única de
-  palabras prohibidas está en `tests/_lenguaje_llano.py` (tokens, G0–G9,
-  cluster, pipeline, regla N, LLM, API, JSON, compuerta, run…). Tres guardias:
-  i18n (`tests/test_lenguaje_llano.py`: todo salvo el bloque `detalle`), `t.detalle`
-  solo en `components/detalle/` (se pinta dentro de «Ver detalle»), y el humo, que
-  lee el texto visible del exe en cada pantalla. Las citas de la evidencia, los
-  nombres de nichos y las URL van con `data-ajeno` (son datos, no se tocan).
-  Una sola `AccionPrincipal` por pantalla del asistente, del Radar y de la ficha
-  (el humo las cuenta). Letra de al menos 12 px salvo el detalle técnico. Cada
-  estado lleva palabra e icono, no solo color. Tokens «unidades de texto».
-  Ningún `<a href>` externo: la ventana no abre enlaces.
-- **Radar.** Enseña la última ejecución **con nichos** (`latest_run_with_niches`,
-  algún veredicto que no sea DESCARTAR); si la última juzgada es otra, un aviso con
-  su nombre y fecha y su resultado al pulsar. `latest_judged_run` no cambia.
-  `GET /api/judge/top` añade `run` y `latestRun` (`RunOverview`).
-- **Documentos.** `GET /api/documents/status?verdictId=` dice si dossier y plan
-  están guardados (solo mira el disco). Exportar algo guardado lo reutiliza sin
-  resolver el modelo (0 llamadas); cambiar de modelo no regenera lo guardado.
-- **Palabras clave.** `POST /api/scan/keywords`: con Gemini, 1 llamada
-  `palabras_clave` (migración 020) dentro de los topes; sin clave, sin
-  presupuesto o con error, plantillas sin Gemini y `reason` dice por qué.
-
-## Modo Videos: cómo se enchufa (P2; no está construido)
-
-Walter tiene su propio prompt de arquitectura para el modo Videos: no se
-diseña por cuenta propia. Lo que la Fase 2 deja listo:
-
-1. `ui/src/modos/tipos.ts` define `Modo` (textos del asistente y cómo se dice
-   una métrica) y `NichoEnPantalla` (el tipo de nicho es un dato).
-2. Se escribe `ui/src/modos/videos.ts` con sus textos, sus métricas y su
-   adaptador `nichoDeVideos`, y se registra en `ui/src/modos/registro.ts`. Con dos
-   modos, el `SelectorDeModo` de la barra lateral aparece solo.
-3. `ui/src/lib/nichos.ts` lee los nichos del modo activo: se le añade la
-   lectura de Videos (su ruta del motor la define Walter).
-4. `pantallas/` (asistente, resultado, Radar, ficha) y `components/nicho/` no
-   se tocan: `tests/test_modo_videos_preparado.py` impide que dependan del modo
-   Software. Fuentes y Configuración son compartidas.
-5. No verificado aún: los componentes genéricos pintados con un nicho de tipo
-   «videos» (no hay pruebas de componentes con DOM sin dependencias nuevas).
-
-## Presupuesto de Gemini (real desde la Fase 1)
-
-- **Punto único de control** (`core/llm/control.py`): `GeminiProvider` no se crea
-  sin `ControlDeGemini`. Cada intento (reintentos y fallos incluidos) deja una
-  fila en `llm_usage` (migración 017): `ok`, `error` o `cortada` (con el motivo en
-  `error_code`). Propósitos: etiquetado, g0, abogado, dossier, plan,
-  prueba_clave, listado_modelos, otros y palabras_clave (migración 020: el asistente
-  de escaneo propone palabras clave, Fase 2). Guardia AST: el SDK solo vive en
-  `core/llm/gemini.py` (`tests/test_punto_unico_gemini.py`).
-- **Topes** (`llm_budget_settings`, Configuración › Presupuesto de Gemini):
-  por escaneo 20 llamadas y 500 000 tokens; por día 40 llamadas y 1 000 000
-  tokens, día en hora de Lima. Un escaneo o un re-juicio = un control con tope
-  por escaneo; dossier y plan solo tope diario. El listado de modelos se
-  registra, pero ni cuenta ni se corta. Al cortar: fila `cortada`,
-  `LLMBudgetExhausted(motivo)` y `pipeline_runs.stop_reason` (migración 018).
-- **Confirmación obligatoria**: `POST /api/scan/estimate` da un rango estimado de
-  llamadas (0 a ⌈tope de etiquetas/20⌉ + 3 + 1) y tokens (media de `llm_usage`,
-  25 000 por llamada sin historial), lo gastado y lo que queda, y un
-  identificador de un solo uso (10 min). `POST /api/sources/scan/stream` sin él,
-  caducado, usado o de otro perfil: 409. En la interfaz, «Escanear» solo estima
-  y «Confirmar y escanear» escanea.
-- El historial empieza el 2026-09-25 (el contador manual anterior, 42 llamadas,
-  no se puede probar y no está en la tabla).
-
-## La compuerta (0 errores, 0 avisos, siempre)
-
-```bash
-CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # la completa: la que ejecuta el hook
-bash scripts/compuerta.sh                                   # la reducida, para iterar a mano
-```
-
-Pasos: ruff, mypy, tests Python (`unittest` con `-W error`: un aviso es un
-fallo; y `tests/_asyncio_lento.py` hace fallar el paso de asyncio que bloquea el
-bucle más de 0,1 s), tsc, node (`npm test`), cargo test, clippy `-D warnings`,
-pip-audit, cargo-audit y la prueba de humo del exe real
-(`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
-**completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
-7 minutos. Nunca `--no-verify`.
-
-- **Humo en Linux (2026-10-09):** `tests/humo_exe.py` tiene lo común y cada
-  sistema su capa (`humo_windows.py`: WebView2 por CDP; `humo_linux.py`:
-  WebKitGTK por WebKitWebDriver). En Linux la app se abre en una pantalla
-  virtual Xvfb propia (`:90` o más, nunca `:0`), a la vista dentro de ella (una
-  ventana nunca mostrada mide 0×0 en WebKitGTK), y un vigía con `hyprctl`
-  falla si aparece una ventana de SENTRA en el escritorio real. Perfil aislado
-  con `SENTRA_PERFIL_WEBVIEW`. Necesita `xorg-server-xvfb` y `webkitgtk-6.0`
-  (WebKitWebDriver); si falta algo, la compuerta lo dice antes de abrir nada.
-  El hook está activado en este clon desde el 2026-10-09.
-- **Nunca `compuerta | tail && git commit`**: el `&&` mira a `tail`. La salida
-  del commit va entera a un log; se lee el log después.
-- El intérprete: `$PYTHON` si está definida; si no, `.venv/bin/python` (3.12)
-  si existe; si no, `python` (Windows). ruff, mypy, pip-audit, los tests y el
-  humo corren con él (`"$PY" -m ...`).
-- Si el commit cambia la interfaz o el motor, se recompila antes la release
-  (`cd ui && npm run tauri build`): el humo prueba el exe compilado. Un `cargo
-  build --release` suelto deja un exe sin interfaz en la ruta del acceso.
-- Antes de compilar o del humo: comprobar con `pgrep -x sentra` que SENTRA
-  está cerrada (puede estar abierta en otro espacio de trabajo de Hyprland).
-- El humo usa un perfil de WebView aislado, no pulsa botones, sirve al exe una
-  caché de modelos fresca (`RIR_CACHE_MODELOS`: no llama a Google) y falla si
-  aparece una fila nueva en `llm_usage`.
-- **Los tests no pueden tocar la base real**: `tests/__init__.py` instala una red
-  (`tests/_base_real.py`) que apunta `RIR_PG_URL` a una base inexistente y
-  rechaza cualquier conexión a `reddit_intelligence_radar`; solo el humo la
-  libera. Las bases desechables se borran con `borrar_base_de_prueba` (sin FORCE:
-  un rol sin superusuario no puede terminar un autovacuum).
-
-## Reglas de ejecución
-
-- Una rama por fase. A `main` solo por fast-forward, con compuerta completa en
-  verde. No se fusiona ni se empuja sin que Walter lo pida.
-- Commits atómicos. El mensaje dice qué test falló primero (RED) y cómo quedó (GREEN).
-- **Gemini y escaneos reales: solo con aprobación de Walter en el chat**
-  (cuántas llamadas y para qué). El uso queda en `llm_usage`.
-- **D&S Factory comparte PostgreSQL**: antes de tocar la base o de un commit
-  (sus tests crean bases), comprobar que no tiene tests, compuertas ni
-  migraciones en marcha ni sesiones activas (no idle). Su app abierta en reposo
-  no cuenta. Se hace uno y luego el otro. En Linux: sin procesos `pytest` suyos,
-  0 sesiones no idle en `pg_stat_activity` y 0 bloqueos `advisory` en
-  `pg_locks` (su suite los toma), en solo lectura.
-- Nada de borrar ni cambiar datos reales, ni migraciones destructivas, sin
-  respaldo `pg_dump -Fc` y aprobación. Migración que el código necesite (R12):
-  respaldo + ensayo sobre copia restaurada + `--dry-run` + `migrate.py up` (como
-  `sentra_owner`) + verificación en solo lectura, ANTES de abrir la app.
-- Consultas a la base para verificar: siempre en solo lectura
-  (`PGOPTIONS="-c default_transaction_read_only=on"`).
-- Ediciones con Edit/Write o scripts escritos con Write; heredoc y `sed`
-  corrompen barras invertidas. El repo de Linux usa LF; el clon de Windows del
-  disco NTFS tenía CRLF en la copia de trabajo (no en git).
-- «Verificado» solo con datos: antes y después sobre la app real y contrastado
-  con SQL. Un DOM no vacío o un test verde no bastan.
-
-## Estado verificado en Linux (2026-10-09, migración)
-
-- `main` = `origin/main` = `6c993b0` (contiene `fase2/interfaz`, `fase3/reparto`
-  y `fase3/tema`). La migración está en `fase-linux/migracion`, sin fusionar ni
-  empujar, a la espera de Walter.
-- Repo clonado del bundle con todas las ramas; `.env` y `data/lancedb` copiados
-  del disco NTFS con sha256 idéntico.
-- Base restaurada del volcado del 26-09 23:01 (último de Windows) como
-  `sentra_owner`, en el PostgreSQL 18.6 que comparte D&S Factory: 20 de 20
-  migraciones, 30 ejecuciones (última 25-09 18:08), 80 veredictos (24 INVESTIGAR
-  MÁS, 56 DESCARTAR, 0 CONSTRUIR), 3 703 piezas, `llm_usage` 39 filas; filas de
-  las 13 tablas idénticas al volcado. Roles con contraseñas nuevas.
-- Las 11 políticas `tenant_isolation` existen pero RLS no está activado en
-  ninguna tabla, igual que en Windows (el volcado no lo activa).
-
-## Estado verificado en Windows (2026-09-25, construcción de la Fase 2)
-
-- Base: 20 de 20 migraciones (la 020 con respaldo `pre020.dump` y ensayo). 27
-  ejecuciones, 67 veredictos (24 INVESTIGAR MÁS, 43 DESCARTAR, 0 CONSTRUIR),
-  2 221 piezas. `llm_usage`: 2 filas (los dos dossiers de impagos, 25-09).
-- El Radar enseña la ejecución del 24-09 17:56 (1 nicho: «Tener que reclamar
-  facturas impagadas», INVESTIGAR MÁS por la regla 9, 9 personas; 3 descartados)
-  y avisa de que la del 24-09 18:47 («Cobros freelance») no formó nichos. Su
-  dossier está guardado en la carpeta local, `documentos/` (se abre sin gastar).
-- Mastodon: desde e6c5b95 el adaptador guarda la dirección pública del mensaje
-  (`https://<instancia>/statuses/<id>`, sin @usuario). Las 223 piezas anteriores
-  se corrigieron el 25-09 con aprobación de Walter (respaldo
-  `pre_mastodon_url.dump`; 0 URL con `/api/v1/`; resto de datos con huella
-  idéntica), igual que el dossier guardado y su copia (con `.bak`).
-- Fase 3 lista: `docs/fase3/GUIA.md`, `REGISTRO.md` y `TEMAS.md` (los 4 temas
-  elegidos por Walter, en su orden). Los escaneos los lanza Walter.
-- `llm_usage`: 3 filas (dos dossiers y un `listado_modelos` del 25-09, 12:29).
+## Presupuesto de Gemini
+- Punto único `core/llm/control.py`: sin `ControlDeGemini` no hay `GeminiProvider`; cada intento deja fila en
+  `llm_usage`. El SDK solo vive en `core/llm/gemini.py` (`tests/test_punto_unico_gemini.py`).
+- Topes en `llm_budget_settings`: por escaneo 20 llamadas y 500 000 tokens; por día 40 y 1 000 000 (hora de Lima).
+- `POST /api/scan/estimate` da el rango y un identificador de un solo uso (10 min); escanear sin él da 409.
 
 ## Pendiente (Walter aprueba cada fase)
-
-0. **Migración a Linux:** hecha el 2026-10-09 (base, código, humo en Linux,
-   hook y acceso del lanzador). Queda abrir SENTRA desde el menú y usarla.
-1. **Fase 2 — interfaz:** construida en `fase2/interfaz`; revisión y fusión
-   (decide Walter). Lo que decía la propuesta original: El escaneo está al fondo de Fuentes, el campo Tema no
-   guía ni avisa de palabras clave insuficientes, «0 grupos» no dice qué hacer,
-   el progreso por fuente es técnico y el Radar pierde el último nicho tras un
-   escaneo vacío. Dirección a diseñar y aprobar antes de construir: «Nuevo
-   escaneo» como pantalla principal con asistente de 3 pasos (tema → palabras
-   clave es/en propuestas y editables → escanear), aviso de presupuesto y
-   cobertura, resultado en lenguaje llano con el siguiente paso, veredictos
-   visibles sin navegar, rediseño visual. Primero propuesta escrita con flujo
-   y maquetas; luego construcción; luego prueba en el exe real con capturas.
-3. **Fase 3 — validación por Walter:** 3–4 escaneos de temas distintos
-   leyendo la evidencia de cada veredicto.
-4. **Fase 4 — modo Videos**, en rama nueva. Walter tiene su propio prompt de
-   arquitectura: no diseñarlo por cuenta propia.
-5. **Reddit:** espera aprobación externa; sesga el radar hacia nichos de
-   desarrolladores. No bloquea.
+Fase 3: 3–4 escaneos de temas distintos leyendo la evidencia (`docs/fase3/`). Fase 4: modo Videos, en rama nueva.
+Reddit: espera aprobación externa. Corte de la base al contenedor `sentra-pg`: espera a David.
