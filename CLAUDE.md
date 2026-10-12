@@ -212,8 +212,8 @@ CLIPPY=1 AUDIT=1 HUMO=1 bash scripts/compuerta.sh           # la completa: la qu
 bash scripts/compuerta.sh                                   # la reducida, para iterar a mano
 ```
 
-Pasos: ruff, mypy, tests Python (`unittest`), tsc, node (`npm test`), cargo
-test, clippy `-D warnings`, pip-audit, cargo-audit y la prueba de humo del exe
+Pasos: ruff, mypy, tests Python (`unittest` con `-W error`: un aviso es un
+fallo), tsc, node (`npm test`), cargo test, clippy `-D warnings`, pip-audit, cargo-audit y la prueba de humo del exe
 real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 **completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
 7 minutos. Nunca `--no-verify`.

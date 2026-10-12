@@ -84,3 +84,18 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
 - **Guardia.** `tests/test_storage.py` escucha el registro de fastembed mientras carga el
   modelo de la caché real y falla si avisa. Pruebas del script en
   `tests/test_reparar_cache_modelos.py`.
+
+## 2026-10-12 · La compuerta corre los tests de Python con `-W error`
+
+- **Por qué.** La regla es 0 avisos, pero `unittest` imprime los avisos y da OK igual:
+  los dos de arriba pasaron días en verde. Ahora el paso `python` es
+  `"$PY" -W error -m unittest discover -s tests`: cualquier aviso de Python
+  (DeprecationWarning, el de Starlette…) es un error y la compuerta falla.
+  `tests/test_compuerta.py` vigila que el paso lleve `-W error`.
+- **Límite.** Los avisos que una biblioteca saca por su propio registro (fastembed usa
+  loguru) no pasan por `warnings`: se vigilan en su test (`tests/test_storage.py`). Las
+  líneas `WARNING:` de `logging` que salen en la suite son de pruebas que las provocan
+  a propósito (token, variables mal puestas), salvo la de asyncio «Executing … took
+  0.1xx seconds»: `IsolatedAsyncioTestCase` activa el modo depuración de asyncio y
+  avisa si un paso tarda más de 0,1 s; salió con la máquina cargada (la suite
+  lenta de D&S Factory en marcha). No es un aviso de Python ni de una biblioteca; no se ha tocado.

@@ -109,7 +109,7 @@ En Windows (PowerShell) las variables se ponen con
 |---|---|
 | ruff | `ruff check --no-cache` (lint de Python) |
 | mypy | `mypy` (core, scripts y tests, `check_untyped_defs`) |
-| python | `python -m unittest discover -s tests` |
+| python | `python -W error -m unittest discover -s tests` (un aviso es un fallo) |
 | tsc | `npx --no-install tsc --noEmit -p .` en `ui` (hace de lint) |
 | node | `npm test` en `ui` (lógica pura, `node --test`) |
 | cargo | `cargo test` en `ui/src-tauri` |

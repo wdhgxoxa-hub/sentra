@@ -14,6 +14,11 @@
 # en Linux con Xvfb, WebKitWebDriver y hyprctl: tests/humo_linux.py). PASOS="ruff mypy"
 # limita los pasos por defecto (lo usan los tests de la compuerta).
 #
+# Tests de Python con -W error: un aviso (DeprecationWarning, ResourceWarning...)
+# es un fallo, no una línea que nadie lee (0 avisos; docs/DECISIONES.md, 2026-10-12).
+# Las bibliotecas que avisan por su propio registro (fastembed, con loguru) se
+# vigilan en su test (tests/test_storage.py).
+#
 # Intérprete: $PYTHON si está definida; si no, .venv/bin/python si existe
 # (Linux y macOS: el `python` del sistema no es el 3.12 del proyecto); si no,
 # `python` (Windows). ruff, mypy, los tests, pip-audit y el humo corren con él.
@@ -44,7 +49,7 @@ opcional() { [ "${!1:-0}" = "1" ]; }
 
 quiere ruff && paso ruff "$PY" -m ruff check --no-cache -q
 quiere mypy && paso mypy "$PY" -m mypy
-quiere python && paso python env PYTHONIOENCODING=utf-8 "$PY" -m unittest discover -s tests
+quiere python && paso python env PYTHONIOENCODING=utf-8 "$PY" -W error -m unittest discover -s tests
 quiere tsc && paso tsc bash -c 'cd ui && npx --no-install tsc --noEmit -p .'
 quiere node && paso node bash -c 'cd ui && npm test --silent'
 quiere cargo && paso cargo bash -c 'cd ui/src-tauri && cargo test'

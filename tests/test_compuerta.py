@@ -102,11 +102,18 @@ class TestCompuerta(unittest.TestCase):
                         pasos="ruff mypy python", banderas={"AUDIT": "1", "HUMO": "1"})
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         llamadas = self.llamadas()
-        for modulo in ("-m ruff check", "-m mypy", "-m unittest discover",
+        for modulo in ("-m ruff check", "-m mypy", "-W error -m unittest discover",
                        "-m pip_audit", "-m tests.humo_exe"):
             with self.subTest(modulo=modulo):
                 self.assertTrue([c for c in llamadas if c.startswith(modulo)], llamadas)
         self.assertEqual(len(llamadas), 5, llamadas)
+
+    def test_los_tests_de_python_corren_con_los_avisos_como_error(self):
+        # 0 avisos (2026-10-12): unittest los imprimía y daba OK igual; así se
+        # colaron el de Starlette (httpx2) y otros. Con -W error, un aviso es un fallo.
+        r = self.correr(0, dobles=("python",), pasos="python")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.llamadas(), ["-W error -m unittest discover -s tests"])
 
     def test_sin_python_definida_usa_el_venv_si_existe(self):
         texto = COMPUERTA.read_text("utf-8")
