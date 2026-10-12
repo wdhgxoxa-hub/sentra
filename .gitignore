@@ -89,3 +89,8 @@ ui/.tsbuild/
 ui/src-tauri/target/
 ui/src-tauri/gen/
 *.tsbuildinfo
+
+# Logs y mensajes de commit de las sesiones de Claude Code (nunca en /tmp)
+.calidad/
+# Worktrees de agentes (preparar-worktree.sh crear)
+.claude/worktrees/
