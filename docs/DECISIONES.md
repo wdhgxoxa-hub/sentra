@@ -45,3 +45,22 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
   pero systemd de usuario solo esperaba 10 s (`TimeoutStopUSec=10s`, medido) y con carga
   podía matarlo a medias al apagar. Ahora `[Service] TimeoutStopSec=70` (60 s + margen).
   Se aplica con `systemctl --user daemon-reload`, sin reiniciar el contenedor.
+
+## 2026-10-12 · `httpx2` para el TestClient y lock con hashes
+
+- **Aviso.** Cada suite imprimía `StarletteDeprecationWarning: Using httpx with
+  starlette.testclient is deprecated; install httpx2 instead`. Starlette 1.7.0 (la
+  instalada, con fastapi 0.141.1) busca primero `httpx2` y, si no está, usa `httpx` y
+  avisa (`starlette/testclient.py`; su extra `full` ya pide `httpx2>=2.0.0`). No venía
+  de la actualización del sistema: el `.venv` es del 09-10.
+- **Arreglo.** Se instala lo que pide el aviso, sin subir starlette ni fastapi:
+  `httpx2==2.13.1` (de pydantic, 23-09-2026) en `requirements-dev.txt`, solo para
+  pruebas. Trae `httpcore2==2.13.1` y `truststore==0.10.4`. El código de producción
+  sigue con `httpx` (`requirements.txt`). Las pruebas con TestClient pasan igual.
+- **Lock con hashes.** El repo no tenía lock: `requirements-lock.txt` es el `.venv`
+  entero (89 paquetes, directos e indirectos) con versión exacta y sus sha256 de PyPI,
+  generado con `uv pip compile --generate-hashes` fijando lo ya instalado (solo entran
+  nuevos los 3 de arriba). Se instala con `--require-hashes` (README).
+  `tests/test_requirements.py` exige que todo tenga hash, que coincida con los dos
+  requirements y con lo instalado, y que `fastapi.testclient` se importe sin avisos
+  (`python -W error`). Es de Linux x86_64 y Python 3.12.

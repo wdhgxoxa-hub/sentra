@@ -16,6 +16,7 @@ demostraciones (D-C7).
 import ast
 import functools
 import re
+import subprocess
 import sys
 import unittest
 from collections.abc import Mapping
@@ -119,6 +120,59 @@ class TestDependenciasDeclaradas(unittest.TestCase):
             for nombre, version in declaradas(archivo).items():
                 with self.subTest(archivo=archivo, dependencia=nombre):
                     self.assertEqual(metadata.version(nombre), version)
+
+
+def bloqueadas() -> dict[str, tuple[str, int]]:
+    """Distribución normalizada → (versión, nº de hashes), de requirements-lock.txt."""
+    salida: dict[str, tuple[str, int]] = {}
+    actual = ""
+    for linea in (RAIZ / "requirements-lock.txt").read_text(encoding="utf-8").splitlines():
+        if not linea.strip() or linea.lstrip().startswith("#"):
+            continue
+        if linea.lstrip().startswith("--hash=sha256:"):
+            version, hashes = salida[actual]
+            salida[actual] = (version, hashes + 1)
+            continue
+        encontrada = LINEA.match(linea)
+        if encontrada is None:
+            raise AssertionError(f"requirements-lock.txt: sin versión exacta: {linea!r}")
+        actual = normalizar(encontrada.group(1))
+        salida[actual] = (encontrada.group(3), 0)
+    return salida
+
+
+class TestLockConHashes(unittest.TestCase):
+    """requirements-lock.txt es el .venv entero con hashes (2026-10-12): se
+    instala con --require-hashes y no puede quedarse atrás de lo instalado."""
+
+    def test_todo_lo_bloqueado_tiene_hashes(self):
+        for nombre, (_version, hashes) in bloqueadas().items():
+            with self.subTest(dependencia=nombre):
+                self.assertGreater(hashes, 0)
+
+    def test_los_requirements_y_el_lock_dicen_la_misma_version(self):
+        lock = bloqueadas()
+        for archivo in ("requirements.txt", "requirements-dev.txt"):
+            for nombre, version in declaradas(archivo).items():
+                with self.subTest(archivo=archivo, dependencia=nombre):
+                    self.assertEqual(lock.get(nombre, ("falta",))[0], version)
+
+    def test_lo_instalado_es_lo_bloqueado(self):
+        lock = bloqueadas()
+        instaladas = {normalizar(d.metadata["Name"]): d.version
+                      for d in metadata.distributions()}
+        self.assertEqual({n: v for n, (v, _h) in lock.items()}, instaladas)
+
+
+class TestClienteDePruebas(unittest.TestCase):
+    """Starlette 1.7 cambió el cliente de su TestClient a httpx2: con solo httpx
+    avisaba en cada suite (StarletteDeprecationWarning, 2026-10-12). Se importa
+    en un proceso aparte con los avisos como error: sin httpx2, falla."""
+
+    def test_el_testclient_se_importa_sin_avisos(self):
+        r = subprocess.run([sys.executable, "-W", "error", "-c", "import fastapi.testclient"],
+                           capture_output=True, text=True, encoding="utf-8", check=False)
+        self.assertEqual(r.returncode, 0, r.stderr)
 
 
 if __name__ == "__main__":

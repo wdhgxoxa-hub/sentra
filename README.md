@@ -75,7 +75,8 @@ Los mismos pasos, con estas diferencias:
 
 - Python 3.12 en `.venv` (el del sistema puede ser otro):
   `uv venv --python 3.12.14 .venv` y
-  `uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt`.
+  `uv pip install --python .venv/bin/python --require-hashes -r requirements-lock.txt`
+  (el lock con hashes de los dos requirements; cómo regenerarlo, en su cabecera).
 - Migraciones: `.venv/bin/python scripts/migrate.py up --dry-run` y luego sin
   `--dry-run`.
 - Roles y pgpass: `python -m scripts.rol_sentra --admin-sudo` (`postgres` solo

@@ -14,3 +14,10 @@ websocket-client==1.9.2
 
 # Auditoría de vulnerabilidades de las dependencias de Python (AUD2-021, DP7 A).
 pip-audit==2.10.1
+
+# Cliente HTTP del TestClient de FastAPI/Starlette (tests/test_sidecar*.py y
+# demás). Starlette 1.7 lo pide: con el httpx de producción avisa
+# «install httpx2» (StarletteDeprecationWarning). Solo pruebas; el código de
+# producción sigue con httpx (requirements.txt). Lock con hashes:
+# requirements-lock.txt.
+httpx2==2.13.1
