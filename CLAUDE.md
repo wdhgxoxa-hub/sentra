@@ -213,8 +213,10 @@ bash scripts/compuerta.sh                                   # la reducida, para 
 ```
 
 Pasos: ruff, mypy, tests Python (`unittest` con `-W error`: un aviso es un
-fallo), tsc, node (`npm test`), cargo test, clippy `-D warnings`, pip-audit, cargo-audit y la prueba de humo del exe
-real (`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
+fallo; y `tests/_asyncio_lento.py` hace fallar el paso de asyncio que bloquea el
+bucle más de 0,1 s), tsc, node (`npm test`), cargo test, clippy `-D warnings`,
+pip-audit, cargo-audit y la prueba de humo del exe real
+(`python -m tests.humo_exe`). El hook `.githooks/pre-commit` ejecuta la
 **completa** en cada commit (`git config core.hooksPath .githooks`); tarda unos
 7 minutos. Nunca `--no-verify`.
 

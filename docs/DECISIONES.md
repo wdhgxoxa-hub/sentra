@@ -95,11 +95,27 @@ Las decisiones de producto y del juez siguen en `tasks/SPEC-*.md` (D-M*, D-C*) y
 - **Límite.** Los avisos que una biblioteca saca por su propio registro (fastembed usa
   loguru) no pasan por `warnings`: se vigilan en su test (`tests/test_storage.py`). Las
   líneas `WARNING:` de `logging` que salen en la suite son de pruebas que las provocan
-  a propósito (token, variables mal puestas), salvo la de asyncio «Executing … took
-  0.1xx seconds»: `IsolatedAsyncioTestCase` activa el modo depuración de asyncio y
-  avisa si un paso tarda más de 0,1 s. Sale en
-  `test_source_youtube::test_no_gasta_mas_unidades_que_el_escaneo_1` (0,11–0,12 s medidos
-  el 12-10 con la máquina cargada, carga ~9): probablemente porque con `httpx.MockTransport`
-  no hay red que esperar y el escaneo entero corre de un tirón (sin comprobar a fondo). No es un aviso de Python ni de
-  una biblioteca y no se ha tocado: queda para decidir (aligerar esa prueba o subir el
-  umbral solo en ella, con su motivo).
+  a propósito (token, variables mal puestas). La de asyncio «Executing … took» ya es
+  un fallo (apartado siguiente).
+
+## 2026-10-12 · Un paso que bloquea el bucle de asyncio hace fallar la prueba
+
+- **Aviso.** `WARNING:asyncio: Executing <Task …> took 0.11x seconds` en
+  `test_source_youtube::test_no_gasta_mas_unidades_que_el_escaneo_1`.
+  `IsolatedAsyncioTestCase` pone asyncio en modo depuración y avisa si un paso del
+  bucle tarda más de 0,1 s.
+- **Qué bloqueaba (medido).** La preparación de la prueba, no la app. El manejador de
+  `httpx.MockTransport` era síncrono: cada `await` del cliente volvía sin ceder el
+  bucle y el escaneo entero (108 peticiones, 1 251 comentarios, sobre todo
+  `menciona_el_tema`) corría en un solo paso. En producción cada petición espera a la
+  red: un paso trata una respuesta de YouTube (10 comentarios × 0,063 ms de
+  `menciona_el_tema` ≈ 0,6 ms). No hay trabajo de la app que mover a `to_thread`.
+- **Arreglo.** `tests/test_source_youtube.py::como_la_red` envuelve el manejador en uno
+  asíncrono que cede el bucle (`await asyncio.sleep(0)`) en cada petición, como la red.
+  Medido en toda la suite (umbral bajado a 20 ms solo para medir): ningún paso pasa de
+  20 ms salvo el de la prueba de la red, que lo hace a propósito.
+- **Guardia.** `tests/_asyncio_lento.py`, instalada por `tests/__init__.py`: un
+  manejador del registro `asyncio` convierte el aviso en `BucleBloqueado` y la prueba
+  en curso falla. No se sube el umbral. `tests/test_asyncio_lento.py` comprueba que trabajo de
+  CPU dentro de una corrutina falla y que una espera
+  síncrona llevada a un hilo con `asyncio.to_thread` no.

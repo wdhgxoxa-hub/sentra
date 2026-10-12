@@ -24,6 +24,7 @@ canal ni de autor; URLs por id de vídeo y de comentario. Contenido e ids
 inventados (R8).
 """
 
+import asyncio
 import unittest
 from datetime import UTC, datetime
 from typing import Any
@@ -72,8 +73,21 @@ def api(busqueda=None, hilos=None, peticiones=None, estadisticas=None):
     return manejador
 
 
+def como_la_red(manejador):
+    """El manejador, pero cediendo el bucle en cada petición como hace la red.
+
+    Con un manejador síncrono, MockTransport responde sin ceder nunca el bucle y
+    un escaneo entero (108 peticiones, 1 251 comentarios) corría en un solo paso:
+    0,11 s, y asyncio avisaba «Executing … took» (2026-10-12). En producción cada
+    petición espera a la red y cada paso trata una sola respuesta."""
+    async def cede(peticion):
+        await asyncio.sleep(0)
+        return manejador(peticion)
+    return cede
+
+
 def fuente(manejador, budget=None):
-    return YouTubeSource(http=httpx.AsyncClient(transport=httpx.MockTransport(manejador)),
+    return YouTubeSource(http=httpx.AsyncClient(transport=httpx.MockTransport(como_la_red(manejador))),
                          budget=budget or YouTubeSource.default_budget(), credentials=CLAVE,
                          author_salt=SAL)
 
